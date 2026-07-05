@@ -82,6 +82,7 @@ function useJVForm(submitAddr: string) {
 
 interface LandListing {
   id: string;
+  slug: string;
   ref: string;
   title: string;
   district: string;
@@ -123,15 +124,25 @@ export default function JointVentures() {
         if (!cancelled && data && data.length > 0) {
           const mapped: LandListing[] = data.map((row: Record<string, unknown>) => {
             const currencyLabel = String(row.currency || '').toUpperCase() === 'UGX' ? 'UGX' : String(row.currency || '').toUpperCase() === 'USD' ? 'USD' : 'KSh';
+            const priceVal = row.price ? Number(row.price) : 0;
+            let priceDisplay = 'On request';
+            if (priceVal > 0) {
+              if (priceVal >= 1_000_000) {
+                priceDisplay = `${currencyLabel} ${(priceVal / 1_000_000).toFixed(priceVal % 1_000_000 === 0 ? 0 : 1)}M`;
+              } else {
+                priceDisplay = `${currencyLabel} ${priceVal.toLocaleString()}`;
+              }
+            }
             return {
               id: String(row.id),
+              slug: String(row.slug || ''),
               ref: String(row.property_id || `LAND/${String(row.sub_type || 'OP').toUpperCase()}-${String(row.id).slice(0, 3)}`),
               title: String(row.title || ''),
               district: String(row.state_region || row.location || ''),
               area: String(row.location || ''),
               size: row.land_size ? `${row.land_size} ${row.land_unit || 'acres'}` : (row.size ? `${row.size} ${row.size_unit || 'sqm'}` : ''),
               titleType: (row.custom_fields as Record<string, unknown> | null)?.title_type as string || 'Freehold',
-              price: row.price ? `${currencyLabel} ${Number(row.price).toLocaleString()}` : 'On request',
+              price: priceDisplay,
               category: (row.sub_type === 'joint_venture' ? 'joint_venture' : 'outright') as 'outright' | 'joint_venture',
               description: String(row.description || ''),
               image: String(row.main_image || ''),
@@ -700,7 +711,7 @@ export default function JointVentures() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
                 {filteredLand.map((land) => (
-                  <div key={land.id} data-type={land.category === 'joint_venture' ? 'jv' : 'sale'} className="group relative">
+                  <Link to={land.slug ? `/property/${land.slug}` : '#'} key={land.id} data-type={land.category === 'joint_venture' ? 'jv' : 'sale'} className="group relative block cursor-pointer">
                     {/* Top zigzag serration */}
                     <svg className="absolute -top-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
                       <path d="M0 5 L2.5 0 L5 5 L7.5 0 L10 5 L12.5 0 L15 5 L17.5 0 L20 5 L22.5 0 L25 5 L27.5 0 L30 5 L32.5 0 L35 5 L37.5 0 L40 5 L42.5 0 L45 5 L47.5 0 L50 5 L52.5 0 L55 5 L57.5 0 L60 5 L62.5 0 L65 5 L67.5 0 L70 5 L72.5 0 L75 5 L77.5 0 L80 5 L82.5 0 L85 5 L87.5 0 L90 5 L92.5 0 L95 5 L97.5 0 L100 5 Z" fill="#faf9f6" />
@@ -758,20 +769,19 @@ export default function JointVentures() {
                       <p className="font-roboto text-[11px] text-stone-500 leading-relaxed text-center mb-5 italic">{land.description}</p>
 
                       {/* CTA — full width, outlined */}
-                      <a
-                        href="#request-desk"
-                        onClick={(e) => { e.preventDefault(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
+                      <div
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
                         className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 border border-dashed border-stone-400 text-primary font-roboto text-[11px] tracking-wider uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
                       >
                         Enquire about this plot <i className="ri-arrow-right-line"></i>
-                      </a>
+                      </div>
                     </div>
 
                     {/* Bottom zigzag serration */}
                     <svg className="absolute -bottom-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
                       <path d="M0 0 L2.5 5 L5 0 L7.5 5 L10 0 L12.5 5 L15 0 L17.5 5 L20 0 L22.5 5 L25 0 L27.5 5 L30 0 L32.5 5 L35 0 L37.5 5 L40 0 L42.5 5 L45 0 L47.5 5 L50 0 L52.5 5 L55 0 L57.5 5 L60 0 L62.5 5 L65 0 L67.5 5 L70 0 L72.5 5 L75 0 L77.5 5 L80 0 L82.5 5 L85 0 L87.5 5 L90 0 L92.5 5 L95 0 L97.5 5 L100 0 Z" fill="#faf9f6" />
                     </svg>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </>
