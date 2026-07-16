@@ -197,7 +197,7 @@ export default function Footer() {
                   type="submit"
                   disabled={newsletterStatus === 'submitting'}
                   className="px-4 py-2 rounded-sm text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap"
-                  style={{ backgroundColor: '#D5A91C', color: '#FFFFFF' }}
+                  style={{ backgroundColor: '#0D5959', color: '#FFFFFF' }}
                 >
                   {newsletterStatus === 'submitting' ? '...' : 'Go'}
                 </button>

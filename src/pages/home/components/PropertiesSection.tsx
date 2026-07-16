@@ -214,7 +214,7 @@ export default function PropertiesSection() {
             <p className="mb-1.5 md:mb-3 font-roboto text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-golden">
               Exclusive
             </p>
-            <h2 className="mb-1 md:mb-2 font-roboto font-bold text-2xl md:text-3xl text-primary">
+            <h2 className="mb-1 md:mb-2 font-roboto font-bold text-2xl md:text-3xl text-primary whitespace-nowrap">
               Prime Residential Homes You&apos;ll Love
             </h2>
             <p className="text-xs sm:text-sm md:text-base font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] text-golden">
