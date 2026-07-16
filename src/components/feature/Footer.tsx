@@ -2,22 +2,24 @@ import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useFooterSettings } from '@/hooks/useFooterSettings';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { neighborhoods } from '@/mocks/neighborhoods';
 
 const defaultImportantLinks = [
   { label: 'Buy Property', href: '/buy' },
   { label: 'Rent Property', href: '/rent' },
   { label: 'Neighbourhoods', href: '/neighbourhoods' },
-  { label: 'New Developments', href: '/new-developments' },
+  { label: 'New Projects', href: '/new-developments' },
   { label: 'Landlords', href: '/landlords' },
-  { label: 'Blog & Guides', href: '/blog' },
+  { label: 'Blog & Guides', href: '/neighbourhoods' },
   { label: 'Contact Us', href: '/contact' },
 ];
 
 export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterStatus, setNewsletterStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const { status: newsletterStatus, error: newsletterError, submitToContacts, reset } = useFormSubmit();
   const { getValue, loading } = useFooterSettings();
-  const { site } = useSiteSettings();
+  const { site, getSite } = useSiteSettings();
 
   const footerLinksJson = getValue('important_links_json');
   const importantLinks = footerLinksJson
@@ -33,34 +35,49 @@ export default function Footer() {
   const siteName = site.site_name || 'Oceans Kenya';
   const copyrightYear = new Date().getFullYear();
 
-  const handleNewsletterSubmit = (e: FormEvent) => {
+  // Component settings from site_settings
+  const footerShowLogo = getSite('footer_show_logo') !== 'false';
+  const footerShowSocial = getSite('footer_show_social') === 'true';
+  const footerShowNewsletter = getSite('footer_show_newsletter') !== 'false';
+  const footerColumns = getSite('footer_columns') || '4';
+  const footerBg = getSite('footer_background') || '#0C1A2F';
+  const footerTextColor = getSite('footer_text_color') || '#FFFFFF';
+
+  const areaNeighbourhoods = neighborhoods.filter(n => n.is_published).slice(0, 8);
+
+  const colClass = {
+    '2': 'md:grid-cols-2',
+    '3': 'md:grid-cols-3',
+    '4': 'md:grid-cols-2 lg:grid-cols-5',
+    '5': 'md:grid-cols-3 lg:grid-cols-5',
+  }[footerColumns] || 'md:grid-cols-2 lg:grid-cols-5';
+
+  const handleNewsletterSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!newsletterEmail) return;
-    setNewsletterStatus('submitting');
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    fetch('https://readdy.ai/api/form/d85jb2up8k35tp9sb19g', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(formData as any).toString(),
-    })
-      .then(() => {
-        setNewsletterStatus('success');
-        setNewsletterEmail('');
-      })
-      .catch(() => setNewsletterStatus('idle'));
+
+    const success = await submitToContacts({
+      name: 'Newsletter Subscriber',
+      email: newsletterEmail,
+      type: 'newsletter',
+      tags: ['newsletter'],
+    });
+
+    if (success) {
+      setNewsletterEmail('');
+    }
   };
 
   if (loading) {
     return (
-      <footer className="bg-primary text-white">
+      <footer className="text-white" style={{ backgroundColor: footerBg }}>
         <div className="py-14 px-6 md:px-10">
-          <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
-            {Array.from({ length: 4 }).map((_, i) => (
+          <div className={`max-w-6xl mx-auto grid grid-cols-1 ${colClass} gap-10`}>
+            {Array.from({ length: Number(footerColumns) }).map((_, i) => (
               <div key={i} className="space-y-3">
-                <div className="h-5 w-24 bg-white/10 rounded animate-pulse" />
-                <div className="h-3 w-full bg-white/10 rounded animate-pulse" />
-                <div className="h-3 w-3/4 bg-white/10 rounded animate-pulse" />
+                <div className="h-5 w-24 rounded animate-pulse" style={{ backgroundColor: `${footerTextColor}10` }} />
+                <div className="h-3 w-full rounded animate-pulse" style={{ backgroundColor: `${footerTextColor}10` }} />
+                <div className="h-3 w-3/4 rounded animate-pulse" style={{ backgroundColor: `${footerTextColor}10` }} />
               </div>
             ))}
           </div>
@@ -69,22 +86,27 @@ export default function Footer() {
     );
   }
 
+  const textStyle = { color: footerTextColor };
+  const mutedStyle = { color: `${footerTextColor}99` };
+  const faintStyle = { color: `${footerTextColor}66` };
+  const borderStyle = { borderColor: `${footerTextColor}1A` };
+
   return (
-    <footer className="bg-primary text-white">
+    <footer className="text-white" style={{ backgroundColor: footerBg }}>
       {/* Main footer */}
       <div className="py-14 px-6 md:px-10">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
+        <div className={`max-w-6xl mx-auto grid grid-cols-1 ${colClass} gap-10`}>
           <div>
-            <h4 className="text-white font-prata text-base mb-5">About Us</h4>
-            <p className="text-white/60 text-sm font-roboto leading-relaxed">
+            <h4 className="text-sm font-roboto font-bold mb-5" style={textStyle}>About Us</h4>
+            <p className="text-sm font-roboto leading-relaxed" style={{ ...mutedStyle, lineHeight: '1.5' }}>
               {aboutText}
             </p>
           </div>
 
           <div>
-            <h4 className="text-white font-prata text-base mb-5">Contact Us</h4>
+            <h4 className="text-sm font-roboto font-bold mb-5" style={textStyle}>Contact Us</h4>
             <div className="space-y-3">
-              <div className="flex items-start gap-2 text-white/60 text-sm font-roboto">
+              <div className="flex items-start gap-2 text-sm font-roboto" style={mutedStyle}>
                 <span className="mt-0.5 text-golden">
                   <i className="ri-map-pin-line"></i>
                 </span>
@@ -92,7 +114,8 @@ export default function Footer() {
               </div>
               <a
                 href={`tel:${phone}`}
-                className="flex items-center gap-2 text-white/60 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                className="flex items-center gap-2 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                style={mutedStyle}
               >
                 <span className="text-golden">
                   <i className="ri-phone-line"></i>
@@ -101,7 +124,8 @@ export default function Footer() {
               </a>
               <a
                 href={`mailto:${email}`}
-                className="flex items-center gap-2 text-white/60 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                className="flex items-center gap-2 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                style={mutedStyle}
               >
                 <span className="text-golden">
                   <i className="ri-mail-line"></i>
@@ -112,13 +136,14 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-white font-prata text-base mb-5">Important Links</h4>
+            <h4 className="text-sm font-roboto font-bold mb-5" style={textStyle}>Important Links</h4>
             <ul className="space-y-2">
               {importantLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     to={link.href}
-                    className="flex items-center gap-2 text-white/60 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                    className="flex items-center gap-2 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                    style={mutedStyle}
                   >
                     <span className="text-golden">
                       <i className="ri-arrow-right-s-line"></i>
@@ -131,53 +156,105 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="text-white font-prata text-base mb-5">Sign Up for Our Newsletter</h4>
-            <form
-              data-readdy-form="true"
-              onSubmit={handleNewsletterSubmit}
-              className="flex gap-2"
-            >
-              <input
-                name="email"
-                type="email"
-                required
-                placeholder="Enter your email"
-                value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
-                className="flex-1 bg-white border border-white/20 rounded-sm px-3 py-2 text-sm font-roboto text-primary placeholder:text-gray-400 focus:outline-none focus:border-golden"
-              />
-              <button
-                type="submit"
-                disabled={newsletterStatus === 'submitting'}
-                className="bg-accent hover:bg-accent/90 text-white px-4 py-2 rounded-sm text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap"
-              >
-                {newsletterStatus === 'submitting' ? '...' : 'Go'}
-              </button>
-            </form>
-            {newsletterStatus === 'success' && (
-              <p className="text-green-400 text-xs font-roboto mt-2">Thanks for subscribing!</p>
-            )}
-            <p className="text-white/50 text-xs font-roboto mt-3">
-              {footerTagline}
-            </p>
+            <h4 className="text-sm font-roboto font-bold mb-5" style={textStyle}>Areas</h4>
+            <ul className="space-y-2">
+              {areaNeighbourhoods.map((area) => (
+                <li key={area.id}>
+                  <Link
+                    to={`/neighbourhood/${area.slug}`}
+                    className="flex items-center gap-2 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
+                    style={mutedStyle}
+                  >
+                    <span className="text-golden">
+                      <i className="ri-map-pin-line"></i>
+                    </span>
+                    {area.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
+
+          {footerShowNewsletter && (
+            <div>
+              <h4 className="text-sm font-roboto font-bold mb-5" style={textStyle}>Sign Up for Our Newsletter</h4>
+              <form
+                data-readdy-form="true"
+                onSubmit={handleNewsletterSubmit}
+                className="flex gap-2"
+              >
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="Enter your email"
+                  value={newsletterEmail}
+                  onChange={(e) => setNewsletterEmail(e.target.value)}
+                  className="flex-1 rounded-sm px-3 py-2 text-sm font-roboto focus:outline-none focus:border-white/40"
+                  style={{ borderColor: `${footerTextColor}1A`, color: '#FFFFFF', backgroundColor: `${footerTextColor}0D` }}
+                />
+                <button
+                  type="submit"
+                  disabled={newsletterStatus === 'submitting'}
+                  className="px-4 py-2 rounded-sm text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap"
+                  style={{ backgroundColor: '#D5A91C', color: '#FFFFFF' }}
+                >
+                  {newsletterStatus === 'submitting' ? '...' : 'Go'}
+                </button>
+              </form>
+              {newsletterStatus === 'success' && (
+                <p className="text-green-400 text-xs font-roboto mt-2">Thanks for subscribing!</p>
+              )}
+              {newsletterStatus === 'error' && (
+                <p className="text-red-400 text-xs font-roboto mt-2">{newsletterError}</p>
+              )}
+              <p className="text-xs font-roboto mt-3" style={faintStyle}>
+                {footerTagline}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Bottom bar */}
-      <div className="border-t border-white/10 py-8 px-6">
+      <div className="border-t py-8 px-6" style={{ borderColor: `${footerTextColor}14`, backgroundColor: '#091524' }}>
         <div className="max-w-6xl mx-auto flex flex-col items-center gap-4">
-          <img
-            alt={siteName}
-            className="h-12 w-auto object-contain opacity-80"
-            src={logoUrl}
-          />
-          <p className="text-white/40 text-xs font-roboto text-center">
+          {footerShowLogo && (
+            <img
+              alt={siteName}
+              className="h-16 md:h-20 w-auto object-contain opacity-80"
+              src={logoUrl}
+            />
+          )}
+          <p className="text-xs font-roboto text-center" style={faintStyle}>
             &copy; {copyrightYear} {siteName}. All rights reserved.
           </p>
+          {footerShowSocial && (
+            <div className="flex items-center gap-3">
+              {[
+                { icon: 'ri-facebook-fill', href: 'https://www.facebook.com/oceanskenya', label: 'Facebook' },
+                { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
+                { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
+                { icon: 'ri-youtube-fill', href: 'https://www.youtube.com/@oceanskenya', label: 'YouTube' },
+              ].map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="nofollow noreferrer"
+                  aria-label={s.label}
+                  className="w-7 h-7 flex items-center justify-center hover:text-golden transition-colors"
+                  style={faintStyle}
+                >
+                  <i className={`${s.icon} text-sm`}></i>
+                </a>
+              ))}
+            </div>
+          )}
           <Link
             to="/crm/login"
-            className="text-white/15 hover:text-white/40 text-[10px] font-roboto transition-colors cursor-pointer tracking-widest"
+            className="text-[10px] font-roboto transition-colors cursor-pointer tracking-widest hover:text-white/40"
+            style={{ color: `${footerTextColor}26` }}
           >
             Admin
           </Link>

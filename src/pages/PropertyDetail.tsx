@@ -4,6 +4,30 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { getMockBySlug } from '@/mocks/newDevelopments';
+import type { NewDevMock } from '@/mocks/newDevelopments';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
+import PropertyGallery from '@/pages/PropertyDetail/components/Gallery';
+import PropertyStatsBar from '@/pages/PropertyDetail/components/StatsBar';
+import PropertyLeftColumn from '@/pages/PropertyDetail/components/LeftColumn';
+import PropertyContactCard from '@/pages/PropertyDetail/components/ContactCard';
+import SimilarProperties from '@/pages/PropertyDetail/components/SimilarProperties';
+import PropertyPrevNext from '@/pages/PropertyDetail/components/PrevNext';
+import MobileStickyBar from '@/pages/PropertyDetail/components/MobileStickyBar';
+
+interface ListingImage {
+  id: string;
+  url: string;
+  sort_order: number;
+}
+
+interface AgentInfo {
+  name: string;
+  role: string;
+  phone: string;
+  email: string;
+  avatar?: string;
+}
 
 interface ListingDetail {
   id: string;
@@ -14,12 +38,16 @@ interface ListingDetail {
   district: string;
   area: string;
   price: string;
+  priceRaw: number;
+  currency: string;
   description: string;
   image: string;
+  images: ListingImage[];
   beds: number | null;
   baths: number | null;
   parking: number | null;
   sqft: number | null;
+  garages: number | null;
   status: string;
   category: string;
   size: string;
@@ -29,19 +57,67 @@ interface ListingDetail {
   neighbourhood: string;
   latitude: number | null;
   longitude: number | null;
+  amenities: string[];
+  features: string[];
+  agentId: string | null;
+  city: string;
+  furnished: string;
+  createdAt?: string;
+}
+
+function mockToListing(mock: NewDevMock): ListingDetail {
+  return {
+    id: `mock-${mock.id}`,
+    slug: mock.slug || mock.id,
+    title: mock.title,
+    propertyType: mock.propertyType,
+    location: mock.location,
+    district: mock.location,
+    area: mock.location,
+    price: mock.priceDisplay,
+    priceRaw: mock.price,
+    currency: 'USD',
+    description: mock.description,
+    image: mock.image,
+    images: mock.image ? [{ id: '1', url: mock.image, sort_order: 0 }] : [],
+    beds: mock.beds,
+    baths: mock.baths,
+    parking: mock.parking,
+    sqft: mock.sqft,
+    garages: 0,
+    status: 'available',
+    category: 'new_development',
+    size: mock.sqft ? `${mock.sqft.toLocaleString()} sqft` : '',
+    titleType: 'Freehold',
+    ref: mock.id.toUpperCase(),
+    purpose: 'sale',
+    neighbourhood: '',
+    latitude: null,
+    longitude: null,
+    amenities: mock.amenities,
+    features: [],
+    agentId: null,
+    city: mock.location,
+    furnished: 'Unfurnished',
+    createdAt: undefined,
+  };
 }
 
 export default function PropertyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [listing, setListing] = useState<ListingDetail | null>(null);
+  const [mockDev, setMockDev] = useState<NewDevMock | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [agent, setAgent] = useState<AgentInfo | null>(null);
+  const { enableBreadcrumbs } = useSiteSettings();
 
   useEffect(() => {
     let cancelled = false;
     async function fetchListing() {
       setLoading(true);
       setError('');
+      setAgent(null);
       try {
         const { data, error: dbError } = await supabase
           .from('listings')
@@ -53,7 +129,14 @@ export default function PropertyDetail() {
         if (cancelled) return;
 
         if (!data) {
-          setListing(null);
+          const mock = getMockBySlug(slug || '');
+          if (mock) {
+            setMockDev(mock);
+            setListing(null);
+          } else {
+            setMockDev(null);
+            setListing(null);
+          }
           setLoading(false);
           return;
         }
@@ -63,7 +146,7 @@ export default function PropertyDetail() {
           : String(row.currency || '').toUpperCase() === 'USD' ? 'USD'
           : 'KSh';
         const priceVal = row.price ? Number(row.price) : 0;
-        let priceDisplay = 'On request';
+        let priceDisplay = 'Price on request';
         if (priceVal > 0) {
           if (priceVal >= 1_000_000) {
             priceDisplay = `${currencyLabel} ${(priceVal / 1_000_000).toFixed(priceVal % 1_000_000 === 0 ? 0 : 1)}M`;
@@ -74,6 +157,82 @@ export default function PropertyDetail() {
 
         const isLand = String(row.property_type || '') === 'land';
 
+        // Fetch listing images
+        let galleryImages: ListingImage[] = [];
+        try {
+          const { data: imgData, error: imgError } = await supabase
+            .from('listing_images')
+            .select('id,url,sort_order')
+            .eq('listing_id', row.id)
+            .order('sort_order', { ascending: true })
+            .limit(20);
+          if (!imgError && imgData) {
+            galleryImages = imgData as ListingImage[];
+          }
+        } catch {
+          // non-critical
+        }
+
+        // Fetch agent if assigned
+        let agentInfo: AgentInfo | null = null;
+        if (row.agent_id) {
+          try {
+            const { data: agentData } = await supabase
+              .from('agents')
+              .select('name,role,phone,email,avatar_url')
+              .eq('id', row.agent_id)
+              .maybeSingle();
+            if (agentData) {
+              const a = agentData as Record<string, unknown>;
+              agentInfo = {
+                name: String(a.name || 'Agent'),
+                role: String(a.role || 'Estate Agent'),
+                phone: String(a.phone || ''),
+                email: String(a.email || ''),
+                avatar: a.avatar_url ? String(a.avatar_url) : undefined,
+              };
+            }
+          } catch {
+            // non-critical
+          }
+        }
+        setAgent(agentInfo);
+
+        // Parse amenities
+        let amenitiesList: string[] = [];
+        if (row.amenities) {
+          if (Array.isArray(row.amenities)) {
+            amenitiesList = row.amenities.map(String);
+          }
+        }
+
+        // Parse features
+        let featuresList: string[] = [];
+        if (row.features) {
+          if (Array.isArray(row.features)) {
+            featuresList = row.features.map((f: unknown) => {
+              if (typeof f === 'string') return f;
+              if (typeof f === 'object' && f !== null) {
+                const obj = f as Record<string, unknown>;
+                return String(obj.label || obj.name || obj.key || '');
+              }
+              return String(f);
+            }).filter(Boolean);
+          } else if (typeof row.features === 'object' && row.features !== null) {
+            const featObj = row.features as Record<string, unknown>;
+            featuresList = Object.entries(featObj)
+              .filter(([, v]) => v)
+              .map(([k]) => k);
+          }
+        }
+
+        // Parse furnished status
+        const furnished = String(
+          (row.custom_fields as Record<string, unknown> | null)?.furnished
+          || (row.custom_fields as Record<string, unknown> | null)?.furnishing_status
+          || (amenitiesList.find(a => a.toLowerCase().includes('furnished')) ? 'Furnished' : 'Unfurnished')
+        );
+
         setListing({
           id: String(row.id),
           slug: String(row.slug || ''),
@@ -83,12 +242,16 @@ export default function PropertyDetail() {
           district: String(row.state_region || row.location || ''),
           area: String(row.location || ''),
           price: priceDisplay,
+          priceRaw: priceVal,
+          currency: String(row.currency || 'KES'),
           description: String(row.description || ''),
           image: String(row.main_image || row.cover_image || ''),
+          images: galleryImages,
           beds: row.bedrooms ? Number(row.bedrooms) : null,
           baths: row.bathrooms ? Number(row.bathrooms) : null,
           parking: row.parking ? Number(row.parking) : null,
           sqft: row.sqft ? Number(row.sqft) : null,
+          garages: row.garages ? Number(row.garages) : null,
           status: String(row.status || 'available'),
           category: isLand
             ? (row.sub_type === 'joint_venture' ? 'joint_venture' : 'outright')
@@ -102,10 +265,24 @@ export default function PropertyDetail() {
           neighbourhood: String(row.neighbourhood || ''),
           latitude: row.latitude ? Number(row.latitude) : null,
           longitude: row.longitude ? Number(row.longitude) : null,
+          amenities: amenitiesList,
+          features: featuresList,
+          agentId: row.agent_id ? String(row.agent_id) : null,
+          city: String(row.city || ''),
+          furnished: furnished,
+          createdAt: row.created_at ? String(row.created_at) : undefined,
         });
+        setMockDev(null);
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load listing');
+          const mock = getMockBySlug(slug || '');
+          if (mock) {
+            setMockDev(mock);
+            setListing(null);
+            setError('');
+          } else {
+            setError(err instanceof Error ? err.message : 'Failed to load listing');
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -118,27 +295,18 @@ export default function PropertyDetail() {
   // Loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+      <div className="min-h-screen bg-[#F5F5F5] pt-[88px] md:pt-[96px]">
         <Header />
-        <main className="px-6 py-10 md:py-14">
-          <div className="max-w-6xl mx-auto animate-pulse">
-            <div className="aspect-[21/7] bg-stone-200 mb-8" />
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+        <main className="px-4 md:px-6 py-8 md:py-12 max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="h-[260px] md:h-[460px] bg-stone-200 rounded-[2px]" />
+            <div className="h-32 bg-stone-200 rounded-[2px]" />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-4">
-                <div className="h-4 bg-stone-200 rounded w-40" />
-                <div className="h-8 bg-stone-200 rounded w-3/4" />
-                <div className="h-4 bg-stone-200 rounded w-1/2" />
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="h-16 bg-stone-200 rounded" />
-                  <div className="h-16 bg-stone-200 rounded" />
-                  <div className="h-16 bg-stone-200 rounded" />
-                </div>
-                <div className="h-32 bg-stone-200 rounded" />
+                <div className="h-48 bg-stone-200 rounded-[2px]" />
+                <div className="h-48 bg-stone-200 rounded-[2px]" />
               </div>
-              <div className="lg:col-span-1 space-y-4">
-                <div className="h-48 bg-stone-200 rounded" />
-                <div className="h-36 bg-stone-200 rounded" />
-              </div>
+              <div className="h-96 bg-stone-200 rounded-[2px]" />
             </div>
           </div>
         </main>
@@ -151,14 +319,14 @@ export default function PropertyDetail() {
   // Error
   if (error) {
     return (
-      <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+      <div className="min-h-screen bg-[#F5F5F5] pt-[88px] md:pt-[96px]">
         <Header />
         <main className="pt-16 pb-20 px-6">
           <div className="max-w-6xl mx-auto text-center">
             <div className="w-16 h-16 flex items-center justify-center bg-red-50 rounded-full mx-auto mb-4">
               <i className="ri-error-warning-line text-2xl text-red-400"></i>
             </div>
-            <h1 className="font-prata text-2xl md:text-3xl text-primary mb-3">Something went wrong</h1>
+            <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">Something went wrong</h1>
             <p className="font-roboto text-stone-500 mb-6">{error}</p>
             <Link to="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
               <i className="ri-arrow-left-line"></i>Back to Home
@@ -172,16 +340,16 @@ export default function PropertyDetail() {
   }
 
   // Not found
-  if (!listing) {
+  if (!listing && !mockDev) {
     return (
-      <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+      <div className="min-h-screen bg-[#F5F5F5] pt-[88px] md:pt-[96px]">
         <Header />
         <main className="pt-16 pb-20 px-6">
           <div className="max-w-6xl mx-auto text-center">
             <div className="w-16 h-16 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
               <i className="ri-error-warning-line text-2xl text-stone-400"></i>
             </div>
-            <h1 className="font-prata text-2xl md:text-3xl text-primary mb-3">Listing Not Found</h1>
+            <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">Listing Not Found</h1>
             <p className="font-roboto text-stone-500 mb-6">This listing does not exist or may have been removed.</p>
             <Link to="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
               <i className="ri-arrow-left-line"></i>Back to Home
@@ -194,48 +362,44 @@ export default function PropertyDetail() {
     );
   }
 
-  const isLand = listing.propertyType === 'land';
+  // Determine if this is a land listing (keep old layout)
+  const activeListing = listing || (mockDev ? mockToListing(mockDev) : null);
+  if (!activeListing) return null;
 
-  const mapQuery = listing.latitude && listing.longitude
-    ? `${listing.latitude},${listing.longitude}`
-    : encodeURIComponent(`${listing.district}, ${listing.area}`);
+  const isLand = activeListing.propertyType === 'land';
 
-  const mapSrc = `https://maps.google.com/maps?q=${mapQuery}&z=14&ie=UTF8&iwloc=&output=embed`;
-
-  const breadcrumbCategory = isLand
-    ? { label: 'Joint Ventures', href: '/joint-ventures' }
-    : listing.purpose === 'rent'
-      ? { label: 'Rent', href: '/rent' }
+  // ── LAND / JOINT VENTURE: keep existing layout ──
+  if (isLand) {
+    const mapQuery = activeListing.latitude && activeListing.longitude
+      ? `${activeListing.latitude},${activeListing.longitude}`
+      : encodeURIComponent(`${activeListing.district}, ${activeListing.area}`);
+    const mapSrc = `https://maps.google.com/maps?q=${mapQuery}&z=14&ie=UTF8&iwloc=&output=embed`;
+    const breadcrumbCategory = activeListing.category === 'joint_venture'
+      ? { label: 'Joint Ventures', href: '/joint-ventures' }
       : { label: 'Buy', href: '/buy' };
 
-  return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
-      <Header />
-
-      {/* ---- LAND LISTING LAYOUT ---- */}
-      {isLand && (
+    return (
+      <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+        <Header />
         <main>
-          {/* Breadcrumb */}
-          <div className="px-6 py-3 bg-stone-50 border-b border-stone-100">
-            <div className="max-w-6xl mx-auto">
-              <nav className="flex items-center gap-2 text-xs font-roboto">
-                <Link to="/" className="text-stone-400 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">Home</Link>
-                <span className="text-stone-300">/</span>
-                <Link to={breadcrumbCategory.href} className="text-stone-400 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">{breadcrumbCategory.label}</Link>
-                <span className="text-stone-300">/</span>
-                <span className="text-primary font-semibold truncate max-w-[300px]">{listing.title}</span>
-              </nav>
+          {enableBreadcrumbs() && (
+            <div className="px-6 py-3 bg-stone-50 border-b border-stone-100">
+              <div className="max-w-6xl mx-auto">
+                <nav className="flex items-center gap-2 text-xs font-roboto">
+                  <Link to="/" className="text-stone-400 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">Home</Link>
+                  <span className="text-stone-300">/</span>
+                  <Link to={breadcrumbCategory.href} className="text-stone-400 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">{breadcrumbCategory.label}</Link>
+                  <span className="text-stone-300">/</span>
+                  <span className="text-primary font-semibold truncate max-w-[300px]">{activeListing.title}</span>
+                </nav>
+              </div>
             </div>
-          </div>
+          )}
 
           <section className="relative overflow-hidden">
             <div className="aspect-[21/9] md:aspect-[21/7] overflow-hidden bg-stone-100">
-              {listing.image ? (
-                <img
-                  alt={listing.title}
-                  className="w-full h-full object-cover object-top"
-                  src={listing.image}
-                />
+              {activeListing.image ? (
+                <img alt={activeListing.title} className="w-full h-full object-cover object-top" src={activeListing.image} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <i className="ri-landscape-line text-5xl text-stone-300 block"></i>
@@ -251,60 +415,51 @@ export default function PropertyDetail() {
                 <div className="lg:col-span-2">
                   <div className="flex flex-wrap items-center gap-3 mb-4">
                     <span className="px-2 py-0.5 bg-white border border-stone-200 text-primary font-roboto text-[10px] font-semibold tracking-wider">
-                      {listing.ref}
+                      {activeListing.ref}
                     </span>
                     <span className={`px-2.5 py-0.5 font-roboto text-[10px] uppercase tracking-wider text-white ${
-                      listing.category === 'joint_venture' ? 'bg-accent' : 'bg-golden'
+                      activeListing.category === 'joint_venture' ? 'bg-accent' : 'bg-golden'
                     }`}>
-                      {listing.category === 'joint_venture' ? 'Joint Venture' : 'For Sale'}
+                      {activeListing.category === 'joint_venture' ? 'Joint Venture' : 'For Sale'}
                     </span>
                   </div>
-                  <h1 className="font-prata text-2xl md:text-3xl text-primary mb-4">{listing.title}</h1>
+                  <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-4">{activeListing.title}</h1>
                   <p className="flex items-center gap-1.5 text-sm text-stone-500 mb-6">
                     <i className="ri-map-pin-2-line text-golden"></i>
-                    {listing.district}, {listing.area}
+                    {activeListing.district}, {activeListing.area}
                   </p>
                   <div className="grid grid-cols-3 gap-4 mb-8 p-5 bg-stone-50 border border-stone-100">
                     <div>
                       <p className="text-stone-400 font-roboto text-[10px] uppercase tracking-wider mb-1">Size</p>
-                      <p className="text-primary font-roboto text-base font-semibold">{listing.size}</p>
+                      <p className="text-primary font-roboto text-base font-semibold">{activeListing.size}</p>
                     </div>
                     <div>
                       <p className="text-stone-400 font-roboto text-[10px] uppercase tracking-wider mb-1">Title Type</p>
-                      <p className="text-primary font-roboto text-base font-semibold">{listing.titleType}</p>
+                      <p className="text-primary font-roboto text-base font-semibold">{activeListing.titleType}</p>
                     </div>
                     <div>
                       <p className="text-stone-400 font-roboto text-[10px] uppercase tracking-wider mb-1">Price</p>
-                      <p className="text-golden font-roboto text-base font-semibold">{listing.price}</p>
+                      <p className="text-golden font-roboto text-base font-semibold">{activeListing.price}</p>
                     </div>
                   </div>
                   <div className="mb-8">
-                    <h2 className="font-prata text-primary text-lg mb-3">About This Plot</h2>
-                    <p className="text-stone-600 font-roboto text-sm leading-relaxed">{listing.description}</p>
+                    <h2 className="font-roboto font-bold text-primary text-lg mb-3">About This Plot</h2>
+                    <p className="text-stone-600 font-roboto text-sm leading-relaxed">{activeListing.description}</p>
                   </div>
                   <div className="mb-8">
-                    <h2 className="font-prata text-primary text-lg mb-3">Location</h2>
+                    <h2 className="font-roboto font-bold text-primary text-lg mb-3">Location</h2>
                     <div className="aspect-[16/9] rounded-sm overflow-hidden border border-stone-200">
-                      <iframe
-                        src={mapSrc}
-                        className="w-full h-full"
-                        loading="lazy"
-                        title={`Map of ${listing.title}`}
-                        allowFullScreen
-                      ></iframe>
+                      <iframe src={mapSrc} className="w-full h-full" loading="lazy" title={`Map of ${activeListing.title}`} allowFullScreen></iframe>
                     </div>
                     <p className="text-stone-400 font-roboto text-xs mt-2 flex items-center gap-1.5">
                       <i className="ri-map-pin-2-line text-golden"></i>
-                      {listing.district}{listing.area ? `, ${listing.area}` : ''}
+                      {activeListing.district}{activeListing.area ? `, ${activeListing.area}` : ''}
                     </p>
                   </div>
                   <div className="bg-primary p-6 md:p-8">
-                    <h3 className="font-prata text-white text-lg mb-2">Interested in this plot?</h3>
+                    <h3 className="font-roboto font-bold text-white text-lg mb-2">Interested in this plot?</h3>
                     <p className="text-white/60 font-roboto text-sm mb-5">Submit your enquiry and a partner manager will reach out with full disclosure, site visit options, and next steps.</p>
-                    <Link
-                      to="/joint-ventures#request-desk"
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity"
-                    >
+                    <Link to="/joint-ventures#request-desk" className="inline-flex items-center gap-2 px-6 py-3 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
                       <i className="ri-mail-send-line"></i>Enquire About This Plot
                     </Link>
                   </div>
@@ -312,50 +467,24 @@ export default function PropertyDetail() {
                 <div className="lg:col-span-1">
                   <div className="sticky top-28 space-y-5">
                     <div className="border border-stone-200 p-5">
-                      <h3 className="font-prata text-primary text-sm mb-4 pb-3 border-b border-stone-100">Quick Facts</h3>
+                      <h3 className="font-roboto font-bold text-primary text-sm mb-4 pb-3 border-b border-stone-100">Quick Facts</h3>
                       <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-stone-400 font-roboto text-xs">Reference</span>
-                          <span className="text-primary font-roboto text-xs font-semibold">{listing.ref}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-stone-400 font-roboto text-xs">Category</span>
-                          <span className="text-primary font-roboto text-xs font-semibold capitalize">{listing.category === 'joint_venture' ? 'Joint Venture' : 'Outright Purchase'}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-stone-400 font-roboto text-xs">Size</span>
-                          <span className="text-primary font-roboto text-xs font-semibold">{listing.size}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-stone-400 font-roboto text-xs">Title</span>
-                          <span className="text-primary font-roboto text-xs font-semibold">{listing.titleType}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-stone-400 font-roboto text-xs">District</span>
-                          <span className="text-primary font-roboto text-xs font-semibold">{listing.district}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-stone-400 font-roboto text-xs">Area</span>
-                          <span className="text-primary font-roboto text-xs font-semibold">{listing.area}</span>
-                        </div>
+                        <div className="flex items-center justify-between"><span className="text-stone-400 font-roboto text-xs">Reference</span><span className="text-primary font-roboto text-xs font-semibold">{activeListing.ref}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-stone-400 font-roboto text-xs">Category</span><span className="text-primary font-roboto text-xs font-semibold capitalize">{activeListing.category === 'joint_venture' ? 'Joint Venture' : 'Outright Purchase'}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-stone-400 font-roboto text-xs">Size</span><span className="text-primary font-roboto text-xs font-semibold">{activeListing.size}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-stone-400 font-roboto text-xs">Title</span><span className="text-primary font-roboto text-xs font-semibold">{activeListing.titleType}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-stone-400 font-roboto text-xs">District</span><span className="text-primary font-roboto text-xs font-semibold">{activeListing.district}</span></div>
+                        <div className="flex items-center justify-between"><span className="text-stone-400 font-roboto text-xs">Area</span><span className="text-primary font-roboto text-xs font-semibold">{activeListing.area}</span></div>
                       </div>
                     </div>
                     <div className="border border-stone-200 p-5">
-                      <h3 className="font-prata text-primary text-sm mb-4 pb-3 border-b border-stone-100">Contact the Desk</h3>
-                      <p className="text-stone-500 font-roboto text-xs leading-relaxed mb-4">
-                        Our joint ventures desk handles all land enquiries. Reach out for site visits, disclosure packs, or to discuss partnership terms.
-                      </p>
-                      <Link
-                        to="/contact"
-                        className="inline-flex items-center gap-2 w-full justify-center px-4 py-2.5 border border-stone-200 text-primary font-roboto text-xs uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
-                      >
+                      <h3 className="font-roboto font-bold text-primary text-sm mb-4 pb-3 border-b border-stone-100">Contact the Desk</h3>
+                      <p className="text-stone-500 font-roboto text-xs leading-relaxed mb-4">Our joint ventures desk handles all land enquiries.</p>
+                      <Link to="/contact" className="inline-flex items-center gap-2 w-full justify-center px-4 py-2.5 border border-stone-200 text-primary font-roboto text-xs uppercase tracking-wider cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors">
                         <i className="ri-chat-1-line"></i>Speak to the Desk
                       </Link>
                     </div>
-                    <Link
-                      to="/joint-ventures"
-                      className="inline-flex items-center gap-2 text-stone-400 font-roboto text-xs hover:text-primary transition-colors cursor-pointer"
-                    >
+                    <Link to="/joint-ventures" className="inline-flex items-center gap-2 text-stone-400 font-roboto text-xs hover:text-primary transition-colors cursor-pointer">
                       <i className="ri-arrow-left-line"></i>Back to all listings
                     </Link>
                   </div>
@@ -364,89 +493,145 @@ export default function PropertyDetail() {
             </div>
           </section>
         </main>
-      )}
+        <Footer />
+        <BackToTop />
+      </div>
+    );
+  }
 
-      {/* ---- REGULAR PROPERTY LAYOUT ---- */}
-      {!isLand && (
-        <main>
-          {/* Breadcrumb */}
-          <div className="px-6 py-3 bg-stone-50 border-b border-stone-100">
-            <div className="max-w-6xl mx-auto">
-              <nav className="flex items-center gap-2 text-xs font-roboto">
-                <Link to="/" className="text-stone-400 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">Home</Link>
-                <span className="text-stone-300">/</span>
-                <Link to={breadcrumbCategory.href} className="text-stone-400 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">{breadcrumbCategory.label}</Link>
-                <span className="text-stone-300">/</span>
-                <span className="text-primary font-semibold truncate max-w-[300px]">{listing.title}</span>
+  // ── REGULAR PROPERTY / NEW DEVELOPMENT: Oceans-style design ──
+  const breadcrumbParent = activeListing.category === 'new_development'
+    ? { label: 'New Projects', href: '/new-developments' }
+    : activeListing.purpose === 'rent'
+      ? { label: 'Rent', href: '/rent' }
+      : { label: 'Buy', href: '/buy' };
+
+  const statusLabel = activeListing.purpose === 'rent' ? 'For Rent' : activeListing.category === 'new_development' ? 'New Development' : 'For Sale';
+
+  return (
+    <div className="min-h-screen bg-[#F5F5F5] pt-[88px] md:pt-[96px]">
+      <Header />
+
+      <main className="pb-8">
+        {/* Breadcrumb + Utility Bar */}
+        {enableBreadcrumbs() && (
+          <div className="px-4 md:px-6 pt-4 md:pt-6 max-w-6xl mx-auto">
+            <div className="bg-white border border-stone-200 rounded-[2px] px-4 py-3 flex items-center justify-between">
+              <nav className="flex items-center gap-2 text-xs font-roboto text-stone-400">
+                <Link to="/" className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+                  <i className="ri-home-line text-[10px]"></i>Home
+                </Link>
+                <i className="ri-arrow-right-s-line text-stone-300 text-[10px]"></i>
+                <Link to={breadcrumbParent.href} className="hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+                  {breadcrumbParent.label}
+                </Link>
+                <i className="ri-arrow-right-s-line text-stone-300 text-[10px]"></i>
+                <span className="text-primary font-semibold truncate max-w-[200px] md:max-w-[300px]">{activeListing.title}</span>
               </nav>
+              <div className="hidden sm:flex items-center gap-2">
+                <button className="w-8 h-8 flex items-center justify-center border border-stone-200 rounded-[2px] text-stone-400 hover:text-primary hover:border-primary transition-colors cursor-pointer" title="Save">
+                  <i className="ri-heart-line text-sm"></i>
+                </button>
+                <button className="w-8 h-8 flex items-center justify-center border border-stone-200 rounded-[2px] text-stone-400 hover:text-primary hover:border-primary transition-colors cursor-pointer" title="Share">
+                  <i className="ri-share-line text-sm"></i>
+                </button>
+                <button className="w-8 h-8 flex items-center justify-center border border-stone-200 rounded-[2px] text-stone-400 hover:text-primary hover:border-primary transition-colors cursor-pointer" title="Print">
+                  <i className="ri-printer-line text-sm"></i>
+                </button>
+              </div>
             </div>
           </div>
+        )}
 
-          <div className="px-6 py-10 md:py-14 max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-              <div className="aspect-[4/3] overflow-hidden rounded-sm bg-stone-100">
-                {listing.image ? (
-                  <img
-                    alt={listing.title}
-                    className="w-full h-full object-cover object-top"
-                    src={listing.image}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <i className="ri-building-line text-5xl text-stone-300 block"></i>
-                  </div>
-                )}
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] px-2 py-1 rounded-sm whitespace-nowrap text-white mb-3 inline-block bg-primary">
-                  For {listing.category === 'rent' ? 'Rent' : 'Sale'}
-                </span>
-                <h1 className="font-prata text-2xl md:text-3xl text-primary mb-3">{listing.title}</h1>
-                <p className="flex items-center gap-1 text-sm text-stone-500 mb-4">
-                  <i className="ri-map-pin-line"></i> {listing.location}
-                </p>
-                {listing.neighbourhood && (
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-stone-400 mb-4">{listing.neighbourhood}</p>
-                )}
-                <div className="flex items-center gap-6 text-sm text-stone-600 mb-6">
-                  {listing.beds != null && listing.beds > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <i className="ri-hotel-bed-line"></i> {listing.beds} Beds
-                    </span>
-                  )}
-                  {listing.baths != null && listing.baths > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <i className="ri-drop-line"></i> {listing.baths} Baths
-                    </span>
-                  )}
-                  {listing.parking != null && listing.parking > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <i className="ri-car-line"></i> {listing.parking} Parking
-                    </span>
-                  )}
-                  {listing.sqft != null && listing.sqft > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <i className="ri-ruler-line"></i> {listing.sqft.toLocaleString()} sqft
-                    </span>
-                  )}
-                </div>
-                <p className="font-bold text-2xl text-primary whitespace-nowrap mb-6">
-                  {listing.price}
-                </p>
-                {listing.description && (
-                  <div>
-                    <h2 className="font-prata text-primary text-lg mb-3">Description</h2>
-                    <p className="text-stone-600 font-roboto text-sm leading-relaxed">{listing.description}</p>
-                  </div>
-                )}
-              </div>
+        {/* Gallery */}
+        <div className="px-4 md:px-6 pt-4 md:pt-6 max-w-6xl mx-auto">
+          <div className="relative">
+            <PropertyGallery
+              images={activeListing.images}
+              mainImage={activeListing.image}
+              title={activeListing.title}
+              statusLabel={statusLabel}
+            />
+          </div>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="px-4 md:px-6 pt-4 md:pt-6 max-w-6xl mx-auto">
+          <PropertyStatsBar
+            title={activeListing.title}
+            location={activeListing.location}
+            price={activeListing.price}
+            propertyType={activeListing.propertyType}
+            beds={activeListing.beds}
+            baths={activeListing.baths}
+            parking={activeListing.parking}
+            ref={activeListing.ref}
+            purpose={activeListing.purpose}
+          />
+        </div>
+
+        {/* Two-Column Body */}
+        <div className="px-4 md:px-6 pt-4 md:pt-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+            {/* Left Column */}
+            <div className="lg:col-span-2 space-y-6">
+              <PropertyLeftColumn
+                description={activeListing.description}
+                features={activeListing.features}
+                amenities={activeListing.amenities}
+                beds={activeListing.beds}
+                baths={activeListing.baths}
+                parking={activeListing.parking}
+                garages={activeListing.garages}
+                sqft={activeListing.sqft}
+                propertyType={activeListing.propertyType}
+                status={activeListing.status}
+                ref={activeListing.ref}
+                price={activeListing.price}
+                priceRaw={activeListing.priceRaw}
+                currency={activeListing.currency}
+                location={activeListing.location}
+                title={activeListing.title}
+                latitude={activeListing.latitude}
+                longitude={activeListing.longitude}
+                district={activeListing.district}
+                area={activeListing.area}
+                city={activeListing.city}
+                furnished={activeListing.furnished}
+                createdAt={activeListing.createdAt}
+              />
+
+              {/* Similar Properties */}
+              <SimilarProperties
+                currentId={activeListing.id}
+                propertyType={activeListing.propertyType}
+                purpose={activeListing.purpose}
+              />
+
+              {/* Prev / Next */}
+              <PropertyPrevNext
+                currentId={activeListing.id}
+                currentCreatedAt={activeListing.createdAt}
+              />
+            </div>
+
+            {/* Right Column - Sticky Sidebar */}
+            <div className="lg:col-span-1">
+              <PropertyContactCard
+                agent={agent}
+                propertyTitle={activeListing.title}
+                propertyRef={activeListing.ref}
+                formSubmitUrl="https://readdy.ai/api/form/d9b6qsihsavvukudolsg"
+                tourFormSubmitUrl="https://readdy.ai/api/form/d9bk52c5ku1dsad40gng"
+              />
             </div>
           </div>
-        </main>
-      )}
+        </div>
+      </main>
 
       <Footer />
       <BackToTop />
+      <MobileStickyBar propertyTitle={activeListing.title} agentPhone={agent?.phone} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
 
 const services = [
   { icon: 'ri-user-search-line', title: 'Tenant Finding', desc: 'We market your property across all major platforms and our own database of pre-qualified tenants.' },
@@ -40,23 +41,51 @@ const guarantees = [
 
 export default function Landlords() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
 
-  const handleFormSubmit = (e: FormEvent) => {
+  const handleFormSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setFormStatus('submitting');
     const form = e.target as HTMLFormElement;
+
+    // Anti-spam honeypot check
+    const honeypot = form.querySelector<HTMLInputElement>('input[name="phone_alt"]');
+    if (honeypot && honeypot.value.trim() !== '') {
+      reset();
+      form.reset();
+      return;
+    }
+
     const formData = new FormData(form);
-    fetch('https://readdy.ai/api/form/d8co2lojl3r96eih9070', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(formData as any).toString(),
-    })
-      .then(() => {
-        setFormStatus('success');
-        form.reset();
-      })
-      .catch(() => setFormStatus('idle'));
+    const fullName = (formData.get('full_name') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+    const phone = (formData.get('phone') as string || '').trim();
+    const propertyAddress = (formData.get('property_address') as string || '').trim();
+    const propertyType = (formData.get('property_type') as string || '').trim();
+    const bedrooms = (formData.get('bedrooms') as string || '').trim();
+    const serviceRequired = (formData.get('service_required') as string || '').trim();
+    const currentStatus = (formData.get('current_status') as string || '').trim();
+    const message = (formData.get('message') as string || '').trim();
+
+    const notes = `Property Address: ${propertyAddress}
+Property Type: ${propertyType}
+Bedrooms: ${bedrooms}
+Service Required: ${serviceRequired}
+Current Status: ${currentStatus}
+
+${message}`;
+
+    const success = await submitToContacts({
+      name: fullName,
+      email,
+      phone: phone || undefined,
+      type: 'landlord_enquiry',
+      notes,
+      tags: ['landlords_page'],
+    });
+
+    if (success) {
+      form.reset();
+    }
   };
 
   return (
@@ -70,7 +99,7 @@ export default function Landlords() {
         <div className="relative z-10 w-full max-w-6xl mx-auto px-6">
           <div className="max-w-2xl">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-4">For Landlords &amp; Property Owners</p>
-            <h1 className="font-prata text-white text-3xl md:text-5xl mb-6 leading-tight">
+            <h1 className="font-roboto font-bold text-white text-3xl md:text-5xl mb-6 leading-tight">
               Let or Sell Your<br />Property With<br />Confidence
             </h1>
             <p className="text-white/80 font-roboto text-base md:text-lg leading-relaxed mb-10 max-w-lg">
@@ -91,7 +120,7 @@ export default function Landlords() {
             <i className="ri-award-line text-white text-lg"></i>
           </div>
           <div>
-            <p className="text-white font-prata text-sm">#1 Letting Agency</p>
+            <p className="text-white font-roboto font-bold text-sm">#1 Letting Agency</p>
             <p className="text-white/60 font-roboto text-xs">Nairobi, Kenya</p>
           </div>
         </div>
@@ -107,7 +136,7 @@ export default function Landlords() {
             { stat: '21 days', label: 'Avg. Time to Let' },
           ].map((item) => (
             <div key={item.label}>
-              <p className="font-prata text-3xl text-white">{item.stat}</p>
+              <p className="font-roboto font-bold text-3xl text-white">{item.stat}</p>
               <p className="text-white/60 font-roboto text-xs mt-1 uppercase tracking-wider">{item.label}</p>
             </div>
           ))}
@@ -119,7 +148,7 @@ export default function Landlords() {
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Commitment</p>
-            <h2 className="text-3xl font-prata text-primary mb-5 leading-snug">Your Property Is Our Priority</h2>
+            <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Your Property Is Our Priority</h2>
             <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-5">
               At Oceans Kenya, we understand that your property is more than an asset — it&apos;s a significant investment. Our dedicated landlord team treats every property as if it were their own: maximising returns, minimising voids, and ensuring every tenancy runs smoothly.
             </p>
@@ -132,7 +161,7 @@ export default function Landlords() {
               <img alt="Oceans Kenya agent consulting a landlord client" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776885671058.JPG" />
             </div>
             <div className="absolute -bottom-5 -left-5 px-6 py-4 bg-golden hidden md:block">
-              <p className="text-white font-prata text-xl">98%</p>
+              <p className="text-white font-roboto font-bold text-xl">98%</p>
               <p className="text-white/80 font-roboto text-xs">Occupancy Rate</p>
             </div>
           </div>
@@ -144,7 +173,7 @@ export default function Landlords() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Services</p>
-            <h2 className="text-3xl md:text-4xl font-prata text-primary mb-4">Our Landlord Services</h2>
+            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-primary mb-4">Our Landlord Services</h2>
             <p className="text-stone-500 font-roboto text-sm max-w-xl mx-auto leading-relaxed">Everything you need to let and manage your property with confidence.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -153,7 +182,7 @@ export default function Landlords() {
                 <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
                   <i className={`${s.icon} text-xl text-primary`}></i>
                 </div>
-                <h3 className="font-prata text-primary text-base mb-2">{s.title}</h3>
+                <h3 className="font-roboto font-bold text-primary text-base mb-2">{s.title}</h3>
                 <p className="text-stone-500 font-roboto text-sm leading-relaxed">{s.desc}</p>
               </div>
             ))}
@@ -166,17 +195,17 @@ export default function Landlords() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Service Options</p>
-            <h2 className="text-3xl font-prata text-primary mb-4">Choose the Right Service for You</h2>
+            <h2 className="text-3xl font-roboto font-bold text-primary mb-4">Choose the Right Service for You</h2>
             <p className="text-stone-500 font-roboto text-sm max-w-lg mx-auto leading-relaxed">Whether you want us to find the tenant and step back, or have us manage everything end-to-end, we have a package that fits.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Let Only */}
-            <div className="bg-white border border-gray-200 overflow-hidden rounded-sm hover:shadow-lg transition-all duration-300">
+            <div className="bg-white border-2 border-primary overflow-hidden rounded-sm hover:shadow-lg transition-all duration-300">
               <div className="px-8 py-7 border-b border-gray-100">
                 <div className="w-10 h-10 flex items-center justify-center rounded-full mb-4 bg-primary/5">
                   <i className="ri-key-2-line text-lg text-primary"></i>
                 </div>
-                <h3 className="font-prata text-2xl text-primary mb-1">Let Only</h3>
+                <h3 className="font-roboto font-bold text-2xl text-primary mb-1">Let Only</h3>
                 <p className="text-stone-500 font-roboto text-sm">Ideal for landlords who prefer hands-on management after tenant placement.</p>
               </div>
               <div className="px-8 py-7">
@@ -190,7 +219,7 @@ export default function Landlords() {
                     </li>
                   ))}
                 </ul>
-                <a href="#landlord-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 border border-primary text-primary font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white transition-all">
+                <a href="#landlord-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/85 transition-all">
                   <i className="ri-arrow-right-line"></i>Enquire About Let Only
                 </a>
               </div>
@@ -205,7 +234,7 @@ export default function Landlords() {
                 <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full mb-4">
                   <i className="ri-building-4-line text-lg text-white"></i>
                 </div>
-                <h3 className="text-white font-prata text-2xl mb-1">Full Management</h3>
+                <h3 className="text-white font-roboto font-bold text-2xl mb-1">Full Management</h3>
                 <p className="text-white/60 font-roboto text-sm">Complete peace of mind — we handle everything from first listing to ongoing tenancy.</p>
               </div>
               <div className="px-8 py-7">
@@ -233,7 +262,7 @@ export default function Landlords() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">How It Works</p>
-            <h2 className="text-3xl font-prata text-primary">How It Works</h2>
+            <h2 className="text-3xl font-roboto font-bold text-primary">How It Works</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {howItWorks.map((step, i) => (
@@ -247,7 +276,7 @@ export default function Landlords() {
                   </div>
                   <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center rounded-full bg-golden text-white font-roboto text-xs font-bold">{step.step}</span>
                 </div>
-                <h3 className="font-prata text-primary text-base mb-2">{step.title}</h3>
+                <h3 className="font-roboto font-bold text-primary text-base mb-2">{step.title}</h3>
                 <p className="text-stone-500 font-roboto text-xs leading-relaxed">{step.desc}</p>
               </div>
             ))}
@@ -260,7 +289,7 @@ export default function Landlords() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Why Us</p>
-            <h2 className="text-3xl font-prata text-primary">Why Landlords Choose Us</h2>
+            <h2 className="text-3xl font-roboto font-bold text-primary">Why Landlords Choose Us</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {whyUs.map((item) => (
@@ -268,7 +297,7 @@ export default function Landlords() {
                 <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
                   <i className={`${item.icon} text-xl text-primary`}></i>
                 </div>
-                <h3 className="font-prata text-primary text-base mb-2">{item.title}</h3>
+                <h3 className="font-roboto font-bold text-primary text-base mb-2">{item.title}</h3>
                 <p className="text-stone-500 font-roboto text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
@@ -281,7 +310,7 @@ export default function Landlords() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Common Questions</p>
-            <h2 className="text-3xl font-prata text-primary">Frequently Asked Questions</h2>
+            <h2 className="text-3xl font-roboto font-bold text-primary">Frequently Asked Questions</h2>
           </div>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
@@ -290,7 +319,7 @@ export default function Landlords() {
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-6 py-5 text-left cursor-pointer group hover:bg-gray-50/80 transition-colors"
                 >
-                  <span className="font-prata text-primary text-sm pr-4">{faq.q}</span>
+                  <span className="font-roboto font-bold text-primary text-sm pr-4">{faq.q}</span>
                   <span className="w-7 h-7 flex items-center justify-center flex-shrink-0 rounded-full bg-gray-50 group-hover:bg-gray-100 transition-colors">
                     <i className={`text-sm transition-transform duration-300 ${openFaq === i ? 'ri-subtract-line' : 'ri-add-line'}`}></i>
                   </span>
@@ -314,7 +343,7 @@ export default function Landlords() {
               <div className="w-14 h-14 flex items-center justify-center bg-white/10 rounded-full mb-4">
                 <i className={`${g.icon} text-2xl text-golden`}></i>
               </div>
-              <h3 className="text-white font-prata text-lg mb-2">{g.title}</h3>
+              <h3 className="text-white font-roboto font-bold text-lg mb-2">{g.title}</h3>
               <p className="text-white/60 font-roboto text-sm leading-relaxed">{g.desc}</p>
             </div>
           ))}
@@ -331,7 +360,7 @@ export default function Landlords() {
                 <img alt="Oceans Estate &amp; Letting Agents" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776886125836.jpg" />
               </div>
               <p className="text-golden text-xs font-roboto tracking-widest uppercase mb-3">Get Started</p>
-              <h2 className="text-3xl font-prata text-primary mb-5 leading-snug">Let's Talk About Your Property</h2>
+              <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Let's Talk About Your Property</h2>
               <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-10">
                 Fill in the short form and one of our dedicated landlord specialists will be in touch within 24 hours to discuss how we can maximise your rental return.
               </p>
@@ -437,15 +466,34 @@ export default function Landlords() {
                     </div>
                   </div>
                 </div>
+
+                {/* Anti-spam honeypot */}
+                <input type="text" name="phone_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="hp-wrap" />
+
                 <button
                   type="submit"
                   disabled={formStatus === 'submitting'}
                   className="w-full py-3.5 bg-primary hover:bg-golden text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {formStatus === 'submitting' ? 'Submitting...' : formStatus === 'success' ? 'Submitted!' : 'Submit'}
+                  {formStatus === 'submitting' ? (
+                    <>
+                      <i className="ri-loader-4-line animate-spin"></i>
+                      Submitting...
+                    </>
+                  ) : formStatus === 'success' ? (
+                    <>
+                      <i className="ri-check-line"></i>
+                      Submitted!
+                    </>
+                  ) : (
+                    'Submit'
+                  )}
                 </button>
                 {formStatus === 'success' && (
-                  <p className="text-green-600 text-sm font-roboto text-center">Thank you! We'll be in touch within 24 hours.</p>
+                  <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll be in touch within 24 hours.</p>
+                )}
+                {formStatus === 'error' && (
+                  <p className="text-red-500 text-sm font-roboto text-center">{formError}</p>
                 )}
                 <p className="text-stone-400 font-roboto text-xs text-center">We respond within 24 hours. No obligation, no pressure.</p>
               </form>

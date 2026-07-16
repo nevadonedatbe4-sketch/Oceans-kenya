@@ -50,6 +50,7 @@ export default function Deals() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [editDeal, setEditDeal] = useState<Deal | null>(null);
   const [editPrice, setEditPrice] = useState('');
+  const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
 
   const fetchDeals = useCallback(async () => {
     setLoading(true);
@@ -152,19 +153,19 @@ export default function Deals() {
         <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#0d5959]" />
           <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Pipeline Value</p>
-          <p className="text-2xl font-prata text-[#001731] mt-1">{formatCurrency(pipelineValue)}</p>
+          <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{formatCurrency(pipelineValue)}</p>
           <p className="text-xs font-roboto text-[#7a8a99] mt-1">Active deals</p>
         </div>
         <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#001731]" />
           <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Closed Value</p>
-          <p className="text-2xl font-prata text-[#001731] mt-1">{formatCurrency(closedValue)}</p>
+          <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{formatCurrency(closedValue)}</p>
           <p className="text-xs font-roboto text-[#7a8a99] mt-1">Won deals</p>
         </div>
         <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#0d5959]" />
           <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Total Commission</p>
-          <p className="text-2xl font-prata text-[#001731] mt-1">{formatCurrency(totalCommission)}</p>
+          <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{formatCurrency(totalCommission)}</p>
           <p className="text-xs font-roboto text-[#7a8a99] mt-1">All time</p>
         </div>
       </div>
@@ -251,7 +252,7 @@ export default function Deals() {
                 </tr>
               ) : (
                 deals.map((deal) => (
-                  <tr key={deal.id} className="hover:bg-[#f8fafc]/60 transition-colors group">
+                  <tr key={deal.id} onClick={() => setSelectedDeal(deal)} className="hover:bg-[#f8fafc]/60 transition-colors group cursor-pointer">
                     <td className="px-4 md:px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-[#0d5959]/8 flex items-center justify-center flex-shrink-0">
@@ -265,7 +266,7 @@ export default function Deals() {
                     </td>
                     <td className="px-4 md:px-5 py-3">
                       <button
-                        onClick={() => handleEditPrice(deal)}
+                        onClick={(e) => { e.stopPropagation(); handleEditPrice(deal); }}
                         className="text-sm font-roboto text-[#001731] font-medium hover:text-[#0d5959] transition-colors cursor-pointer"
                       >
                         {formatCurrency(deal.price)}
@@ -278,7 +279,8 @@ export default function Deals() {
                       <div className="relative">
                         <select
                           value={deal.status || 'prospect'}
-                          onChange={(e) => handleStageChange(deal.id, e.target.value)}
+                          onChange={(e) => { e.stopPropagation(); handleStageChange(deal.id, e.target.value); }}
+                          onClick={(e) => e.stopPropagation()}
                           disabled={updatingId === deal.id}
                           className={`text-xs font-roboto px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-1 focus:ring-[#0d5959]/20 ${stageColors[deal.status || 'prospect'] || 'bg-gray-100 text-gray-600'}`}
                         >
@@ -299,14 +301,14 @@ export default function Deals() {
                     <td className="px-4 md:px-5 py-3">
                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
                         <button
-                          onClick={() => handleEditPrice(deal)}
+                          onClick={(e) => { e.stopPropagation(); handleEditPrice(deal); }}
                           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#0d5959]/8 text-[#7a8a99] hover:text-[#0d5959] transition-colors cursor-pointer"
                           title="Edit price"
                         >
                           <i className="ri-edit-line text-sm" />
                         </button>
                         <button
-                          onClick={() => setDeleteConfirm(deal.id)}
+                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(deal.id); }}
                           className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-red-50 text-[#7a8a99] hover:text-red-600 transition-colors cursor-pointer"
                           title="Delete"
                         >
@@ -330,6 +332,77 @@ export default function Deals() {
           />
         )}
       </div>
+
+      {/* Deal Detail Panel */}
+      {selectedDeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSelectedDeal(null)} />
+          <div className="relative bg-white rounded-xl w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#e8edf2]">
+              <h2 className="font-jost text-base text-[#001731]">Deal Details</h2>
+              <button onClick={() => setSelectedDeal(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#f8fafc] cursor-pointer">
+                <i className="ri-close-line text-[#7a8a99] text-lg" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-lg bg-[#0d5959]/8 flex items-center justify-center">
+                  <i className="ri-briefcase-3-line text-[#0d5959] text-xl" />
+                </div>
+                <div>
+                  <h3 className="font-jost text-base text-[#001731]">{selectedDeal.title || 'Untitled Deal'}</h3>
+                  <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-roboto capitalize mt-1 ${stageColors[selectedDeal.status] || 'bg-gray-100 text-gray-600'}`}>
+                    {stageLabels[selectedDeal.status] || selectedDeal.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#f8fafc] rounded-lg p-3">
+                  <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Deal Value</p>
+                  <p className="text-sm font-roboto text-[#001731] mt-1">{formatCurrency(selectedDeal.price)}</p>
+                </div>
+                <div className="bg-[#f8fafc] rounded-lg p-3">
+                  <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Commission</p>
+                  <p className="text-sm font-roboto text-[#0d5959] font-medium mt-1">{formatCurrency(selectedDeal.commission)}</p>
+                </div>
+                <div className="bg-[#f8fafc] rounded-lg p-3">
+                  <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Stage</p>
+                  <p className="text-sm font-roboto text-[#001731] mt-1 capitalize">{stageLabels[selectedDeal.status] || selectedDeal.status}</p>
+                </div>
+                <div className="bg-[#f8fafc] rounded-lg p-3">
+                  <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Created</p>
+                  <p className="text-sm font-roboto text-[#001731] mt-1">{new Date(selectedDeal.created_at).toLocaleDateString('en-GB')}</p>
+                </div>
+              </div>
+
+              {selectedDeal.notes && (
+                <div>
+                  <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-2">Notes</p>
+                  <div className="bg-[#f8fafc] rounded-lg p-3">
+                    <p className="text-sm font-roboto text-[#001731] leading-relaxed">{selectedDeal.notes}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={() => { handleEditPrice(selectedDeal); setSelectedDeal(null); }}
+                  className="flex-1 px-4 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto text-[#7a8a99] hover:bg-[#f8fafc] transition-all cursor-pointer"
+                >
+                  <i className="ri-edit-line mr-1" /> Edit Price
+                </button>
+                <button
+                  onClick={() => setSelectedDeal(null)}
+                  className="flex-1 px-4 py-2.5 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white rounded-lg text-sm font-roboto transition-all cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Price Modal */}
       {editDeal && (

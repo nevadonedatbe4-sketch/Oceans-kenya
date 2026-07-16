@@ -358,13 +358,13 @@ export default function Dashboard() {
               )}
               <div className="pt-2 border-t border-[#e8edf2]/60 flex items-center justify-between">
                 <span className="text-xs font-roboto text-[#7a8a99]">Total Pipeline</span>
-                <span className="text-sm font-prata text-[#001731] font-medium">
+                <span className="text-sm font-roboto font-bold text-[#001731] font-medium">
                   {loading ? '...' : formatCurrency(stats.pipelineValue)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-roboto text-[#7a8a99]">Win Rate</span>
-                <span className="text-sm font-prata text-[#001731] font-medium">
+                <span className="text-sm font-roboto font-bold text-[#001731] font-medium">
                   {loading ? '...' : `${stats.winRate}%`}
                 </span>
               </div>

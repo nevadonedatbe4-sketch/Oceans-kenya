@@ -3,7 +3,8 @@ import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
-import { properties } from '@/mocks/properties';
+import PageContactSection from '@/components/feature/PageContactSection';
+
 
 interface School {
   id: string;
@@ -207,7 +208,7 @@ export default function Schools() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/50"></div>
         <div className="absolute inset-0 flex items-center justify-center text-center px-4">
           <div>
-            <h1 className="text-white font-prata text-3xl md:text-4xl mb-3">Schools in Nairobi</h1>
+            <h1 className="text-white font-roboto font-bold text-3xl md:text-4xl mb-3">Schools in Nairobi</h1>
             <p className="text-white/80 font-roboto text-sm md:text-base max-w-lg mx-auto">
               Discover the best schools in every neighbourhood. Find properties near top-rated institutions for your family.
             </p>
@@ -327,7 +328,7 @@ export default function Schools() {
                   <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0">
                     <div>
                       <div className="flex items-start justify-between gap-3 mb-1">
-                        <h3 className="font-prata text-sm md:text-base text-primary leading-snug">{school.name}</h3>
+                        <h3 className="font-roboto font-bold text-sm md:text-base text-primary leading-snug">{school.name}</h3>
                         <StarRating rating={school.rating} />
                       </div>
                       <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500 mb-2">
@@ -446,7 +447,7 @@ export default function Schools() {
 
               {/* CTA */}
               <div className="bg-primary rounded-lg p-4 text-center">
-                <h3 className="text-white font-prata text-sm mb-2">Looking for a family home?</h3>
+                <h3 className="text-white font-roboto font-bold text-sm mb-2">Looking for a family home?</h3>
                 <p className="text-white/70 font-roboto text-xs mb-3">Find properties near the best schools in Nairobi</p>
                 <Link to="/rent" className="inline-flex items-center gap-1 px-4 py-2 bg-golden text-white font-roboto text-xs font-semibold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
                   Browse rentals
@@ -457,6 +458,7 @@ export default function Schools() {
         </div>
       </main>
 
+      <PageContactSection />
       <Footer />
       <BackToTop />
     </div>

@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
+import PageContactSection from '@/components/feature/PageContactSection';
 import { supabase } from '@/lib/supabase';
 import { jvFaqs } from '@/mocks/jointVentures';
+import { useLeadSubmit } from '@/hooks/useFormSubmit';
 
 const projectTypes = [
   'Apartment Blocks',
@@ -22,17 +24,12 @@ const services = [
   { code: 'SVC/06', title: 'Legal & Regulatory Compliance', desc: 'Title verification, NEMA approvals, county permits, building plan approvals and ongoing compliance throughout the project lifecycle.' },
 ];
 
-const trustPillars = [
-  { icon: 'ri-global-line', title: 'Reach', subtitle: 'Nairobi & Beyond', desc: 'Active network across Kenya and East Africa. We source land, capital and buyers in Nairobi, Mombasa, Kampala and emerging regional markets.' },
-  { icon: 'ri-shield-check-line', title: 'Transparent', subtitle: 'Legal-First, Title-Checked', desc: 'Every site undergoes independent title verification and encumbrance checks before any agreement is drafted. No surprises, no hidden liens.' },
-  { icon: 'ri-customer-service-2-line', title: 'Support', subtitle: 'Brief to Breaking Ground', desc: 'From your first call through project completion, a dedicated partner manager stays with you. Regular reporting, site visits and milestone reviews.' },
-];
-
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
-function useJVForm(submitAddr: string) {
+function useJVForm(submissionType: 'landowner' | 'investor') {
   const [status, setStatus] = useState<FormState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const { submitToLeads } = useLeadSubmit();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -45,34 +42,47 @@ function useJVForm(submitAddr: string) {
       form.reset();
       return;
     }
-    formData.delete('website_alt');
 
     setStatus('submitting');
     setErrorMsg('');
 
-    try {
-      const response = await fetch(submitAddr, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(formData as any).toString(),
-      });
-      const responseText = await response.text();
-      let parsed: { code?: string; meta?: { message?: string; detail?: string }; message?: string } | null = null;
-      try { parsed = JSON.parse(responseText); } catch { /* ignore */ }
+    const fullName = (formData.get('full_name') as string || '').trim();
+    const phone = (formData.get('phone') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+    const message = (formData.get('message') as string || '').trim();
 
-      const serverMsg = parsed?.meta?.message || parsed?.meta?.detail || parsed?.message || responseText;
-      const isSpam = serverMsg?.toLowerCase().includes('spam') || serverMsg?.toLowerCase().includes('form data is spam');
+    const baseData = {
+      full_name: fullName,
+      phone: phone || undefined,
+      email,
+      submission_type: submissionType,
+      message: message || undefined,
+    };
 
-      if (!response.ok || !parsed || parsed.code !== 'OK' || isSpam) {
-        setErrorMsg(serverMsg || 'Submission failed. Please try again.');
-        setStatus('error');
-        return;
-      }
+    let extraData: Record<string, string | undefined> = {};
+    if (submissionType === 'landowner') {
+      extraData = {
+        land_location: (formData.get('land_location') as string || '').trim() || undefined,
+        land_size: (formData.get('land_size') as string || '').trim() || undefined,
+        title_status: (formData.get('title_status') as string || '').trim() || undefined,
+        preferred_structure: (formData.get('preferred_structure') as string || '').trim() || undefined,
+      };
+    } else {
+      extraData = {
+        budget_range: (formData.get('budget_range') as string || '').trim() || undefined,
+        preferred_location: (formData.get('preferred_location') as string || '').trim() || undefined,
+        preferred_use: (formData.get('preferred_use') as string || '').trim() || undefined,
+        timeline: (formData.get('timeline') as string || '').trim() || undefined,
+      };
+    }
 
+    const success = await submitToLeads({ ...baseData, ...extraData } as any);
+
+    if (success) {
       setStatus('success');
       form.reset();
-    } catch (err) {
-      setErrorMsg('Network error. Please check your connection and try again.');
+    } else {
+      setErrorMsg('Submission failed. Please try again.');
       setStatus('error');
     }
   };
@@ -102,26 +112,28 @@ export default function JointVentures() {
   const [landData, setLandData] = useState<LandListing[]>([]);
   const [landLoading, setLandLoading] = useState(true);
   const [landError, setLandError] = useState('');
-  const landownerForm = useJVForm('https://readdy.ai/api/form/d95971dcb7lqctnurpk0');
-  const investorForm = useJVForm('https://readdy.ai/api/form/d95971dcb7lqctnurpkg');
+  const landownerForm = useJVForm('landowner');
+  const investorForm = useJVForm('investor');
 
   useEffect(() => {
-    let cancelled = false;
-    async function fetchLandListings() {
-      setLandLoading(true);
-      setLandError('');
-      try {
-        const { data, error } = await supabase
-          .from('listings')
-          .select('*')
-          .eq('property_type', 'land')
-          .eq('purpose', 'sale')
-          .eq('is_published', true)
-          .order('created_at', { ascending: false });
+    fetchLandListings();
+  }, []);
 
-        if (error) throw error;
+  async function fetchLandListings() {
+    setLandLoading(true);
+    setLandError('');
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('property_type', 'land')
+        .eq('purpose', 'sale')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
 
-        if (!cancelled && data && data.length > 0) {
+      if (error) throw error;
+
+      if (data && data.length > 0) {
           const mapped: LandListing[] = data.map((row: Record<string, unknown>) => {
             const currencyLabel = String(row.currency || '').toUpperCase() === 'UGX' ? 'UGX' : String(row.currency || '').toUpperCase() === 'USD' ? 'USD' : 'KSh';
             const priceVal = row.price ? Number(row.price) : 0;
@@ -150,17 +162,12 @@ export default function JointVentures() {
           });
           setLandData(mapped);
         }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setLandError(err instanceof Error ? err.message : 'Failed to load land listings');
-        }
-      } finally {
-        if (!cancelled) setLandLoading(false);
-      }
+    } catch (err: unknown) {
+      setLandError(err instanceof Error ? err.message : 'Failed to load land listings');
+    } finally {
+      setLandLoading(false);
     }
-    fetchLandListings();
-    return () => { cancelled = true; };
-  }, []);
+  }
 
   const filteredLand = landTab === 'all' ? landData : landData.filter((l) => l.category === landTab);
 
@@ -187,7 +194,7 @@ export default function JointVentures() {
               <p className="text-golden text-xs tracking-[0.25em] uppercase mb-5 font-roboto font-semibold">
                 Joint Venture &amp; Land Investment Desk
               </p>
-              <h1 className="font-prata text-white text-3xl md:text-4xl lg:text-[3.2rem] leading-[1.15] mb-6">
+              <h1 className="font-roboto font-bold text-white text-3xl md:text-4xl lg:text-[3.2rem] leading-[1.15] mt-4 mb-8">
                 Land is the asset.
                 <br />
                 The <em className="text-golden italic">right partner</em> is
@@ -231,7 +238,7 @@ export default function JointVentures() {
                 </div>
                 <div className="space-y-5">
                   <div className="flex items-baseline gap-4">
-                    <span className="font-prata text-white text-3xl md:text-4xl">
+                    <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
                       100+
                     </span>
                     <p className="text-white/50 font-roboto text-xs leading-snug">
@@ -240,7 +247,7 @@ export default function JointVentures() {
                   </div>
                   <div className="h-px bg-white/10" />
                   <div className="flex items-baseline gap-4">
-                    <span className="font-prata text-white text-3xl md:text-4xl">
+                    <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
                       28
                     </span>
                     <p className="text-white/50 font-roboto text-xs leading-snug">
@@ -249,7 +256,7 @@ export default function JointVentures() {
                   </div>
                   <div className="h-px bg-white/10" />
                   <div className="flex items-baseline gap-4">
-                    <span className="font-prata text-white text-3xl md:text-4xl">
+                    <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
                       12
                     </span>
                     <p className="text-white/50 font-roboto text-xs leading-snug">
@@ -283,7 +290,7 @@ export default function JointVentures() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10 md:mb-12">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">How It Works</p>
-            <h2 className="font-prata text-primary text-2xl md:text-3xl mb-3">Two starting points, one deal room.</h2>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Two starting points, one deal room.</h2>
             <p className="text-stone-500 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
               Whichever side of the table you sit on, every request lands with our JV desk, gets verified, and is matched by location, acreage and structure before any introduction is made.
             </p>
@@ -295,7 +302,7 @@ export default function JointVentures() {
               <span className="inline-block self-start px-3 py-1 bg-primary/5 text-primary font-roboto text-[10px] uppercase tracking-widest font-semibold mb-5">
                 Landowner
               </span>
-              <h3 className="font-prata text-primary text-lg md:text-xl mb-5 leading-snug">
+              <h3 className="font-roboto font-bold text-primary text-lg md:text-xl mb-5 leading-snug">
                 Bring the land,<br />find the capital.
               </h3>
               <ol className="space-y-3 mb-6 flex-1">
@@ -336,7 +343,7 @@ export default function JointVentures() {
               <span className="inline-block self-start px-3 py-1 bg-accent/10 text-accent font-roboto text-[10px] uppercase tracking-widest font-semibold mb-5">
                 Investor
               </span>
-              <h3 className="font-prata text-primary text-lg md:text-xl mb-5 leading-snug">
+              <h3 className="font-roboto font-bold text-primary text-lg md:text-xl mb-5 leading-snug">
                 Bring the capital,<br />find the land.
               </h3>
               <ol className="space-y-3 mb-6 flex-1">
@@ -371,7 +378,7 @@ export default function JointVentures() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Full-Service Desk</p>
-            <h2 className="font-prata text-white text-2xl md:text-3xl mb-3">What the Desk Handles</h2>
+            <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">What the Desk Handles</h2>
             <p className="text-white/55 font-roboto text-sm max-w-lg mx-auto">
               We do not just make introductions. We carry every joint venture from first handshake to final sale.
             </p>
@@ -383,7 +390,7 @@ export default function JointVentures() {
                   <span className="text-golden font-roboto text-[10px] tracking-widest uppercase font-semibold">{svc.code}</span>
                   <div className="flex-1 h-px bg-white/10"></div>
                 </div>
-                <h3 className="font-prata text-white text-base md:text-lg mb-2">{svc.title}</h3>
+                <h3 className="font-roboto font-bold text-white text-base md:text-lg mb-2">{svc.title}</h3>
                 <p className="text-white/50 font-roboto text-sm leading-relaxed">{svc.desc}</p>
               </div>
             ))}
@@ -391,25 +398,170 @@ export default function JointVentures() {
         </div>
       </section>
 
-      {/* Trust pillars */}
-      <section className="px-6 py-14 md:py-20 bg-stone-50">
+      {/* Lands Available */}
+      <section id="projects" className="px-6 py-14 md:py-20 bg-stone-50">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-10 md:mb-12">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Our Promise</p>
-            <h2 className="font-prata text-primary text-2xl md:text-3xl">Why Partners Trust the Desk</h2>
+          <div className="text-center mb-8 md:mb-10">
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Available Now</p>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Land on the desk today.</h2>
+            <p className="text-stone-600 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
+              A live feed of plots available for outright purchase and open joint venture opportunities, pulled directly from our listings database.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
-            {trustPillars.map((pillar) => (
-              <div key={pillar.title} className="bg-white border border-stone-200 p-6 md:p-8 text-center hover:border-golden/30 transition-colors">
-                <div className="w-14 h-14 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-4">
-                  <i className={`${pillar.icon} text-2xl text-primary`}></i>
-                </div>
-                <h3 className="font-prata text-primary text-lg mb-1">{pillar.title}</h3>
-                <p className="text-golden font-roboto text-xs uppercase tracking-wider mb-3">{pillar.subtitle}</p>
-                <p className="text-stone-500 font-roboto text-sm leading-relaxed">{pillar.desc}</p>
-              </div>
+
+          {/* Filter row */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-8 md:mb-10">
+            {[
+              { key: 'all' as const, label: 'All opportunities' },
+              { key: 'outright' as const, label: 'Outright purchase' },
+              { key: 'joint_venture' as const, label: 'Joint venture' },
+            ].map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setLandTab(f.key)}
+                className={`px-5 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-colors border ${
+                  landTab === f.key
+                    ? 'bg-primary text-white border-primary font-semibold'
+                    : 'text-stone-600 border-stone-300 hover:text-primary hover:border-primary bg-white'
+                }`}
+              >
+                {f.label}
+              </button>
             ))}
           </div>
+
+          {/* Loading state */}
+          {landLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="border border-stone-200 bg-white p-5 md:p-6 animate-pulse">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="h-3 bg-stone-200 rounded w-24" />
+                    <div className="h-5 bg-stone-200 rounded w-20" />
+                  </div>
+                  <div className="h-4 bg-stone-200 rounded w-3/4 mb-2" />
+                  <div className="h-3 bg-stone-200 rounded w-1/2 mb-3" />
+                  <div className="h-px bg-stone-100 mb-3" />
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="h-8 bg-stone-200 rounded" />
+                    <div className="h-8 bg-stone-200 rounded" />
+                    <div className="h-8 bg-stone-200 rounded" />
+                  </div>
+                  <div className="h-3 bg-stone-200 rounded w-full mb-1" />
+                  <div className="h-3 bg-stone-200 rounded w-4/5 mb-4" />
+                  <div className="h-9 bg-stone-200 rounded w-full" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error state */}
+          {!landLoading && landError && (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 flex items-center justify-center bg-red-50 rounded-full mx-auto mb-4">
+                <i className="ri-error-warning-line text-2xl text-red-400"></i>
+              </div>
+              <p className="text-stone-500 font-roboto text-sm mb-4">{landError}</p>
+              <button
+                onClick={fetchLandListings}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+              >
+                <i className="ri-refresh-line"></i>Retry
+              </button>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!landLoading && !landError && filteredLand.length === 0 && (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
+                <i className="ri-landscape-line text-2xl text-stone-400"></i>
+              </div>
+              <p className="text-stone-500 font-roboto text-sm mb-2">No {landTab !== 'all' ? landTab === 'outright' ? 'outright purchase' : 'joint venture' : ''} plots available right now.</p>
+              <p className="text-stone-400 font-roboto text-xs">Check back soon or submit a brief to be notified when new opportunities arrive.</p>
+            </div>
+          )}
+
+          {/* Deed-style listing cards */}
+          {!landLoading && !landError && filteredLand.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
+                {filteredLand.map((land) => (
+                  <Link to={land.slug ? `/property/${land.slug}` : '#'} key={land.id} data-type={land.category === 'joint_venture' ? 'jv' : 'sale'} className="group relative block cursor-pointer">
+                    {/* Top zigzag serration */}
+                    <svg className="absolute -top-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
+                      <path d="M0 5 L2.5 0 L5 5 L7.5 0 L10 5 L12.5 0 L15 5 L17.5 0 L20 5 L22.5 0 L25 5 L27.5 0 L30 5 L32.5 0 L35 5 L37.5 0 L40 5 L42.5 0 L45 5 L47.5 0 L50 5 L52.5 0 L55 5 L57.5 0 L60 5 L62.5 0 L65 5 L67.5 0 L70 5 L72.5 0 L75 5 L77.5 0 L80 5 L82.5 0 L85 5 L87.5 0 L90 5 L92.5 0 L95 5 L97.5 0 L100 5 Z" fill="#ffffff" />
+                    </svg>
+
+                    {/* Card body — receipt paper */}
+                    <div className="bg-white border border-stone-200 p-6 md:p-7 relative">
+                      {/* Ref code — mono, top center */}
+                      <span className="font-mono text-xs text-stone-500 tracking-[0.2em] uppercase font-semibold block text-center mb-4">
+                        {land.ref}
+                      </span>
+
+                      {/* Centered badge */}
+                      <div className="text-center mb-3">
+                        <span className={`inline-block px-3 py-1 text-[10px] uppercase tracking-wider font-semibold font-roboto ${
+                          land.category === 'joint_venture'
+                            ? 'bg-accent/15 text-accent font-bold'
+                            : 'bg-golden/15 text-golden font-bold'
+                        }`}>
+                          {land.category === 'joint_venture' ? 'JV Opportunity' : 'For Sale'}
+                        </span>
+                      </div>
+
+                      {/* Title — centered, receipt style */}
+                      <h4 className="font-roboto font-bold text-primary text-sm md:text-base text-center mb-1.5 leading-snug">{land.title}</h4>
+
+                      {/* Location — centered */}
+                      <p className="font-roboto text-xs text-stone-600 text-center mb-5">
+                        <i className="ri-map-pin-2-line mr-1 text-stone-400"></i>{land.district}, {land.area}
+                      </p>
+
+                      {/* Dashed separator */}
+                      <div className="border-t border-dashed border-stone-300 mb-4" />
+
+                      {/* Metrics — two-column receipt rows */}
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center justify-between">
+                          <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">{land.category === 'joint_venture' ? 'Acreage' : 'Size'}</span>
+                          <span className="font-mono text-sm text-primary font-bold">{land.size}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">Title</span>
+                          <span className="font-mono text-sm text-primary font-bold">{land.titleType}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">{land.category === 'joint_venture' ? 'Ask' : 'Price'}</span>
+                          <span className="font-mono text-sm text-golden font-bold">{land.price}</span>
+                        </div>
+                      </div>
+
+                      {/* Dashed separator */}
+                      <div className="border-t border-dashed border-stone-300 mb-4" />
+
+                      {/* Description — centered, receipt style */}
+                      <p className="font-roboto text-xs text-stone-600 leading-relaxed text-center mb-5">{land.description}</p>
+
+                      {/* CTA — full width, outlined */}
+                      <div
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
+                        className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 border border-dashed border-stone-400 text-primary font-roboto text-[11px] tracking-wider uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
+                      >
+                        Enquire about this plot <i className="ri-arrow-right-line"></i>
+                      </div>
+                    </div>
+
+                    {/* Bottom zigzag serration */}
+                    <svg className="absolute -bottom-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
+                      <path d="M0 0 L2.5 5 L5 0 L7.5 5 L10 0 L12.5 5 L15 0 L17.5 5 L20 0 L22.5 5 L25 0 L27.5 5 L30 0 L32.5 5 L35 0 L37.5 5 L40 0 L42.5 5 L45 0 L47.5 5 L50 0 L52.5 5 L55 0 L57.5 5 L60 0 L62.5 5 L65 0 L67.5 5 L70 0 L72.5 5 L75 0 L77.5 5 L80 0 L82.5 5 L85 0 L87.5 5 L90 0 L92.5 5 L95 0 L97.5 5 L100 0 Z" fill="#ffffff" />
+                    </svg>
+                  </Link>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </section>
 
@@ -418,7 +570,7 @@ export default function JointVentures() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Submit a Request</p>
-            <h2 className="font-prata text-white text-2xl md:text-3xl mb-3">Open a file with the JV desk.</h2>
+            <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">Open a file with the JV desk.</h2>
             <p className="text-white/55 font-roboto text-sm max-w-lg mx-auto leading-relaxed">
               Fill in whichever side applies to you. A member of the Oceans Uganda land team reviews every submission and responds within 48 hours.
             </p>
@@ -452,7 +604,7 @@ export default function JointVentures() {
 
           {/* Landowner form */}
           {requestTab === 'landowner' && (
-            <form data-readdy-form="true" id="landowner-form" onSubmit={landownerForm.handleSubmit} className="bg-white border border-white/10 p-6 md:p-8">
+            <form id="landowner-form" onSubmit={landownerForm.handleSubmit} className="bg-white border border-white/10 p-6 md:p-8">
               <div className="hp-wrap" aria-hidden="true">
                 <input type="text" name="website_alt" tabIndex={-1} autoComplete="off" readOnly />
               </div>
@@ -534,7 +686,7 @@ export default function JointVentures() {
 
           {/* Investor form */}
           {requestTab === 'investor' && (
-            <form data-readdy-form="true" id="investor-form" onSubmit={investorForm.handleSubmit} className="bg-white border border-white/10 p-6 md:p-8">
+            <form id="investor-form" onSubmit={investorForm.handleSubmit} className="bg-white border border-white/10 p-6 md:p-8">
               <div className="hp-wrap" aria-hidden="true">
                 <input type="text" name="website_alt" tabIndex={-1} autoComplete="off" readOnly />
               </div>
@@ -622,179 +774,12 @@ export default function JointVentures() {
         </div>
       </section>
 
-      {/* Lands Available */}
-      <section id="projects" className="px-6 py-14 md:py-20">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-8 md:mb-10">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Available Now</p>
-            <h2 className="font-prata text-primary text-2xl md:text-3xl mb-3">Land on the desk today.</h2>
-            <p className="text-stone-500 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
-              A live feed of plots available for outright purchase and open joint venture opportunities, pulled directly from our listings database.
-            </p>
-          </div>
-
-          {/* Filter row */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-8 md:mb-10">
-            {[
-              { key: 'all' as const, label: 'All opportunities' },
-              { key: 'outright' as const, label: 'Outright purchase' },
-              { key: 'joint_venture' as const, label: 'Joint venture' },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setLandTab(f.key)}
-                className={`px-5 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-colors border ${
-                  landTab === f.key
-                    ? 'bg-primary text-white border-primary font-semibold'
-                    : 'text-stone-500 border-stone-200 hover:text-primary hover:border-stone-400 bg-white'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Loading state */}
-          {landLoading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-              {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div key={n} className="border border-stone-200 bg-white p-5 md:p-6 animate-pulse">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="h-3 bg-stone-200 rounded w-24" />
-                    <div className="h-5 bg-stone-200 rounded w-20" />
-                  </div>
-                  <div className="h-4 bg-stone-200 rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-stone-200 rounded w-1/2 mb-3" />
-                  <div className="h-px bg-stone-100 mb-3" />
-                  <div className="grid grid-cols-3 gap-2 mb-3">
-                    <div className="h-8 bg-stone-200 rounded" />
-                    <div className="h-8 bg-stone-200 rounded" />
-                    <div className="h-8 bg-stone-200 rounded" />
-                  </div>
-                  <div className="h-3 bg-stone-200 rounded w-full mb-1" />
-                  <div className="h-3 bg-stone-200 rounded w-4/5 mb-4" />
-                  <div className="h-9 bg-stone-200 rounded w-full" />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Error state */}
-          {!landLoading && landError && (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 flex items-center justify-center bg-red-50 rounded-full mx-auto mb-4">
-                <i className="ri-error-warning-line text-2xl text-red-400"></i>
-              </div>
-              <p className="text-stone-500 font-roboto text-sm mb-4">{landError}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
-              >
-                <i className="ri-refresh-line"></i>Retry
-              </button>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {!landLoading && !landError && filteredLand.length === 0 && (
-            <div className="text-center py-16">
-              <div className="w-16 h-16 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
-                <i className="ri-landscape-line text-2xl text-stone-400"></i>
-              </div>
-              <p className="text-stone-500 font-roboto text-sm mb-2">No {landTab !== 'all' ? landTab === 'outright' ? 'outright purchase' : 'joint venture' : ''} plots available right now.</p>
-              <p className="text-stone-400 font-roboto text-xs">Check back soon or submit a brief to be notified when new opportunities arrive.</p>
-            </div>
-          )}
-
-          {/* Deed-style listing cards */}
-          {!landLoading && !landError && filteredLand.length > 0 && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
-                {filteredLand.map((land) => (
-                  <Link to={land.slug ? `/property/${land.slug}` : '#'} key={land.id} data-type={land.category === 'joint_venture' ? 'jv' : 'sale'} className="group relative block cursor-pointer">
-                    {/* Top zigzag serration */}
-                    <svg className="absolute -top-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
-                      <path d="M0 5 L2.5 0 L5 5 L7.5 0 L10 5 L12.5 0 L15 5 L17.5 0 L20 5 L22.5 0 L25 5 L27.5 0 L30 5 L32.5 0 L35 5 L37.5 0 L40 5 L42.5 0 L45 5 L47.5 0 L50 5 L52.5 0 L55 5 L57.5 0 L60 5 L62.5 0 L65 5 L67.5 0 L70 5 L72.5 0 L75 5 L77.5 0 L80 5 L82.5 0 L85 5 L87.5 0 L90 5 L92.5 0 L95 5 L97.5 0 L100 5 Z" fill="#faf9f6" />
-                    </svg>
-
-                    {/* Card body — receipt paper */}
-                    <div className="bg-[#faf9f6] p-6 md:p-7 relative">
-                      {/* Ref code — mono, top center */}
-                      <span className="font-mono text-[11px] text-stone-400 tracking-[0.2em] uppercase font-medium block text-center mb-4">
-                        {land.ref}
-                      </span>
-
-                      {/* Centered badge */}
-                      <div className="text-center mb-3">
-                        <span className={`inline-block px-3 py-1 text-[10px] uppercase tracking-wider font-semibold font-roboto ${
-                          land.category === 'joint_venture'
-                            ? 'bg-accent/10 text-accent'
-                            : 'bg-golden/10 text-golden'
-                        }`}>
-                          {land.category === 'joint_venture' ? 'JV Opportunity' : 'For Sale'}
-                        </span>
-                      </div>
-
-                      {/* Title — centered, receipt style */}
-                      <h4 className="font-prata text-primary text-sm md:text-base text-center mb-1.5 leading-snug">{land.title}</h4>
-
-                      {/* Location — centered */}
-                      <p className="font-roboto text-[11px] text-stone-400 text-center mb-5">
-                        <i className="ri-map-pin-2-line mr-1 text-stone-300"></i>{land.district}, {land.area}
-                      </p>
-
-                      {/* Dashed separator */}
-                      <div className="border-t border-dashed border-stone-300 mb-4" />
-
-                      {/* Metrics — two-column receipt rows */}
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center justify-between">
-                          <span className="font-roboto text-[11px] text-stone-400 uppercase tracking-wider">{land.category === 'joint_venture' ? 'Acreage' : 'Size'}</span>
-                          <span className="font-mono text-xs text-primary font-semibold">{land.size}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="font-roboto text-[11px] text-stone-400 uppercase tracking-wider">Title</span>
-                          <span className="font-mono text-xs text-primary font-semibold">{land.titleType}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="font-roboto text-[11px] text-stone-400 uppercase tracking-wider">{land.category === 'joint_venture' ? 'Ask' : 'Price'}</span>
-                          <span className="font-mono text-xs text-golden font-semibold">{land.price}</span>
-                        </div>
-                      </div>
-
-                      {/* Dashed separator */}
-                      <div className="border-t border-dashed border-stone-300 mb-4" />
-
-                      {/* Description — centered, italic, receipt style */}
-                      <p className="font-roboto text-[11px] text-stone-500 leading-relaxed text-center mb-5 italic">{land.description}</p>
-
-                      {/* CTA — full width, outlined */}
-                      <div
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                        className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 border border-dashed border-stone-400 text-primary font-roboto text-[11px] tracking-wider uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
-                      >
-                        Enquire about this plot <i className="ri-arrow-right-line"></i>
-                      </div>
-                    </div>
-
-                    {/* Bottom zigzag serration */}
-                    <svg className="absolute -bottom-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
-                      <path d="M0 0 L2.5 5 L5 0 L7.5 5 L10 0 L12.5 5 L15 0 L17.5 5 L20 0 L22.5 5 L25 0 L27.5 5 L30 0 L32.5 5 L35 0 L37.5 5 L40 0 L42.5 5 L45 0 L47.5 5 L50 0 L52.5 5 L55 0 L57.5 5 L60 0 L62.5 5 L65 0 L67.5 5 L70 0 L72.5 5 L75 0 L77.5 5 L80 0 L82.5 5 L85 0 L87.5 5 L90 0 L92.5 5 L95 0 L97.5 5 L100 0 Z" fill="#faf9f6" />
-                    </svg>
-                  </Link>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-
       {/* FAQ */}
       <section className="px-6 py-14 md:py-20">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10 md:mb-12">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Questions</p>
-            <h2 className="font-prata text-primary text-2xl md:text-3xl">Frequently Asked</h2>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl">Frequently Asked</h2>
           </div>
           <div className="space-y-3">
             {jvFaqs.map((faq, idx) => (
@@ -804,7 +789,7 @@ export default function JointVentures() {
                   className="w-full flex items-start gap-3 p-4 md:p-5 text-left hover:bg-stone-50 transition-colors cursor-pointer"
                 >
                   <span className="text-golden font-roboto text-xs font-bold mt-0.5 flex-shrink-0">{String(idx + 1).padStart(2, '0')}</span>
-                  <span className="flex-1 font-prata text-primary text-sm md:text-base">{faq.question}</span>
+                  <span className="flex-1 font-roboto font-bold text-primary text-sm md:text-base">{faq.question}</span>
                   <i className={`${openFaq === idx ? 'ri-subtract-line' : 'ri-add-line'} text-stone-400 mt-1 flex-shrink-0`}></i>
                 </button>
                 {openFaq === idx && (
@@ -822,7 +807,7 @@ export default function JointVentures() {
       <section className="bg-primary px-6 py-12 md:py-16">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-3 font-roboto font-semibold">Ready to Partner?</p>
-          <h2 className="text-white font-prata mb-3 leading-snug text-2xl md:text-3xl">Let\'s Build Something Worthwhile</h2>
+          <h2 className="text-white font-roboto font-bold mb-3 leading-snug text-2xl md:text-3xl">Let\'s Build Something Worthwhile</h2>
           <p className="text-white/65 font-roboto text-sm leading-relaxed mb-7 max-w-lg mx-auto">
             Whether you hold land or capital, our desk is built to structure deals that work for every partner. Submit a brief and let\'s talk.
           </p>
@@ -837,6 +822,7 @@ export default function JointVentures() {
         </div>
       </section>
 
+      <PageContactSection />
       <Footer />
       <BackToTop />
     </div>

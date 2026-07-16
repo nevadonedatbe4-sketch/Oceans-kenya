@@ -163,7 +163,8 @@ export default function Agents() {
           {filtered.map((agent) => (
             <div
               key={agent.id}
-              className="bg-white rounded-xl border border-[#e8edf2] p-5 hover:border-[#0d5959]/20 transition-all group"
+              onClick={() => handleEdit(agent)}
+              className="bg-white rounded-xl border border-[#e8edf2] p-5 hover:border-[#0d5959]/20 transition-all group cursor-pointer"
             >
               <div className="flex items-start gap-4">
                 {agent.photo_url ? (
@@ -206,14 +207,14 @@ export default function Agents() {
 
               <div className="flex items-center gap-2 mt-4 pt-3 border-t border-[#e8edf2]/60">
                 <button
-                  onClick={() => handleEdit(agent)}
+                  onClick={(e) => { e.stopPropagation(); handleEdit(agent); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-roboto text-[#7a8a99] hover:bg-[#f8fafc] hover:text-[#001731] transition-colors cursor-pointer"
                 >
                   <i className="ri-edit-line text-xs" />
                   Edit
                 </button>
                 <button
-                  onClick={() => setDeleteConfirm(agent.id)}
+                  onClick={(e) => { e.stopPropagation(); setDeleteConfirm(agent.id); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-roboto text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                 >
                   <i className="ri-delete-bin-line text-xs" />

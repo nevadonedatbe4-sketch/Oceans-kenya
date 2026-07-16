@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { useState, FormEvent } from 'react';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
 
 const socialLinks = [
   { icon: 'ri-facebook-fill', href: 'https://www.facebook.com/oceanskenya', label: 'Facebook' },
@@ -9,8 +11,25 @@ const socialLinks = [
 ];
 
 export default function HeroSection() {
+  const { getHero } = useSiteSettings();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const heroOverlay = getHero('hero_show_overlay') !== 'false';
+  const heroSearch = getHero('hero_show_search') === 'true';
+  const heroHeight = getHero('hero_height') || '600';
+  const heroOverlayOpacity = getHero('hero_overlay_opacity') || '30';
+
+  const overlayStyle = { opacity: Number(heroOverlayOpacity) / 100 };
+  const heightStyle = { minHeight: `${heroHeight}px` };
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    window.location.href = `/all-properties?search=${encodeURIComponent(searchQuery)}`;
+  };
+
   return (
-    <section className="relative w-full flex items-center justify-center overflow-hidden min-h-[600px] md:min-h-[700px] lg:min-h-[800px]">
+    <section className="relative w-full flex items-center justify-center overflow-hidden" style={heightStyle}>
       {/* Background image */}
       <div
         className="absolute inset-0 bg-cover bg-center"
@@ -19,13 +38,15 @@ export default function HeroSection() {
         }}
       ></div>
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-black/60"></div>
+      {heroOverlay && (
+        <div className="absolute inset-0 bg-black" style={overlayStyle}></div>
+      )}
 
       <div className="relative z-10 w-full px-6 md:px-8 lg:px-16 flex flex-col items-center text-center pt-24 md:pt-32">
-        <h1 className="font-prata text-white text-5xl md:text-7xl lg:text-8xl mb-3 leading-snug">
+        <h1 className="text-white text-5xl md:text-7xl lg:text-8xl mb-3" style={{ fontFamily: 'Prata, serif', fontWeight: 400, letterSpacing: '0px', lineHeight: '1.2' }}>
           Oceans
         </h1>
-        <p className="mb-4 font-roboto text-[10px] sm:text-xs md:text-sm font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] md:tracking-[0.4em] whitespace-nowrap text-golden">
+        <p className="mb-4 font-roboto text-xs sm:text-sm md:text-xl font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-golden">
           Estate &amp; Letting Agent
         </p>
 
@@ -44,24 +65,44 @@ export default function HeroSection() {
           ))}
         </div>
 
+        {heroSearch && (
+          <form onSubmit={handleSearch} className="w-full max-w-lg mb-6">
+            <div className="flex items-stretch gap-0 bg-white/10 backdrop-blur-sm border border-white/50 rounded-none overflow-hidden">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by location, property type..."
+                className="flex-1 min-w-0 bg-transparent px-4 py-3 text-sm text-white placeholder:text-white/60 focus:outline-none font-roboto"
+              />
+              <button
+                type="submit"
+                className="px-5 py-3 bg-golden text-white text-sm font-roboto font-medium hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className="ri-search-line mr-1"></i>Search
+              </button>
+            </div>
+          </form>
+        )}
+
         <div className="flex flex-col items-center gap-3 w-full max-w-sm">
           <div className="flex flex-row w-full gap-3">
             <Link
               to="/rent"
-              className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/10 backdrop-blur-sm text-white border-2 border-white/80 hover:bg-golden hover:border-golden hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto tracking-wider uppercase"
+              className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
             >
               RENters
             </Link>
             <Link
               to="/buy"
-              className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/10 backdrop-blur-sm text-white border-2 border-white/80 hover:bg-golden hover:border-golden hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto tracking-wider uppercase"
+              className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
             >
               BUYers
             </Link>
           </div>
           <Link
             to="/valuation"
-            className="w-full text-center transition-all duration-300 whitespace-nowrap cursor-pointer bg-white/10 backdrop-blur-sm text-white border-2 border-white/80 hover:bg-golden hover:border-golden hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto tracking-wider uppercase"
+            className="w-full text-center transition-all duration-300 whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
           >
             EVALUATION
           </Link>

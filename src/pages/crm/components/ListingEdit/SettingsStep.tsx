@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { COLORS, Agent, INTERIOR_FINISHES, WATER_SUPPLIES, CONSTRUCTION_TYPES } from './types';
 import { uploadImageViaEdgeFunction } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Props {
   agents: Agent[];
@@ -67,6 +68,7 @@ interface Props {
   id?: string;
   uploading: boolean;
   setUploading: (v: boolean) => void;
+  propertyType?: string;
 }
 
 export default function SettingsStep({
@@ -82,8 +84,11 @@ export default function SettingsStep({
   interiorFinish, setInteriorFinish, flooringType, setFlooringType,
   ceilingHeight, setCeilingHeight, waterSupply, setWaterSupply,
   constructionType, setConstructionType, completionDate, setCompletionDate,
-  title, description, id, uploading, setUploading,
+  title, description, id, uploading, setUploading, propertyType,
 }: Props) {
+  const { user } = useAuth();
+  const isLand = propertyType === 'land';
+  const isAdminOrTeam = user?.role === 'admin' || user?.role === 'team';
   const [ogUploading, setOgUploading] = useState(false);
   const ogInputRef = useRef<HTMLInputElement>(null);
 
@@ -303,6 +308,7 @@ export default function SettingsStep({
       </div>
 
       {/* Property Specifications */}
+      {!isLand && (
       <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#f0f9ff' }}>
@@ -390,6 +396,7 @@ export default function SettingsStep({
           </div>
         </div>
       </div>
+      )}
 
       {/* Listing Controls */}
       <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
@@ -452,15 +459,16 @@ export default function SettingsStep({
         </div>
       </div>
 
-      {/* Owner Information */}
+      {/* Owner Information — admin & team only */}
+      {isAdminOrTeam && (
       <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
         <div className="flex items-center gap-3 mb-4">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#f0f9ff' }}>
-            <i className="ri-user-3-line text-lg" style={{ color: COLORS.navy }} />
+            <i className="ri-shield-user-line text-lg" style={{ color: COLORS.navy }} />
           </div>
           <div>
             <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Owner Information</h3>
-            <p className="text-xs" style={{ color: COLORS.gray }}>Contact details of the property owner</p>
+            <p className="text-xs" style={{ color: COLORS.gray }}>Confidential — visible to admin & team only</p>
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -478,6 +486,7 @@ export default function SettingsStep({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

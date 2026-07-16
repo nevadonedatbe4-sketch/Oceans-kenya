@@ -19,12 +19,13 @@ interface Props {
   setUploading: (v: boolean) => void;
   id?: string;
   uploadImageViaEdgeFunction: (file: File, path: string, bucket?: string) => Promise<{ url: string; path: string }>;
+  propertyType?: string;
 }
 
 export default function MediaStep({
   images, setImages, mainImage, setMainImage, coverImage, setCoverImage,
   floorPlans, setFloorPlans, videoUrl, setVideoUrl, virtualTourUrl, setVirtualTourUrl,
-  uploading, setUploading, id, uploadImageViaEdgeFunction,
+  uploading, setUploading, id, uploadImageViaEdgeFunction, propertyType,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const floorPlanInputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +176,7 @@ export default function MediaStep({
       </div>
 
       {/* Floor Plans */}
+      {propertyType !== 'land' && (
       <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -218,6 +220,7 @@ export default function MediaStep({
           </div>
         )}
       </div>
+      )}
 
       {/* Video & Virtual Tour */}
       <div className="bg-white rounded-lg border p-5 grid grid-cols-1 md:grid-cols-2 gap-4" style={{ borderColor: COLORS.border }}>

@@ -652,10 +652,10 @@ export default function Listings() {
                 listings.map((listing) => {
                   const status = getPublishStatus(listing);
                   return (
-                    <tr key={listing.id} className="hover:bg-gray-50/80 transition-colors group">
+                    <tr key={listing.id} onClick={() => navigate(`/crm/listings/edit/${listing.id}`)} className="hover:bg-gray-50/80 transition-colors group cursor-pointer">
                       <td className="px-3 md:px-5 py-3">
                         <button
-                          onClick={() => toggleSelect(listing.id)}
+                          onClick={(e) => { e.stopPropagation(); toggleSelect(listing.id); }}
                           className="w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors"
                           style={{
                             borderColor: selectedIds.has(listing.id) ? COLORS.navy : COLORS.border,
@@ -679,7 +679,7 @@ export default function Listings() {
                           )}
                           <div className="min-w-0">
                             <button
-                              onClick={() => navigate(`/crm/listings/edit/${listing.id}`)}
+                              onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}`); }}
                               className="text-sm font-semibold truncate text-left hover:underline cursor-pointer transition-colors"
                               style={{ color: COLORS.navy }}
                             >
@@ -703,7 +703,7 @@ export default function Listings() {
                       </td>
                       <td className="px-4 md:px-5 py-3 hidden md:table-cell">
                         <button
-                          onClick={() => handleToggleFeature(listing.id, listing.is_featured)}
+                          onClick={(e) => { e.stopPropagation(); handleToggleFeature(listing.id, listing.is_featured); }}
                           disabled={togglingId === listing.id}
                           className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 cursor-pointer transition-colors"
                         >
@@ -720,7 +720,7 @@ export default function Listings() {
                       <td className="px-4 md:px-5 py-3">
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => navigate(`/crm/listings/edit/${listing.id}`)}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}`); }}
                             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                             style={{ color: COLORS.gray }}
                             title="Edit Property"

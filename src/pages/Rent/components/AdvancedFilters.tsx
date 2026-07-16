@@ -94,6 +94,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
   const handleClear = () => {
     setFilters({ ...defaultFilters });
+    onApply({ ...defaultFilters });
   };
 
   const activeCount = [
@@ -131,7 +132,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
         {/* Header */}
         <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <div>
-            <h2 className="text-lg font-prata text-primary">Filters</h2>
+            <h2 className="text-lg font-roboto font-bold text-primary">Filters</h2>
             {activeCount > 0 && (
               <p className="text-xs font-roboto text-gray-500 mt-0.5">{activeCount} filter{activeCount !== 1 ? 's' : ''} active</p>
             )}

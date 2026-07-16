@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
 
 const officeHours = [
   { day: 'Monday', hours: '8:00 AM – 4:00 PM' },
@@ -26,23 +27,34 @@ const socialLinks = [
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
 export default function Contact() {
-  const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
+  const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setFormStatus('submitting');
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
-    fetch('https://readdy.ai/api/form/d8co2lojl3r96eih907g', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(formData as any).toString(),
-    })
-      .then(() => {
-        setFormStatus('success');
-        form.reset();
-      })
-      .catch(() => setFormStatus('idle'));
+
+    const fullName = (formData.get('full_name') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+    const phone = (formData.get('phone') as string || '').trim();
+    const enquiryType = (formData.get('enquiry_type') as string || 'general').trim();
+    const subject = (formData.get('subject') as string || '').trim();
+    const message = (formData.get('message') as string || '').trim();
+
+    const notes = `Subject: ${subject}\n\n${message}`;
+
+    const success = await submitToContacts({
+      name: fullName,
+      email,
+      phone: phone || undefined,
+      type: enquiryType,
+      notes,
+      tags: ['contact_page'],
+    });
+
+    if (success) {
+      form.reset();
+    }
   };
 
   return (
@@ -55,7 +67,7 @@ export default function Contact() {
         <div className="absolute inset-0 bg-primary/80"></div>
         <div className="relative z-10 w-full max-w-2xl mx-auto px-6">
           <p className="text-golden text-sm md:text-base font-roboto font-semibold tracking-[0.2em] uppercase mb-3">We're Here to Help</p>
-          <h1 className="text-3xl md:text-5xl font-prata text-white mb-3 leading-tight">Get In Touch</h1>
+          <h1 className="text-3xl md:text-5xl font-roboto font-bold text-white mb-3 leading-tight">Get In Touch</h1>
           <p className="text-white/75 font-roboto text-sm leading-relaxed max-w-md mx-auto">
             Whether you're buying, selling, renting, or just have a question — our team is ready and happy to help.
           </p>
@@ -93,7 +105,7 @@ export default function Contact() {
           <div className="lg:col-span-8 flex flex-col h-full pb-6 md:pb-8">
             <div className="mb-5">
               <p className="text-golden text-sm md:text-base font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Send a Message</p>
-              <h2 className="text-2xl font-prata text-primary mb-2">How Can We Help You?</h2>
+              <h2 className="text-2xl font-roboto font-bold text-primary mb-2">How Can We Help You?</h2>
               <p className="text-stone-500 font-roboto text-sm leading-relaxed">Fill in the form below and one of our agents will be in touch within 24 hours. For urgent matters, call us directly.</p>
             </div>
 
@@ -143,7 +155,10 @@ export default function Contact() {
                   {formStatus === 'submitting' ? 'Submitting...' : 'Submit'}
                 </button>
                 {formStatus === 'success' && (
-                  <p className="text-green-600 text-sm font-roboto text-center">Thank you! We'll respond within 24 hours.</p>
+                  <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll respond within 24 hours.</p>
+                )}
+                {formStatus === 'error' && (
+                  <p className="text-red-500 text-sm font-roboto text-center">{formError}</p>
                 )}
                 <p className="text-stone-400 font-roboto text-xs text-center">We respond to all enquiries within 24 hours during business days.</p>
               </form>
@@ -186,7 +201,7 @@ export default function Contact() {
             <div className="bg-white border border-gray-200/80 p-7 space-y-8 lg:sticky lg:top-24 lg:self-start">
               <div>
                 <p className="text-golden text-sm font-roboto font-semibold tracking-widest uppercase mb-2">Our Details</p>
-                <h2 className="text-2xl font-prata text-primary">Visit or Call Us</h2>
+                <h2 className="text-2xl font-roboto font-bold text-primary">Visit or Call Us</h2>
               </div>
 
               <div className="space-y-4 md:space-y-5">
@@ -207,7 +222,7 @@ export default function Contact() {
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-time-line text-primary text-xs"></i>
                     </div>
-                    <h3 className="text-primary font-prata text-sm">Office Hours</h3>
+                    <h3 className="text-primary font-roboto font-bold text-sm">Office Hours</h3>
                   </div>
                   <div className="space-y-1">
                     {officeHours.map((h) => {
@@ -232,7 +247,7 @@ export default function Contact() {
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-contacts-line text-primary text-xs"></i>
                     </div>
-                    <h3 className="text-primary font-prata text-sm">Get In Touch</h3>
+                    <h3 className="text-primary font-roboto font-bold text-sm">Get In Touch</h3>
                   </div>
                   <div className="space-y-2.5 md:space-y-3">
                     {[
@@ -268,7 +283,7 @@ export default function Contact() {
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-share-line text-primary text-xs"></i>
                     </div>
-                    <h3 className="text-primary font-prata text-sm">Follow Us</h3>
+                    <h3 className="text-primary font-roboto font-bold text-sm">Follow Us</h3>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {socialLinks.map((s) => (
@@ -285,7 +300,7 @@ export default function Contact() {
                     <i className="ri-bar-chart-2-line text-golden text-sm md:text-base"></i>
                   </div>
                   <div>
-                    <p className="text-white font-prata text-sm">Free Property Valuation</p>
+                    <p className="text-white font-roboto font-bold text-sm">Free Property Valuation</p>
                     <p className="text-white/60 font-roboto text-xs">Know your property's worth →</p>
                   </div>
                 </Link>
@@ -300,14 +315,14 @@ export default function Contact() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <p className="text-golden text-sm font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Our Location</p>
-            <h2 className="text-2xl font-prata text-primary">Find Our Office</h2>
+            <h2 className="text-2xl font-roboto font-bold text-primary">Find Our Office</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
             <div className="text-center flex flex-col items-center">
               <div className="w-11 h-11 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-3">
                 <i className="ri-map-pin-2-line text-primary text-lg"></i>
               </div>
-              <h3 className="text-primary font-prata text-sm mb-1">Our Address</h3>
+              <h3 className="text-primary font-roboto font-bold text-sm mb-1">Our Address</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed">
                 Riverside Drive<br />Westlands<br />Nairobi<br />Kenya
               </p>
@@ -316,7 +331,7 @@ export default function Contact() {
               <div className="w-11 h-11 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-3">
                 <i className="ri-car-line text-primary text-lg"></i>
               </div>
-              <h3 className="text-primary font-prata text-sm mb-1">Getting Here</h3>
+              <h3 className="text-primary font-roboto font-bold text-sm mb-1">Getting Here</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed max-w-sm mx-auto">
                 We are located off Riverside Drive in Westlands. Ample parking is available on-site. 10 minutes from Nairobi City Centre.
               </p>
@@ -325,7 +340,7 @@ export default function Contact() {
               <div className="w-11 h-11 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-3">
                 <i className="ri-calendar-line text-primary text-lg"></i>
               </div>
-              <h3 className="text-primary font-prata text-sm mb-1">Book a Meeting</h3>
+              <h3 className="text-primary font-roboto font-bold text-sm mb-1">Book a Meeting</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed mb-3 max-w-sm mx-auto">
                 Prefer a face-to-face consultation? Call ahead to book a time with one of our property specialists.
               </p>

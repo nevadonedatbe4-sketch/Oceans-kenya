@@ -485,7 +485,7 @@ export default function Leads() {
                   </tr>
                 ) : (
                   leads.map((lead) => (
-                    <tr key={lead.id} className="hover:bg-[#f8fafc]/60 transition-colors group">
+                    <tr key={lead.id} onClick={() => setSelectedLead(lead)} className="hover:bg-[#f8fafc]/60 transition-colors group cursor-pointer">
                       <td className="px-4 md:px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-[#0d5959]/8 flex items-center justify-center flex-shrink-0">
@@ -520,7 +520,8 @@ export default function Leads() {
                         <div className="relative">
                           <select
                             value={lead.status || 'new'}
-                            onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                            onChange={(e) => { e.stopPropagation(); handleStatusChange(lead.id, e.target.value); }}
+                            onClick={(e) => e.stopPropagation()}
                             disabled={updatingId === lead.id}
                             className={`text-xs font-roboto px-2 py-1 rounded-full border-0 cursor-pointer focus:ring-1 focus:ring-[#0d5959]/20 ${statusColors[lead.status || 'new'] || 'bg-gray-100 text-gray-600'}`}
                           >
@@ -544,7 +545,7 @@ export default function Leads() {
                       <td className="px-4 md:px-5 py-3">
                         <div className="relative">
                           <button
-                            onClick={() => setActionMenu(actionMenu === lead.id ? null : lead.id)}
+                            onClick={(e) => { e.stopPropagation(); setActionMenu(actionMenu === lead.id ? null : lead.id); }}
                             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#0d5959]/8 text-[#7a8a99] hover:text-[#0d5959] transition-colors cursor-pointer"
                           >
                             <i className="ri-more-2-line text-sm" />

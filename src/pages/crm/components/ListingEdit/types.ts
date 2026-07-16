@@ -32,7 +32,7 @@ export interface ListingFormState {
   neighbourhood: string;
   propertyType: string;
   subType: string;
-  purpose: 'sale' | 'rent' | 'new_development';
+  purpose: 'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented';
   price: string;
   currency: string;
   bedrooms: number;
@@ -40,6 +40,8 @@ export interface ListingFormState {
   parking: number;
   size: string;
   landSize: string;
+  acreage: string;
+  landTitle: string;
   sqft: string;
   amenities: string[];
   features: string;
@@ -122,6 +124,21 @@ export const STEPS = [
   { id: 'summary', label: 'Summary', desc: 'Review & publish' },
 ];
 
+export const LAND_STEPS = [
+  { id: 'description', label: 'Description', desc: 'Title, type & write-up' },
+  { id: 'media', label: 'Media', desc: 'Photos & site images' },
+  { id: 'details', label: 'Details', desc: 'Price, land size & title' },
+  { id: 'location', label: 'Location', desc: 'Address & map' },
+  { id: 'features', label: 'Features', desc: 'Land features & utilities' },
+  { id: 'attachments', label: 'Attachments', desc: 'Docs & brochures' },
+  { id: 'settings', label: 'Settings', desc: 'Agent, SEO & publish' },
+  { id: 'summary', label: 'Summary', desc: 'Review & publish' },
+];
+
+export const getSteps = (propertyType: string) => {
+  return propertyType === 'land' ? LAND_STEPS : STEPS;
+};
+
 export const AMENITIES = [
   'Air Conditioning',
   'Swimming Pool',
@@ -145,11 +162,47 @@ export const AMENITIES = [
   'Smart Home',
 ];
 
-export const PURPOSES = ['sale', 'rent'] as const;
+export const LAND_AMENITIES = [
+  'Title Deed Ready',
+  'Surveyed / Beaconed',
+  'Road Access',
+  'Electricity Connection',
+  'Water Connection',
+  'Borehole',
+  'Fenced / Walled',
+  'Gated Community',
+  'Security',
+  'Solar Power',
+  'River Frontage',
+  'Lake View / Access',
+  'Scenic / Hilltop View',
+  'Near Main Road',
+  'Near School',
+  'Near Hospital',
+  'Near Shopping Centre',
+  'Ready to Build',
+  'Agricultural Use',
+  'Residential Zoning',
+  'Commercial Zoning',
+  'Mixed Use Zoning',
+  'Water Tank',
+  'Sewer Connection',
+];
+
+export const getAmenities = (propertyType: string) => {
+  return propertyType === 'land' ? LAND_AMENITIES : AMENITIES;
+};
+
+export const PURPOSES = ['sale', 'rent', 'joint_ventures', 'new_development', 'short_stay', 'sold', 'rented'] as const;
 
 export const PURPOSE_LABELS: Record<string, string> = {
   sale: 'For Sale',
   rent: 'For Rent',
+  joint_ventures: 'Joint Ventures',
+  new_development: 'New Development',
+  short_stay: 'Short Stay',
+  sold: 'Sold',
+  rented: 'Rented',
 };
 
 export const COLORS = {
@@ -201,6 +254,9 @@ export const SUB_TYPES = [
 export const PURPOSE_OPTIONS = [
   { value: 'sale', label: 'For Sale' },
   { value: 'rent', label: 'For Rent' },
+  { value: 'joint_ventures', label: 'Joint Ventures' },
+  { value: 'new_development', label: 'New Development' },
+  { value: 'short_stay', label: 'Short Stay' },
   { value: 'sold', label: 'Sold' },
   { value: 'rented', label: 'Rented' },
 ];
@@ -258,4 +314,13 @@ export const CONSTRUCTION_TYPES = [
   'Steel',
   'Timber',
   'Mixed',
+];
+
+export const LAND_TITLE_TYPES = [
+  'Freehold',
+  'Buganda',
+  'Mailo',
+  'Lease',
+  'Customary',
+  'Grant',
 ];

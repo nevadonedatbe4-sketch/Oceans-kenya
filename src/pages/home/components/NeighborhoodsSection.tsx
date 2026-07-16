@@ -5,16 +5,16 @@ export default function NeighborhoodsSection() {
   return (
     <section id="neighborhoods" className="relative bg-white">
       <div className="text-center pt-10 md:pt-16 pb-6 md:pb-8 px-4 md:px-6 lg:px-10">
-        <h2 className="font-prata text-2xl md:text-3xl text-primary">
+        <h2 className="font-roboto font-bold text-2xl md:text-3xl text-primary">
           Nairobi Prime Neighborhoods
         </h2>
-        <p className="text-golden text-[10px] sm:text-xs md:text-sm font-roboto font-semibold uppercase tracking-[0.2em] sm:tracking-[0.3em] md:tracking-[0.4em] mt-2 md:mt-3">
+        <p className="text-golden text-xs sm:text-sm md:text-base font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] mt-2 md:mt-3">
           Premium Homes. Select Locations. Expat Representation.
         </p>
       </div>
 
       {/* Desktop grid */}
-      <div className="hidden md:grid grid-cols-4 gap-3 auto-rows-[260px] lg:auto-rows-[300px] xl:auto-rows-[340px] px-4 md:px-8 lg:px-12 xl:px-16">
+      <div className="hidden md:grid grid-cols-4 gap-0.5 auto-rows-[260px] lg:auto-rows-[300px] xl:auto-rows-[340px] px-4 md:px-8 lg:px-12 xl:px-16">
         {/* Karen - col-span-2 */}
         <Link
           to="/neighbourhood/karen"
@@ -27,7 +27,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Karen
             </h3>
           </div>
@@ -45,7 +45,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Westlands
             </h3>
           </div>
@@ -63,7 +63,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Kilimani
             </h3>
           </div>
@@ -81,7 +81,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Lavington
             </h3>
           </div>
@@ -99,7 +99,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Runda
             </h3>
           </div>
@@ -117,7 +117,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Muthaiga
             </h3>
           </div>
@@ -135,7 +135,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Gigiri
             </h3>
           </div>
@@ -153,7 +153,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Kileleshwa
             </h3>
           </div>
@@ -171,7 +171,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Kitisuru
             </h3>
           </div>
@@ -191,7 +191,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Karen
             </h3>
           </div>
@@ -208,7 +208,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Westlands
             </h3>
           </div>
@@ -225,7 +225,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Kilimani
             </h3>
           </div>
@@ -242,7 +242,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Lavington
             </h3>
           </div>
@@ -259,7 +259,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Runda
             </h3>
           </div>
@@ -276,7 +276,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Muthaiga
             </h3>
           </div>
@@ -293,7 +293,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Gigiri
             </h3>
           </div>
@@ -310,7 +310,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Kileleshwa
             </h3>
           </div>
@@ -327,7 +327,7 @@ export default function NeighborhoodsSection() {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-prata text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
               Kitisuru
             </h3>
           </div>

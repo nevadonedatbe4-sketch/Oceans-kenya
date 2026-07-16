@@ -307,25 +307,25 @@ export default function Insights() {
             <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#0d5959]" />
               <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">New Leads</p>
-              <p className="text-2xl font-prata text-[#001731] mt-1">{data.leadsOverTime.reduce((sum, l) => sum + l.count, 0)}</p>
+              <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{data.leadsOverTime.reduce((sum, l) => sum + l.count, 0)}</p>
               <p className="text-xs font-roboto text-[#7a8a99] mt-1">In selected period</p>
             </div>
             <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#001731]" />
               <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Pipeline Value</p>
-              <p className="text-2xl font-prata text-[#001731] mt-1">{formatCurrency(data.totalPipelineValue)}</p>
+              <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{formatCurrency(data.totalPipelineValue)}</p>
               <p className="text-xs font-roboto text-[#7a8a99] mt-1">Active deals</p>
             </div>
             <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#0d5959]" />
               <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">New Listings</p>
-              <p className="text-2xl font-prata text-[#001731] mt-1">{data.newListingsCount}</p>
+              <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{data.newListingsCount}</p>
               <p className="text-xs font-roboto text-[#7a8a99] mt-1">In selected period</p>
             </div>
             <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden p-5">
               <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#001731]" />
               <p className="text-xs font-roboto text-[#7a8a99] uppercase tracking-wider">Win / Loss</p>
-              <p className="text-2xl font-prata text-[#001731] mt-1">{data.dealsWon} / {data.dealsLost}</p>
+              <p className="text-2xl font-roboto font-bold text-[#001731] mt-1">{data.dealsWon} / {data.dealsLost}</p>
               <p className="text-xs font-roboto text-[#7a8a99] mt-1">All time</p>
             </div>
           </>

@@ -1,105 +1,24 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
-import ContactCTA from '@/components/feature/ContactCTA';
-import { supabase } from '@/lib/supabase';
+import PageContactSection from '@/components/feature/PageContactSection';
+import QuickViewModal from '@/components/feature/QuickViewModal';
+import { useListings, ListingFilters, type MappedListing } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from './Rent/components/AdvancedFilters';
-
-interface ExtendedProperty {
-  id: string;
-  slug: string;
-  title: string;
-  location: string;
-  type: 'sale' | 'rent';
-  category: string;
-  beds: number;
-  baths: number;
-  parking: number;
-  receptions: number;
-  sqft: number;
-  sqm: number;
-  price: string;
-  priceUnit?: string;
-  image: string;
-  featured: boolean;
-  listedDays: number;
-  badges: string[];
-  description: string;
-  agent: string;
-  agentLogo?: string;
-  images: string[];
-  newHome?: boolean;
-  reduced?: boolean;
-  videoTour?: boolean;
-  virtualTour?: boolean;
-  floorPlan?: boolean;
-  justAdded?: boolean;
-  houseShare?: boolean;
-  agentShortName?: string;
-  agentBrandColor?: string;
-}
+import { geocodeLocation } from '@/lib/geocode';
+import { radiusLabelToMeters } from '@/lib/distance';
+import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
+import ListingHero from '@/components/feature/ListingHero';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
 
 function toDisplayType(category: string): string {
   return category
     .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .split(/[_\s]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
-}
-
-function parseNumericPrice(priceStr: string): number {
-  const cleaned = priceStr.replace(/[^\d.]/g, '');
-  const num = parseFloat(cleaned);
-  return Number.isNaN(num) ? 0 : num;
-}
-
-function priceMatchesFilter(priceStr: string, selected: string): boolean {
-  if (selected === 'Any price') return true;
-  const num = parseNumericPrice(priceStr);
-  if (num === 0) return true;
-  if (selected === 'Under KSh 300K') return num < 300000;
-  if (selected === 'KSh 300K – 500K') return num >= 300000 && num <= 500000;
-  if (selected === 'KSh 500K – 1M') return num >= 500000 && num <= 1000000;
-  if (selected === 'KSh 1M – 2M') return num >= 1000000 && num <= 2000000;
-  if (selected === 'KSh 2M – 5M') return num >= 2000000 && num <= 5000000;
-  if (selected === 'Over KSh 5M') return num > 5000000;
-  return true;
-}
-
-function bedsMatchFilter(beds: number, selected: string): boolean {
-  if (selected === 'Any beds') return true;
-  if (selected === 'Studio') return beds === 0;
-  const min = parseInt(selected, 10);
-  if (!Number.isNaN(min)) return beds >= min;
-  return true;
-}
-
-function typeMatchesFilter(category: string, selected: string): boolean {
-  if (selected === 'Any type') return true;
-  return category.toLowerCase().includes(selected.toLowerCase());
-}
-
-function addedMatchesFilter(listedDays: number, selected: string): boolean {
-  if (selected === 'Anytime') return true;
-  if (selected === 'Last 24 hours') return listedDays <= 1;
-  if (selected === 'Last 3 days') return listedDays <= 3;
-  if (selected === 'Last 7 days') return listedDays <= 7;
-  if (selected === 'Last 14 days') return listedDays <= 14;
-  return true;
-}
-
-function advancedPriceMatch(priceStr: string, af: FilterState): boolean {
-  const num = parseNumericPrice(priceStr);
-  if (af.minPrice && num < parseFloat(af.minPrice.replace(/[^\d.]/g, ''))) return false;
-  if (af.maxPrice && num > parseFloat(af.maxPrice.replace(/[^\d.]/g, ''))) return false;
-  return true;
-}
-
-function numberFromStr(s: string): number {
-  const n = parseInt(s, 10);
-  return Number.isNaN(n) ? 0 : n;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -128,7 +47,9 @@ const relatedSearches = [
 ];
 
 export default function Rent() {
+  const { hero } = usePropertyPageSettings('rent');
   const [searchQuery, setSearchQuery] = useState('Nairobi');
+  const navigate = useNavigate();
   const [selectedRadius, setSelectedRadius] = useState('This area only');
   const [selectedPrice, setSelectedPrice] = useState('Any price');
   const [selectedBeds, setSelectedBeds] = useState('Any beds');
@@ -152,143 +73,73 @@ export default function Rent() {
   const [isSearching, setIsSearching] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
-  const [enquiryStatus, setEnquiryStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [quickViewProperty, setQuickViewProperty] = useState<MappedListing | null>(null);
   const [activeMapMarker, setActiveMapMarker] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const { status: alertStatus, error: alertError, submitToContacts, reset: resetAlert } = useFormSubmit();
 
-  const [rentListings, setRentListings] = useState<ExtendedProperty[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  // ── Geocoded search center & radius ───────────────────────────
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [geocodedName, setGeocodedName] = useState<string>('');
+  const radiusMeters = radiusLabelToMeters(selectedRadius);
 
-  useEffect(() => {
-    const fetchRentListings = async () => {
-      setLoading(true);
-      setFetchError(null);
-      try {
-        const { data, error } = await supabase
-          .from('listings')
-          .select('*, agent:agents(*)')
-          .eq('purpose', 'rent')
-          .eq('is_published', true)
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        const mapped: ExtendedProperty[] = (data || []).map((listing: any) => {
-          const mainImg = listing.main_image || '';
-          const dbImages = Array.isArray(listing.images) ? listing.images.filter(Boolean) : [];
-          const allImages = [mainImg, ...dbImages].filter(Boolean);
-          const bedrooms = listing.bedrooms || 0;
-          const bathrooms = listing.bathrooms || 0;
-          const sqft = Number(listing.sqft) || 0;
-          const createdAt = listing.created_at ? new Date(listing.created_at) : new Date();
-          const listedDays = Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / 86400000));
-          const amenities = Array.isArray(listing.amenities) ? listing.amenities : [];
-
-          return {
-            id: listing.id,
-            slug: listing.slug || listing.id,
-            title: listing.title || 'Untitled Property',
-            location: listing.location || listing.neighbourhood || listing.city || 'Nairobi',
-            type: 'rent',
-            category: listing.property_type || 'Apartment',
-            beds: bedrooms,
-            baths: bathrooms,
-            parking: listing.parking || listing.garages || 0,
-            receptions: listing.rooms || Math.max(1, Math.floor(bedrooms / 2)),
-            sqft,
-            sqm: Math.round(sqft * 0.0929),
-            price: listing.price ? `KSh ${Number(listing.price).toLocaleString()}` : 'Price on request',
-            priceUnit: listing.price_prefix || undefined,
-            image: allImages[0] || '',
-            featured: listing.is_featured || false,
-            listedDays,
-            badges: listing.property_label ? [listing.property_label] : [],
-            description: listing.description || '',
-            agent: listing.agent?.name || 'Oceans Kenya',
-            agentShortName: (listing.agent?.name || 'OK').substring(0, 2).toUpperCase(),
-            agentBrandColor: '#1a1a2e',
-            images: allImages.length > 0 ? allImages : [''],
-            newHome: listedDays <= 7,
-            reduced: listing.availability_status === 'reduced',
-            videoTour: !!listing.video_url,
-            virtualTour: !!listing.virtual_tour_url,
-            floorPlan: Array.isArray(listing.floor_plans) && listing.floor_plans.length > 0,
-            justAdded: listedDays <= 2,
-            houseShare: amenities.includes('Shared'),
-          };
-        });
-
-        setRentListings(mapped);
-      } catch (err: any) {
-        console.error('Failed to fetch rent listings:', err);
-        setFetchError(err.message || 'Failed to load properties');
-      } finally {
-        setLoading(false);
-      }
+  // ── Build server-side filters from dropdown state ────────────
+  const buildFilters = useCallback((): ListingFilters => {
+    const filters: ListingFilters = {
+      purpose: 'rent',
+      search: appliedSearchQuery,
+      propertyType: selectedType,
+      addedSince: selectedAdded,
+      sortBy,
+      statusFilter: 'active',
+      centerLat: searchCenter?.lat ?? null,
+      centerLng: searchCenter?.lng ?? null,
+      radiusMeters: radiusMeters ?? null,
     };
+    // Price ranges for rent
+    if (selectedPrice === 'Under KSh 300K') { filters.priceMax = 300_000; }
+    else if (selectedPrice === 'KSh 300K \u2013 500K') { filters.priceMin = 300_000; filters.priceMax = 500_000; }
+    else if (selectedPrice === 'KSh 500K \u2013 1M') { filters.priceMin = 500_000; filters.priceMax = 1_000_000; }
+    else if (selectedPrice === 'KSh 1M \u2013 2M') { filters.priceMin = 1_000_000; filters.priceMax = 2_000_000; }
+    else if (selectedPrice === 'KSh 2M \u2013 5M') { filters.priceMin = 2_000_000; filters.priceMax = 5_000_000; }
+    else if (selectedPrice === 'Over KSh 5M') { filters.priceMin = 5_000_000; }
+    // Beds
+    if (selectedBeds === 'Studio') { filters.bedsMin = 0; filters.bedsMax = 0; }
+    else if (selectedBeds === '1+') { filters.bedsMin = 1; }
+    else if (selectedBeds === '2+') { filters.bedsMin = 2; }
+    else if (selectedBeds === '3+') { filters.bedsMin = 3; }
+    else if (selectedBeds === '4+') { filters.bedsMin = 4; }
+    else if (selectedBeds === '5+') { filters.bedsMin = 5; }
+    return filters;
+  }, [appliedSearchQuery, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
 
-    fetchRentListings();
-  }, []);
+  const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
 
-  const rentProperties = rentListings;
+  const paginated = rentListings;
 
-  const filteredProperties = useMemo(() => {
-    const af = appliedFilters.advanced;
-    return rentProperties.filter((p) => {
-      if (appliedSearchQuery) {
-        const q = appliedSearchQuery.toLowerCase();
-        const matchesQuery =
-          p.title.toLowerCase().includes(q) ||
-          p.location.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q);
-        if (!matchesQuery) return false;
-      }
-      if (!priceMatchesFilter(p.price, selectedPrice)) return false;
-      if (!bedsMatchFilter(p.beds, selectedBeds)) return false;
-      if (!typeMatchesFilter(p.category, selectedType)) return false;
-      if (!addedMatchesFilter(p.listedDays, selectedAdded)) return false;
-      if (!advancedPriceMatch(p.price, af)) return false;
-      if (af.minBeds && p.beds < numberFromStr(af.minBeds)) return false;
-      if (af.maxBeds && p.beds > numberFromStr(af.maxBeds)) return false;
-      if (af.minBaths && p.baths < numberFromStr(af.minBaths)) return false;
-      if (af.propertyTypes.length > 0 && !af.propertyTypes.some((t) => typeMatchesFilter(p.category, t))) return false;
-      if (af.furnished.length > 0) {
-        const hasFurnished = af.furnished.some((f) => p.description.toLowerCase().includes(f.toLowerCase()));
-        if (!hasFurnished) return false;
-      }
-      if (af.lettingType.length > 0) {
-        const hasLetting = af.lettingType.some((lt) => p.category.toLowerCase().includes(lt.toLowerCase().replace(' ', '')) || p.description.toLowerCase().includes(lt.toLowerCase()));
-        if (!hasLetting) return false;
-      }
-      if (af.minSize && p.sqft < numberFromStr(af.minSize)) return false;
-      if (af.maxSize && p.sqft > numberFromStr(af.maxSize)) return false;
-      if (af.keywords) {
-        const kws = af.keywords.toLowerCase().split(',').map((k) => k.trim()).filter(Boolean);
-        if (kws.length > 0 && !kws.some((kw) => p.title.toLowerCase().includes(kw) || p.description.toLowerCase().includes(kw))) return false;
-      }
-      if (af.keywordsExclude) {
-        const kwsEx = af.keywordsExclude.toLowerCase().split(',').map((k) => k.trim()).filter(Boolean);
-        if (kwsEx.length > 0 && kwsEx.some((kw) => p.title.toLowerCase().includes(kw) || p.description.toLowerCase().includes(kw))) return false;
-      }
-      return true;
-    }).sort((a, b) => {
-      if (sortBy === 'Highest price') return parseNumericPrice(b.price) - parseNumericPrice(a.price);
-      if (sortBy === 'Lowest price') return parseNumericPrice(a.price) - parseNumericPrice(b.price);
-      if (sortBy === 'Most reduced') return (b.reduced ? 1 : 0) - (a.reduced ? 1 : 0);
-      if (sortBy === 'Most popular') return a.listedDays - b.listedDays;
-      return a.listedDays - b.listedDays;
-    });
-  }, [rentProperties, appliedSearchQuery, appliedFilters, sortBy]);
-
-  const executeSearch = useCallback(() => {
+  const executeSearch = useCallback(async () => {
     setAppliedSearchQuery(searchQuery);
     setAppliedFilters((prev) => ({
       ...prev,
       advanced: { ...advancedFilters },
     }));
+
+    // Geocode the search query to enable radius filtering
+    if (searchQuery.trim()) {
+      try {
+        const result = await geocodeLocation(searchQuery);
+        setSearchCenter({ lat: result.lat, lng: result.lng });
+        setGeocodedName(result.formattedAddress);
+      } catch {
+        setSearchCenter(null);
+        setGeocodedName('');
+      }
+    } else {
+      setSearchCenter(null);
+      setGeocodedName('');
+    }
+
     setCurrentPage(1);
   }, [searchQuery, advancedFilters]);
 
@@ -298,8 +149,11 @@ export default function Rent() {
     setSelectedBeds('Any beds');
     setSelectedType('Any type');
     setSelectedAdded('Anytime');
+    setSelectedRadius('This area only');
     setAdvancedFilters({ ...defaultFilters });
     setAppliedSearchQuery('');
+    setSearchCenter(null);
+    setGeocodedName('');
     setAppliedFilters({
       price: 'Any price',
       beds: 'Any beds',
@@ -341,8 +195,7 @@ export default function Rent() {
     setCurrentPage(1);
   }, [selectedPrice, selectedBeds, selectedType, selectedAdded]);
 
-  const totalPages = Math.ceil(filteredProperties.length / ITEMS_PER_PAGE);
-  const paginated = filteredProperties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
   const toggleSave = (id: string) => {
     setSavedIds((prev) => {
@@ -377,32 +230,46 @@ export default function Rent() {
     });
   };
 
-  const handleEnquiry = (e: React.FormEvent) => {
+  const handleEnquiry = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEnquiryStatus('submitting');
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
-    fetch('https://readdy.ai/api/form/d8coevklhp0cimum0or0', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(formData as any).toString(),
-    })
-      .then(() => {
-        setEnquiryStatus('success');
-        form.reset();
-      })
-      .catch(() => setEnquiryStatus('idle'));
+
+    const fullName = (formData.get('full_name') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+    const phone = (formData.get('phone') as string || '').trim();
+
+    const success = await submitToContacts({
+      name: fullName,
+      email,
+      phone: phone || undefined,
+      type: 'rent_alert',
+      notes: 'Enquiry for new rental properties that match their criteria.',
+      tags: ['rent_page'],
+    });
+
+    if (success) {
+      form.reset();
+    }
   };
 
-  const activeCount = filteredProperties.length;
+  const activeCount = totalCount;
   const agentCount = useMemo(() => {
-    const uniqueAgents = new Set(rentProperties.map((p) => p.agent).filter(Boolean));
+    const uniqueAgents = new Set(rentListings.map((p) => p.agent).filter(Boolean));
     return uniqueAgents.size || 0;
-  }, [rentProperties]);
+  }, [rentListings]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col pt-[92px]">
       <Header />
+
+      {/* Hero Section */}
+      <ListingHero
+        hero={hero}
+        defaultEyebrow="Premium Rentals"
+        defaultTitle="Properties For Rent in Kampala"
+        defaultSubtitle="Explore exceptional rental properties across Kampala's finest neighbourhoods."
+      />
 
       {/* === SEARCH + FILTER BAR === */}
       <div className="sticky top-[92px] z-40 bg-white border-b border-gray-200 shadow-sm mt-6">
@@ -636,7 +503,15 @@ export default function Rent() {
       <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-prata text-primary">Properties to rent in Nairobi</h1>
+            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">Properties to rent in Nairobi</h1>
+            {geocodedName && radiusMeters && (
+              <p className="text-xs font-roboto text-gray-500 mt-0.5">
+                <span className="w-3.5 h-3.5 inline-flex items-center justify-center align-middle mr-1">
+                  <i className="ri-focus-3-line text-primary text-xs"></i>
+                </span>
+                Within <span className="text-primary font-semibold">{selectedRadius}</span> of {geocodedName}
+              </p>
+            )}
             <p className="text-xs font-roboto text-gray-500 mt-0.5">
               <span className="text-primary font-semibold">{activeCount}</span> properties &middot; <span className="text-primary font-semibold">{agentCount}</span> agents
               {hasActiveFilters && <span className="text-gray-400"> &middot; filtered</span>}
@@ -696,9 +571,9 @@ export default function Rent() {
               {loading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[260px] animate-pulse">
-                      <div className="sm:w-[280px] md:w-[320px] lg:w-[340px] h-[220px] sm:h-full bg-gray-200" />
-                      <div className="flex-1 p-5 space-y-3">
+                    <div key={i} className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[420px] animate-pulse">
+                      <div className="sm:w-[380px] md:w-[440px] lg:w-[480px] h-[260px] sm:h-full bg-gray-200" />
+                      <div className="flex-1 p-6 space-y-4">
                         <div className="h-7 bg-gray-200 rounded w-1/3" />
                         <div className="h-5 bg-gray-200 rounded w-2/3" />
                         <div className="h-4 bg-gray-200 rounded w-1/2" />
@@ -714,22 +589,22 @@ export default function Rent() {
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-red-50">
                     <i className="ri-error-warning-line text-red-400 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-prata text-primary mb-2">Something went wrong</h3>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">Something went wrong</h3>
                   <p className="text-sm font-roboto text-gray-500 mb-4">{fetchError}</p>
                   <button
-                    onClick={() => window.location.reload()}
+                    onClick={refetch}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     <i className="ri-refresh-line"></i>
                     Try again
                   </button>
                 </div>
-              ) : rentProperties.length === 0 ? (
+              ) : rentListings.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
                     <i className="ri-home-line text-gray-400 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-prata text-primary mb-2">No rental properties yet</h3>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No rental properties yet</h3>
                   <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">
                     There are currently no rental listings available. Check back soon or browse properties for sale.
                   </p>
@@ -746,7 +621,7 @@ export default function Rent() {
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
                     <i className="ri-search-line text-gray-400 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-prata text-primary mb-2">No properties match your filters</h3>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties match your filters</h3>
                   <p className="text-sm font-roboto text-gray-500 mb-4">Try adjusting your search criteria or clearing filters.</p>
                   <button
                     onClick={clearSearch}
@@ -764,18 +639,18 @@ export default function Rent() {
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[260px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                    className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[420px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
                     onMouseEnter={() => setHoveredCard(p.id)}
                     onMouseLeave={() => setHoveredCard(null)}
                   >
                     {/* Image area */}
-                    <div className="relative sm:w-[280px] md:w-[320px] lg:w-[340px] h-[220px] sm:h-full flex-shrink-0 overflow-hidden">
+                    <div className="relative sm:w-[380px] md:w-[440px] lg:w-[480px] h-[260px] sm:h-full flex-shrink-0 overflow-hidden group">
                       <Link to={`/property/${p.slug}`} className="block w-full h-full">
                         <img
                           src={p.images[imgIdx]}
                           alt={p.title}
                           className="w-full h-full object-cover object-top transition-transform duration-500"
-                          style={{ transform: isHovered ? 'scale(1.03)' : 'scale(1)' }}
+                          style={{ transform: isHovered ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
                         />
                       </Link>
 
@@ -783,6 +658,23 @@ export default function Rent() {
                       <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">
                         {imgIdx + 1}/{p.images.length}
                       </div>
+
+                      {/* Preview badge */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuickViewProperty(p);
+                        }}
+                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      >
+                        <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm cursor-pointer hover:bg-black/80 transition-colors">
+                          <span className="w-3.5 h-3.5 flex items-center justify-center">
+                            <i className="ri-expand-diagonal-line text-xs"></i>
+                          </span>
+                          Preview
+                        </span>
+                      </button>
 
                       {/* Nav arrows */}
                       {p.images.length > 1 && (
@@ -848,56 +740,64 @@ export default function Rent() {
                     </div>
 
                     {/* Content area */}
-                    <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
+                    <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between min-w-0 overflow-hidden">
                       <div>
                         {/* Price & title */}
                         <div className="flex items-start justify-between gap-3 mb-1">
                           <div className="min-w-0">
-                            <span className="font-prata text-xl md:text-2xl text-primary font-semibold">{p.price}</span>
+                            <span className="text-2xl font-roboto font-medium text-[#002349]">{p.price}</span>
                             {p.priceUnit && <span className="text-sm text-gray-500 font-roboto ml-1">{p.priceUnit}</span>}
                           </div>
                         </div>
                         <Link to={`/property/${p.slug}`} className="block hover:underline">
-                          <h3 className="font-prata text-sm md:text-base text-primary leading-snug mb-1">{p.title}</h3>
+                          <h3 className="text-base font-roboto font-medium text-[#011328] leading-snug line-clamp-2 mb-3">{p.title}</h3>
                         </Link>
-                        <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500 mb-2">
+                        <p className="flex items-center gap-1.5 text-sm font-roboto text-[#636363] mb-2">
                           <span className="w-4 h-4 flex items-center justify-center">
                             <i className="ri-map-pin-line text-primary text-sm"></i>
                           </span>
                           {p.location}, Nairobi
+                          {searchCenter && p.distanceKm != null && (
+                            <span className="ml-1.5 text-[10px] font-roboto font-semibold text-primary bg-primary/5 px-1.5 py-0.5 rounded">
+                              {p.distanceKm < 1
+                                ? `${Math.round(p.distanceKm * 1000)}m away`
+                                : `${p.distanceKm.toFixed(1)}km away`}
+                            </span>
+                          )}
+                        </p>
+
+                        <p className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-[#1f1f1f] mb-3">
+                          {toDisplayType(p.category)}
                         </p>
 
                         {/* Meta badges */}
-                        <div className="flex items-center gap-3 mb-2.5">
-                          <span className="text-xs font-roboto text-gray-700">
-                            {toDisplayType(p.category)}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-hotel-bed-line text-primary text-sm"></i>
+                        <div className="flex items-center gap-4 mb-3">
+                          <span className="flex items-center gap-1 text-sm font-roboto text-[#363535]">
+                            <i className="ri-hotel-bed-line text-[#636363] text-xs"></i>
                             {p.beds}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-drop-line text-primary text-sm"></i>
+                          <span className="flex items-center gap-1 text-xs font-roboto text-[#363535]">
+                            <i className="ri-drop-line text-[#636363] text-xs"></i>
                             {p.baths}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-sofa-line text-primary text-sm"></i>
+                          <span className="flex items-center gap-1 text-xs font-roboto text-[#363535]">
+                            <i className="ri-sofa-line text-[#636363] text-xs"></i>
                             {p.receptions}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-car-line text-primary text-sm"></i>
+                          <span className="flex items-center gap-1 text-xs font-roboto text-[#363535]">
+                            <i className="ri-car-line text-[#636363] text-xs"></i>
                             {p.parking}
                           </span>
                         </div>
 
                         {/* Description */}
-                        <p className="text-xs font-roboto text-gray-600 leading-relaxed line-clamp-2 mb-3">{p.description}</p>
+                        <p className="text-sm font-roboto text-[#555555] leading-relaxed line-clamp-2 mb-3">{p.description}</p>
                       </div>
 
                       {/* Agent footer */}
                       <div className="flex items-end justify-between gap-3 pt-3 border-t border-gray-100">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-roboto font-bold text-[#228B22] uppercase tracking-wide">
+                          <span className="text-sm font-roboto font-medium text-[#005733] capitalize">
                             {(() => {
                               const now = Date.now();
                               const listed = new Date(now - p.listedDays * 86400000);
@@ -924,19 +824,19 @@ export default function Rent() {
                             })()}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a href="tel:+254712345678" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3 h-3 flex items-center justify-center">
-                              <i className="ri-phone-line text-[10px]"></i>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <a href={`tel:${p.agentPhone || '+254712345678'}`} className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
+                            <span className="w-4 h-4 flex items-center justify-center">
+                              <i className="ri-phone-line text-sm"></i>
                             </span>
-                            Call
+                            <span className="underline underline-offset-2">Call</span>
                           </a>
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-golden text-white rounded-md text-[10px] font-roboto font-semibold hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3 h-3 flex items-center justify-center">
-                              <i className="ri-chat-1-line text-[10px]"></i>
+                          <a href={`mailto:${p.agentEmail || 'info@property.co.ke'}?subject=Enquiry about ${encodeURIComponent(p.title)}`} className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
+                            <span className="w-4 h-4 flex items-center justify-center">
+                              <i className="ri-mail-line text-sm"></i>
                             </span>
-                            Contact
-                          </button>
+                            <span className="underline underline-offset-2">Email</span>
+                          </a>
                         </div>
                       </div>
                     </div>
@@ -976,16 +876,22 @@ export default function Rent() {
 
             {/* Bottom CTA */}
             <div className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
-              <h3 className="text-lg font-prata text-primary mb-2">Can't find what you're looking for?</h3>
+              <h3 className="text-lg font-roboto font-bold text-primary mb-2">Can't find what you're looking for?</h3>
               <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">Register for property alerts and be the first to know about new rentals in your area.</p>
               <form data-readdy-form="true" id="rent-alert-form" onSubmit={handleEnquiry} className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
                 <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-gray-300 rounded-lg focus:outline-none focus:border-primary" />
                 <input type="hidden" name="type" value="rent_alert" />
                 <input type="hidden" name="location" value="Nairobi" />
-                <button type="submit" disabled={enquiryStatus === 'submitting'} className="w-full sm:w-auto h-11 px-6 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
-                  {enquiryStatus === 'success' ? 'Alert set!' : 'Get alerts'}
+                <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto h-11 px-6 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+                  {alertStatus === 'success' ? 'Alert set!' : 'Get alerts'}
                 </button>
               </form>
+              {alertStatus === 'success' && (
+                <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll respond within 24 hours.</p>
+              )}
+              {alertStatus === 'error' && (
+                <p className="text-red-500 text-sm font-roboto text-center">{alertError}</p>
+              )}
             </div>
           </div>
 
@@ -996,10 +902,58 @@ export default function Rent() {
                 {/* Similar search */}
                 <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100">
-                    <h3 className="text-sm font-roboto font-semibold text-primary">Studios to rent in Nairobi</h3>
+                    <h3 className="text-sm font-roboto font-semibold text-primary">Refine your search</h3>
                   </div>
-                  <div className="px-4 py-3">
-                    <p className="text-xs font-roboto text-gray-500">Refine your search with specific requirements</p>
+                  <div className="px-4 py-3 space-y-2">
+                    <p className="text-[11px] font-roboto text-gray-500 leading-relaxed">
+                      {geocodedName && radiusMeters
+                        ? `Showing properties within ${selectedRadius} of ${geocodedName}`
+                        : appliedSearchQuery
+                        ? `Showing results for "${appliedSearchQuery}" in Nairobi`
+                        : 'Rental properties across Nairobi and surrounding areas'}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {['Studio', '1 Bed', '2 Bed', '3 Bed', 'Furnished', 'Pet Friendly', 'Parking'].map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => {
+                            if (tag === 'Studio') {
+                              setSelectedBeds('Studio');
+                            } else if (tag === '1 Bed') {
+                              setSelectedBeds('1+');
+                            } else if (tag === '2 Bed') {
+                              setSelectedBeds('2+');
+                            } else if (tag === '3 Bed') {
+                              setSelectedBeds('3+');
+                            } else if (tag === 'Furnished') {
+                              setAppliedSearchQuery('furnished');
+                              setSearchQuery('furnished');
+                            } else if (tag === 'Pet Friendly') {
+                              setAppliedSearchQuery('pet friendly');
+                              setSearchQuery('pet friendly');
+                            } else if (tag === 'Parking') {
+                              setAppliedSearchQuery('parking');
+                              setSearchQuery('parking');
+                            }
+                            setCurrentPage(1);
+                          }}
+                          className="px-2.5 py-1 text-[10px] font-roboto font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                    {hasActiveFilters && (
+                      <button
+                        onClick={clearSearch}
+                        className="flex items-center gap-1 text-[11px] font-roboto font-medium text-red-500 hover:text-red-600 transition-colors cursor-pointer pt-1"
+                      >
+                        <span className="w-3.5 h-3.5 flex items-center justify-center">
+                          <i className="ri-close-circle-line text-xs"></i>
+                        </span>
+                        Clear all filters
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1010,9 +964,17 @@ export default function Rent() {
                   </div>
                   <div className="px-4 py-3 grid grid-cols-2 gap-x-3 gap-y-2">
                     {nearbyAreas.map((area) => (
-                      <a key={area} href={`/rent?area=${encodeURIComponent(area.toLowerCase())}`} className="text-xs font-roboto text-gray-600 hover:text-primary hover:underline transition-colors">
+                      <button
+                        key={area}
+                        onClick={() => {
+                          setSearchQuery(area);
+                          setAppliedSearchQuery(area);
+                          setCurrentPage(1);
+                        }}
+                        className="text-left text-sm font-roboto text-gray-600 hover:text-primary hover:underline transition-colors cursor-pointer whitespace-nowrap"
+                      >
                         {area}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1024,16 +986,84 @@ export default function Rent() {
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     {relatedSearches.map((search) => (
-                      <a key={search} href={`/rent?q=${encodeURIComponent(search.toLowerCase())}`} className="block text-xs font-roboto text-gray-600 hover:text-primary hover:underline transition-colors">
+                      <button
+                        key={search}
+                        onClick={() => {
+                          let searchTerm = search.replace(' to rent in Nairobi', '').replace('Properties ', '').replace(' in Nairobi', '').replace('New homes in ', '').trim();
+                          if (search === 'New homes in Nairobi') {
+                            setSelectedAdded('Last 14 days');
+                            setSearchQuery('Nairobi');
+                            setAppliedSearchQuery('Nairobi');
+                          } else if (search === 'Properties for sale in Nairobi') {
+                            navigate('/buy');
+                            return;
+                          } else if (search === 'Explore house prices in Nairobi') {
+                            navigate('/valuation');
+                            return;
+                          } else if (search === 'Find letting agents in Nairobi') {
+                            navigate('/landlords');
+                            return;
+                          } else if (search === 'Studios to rent in Nairobi') {
+                            setSelectedBeds('Studio');
+                            setSelectedType('Studio');
+                            setSearchQuery('Nairobi');
+                            setAppliedSearchQuery('Nairobi');
+                          } else {
+                            setSearchQuery(searchTerm);
+                            setAppliedSearchQuery(searchTerm);
+                          }
+                          setCurrentPage(1);
+                        }}
+                        className="block w-full text-left text-sm font-roboto text-gray-600 hover:text-primary hover:underline transition-colors cursor-pointer"
+                      >
                         {search}
-                      </a>
+                      </button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Quick links */}
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <h3 className="text-sm font-roboto font-semibold text-primary">Quick links</h3>
+                  </div>
+                  <div className="px-4 py-3 space-y-2">
+                    <Link to="/buy" className="flex items-center gap-2 text-sm font-roboto text-gray-600 hover:text-primary transition-colors">
+                      <span className="w-4 h-4 flex items-center justify-center">
+                        <i className="ri-home-line text-xs"></i>
+                      </span>
+                      Properties for sale
+                    </Link>
+                    <Link to="/neighbourhoods" className="flex items-center gap-2 text-sm font-roboto text-gray-600 hover:text-primary transition-colors">
+                      <span className="w-4 h-4 flex items-center justify-center">
+                        <i className="ri-building-2-line text-xs"></i>
+                      </span>
+                      Nairobi neighbourhoods
+                    </Link>
+                    <Link to="/commute-time" className="flex items-center gap-2 text-sm font-roboto text-gray-600 hover:text-primary transition-colors">
+                      <span className="w-4 h-4 flex items-center justify-center">
+                        <i className="ri-route-line text-xs"></i>
+                      </span>
+                      Commute time search
+                    </Link>
+                    <Link to="/schools" className="flex items-center gap-2 text-sm font-roboto text-gray-600 hover:text-primary transition-colors">
+                      <span className="w-4 h-4 flex items-center justify-center">
+                        <i className="ri-school-line text-xs"></i>
+                      </span>
+                      Schools near you
+                    </Link>
+                    <Link to="/new-developments" className="flex items-center gap-2 text-sm font-roboto text-gray-600 hover:text-primary transition-colors">
+                      <span className="w-4 h-4 flex items-center justify-center">
+                        <i className="ri-building-4-line text-xs"></i>
+                      </span>
+                      New developments
+                    </Link>
                   </div>
                 </div>
 
                 {/* List property CTA */}
                 <div className="bg-primary rounded-lg p-4 text-center">
-                  <h3 className="text-white font-prata text-sm mb-2">List your property</h3>
+                  <h3 className="text-white font-roboto font-bold text-sm mb-2">List your property</h3>
                   <p className="text-white/70 font-roboto text-xs mb-3">Reach thousands of qualified tenants</p>
                   <Link to="/landlords" className="inline-flex items-center gap-1 px-4 py-2 bg-golden text-white font-roboto text-xs font-semibold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
                     Get started
@@ -1083,16 +1113,38 @@ export default function Rent() {
       {/* === FOOTER CTA === */}
       <div className="bg-primary py-12 px-6 text-center">
         <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">Own a Property?</p>
-        <h2 className="text-white font-prata text-2xl md:text-3xl mb-3">List Your Property With Us</h2>
+        <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">List Your Property With Us</h2>
         <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">Reach thousands of qualified tenants. Get a free rental assessment from our expert team today.</p>
         <Link to="/landlords" className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
           <i className="ri-home-heart-line"></i>Get Rental Valuation
         </Link>
       </div>
 
-      <ContactCTA pageSlug="rent" />
+      <PageContactSection />
       <Footer />
       <BackToTop />
+      <QuickViewModal
+        isOpen={quickViewProperty !== null}
+        onClose={() => setQuickViewProperty(null)}
+        property={quickViewProperty ? {
+          id: quickViewProperty.id,
+          slug: quickViewProperty.slug,
+          title: quickViewProperty.title,
+          price: quickViewProperty.price,
+          priceUnit: quickViewProperty.priceUnit,
+          location: quickViewProperty.location,
+          category: quickViewProperty.category,
+          beds: Number(quickViewProperty.beds) || 0,
+          baths: Number(quickViewProperty.baths) || 0,
+          parking: Number(quickViewProperty.parking) || 0,
+          receptions: Number(quickViewProperty.receptions) || 0,
+          description: quickViewProperty.description,
+          images: quickViewProperty.images,
+          type: 'rent',
+          agentPhone: quickViewProperty.agentPhone,
+          agentEmail: quickViewProperty.agentEmail,
+        } : null}
+      />
     </div>
   );
 }

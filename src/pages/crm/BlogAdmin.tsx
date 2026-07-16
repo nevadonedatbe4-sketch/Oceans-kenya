@@ -241,8 +241,8 @@ export default function BlogAdmin() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {posts.map((post) => (
-                  <tr key={post.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3">
+                  <tr key={post.id} onClick={() => { setEditPost(post); setIsNew(false); }} className="hover:bg-gray-50/50 transition-colors cursor-pointer">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {post.featured_image ? (
@@ -257,13 +257,13 @@ export default function BlogAdmin() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                       <span className="text-xs text-gray-500 font-roboto">{post.category || '—'}</span>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
+                    <td className="px-4 py-3 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                       <span className="text-xs text-gray-500 font-roboto">{post.author || '—'}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-roboto font-medium uppercase ${
                         post.status === 'published'
                           ? 'bg-green-50 text-green-700'
@@ -272,7 +272,7 @@ export default function BlogAdmin() {
                         {post.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
+                    <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
                       <span className="text-xs text-gray-400 font-roboto">
                         {post.published_at ? new Date(post.published_at).toLocaleDateString() : '—'}
                       </span>
@@ -280,14 +280,14 @@ export default function BlogAdmin() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => { setEditPost(post); setIsNew(false); }}
+                          onClick={(e) => { e.stopPropagation(); setEditPost(post); setIsNew(false); }}
                           className="p-1.5 hover:bg-gray-100 rounded-md cursor-pointer text-gray-400 hover:text-primary transition-colors"
                           title="Edit"
                         >
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => setDeleteId(post.id)}
+                          onClick={(e) => { e.stopPropagation(); setDeleteId(post.id); }}
                           className="p-1.5 hover:bg-red-50 rounded-md cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
                           title="Delete"
                         >

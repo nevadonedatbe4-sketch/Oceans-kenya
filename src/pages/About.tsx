@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
+import PageContactSection from '@/components/feature/PageContactSection';
 
 const whyChoose = [
   { icon: 'ri-home-heart-line', title: 'Your Home, Your Identity', desc: 'We understand that your home is more than just a place — it\'s a reflection of your unique taste, personality, and the life you\'ve worked hard to build.' },
@@ -22,7 +23,7 @@ const values = [
 const timeline = [
   { year: '2015', event: 'Oceans Estate & Lettings founded in Nairobi' },
   { year: '2016', event: 'Expanded to property management services' },
-  { year: '2020', event: 'Launched New Developments division' },
+  { year: '2020', event: 'Launched New Projects division' },
   { year: '2024', event: '500+ properties sold & 200+ under management' },
 ];
 
@@ -38,17 +39,17 @@ export default function About() {
             <div className="hidden lg:block"></div>
             <div className="lg:col-span-2">
               <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Oceans Estate &amp; Letting Agents</p>
-              <h1 className="font-prata leading-snug text-2xl md:text-3xl text-primary mb-0">About Oceans Kenya</h1>
+              <h1 className="font-roboto font-bold leading-snug text-2xl md:text-3xl text-primary mb-0">About Oceans Kenya</h1>
               <span className="block mt-3 h-0.5 w-12 bg-golden"></span>
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 items-start lg:[&>*:first-child]:order-last gap-8 lg:gap-12">
             <div className="relative">
               <div className="w-full overflow-hidden h-52 sm:h-64 lg:h-[380px]">
-                <img alt="Oceans Estate team" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1777059877704.jpg" />
+                <img alt="Oceans Estate team" className="w-full h-full object-cover object-top" src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/80654c03-86fa-4eb2-bc42-7d6b94688b6b_compressed_5016c457-f096-4879-8937-a60638aac297.webp" />
               </div>
               <div className="absolute -bottom-4 -right-4 px-5 py-3 bg-golden hidden md:block">
-                <p className="text-white font-prata text-xl">Est. 2015</p>
+                <p className="text-white font-roboto font-bold text-xl">Est. 2015</p>
                 <p className="text-white/80 font-roboto text-[10px] mt-0.5">Nairobi, Kenya</p>
               </div>
             </div>
@@ -85,7 +86,7 @@ export default function About() {
             { stat: '200+', label: 'Properties Managed' },
           ].map((item) => (
             <div key={item.label} className="py-2">
-              <p className="font-prata text-2xl md:text-3xl text-white mb-1">{item.stat}</p>
+              <p className="font-roboto font-bold text-2xl md:text-3xl text-white mb-1">{item.stat}</p>
               <p className="text-white/55 font-roboto text-[10px] uppercase tracking-wider">{item.label}</p>
             </div>
           ))}
@@ -99,7 +100,7 @@ export default function About() {
             <div className="hidden lg:block"></div>
             <div className="lg:col-span-2">
               <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">The Oceans Difference</p>
-              <h2 className="font-prata leading-snug text-2xl md:text-3xl text-primary">Why Choose Oceans?</h2>
+              <h2 className="font-roboto font-bold leading-snug text-2xl md:text-3xl text-primary">Why Choose Oceans?</h2>
               <span className="block mt-3 h-0.5 w-12 bg-golden"></span>
             </div>
           </div>
@@ -109,7 +110,7 @@ export default function About() {
                 <div className="w-9 h-9 flex items-center justify-center bg-primary/5 rounded-sm mb-3">
                   <i className={`${item.icon} text-base text-primary`}></i>
                 </div>
-                <h3 className="font-prata text-primary text-sm md:text-base mb-1.5">{item.title}</h3>
+                <h3 className="font-roboto font-bold text-primary text-sm md:text-base mb-1.5">{item.title}</h3>
                 <p className="text-stone-500 font-roboto text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
@@ -124,7 +125,7 @@ export default function About() {
         <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 items-center">
           <div>
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Our Purpose</p>
-            <h2 className="text-white font-prata mb-4 leading-snug text-2xl md:text-3xl">Our Mission &amp; Vision</h2>
+            <h2 className="text-white font-roboto font-bold mb-4 leading-snug text-2xl md:text-3xl">Our Mission &amp; Vision</h2>
             <div className="space-y-5">
               <div className="border-l-2 border-golden pl-5">
                 <h3 className="text-golden text-xs uppercase tracking-wider mb-1 font-roboto font-semibold">Mission</h3>
@@ -146,7 +147,7 @@ export default function About() {
                 <div className="w-8 h-8 flex items-center justify-center mb-2">
                   <i className={`${v.icon} text-sm text-golden`}></i>
                 </div>
-                <h3 className="text-white font-prata text-sm mb-1">{v.title}</h3>
+                <h3 className="text-white font-roboto font-bold text-sm mb-1">{v.title}</h3>
                 <p className="text-white/55 font-roboto text-xs leading-relaxed">{v.desc}</p>
               </div>
             ))}
@@ -159,7 +160,7 @@ export default function About() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 items-center gap-8 lg:gap-12">
           <div className="lg:order-last">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Our Story</p>
-            <h2 className="font-prata text-primary mb-4 leading-snug text-2xl md:text-3xl">From Humble Beginnings to Market Leaders</h2>
+            <h2 className="font-roboto font-bold text-primary mb-4 leading-snug text-2xl md:text-3xl">From Humble Beginnings to Market Leaders</h2>
             <p className="text-stone-600 font-roboto text-sm leading-relaxed mb-3">
               Oceans Kenya was founded in 2015 with a vision to transform the property experience in Nairobi. Starting with a small team of dedicated agents and a handful of exceptional listings, we quickly built a reputation for honesty, expertise, and outstanding results.
             </p>
@@ -178,10 +179,10 @@ export default function About() {
           </div>
           <div className="relative">
             <div className="w-full overflow-hidden h-52 sm:h-64 lg:h-[380px]">
-              <img alt="Oceans Kenya story" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1777059906994.webp" />
+              <img alt="Oceans Kenya story" className="w-full h-full object-cover object-top" src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/8dc23801-be18-42ec-beba-c8e4d0252b6d_compressed_nai.webp" />
             </div>
             <div className="absolute -bottom-4 -left-4 px-5 py-3 bg-primary hidden md:block">
-              <p className="text-white font-prata text-xl">Since 2015</p>
+              <p className="text-white font-roboto font-bold text-xl">Since 2015</p>
               <p className="text-white/60 font-roboto text-[10px] mt-0.5">Serving Kenya</p>
             </div>
           </div>
@@ -192,7 +193,7 @@ export default function About() {
       <section className="bg-primary px-6 py-12 md:py-16">
         <div className="max-w-3xl mx-auto text-center">
           <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-3 font-roboto font-semibold">Get Started Today</p>
-          <h2 className="text-white font-prata mb-3 leading-snug text-2xl md:text-3xl">Ready to Find Your Perfect Property?</h2>
+          <h2 className="text-white font-roboto font-bold mb-3 leading-snug text-2xl md:text-3xl">Ready to Find Your Perfect Property?</h2>
           <p className="text-white/65 font-roboto text-sm leading-relaxed mb-7 max-w-lg mx-auto">
             Whether you're buying, selling, or renting — our team of dedicated property professionals is here to help every step of the way. Contact us today for a free, no-obligation consultation.
           </p>
@@ -207,6 +208,7 @@ export default function About() {
         </div>
       </section>
 
+      <PageContactSection />
       <Footer />
       <BackToTop />
     </div>

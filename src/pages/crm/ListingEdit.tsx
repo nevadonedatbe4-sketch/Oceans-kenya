@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase, uploadImageViaEdgeFunction } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
-import { STEPS, COLORS, PURPOSES, PURPOSE_LABELS, Agent, DocumentFile, CustomField, generateSlug } from './components/ListingEdit/types';
+import { STEPS, COLORS, PURPOSES, PURPOSE_LABELS, Agent, DocumentFile, CustomField, generateSlug, getSteps, LAND_TITLE_TYPES } from './components/ListingEdit/types';
 import DescriptionStep from './components/ListingEdit/DescriptionStep';
 import MediaStep from './components/ListingEdit/MediaStep';
 import DetailsStep from './components/ListingEdit/DetailsStep';
@@ -35,7 +35,7 @@ export default function ListingEdit() {
   const [neighbourhood, setNeighbourhood] = useState('');
   const [propertyType, setPropertyType] = useState('house');
   const [subType, setSubType] = useState('');
-  const [purpose, setPurpose] = useState<'sale' | 'rent'>('sale');
+  const [purpose, setPurpose] = useState<'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented'>('sale');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState('USD');
   const [bedrooms, setBedrooms] = useState(0);
@@ -43,6 +43,8 @@ export default function ListingEdit() {
   const [parking, setParking] = useState(0);
   const [size, setSize] = useState('');
   const [landSize, setLandSize] = useState('');
+  const [acreage, setAcreage] = useState('');
+  const [landTitle, setLandTitle] = useState('');
   const [sqft, setSqft] = useState('');
   const [amenities, setAmenities] = useState<string[]>([]);
   const [features, setFeatures] = useState('');
@@ -138,14 +140,9 @@ export default function ListingEdit() {
     setNeighbourhood(data.neighbourhood || '');
     setPropertyType(data.property_type || 'house');
     setSubType(data.sub_type || '');
-    // Normalize purpose: new_development is a sub-type under sale
+    // Normalize purpose: all values are now valid standalone purposes
     const rawPurpose = data.purpose || 'sale';
-    if (rawPurpose === 'new_development') {
-      setPurpose('sale');
-      if (!data.sub_type) setSubType('new_development');
-    } else {
-      setPurpose(rawPurpose as 'sale' | 'rent');
-    }
+    setPurpose(rawPurpose as typeof purpose);
     setPrice(data.price ? String(data.price) : '');
     setCurrency(data.currency || 'USD');
     setBedrooms(data.bedrooms || 0);
@@ -153,6 +150,8 @@ export default function ListingEdit() {
     setParking(data.parking || 0);
     setSize(data.size ? String(data.size) : '');
     setLandSize(data.land_size ? String(data.land_size) : '');
+    setAcreage(data.acreage ? String(data.acreage) : '');
+    setLandTitle(data.land_title || '');
     setSqft(data.sqft ? String(data.sqft) : '');
     setAmenities(data.amenities || []);
     setCustomFeatures(data.custom_features || []);
@@ -261,6 +260,8 @@ export default function ListingEdit() {
       size_unit: sizeUnit,
       land_size: landSize ? Number(landSize) : null,
       land_unit: landUnit,
+      acreage: acreage ? Number(acreage) : null,
+      land_title: landTitle || null,
       sqft: sqft ? Number(sqft) : null,
       description,
       amenities,
@@ -394,6 +395,8 @@ export default function ListingEdit() {
     );
   }
 
+  const currentSteps = getSteps(propertyType);
+
   const getStepStatus = (index: number) => {
     if (index === activeStep) return 'active';
     if (index < activeStep) return 'completed';
@@ -448,7 +451,7 @@ export default function ListingEdit() {
           <div className="bg-white rounded-lg border p-4 sticky top-4" style={{ borderColor: COLORS.border }}>
             <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: COLORS.gray }}>Steps</h3>
             <div className="space-y-1">
-              {STEPS.map((step, index) => {
+              {currentSteps.map((step, index) => {
                 const status = getStepStatus(index);
                 return (
                   <button key={step.id} onClick={() => setActiveStep(index)} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-all cursor-pointer" style={status === 'active' ? { backgroundColor: '#f0f9ff', borderLeft: `3px solid ${COLORS.navy}`, color: COLORS.navy } : status === 'completed' ? { color: COLORS.navy } : { color: COLORS.gray }}>
@@ -482,10 +485,10 @@ export default function ListingEdit() {
           <div className="rounded-lg p-5 flex items-center justify-between" style={{ backgroundColor: COLORS.navy }}>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-white/60">{STEPS[activeStep].label.toUpperCase()}</p>
-              <h2 className="text-xl font-bold text-white mt-0.5">{STEPS[activeStep].label}</h2>
-              <p className="text-xs text-white/50 mt-0.5">{STEPS[activeStep].desc}</p>
+              <h2 className="text-xl font-bold text-white mt-0.5">{currentSteps[activeStep].label}</h2>
+              <p className="text-xs text-white/50 mt-0.5">{currentSteps[activeStep].desc}</p>
             </div>
-            <div className="text-white/40 text-sm font-medium">{activeStep + 1} / {STEPS.length}</div>
+            <div className="text-white/40 text-sm font-medium">{activeStep + 1} / {currentSteps.length}</div>
           </div>
 
           {/* Step Content */}
@@ -505,12 +508,14 @@ export default function ListingEdit() {
               coverImage={coverImage} setCoverImage={setCoverImage} floorPlans={floorPlans} setFloorPlans={setFloorPlans}
               videoUrl={videoUrl} setVideoUrl={setVideoUrl} virtualTourUrl={virtualTourUrl} setVirtualTourUrl={setVirtualTourUrl}
               uploading={uploading} setUploading={setUploading} id={id} uploadImageViaEdgeFunction={uploadImageViaEdgeFunction}
+              propertyType={propertyType}
             />
           )}
           {activeStep === 2 && (
             <DetailsStep
               price={price} setPrice={setPrice} currency={currency} setCurrency={setCurrency}
               size={size} setSize={setSize} landSize={landSize} setLandSize={setLandSize}
+              acreage={acreage} setAcreage={setAcreage} landTitle={landTitle} setLandTitle={setLandTitle}
               sqft={sqft} setSqft={setSqft} parking={parking} setParking={setParking}
               bedrooms={bedrooms} setBedrooms={setBedrooms} bathrooms={bathrooms} setBathrooms={setBathrooms}
               isPublished={isPublished} setIsPublished={setIsPublished} isPending={isPending} setIsPending={setIsPending}
@@ -522,6 +527,7 @@ export default function ListingEdit() {
               garages={garages} setGarages={setGarages} garageSize={garageSize} setGarageSize={setGarageSize}
               yearBuilt={yearBuilt} setYearBuilt={setYearBuilt} rooms={rooms} setRooms={setRooms}
               propertyId={propertyId} setPropertyId={setPropertyId} customFields={customFields} setCustomFields={setCustomFields}
+              propertyType={propertyType}
             />
           )}
           {activeStep === 3 && (
@@ -534,7 +540,7 @@ export default function ListingEdit() {
             />
           )}
           {activeStep === 4 && (
-            <FeaturesStep amenities={amenities} setAmenities={setAmenities} customFeatures={customFeatures} setCustomFeatures={setCustomFeatures} />
+            <FeaturesStep amenities={amenities} setAmenities={setAmenities} customFeatures={customFeatures} setCustomFeatures={setCustomFeatures} propertyType={propertyType} />
           )}
           {activeStep === 5 && (
             <AttachmentsStep
@@ -573,6 +579,7 @@ export default function ListingEdit() {
               id={id}
               uploading={uploading}
               setUploading={setUploading}
+              propertyType={propertyType}
             />
           )}
           {activeStep === 7 && (
@@ -599,6 +606,7 @@ export default function ListingEdit() {
               address={address} zipCode={zipCode}
               videoUrl={videoUrl} virtualTourUrl={virtualTourUrl}
               propertyId={propertyId} customFields={customFields}
+              landSize={landSize} landUnit={landUnit}
             />
           )}
 
@@ -623,8 +631,8 @@ export default function ListingEdit() {
               </button>
             </div>
             <button
-              onClick={() => setActiveStep(Math.min(STEPS.length - 1, activeStep + 1))}
-              disabled={activeStep === STEPS.length - 1}
+              onClick={() => setActiveStep(Math.min(currentSteps.length - 1, activeStep + 1))}
+              disabled={activeStep === currentSteps.length - 1}
               className="inline-flex items-center gap-2 px-4 py-2.5 border rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 hover:bg-gray-50"
               style={{ borderColor: COLORS.border, color: COLORS.gray }}
             >

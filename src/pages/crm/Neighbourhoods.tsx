@@ -166,7 +166,7 @@ export default function Neighbourhoods() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {neighbourhoods.map((hood) => (
-            <div key={hood.id} className="bg-white rounded-xl border border-[#e8edf2] overflow-hidden hover:border-[#0d5959]/20 transition-all group">
+            <div key={hood.id} onClick={() => navigate(`/crm/neighbourhoods/edit/${hood.id}`)} className="bg-white rounded-xl border border-[#e8edf2] overflow-hidden hover:border-[#0d5959]/20 transition-all group cursor-pointer">
               <div className="relative h-40">
                 {hood.hero_image ? (
                   <img src={hood.hero_image} alt={hood.name} className="w-full h-full object-cover" />
@@ -194,13 +194,13 @@ export default function Neighbourhoods() {
                 <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all">
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => navigate(`/crm/neighbourhoods/edit/${hood.id}`)}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/crm/neighbourhoods/edit/${hood.id}`); }}
                       className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#7a8a99] hover:text-[#0d5959] cursor-pointer transition-colors"
                     >
                       <i className="ri-edit-line text-sm" />
                     </button>
                     <button
-                      onClick={() => setDeleteConfirm(hood.id)}
+                      onClick={(e) => { e.stopPropagation(); setDeleteConfirm(hood.id); }}
                       className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#7a8a99] hover:text-red-600 cursor-pointer transition-colors"
                     >
                       <i className="ri-delete-bin-line text-sm" />
@@ -232,7 +232,7 @@ export default function Neighbourhoods() {
                 )}
                 <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#e8edf2]/60">
                   <button
-                    onClick={() => handleTogglePublish(hood.id, hood.is_published)}
+                    onClick={(e) => { e.stopPropagation(); handleTogglePublish(hood.id, hood.is_published); }}
                     disabled={togglingId === hood.id}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-roboto transition-all cursor-pointer whitespace-nowrap ${
                       hood.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
@@ -242,7 +242,7 @@ export default function Neighbourhoods() {
                     {hood.is_published ? 'Unpublish' : 'Publish'}
                   </button>
                   <button
-                    onClick={() => handleToggleFeatured(hood.id, hood.is_featured)}
+                    onClick={(e) => { e.stopPropagation(); handleToggleFeatured(hood.id, hood.is_featured); }}
                     disabled={togglingId === hood.id}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-roboto transition-all cursor-pointer whitespace-nowrap ${
                       hood.is_featured ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'
@@ -252,7 +252,7 @@ export default function Neighbourhoods() {
                     {hood.is_featured ? 'Unfeature' : 'Feature'}
                   </button>
                   <button
-                    onClick={() => navigate(`/crm/neighbourhoods/edit/${hood.id}`)}
+                    onClick={(e) => { e.stopPropagation(); navigate(`/crm/neighbourhoods/edit/${hood.id}`); }}
                     className="ml-auto text-[10px] font-roboto text-[#0d5959] hover:text-[#001731] cursor-pointer"
                   >
                     Edit <i className="ri-arrow-right-line" />

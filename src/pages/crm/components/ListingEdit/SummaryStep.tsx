@@ -59,6 +59,8 @@ interface Props {
   virtualTourUrl: string;
   propertyId: string;
   customFields: { key: string; value: string }[];
+  landSize?: string;
+  landUnit?: string;
   onPreview?: () => void;
 }
 
@@ -72,8 +74,9 @@ export default function SummaryStep({
   constructionType, completionDate, openGraphImage, autoSEO, featuredNewDevelopment,
   privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood,
   isHomepage, stateRegion, city, country, address, zipCode,
-  videoUrl, virtualTourUrl, propertyId, customFields, onPreview,
+  videoUrl, virtualTourUrl, propertyId, customFields, landSize, landUnit, onPreview,
 }: Props) {
+  const isLand = propertyType === 'land';
   const getStatusLabel = () => {
     if (isPublished) return 'Published';
     if (isPending) return 'Pending Review';
@@ -144,41 +147,63 @@ export default function SummaryStep({
         </div>
 
         {/* Key Details Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t" style={{ borderColor: COLORS.border }}>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (USD)</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatPrice()}</p>
+        {isLand ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t" style={{ borderColor: COLORS.border }}>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (USD)</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatPrice()}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (UGX)</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatUgxPrice()}</p>
+              {autoExchange && <p className="text-[10px] text-emerald-600">Auto exchange rate</p>}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Land Size</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{landSize ? `${landSize} ${landUnit || 'sqm'}` : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Property ID</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{propertyId || '—'}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (UGX)</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatUgxPrice()}</p>
-            {autoExchange && <p className="text-[10px] text-emerald-600">Auto exchange rate</p>}
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t" style={{ borderColor: COLORS.border }}>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (USD)</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatPrice()}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (UGX)</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatUgxPrice()}</p>
+              {autoExchange && <p className="text-[10px] text-emerald-600">Auto exchange rate</p>}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Bedrooms</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{bedrooms || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Bathrooms</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{bathrooms || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Size</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{size ? `${size} ${sizeUnit}` : '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Rooms</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{rooms || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Garages</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{garages || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Year Built</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{yearBuilt || '—'}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Bedrooms</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{bedrooms || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Bathrooms</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{bathrooms || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Size</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{size ? `${size} ${sizeUnit}` : '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Rooms</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{rooms || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Garages</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{garages || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Year Built</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{yearBuilt || '—'}</p>
-          </div>
-        </div>
+        )}
 
         {/* Location & Address */}
         <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
@@ -237,45 +262,63 @@ export default function SummaryStep({
         </div>
 
         {/* SEO & Specs Summary */}
-        <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>SEO Title</p>
-            <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{seoTitle || (autoSEO ? title : '—')}</p>
-            {autoSEO && <p className="text-[10px] text-emerald-600">Auto-generated</p>}
+        {isLand ? (
+          <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>SEO Title</p>
+              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{seoTitle || (autoSEO ? title : '—')}</p>
+              {autoSEO && <p className="text-[10px] text-emerald-600">Auto-generated</p>}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Slug</p>
+              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{slug || generateSlug(title) || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Priority</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{priorityRanking || '—'}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Slug</p>
-            <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{slug || generateSlug(title) || '—'}</p>
+        ) : (
+          <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>SEO Title</p>
+              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{seoTitle || (autoSEO ? title : '—')}</p>
+              {autoSEO && <p className="text-[10px] text-emerald-600">Auto-generated</p>}
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Slug</p>
+              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{slug || generateSlug(title) || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Priority</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{priorityRanking || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Interior Finish</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{interiorFinish || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Construction</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{constructionType || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Water Supply</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{waterSupply || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Flooring</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{flooringType || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Ceiling Height</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{ceilingHeight || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Completion</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{completionDate || '—'}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Priority</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{priorityRanking || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Interior Finish</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{interiorFinish || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Construction</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{constructionType || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Water Supply</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{waterSupply || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Flooring</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{flooringType || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Ceiling Height</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{ceilingHeight || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Completion</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{completionDate || '—'}</p>
-          </div>
-        </div>
+        )}
 
         {/* Settings & Visibility Summary */}
         <div className="py-4 border-t grid grid-cols-2 md:grid-cols-4 gap-3" style={{ borderColor: COLORS.border }}>

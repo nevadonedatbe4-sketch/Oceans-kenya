@@ -44,7 +44,7 @@ export default function CRMLogin() {
                 className="w-8 h-8 object-contain"
               />
             </div>
-            <h1 className="text-2xl font-prata text-[#1a1a2e] mb-1">Admin Portal</h1>
+            <h1 className="text-2xl font-roboto font-bold text-[#1a1a2e] mb-1">Admin Portal</h1>
             <p className="text-sm text-gray-500 font-roboto">Sign in to manage your real estate business</p>
           </div>
 

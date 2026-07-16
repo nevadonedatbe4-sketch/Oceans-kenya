@@ -41,7 +41,7 @@ export default function ContactCTA({ pageSlug }: ContactCTAProps) {
               )}
               <div className="text-center md:text-left flex-1">
                 {section.title && (
-                  <h3 className="text-xl md:text-2xl font-prata text-primary mb-2">
+                  <h3 className="text-xl md:text-2xl font-roboto font-bold text-primary mb-2">
                     {section.title}
                   </h3>
                 )}

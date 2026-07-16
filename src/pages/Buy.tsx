@@ -3,119 +3,14 @@ import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
-import ContactCTA from '@/components/feature/ContactCTA';
-import { properties } from '@/mocks/properties';
+import PageContactSection from '@/components/feature/PageContactSection';
+import ContactAgentModal from '@/components/feature/ContactAgentModal';
+import QuickViewModal from '@/components/feature/QuickViewModal';
+import { useListings, type MappedListing, type ListingFilters } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
-
-interface ExtendedProperty {
-  id: string;
-  slug: string;
-  title: string;
-  location: string;
-  type: 'sale' | 'rent';
-  category: string;
-  beds: number;
-  baths: number;
-  parking: number;
-  receptions: number;
-  sqft: number;
-  sqm: number;
-  price: string;
-  priceUnit?: string;
-  image: string;
-  featured: boolean;
-  listedDays: number;
-  badges: string[];
-  description: string;
-  agent: string;
-  agentLogo?: string;
-  images: string[];
-  newHome?: boolean;
-  reduced?: boolean;
-  videoTour?: boolean;
-  virtualTour?: boolean;
-  floorPlan?: boolean;
-  justAdded?: boolean;
-  houseShare?: boolean;
-  agentShortName?: string;
-  agentBrandColor?: string;
-}
-
-const extendedProperties: ExtendedProperty[] = properties.map((p, i) => {
-  const sqftValues = [2150, 1840, 1200, 950, 2800, 3200, 1450, 3980, 2100, 1750, 2200];
-  const sqft = sqftValues[i] || 1500;
-  const sqm = Math.round(sqft * 0.0929);
-  const descs = [
-    'A stunning ultra-luxury townhouse in the prestigious Karen neighbourhood. This property features 5 spacious bedrooms, a private pool, fully equipped gym and sauna.',
-    'Elegant colonial-style residence in Runda with 4 large bedrooms, mature gardens, and a private compound ideal for diplomatic families.',
-    'Executive furnished apartment in Kilimani with 3 ensuite bedrooms, swimming pool access, and modern gym facilities.',
-    'Spacious 4-bedroom apartment in Lavington with all ensuite bedrooms, open-plan living, and proximity to top schools.',
-    'Fully furnished 3-bedroom apartment in Westlands featuring a heated pool, state-of-the-art gym, and sauna for the ultimate luxury lifestyle.',
-    'Premium 4-bedroom house in Muthaiga with a mature garden, expansive living spaces, and a serene family environment.',
-    'Furnished 3-bedroom apartment in Kileleshwa with modern fittings, balcony views, and convenient access to the CBD.',
-    'Luxury 3-bedroom apartment spanning 370 sqm in Kilimani with panoramic city views, premium finishes, and smart home features.',
-    'Exclusive penthouse in Westlands with 3 bedrooms, rooftop terrace, and elevated views of the Nairobi skyline.',
-    'Smart home 4-bedroom furnished apartment in Lavington with automated lighting, climate control, and integrated security.',
-    'Modern luxury 3-bedroom apartments in Karen with contemporary architecture, open-plan living, and landscaped grounds.',
-  ];
-  const imageList = [
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778828764885-hdbj6j9u.jpg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778850072525-boes78l6.jpg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778828331764-z2j033jq.jpeg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778833774204-f9uff0tj.jpeg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778834733525-vyzdij9x.jpeg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778827801796-2cmg2v85.jpg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778835218019-o8768u5e.jfif', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778829364320-ipypb5yn.jpg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778832068863-wt5d1tmv.jpeg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778829845010-srtt5yyz.jpeg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778830377992-ujip07g9.jpg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778834733525-vyzdij9x.jpeg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778828764885-hdbj6j9u.jpg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778835218019-o8768u5e.jfif'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778832068863-wt5d1tmv.jpeg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778833774204-f9uff0tj.jpeg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778829364320-ipypb5yn.jpg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778827801796-2cmg2v85.jpg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778830377992-ujip07g9.jpg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778834733525-vyzdij9x.jpeg'],
-    [p.image, 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778829845010-srtt5yyz.jpeg', 'https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/listings/1778850072525-boes78l6.jpg'],
-  ];
-  const badges: string[] = [];
-  if (i === 0 || i === 5) badges.push('New home');
-  if (i === 2 || i === 7) badges.push('Video tour');
-  if (i === 3 || i === 9) badges.push('Virtual tour');
-  if (i === 1 || i === 4) badges.push('Floor plan');
-  if (i === 6) badges.push('Reduced');
-  const agentData = [
-    { name: 'Oceans Kenya', short: 'OK', color: '#1a1a2e' },
-    { name: 'HassConsult', short: 'HC', color: '#8B0000' },
-    { name: 'Knight Frank', short: 'KF', color: '#006400' },
-    { name: 'Dunhill', short: 'DH', color: '#4B0082' },
-    { name: 'Villa Care', short: 'VC', color: '#D2691E' },
-    { name: 'Tysons', short: 'TY', color: '#2F4F4F' },
-    { name: 'Azizi', short: 'AZ', color: '#556B2F' },
-    { name: 'Red Realty', short: 'RR', color: '#8B4513' },
-  ];
-  const agent = agentData[i % agentData.length];
-  return {
-    ...p,
-    receptions: Math.max(1, Math.floor(p.beds / 2)),
-    sqft,
-    sqm,
-    description: descs[i] || descs[0],
-    agent: agent.name,
-    agentShortName: agent.short,
-    agentBrandColor: agent.color,
-    images: imageList[i] || [p.image],
-    badges,
-    newHome: i === 0 || i === 5,
-    reduced: i === 6,
-    videoTour: i === 2 || i === 7,
-    virtualTour: i === 3 || i === 9,
-    floorPlan: i === 1 || i === 4,
-    justAdded: i === 0 || i === 3 || i === 6,
-    houseShare: i === 4 || i === 7,
-  };
-});
-
-function toDisplayType(category: string): string {
-  return category
-    .toLowerCase()
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
+import ListingHero from '@/components/feature/ListingHero';
+import { useFormSubmit } from '@/hooks/useFormSubmit';
 
 const ITEMS_PER_PAGE = 10;
 const priceOptions = ['Any price', 'Under KSh 10M', 'KSh 10M – 30M', 'KSh 30M – 50M', 'KSh 50M – 100M', 'KSh 100M – 200M', 'Over KSh 200M'];
@@ -143,7 +38,19 @@ const relatedSearches = [
 ];
 
 export default function Buy() {
+  const { hero } = usePropertyPageSettings('buy');
   const [searchQuery, setSearchQuery] = useState('Nairobi');
+  const [debouncedSearch, setDebouncedSearch] = useState('Nairobi');
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerSearch = (value: string) => {
+    setSearchQuery(value);
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+    }, 400);
+  };
+
   const [selectedRadius, setSelectedRadius] = useState('This area only');
   const [selectedPrice, setSelectedPrice] = useState('Any price');
   const [selectedBeds, setSelectedBeds] = useState('Any beds');
@@ -157,15 +64,49 @@ export default function Buy() {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
-  const [enquiryStatus, setEnquiryStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [activeMapMarker, setActiveMapMarker] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const alertFormRef = useRef<HTMLDivElement>(null);
+  const [savedSearch, setSavedSearch] = useState(false);
+  const [searchBookmarked, setSearchBookmarked] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [contactModalProperty, setContactModalProperty] = useState<MappedListing | null>(null);
+  const [quickViewProperty, setQuickViewProperty] = useState<MappedListing | null>(null);
+  const { status: alertStatus, error: alertError, submitToContacts, reset: resetAlert } = useFormSubmit();
 
-  const saleProperties = extendedProperties.filter((p) => p.type === 'sale');
+  // ── Derive numeric filters from dropdown strings ──────────
+  const buildFilters = (): ListingFilters => {
+    const filters: ListingFilters = {
+      purpose: 'sale',
+      search: debouncedSearch,
+      propertyType: selectedType,
+      addedSince: selectedAdded,
+      sortBy,
+      statusFilter: 'active',
+    };
+    // Price
+    if (selectedPrice === 'Under KSh 10M') { filters.priceMax = 10_000_000; }
+    else if (selectedPrice === 'KSh 10M – 30M') { filters.priceMin = 10_000_000; filters.priceMax = 30_000_000; }
+    else if (selectedPrice === 'KSh 30M – 50M') { filters.priceMin = 30_000_000; filters.priceMax = 50_000_000; }
+    else if (selectedPrice === 'KSh 50M – 100M') { filters.priceMin = 50_000_000; filters.priceMax = 100_000_000; }
+    else if (selectedPrice === 'KSh 100M – 200M') { filters.priceMin = 100_000_000; filters.priceMax = 200_000_000; }
+    else if (selectedPrice === 'Over KSh 200M') { filters.priceMin = 200_000_000; }
+    // Beds
+    if (selectedBeds === 'Studio') { filters.bedsMin = 0; filters.bedsMax = 0; }
+    else if (selectedBeds === '1+') { filters.bedsMin = 1; }
+    else if (selectedBeds === '2+') { filters.bedsMin = 2; }
+    else if (selectedBeds === '3+') { filters.bedsMin = 3; }
+    else if (selectedBeds === '4+') { filters.bedsMin = 4; }
+    else if (selectedBeds === '5+') { filters.bedsMin = 5; }
+    return filters;
+  };
 
-  const totalPages = Math.ceil(saleProperties.length / ITEMS_PER_PAGE);
-  const paginated = saleProperties.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const { listings, totalCount, loading, error, refetch } = useListings(buildFilters(), currentPage);
+  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
+
+  // (listings are already paginated by the hook — use them directly)
+  const paginated = listings;
 
   const toggleSave = (id: string) => {
     setSavedIds((prev) => {
@@ -179,7 +120,7 @@ export default function Buy() {
   const nextImage = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const prop = extendedProperties.find((p) => p.id === id);
+    const prop = listings.find((p) => p.id === id);
     if (!prop) return;
     setImageIndexes((prev) => {
       const current = prev[id] || 0;
@@ -191,7 +132,7 @@ export default function Buy() {
   const prevImage = (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const prop = extendedProperties.find((p) => p.id === id);
+    const prop = listings.find((p) => p.id === id);
     if (!prop) return;
     setImageIndexes((prev) => {
       const current = prev[id] || 0;
@@ -200,33 +141,85 @@ export default function Buy() {
     });
   };
 
-  const handleEnquiry = (e: React.FormEvent) => {
+  const handleEnquiry = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEnquiryStatus('submitting');
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
-    fetch('https://readdy.ai/api/form/d8co2lojl3r96eih9060', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(formData as any).toString(),
-    })
-      .then(() => {
-        setEnquiryStatus('success');
-        form.reset();
-      })
-      .catch(() => setEnquiryStatus('idle'));
+
+    const fullName = (formData.get('full_name') as string || '').trim();
+    const email = (formData.get('email') as string || '').trim();
+    const phone = (formData.get('phone') as string || '').trim();
+
+    const success = await submitToContacts({
+      name: fullName,
+      email,
+      phone: phone || undefined,
+      type: 'buy_alert',
+      notes: 'Enquiry for new properties that match their criteria.',
+      tags: ['buy_page'],
+    });
+
+    if (success) {
+      form.reset();
+    }
   };
 
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, advancedFilters]);
 
-  const activeCount = saleProperties.length;
+  const activeCount = totalCount;
   const agentCount = 8;
+
+  const handleSearch = () => {
+    refetch();
+  };
+
+  const scrollToAlertForm = () => {
+    alertFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handleShare = async (p: MappedListing) => {
+    const url = `${window.location.origin}/property/${p.slug}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: p.title, text: `${p.price} - ${p.title}`, url });
+      } catch {
+        // user cancelled — do nothing
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopiedId(p.id);
+        setTimeout(() => setCopiedId(null), 2000);
+      } catch {
+        // clipboard failed — do nothing
+      }
+    }
+  };
+
+  const handleAreaClick = (area: string) => {
+    triggerSearch(area);
+    setSelectedRadius('This area only');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleRelatedSearch = (search: string) => {
+    triggerSearch(search);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="min-h-screen bg-white flex flex-col pt-[92px]">
       <Header />
+
+      {/* Hero Section */}
+      <ListingHero
+        hero={hero}
+        defaultEyebrow="Upscale Properties"
+        defaultTitle="Properties For Sale in Kampala"
+        defaultSubtitle="Discover exceptional homes across Kampala's most sought-after neighbourhoods."
+      />
 
       {/* === SEARCH + FILTER BAR === */}
       <div className="sticky top-[92px] z-40 bg-white border-b border-gray-200 shadow-sm mt-6">
@@ -240,12 +233,12 @@ export default function Buy() {
                 </span>
                 <input
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => triggerSearch(e.target.value)}
                   placeholder="e.g. 'Nairobi', 'Kilimani', or '3 bed house'"
                   className="flex-1 min-w-0 text-sm font-roboto font-medium text-gray-800 placeholder:text-gray-400 focus:outline-none bg-transparent"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
+                  <button onClick={() => triggerSearch('')} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
                     <i className="ri-close-line text-sm"></i>
                   </button>
                 )}
@@ -286,17 +279,17 @@ export default function Buy() {
               </span>
               Filters
             </button>
-            <button className="hidden md:flex items-center gap-2 h-11 px-5 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
+            <button onClick={handleSearch} className="hidden md:flex items-center gap-2 h-11 px-5 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className="ri-search-line text-sm"></i>
               </span>
               Search
             </button>
-            <button className="hidden md:flex items-center gap-2 h-11 px-4 border border-gray-300 text-sm font-roboto font-medium text-gray-700 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+            <button onClick={() => setSearchBookmarked(!searchBookmarked)} className={`hidden md:flex items-center gap-2 h-11 px-4 border text-sm font-roboto font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap ${searchBookmarked ? 'border-primary text-primary bg-primary/5' : 'border-gray-300 text-gray-700 hover:border-primary hover:text-primary'}`}>
               <span className="w-4 h-4 flex items-center justify-center">
-                <i className="ri-heart-line text-sm"></i>
+                <i className={`${searchBookmarked ? 'ri-heart-fill' : 'ri-heart-line'} text-sm`}></i>
               </span>
-              Save
+              {searchBookmarked ? 'Saved' : 'Save'}
             </button>
             <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center justify-center w-11 h-11 border border-gray-300 rounded-lg text-gray-600 cursor-pointer">
               <i className="ri-equalizer-line text-lg"></i>
@@ -401,9 +394,9 @@ export default function Buy() {
               <i className="ri-map-2-line text-xs"></i>
               Map
             </button>
-            <button className="flex items-center gap-1.5 py-2 text-xs font-roboto font-medium text-gray-700 border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer whitespace-nowrap">
-              <i className="ri-bookmark-line text-xs"></i>
-              Save search
+            <button onClick={() => setSavedSearch(!savedSearch)} className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap ${savedSearch ? 'text-primary border-primary' : 'text-gray-700 border-transparent hover:text-primary hover:border-primary/40'}`}>
+              <i className={`${savedSearch ? 'ri-bookmark-fill' : 'ri-bookmark-line'} text-xs`}></i>
+              {savedSearch ? 'Search saved' : 'Save search'}
             </button>
           </div>
         </div>
@@ -421,7 +414,7 @@ export default function Buy() {
       <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-prata text-primary">Properties for sale in Nairobi</h1>
+            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">Properties for sale in Nairobi</h1>
             <p className="text-xs font-roboto text-gray-500 mt-0.5">
               <span className="text-primary font-semibold">{activeCount}</span> properties &middot; <span className="text-primary font-semibold">{agentCount}</span> agents
             </p>
@@ -447,7 +440,7 @@ export default function Buy() {
           <div className={`${viewMode === 'map' ? 'lg:w-[55%] xl:w-[60%]' : 'lg:w-[70%] xl:w-[75%]'}`}>
             {/* Create alert tab bar */}
             <div className="flex items-center gap-2 mb-4">
-              <button className="flex items-center gap-1.5 h-9 px-4 text-xs font-roboto font-medium text-gray-600 border border-gray-300 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+              <button onClick={scrollToAlertForm} className="flex items-center gap-1.5 h-9 px-4 text-xs font-roboto font-medium text-gray-600 border border-gray-300 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
                 <span className="w-4 h-4 flex items-center justify-center">
                   <i className="ri-notification-3-line text-xs"></i>
                 </span>
@@ -456,25 +449,69 @@ export default function Buy() {
             </div>
 
             <div className="space-y-4">
-              {paginated.map((p) => {
+              {loading && (
+                <div className="space-y-4">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[420px] animate-pulse">
+                      <div className="sm:w-[380px] h-[260px] sm:h-full bg-gray-200 flex-shrink-0"></div>
+                      <div className="flex-1 p-6 space-y-4">
+                        <div className="h-6 w-32 bg-gray-200 rounded"></div>
+                        <div className="h-4 w-48 bg-gray-200 rounded"></div>
+                        <div className="h-3 w-24 bg-gray-200 rounded"></div>
+                        <div className="flex gap-2"><div className="h-3 w-12 bg-gray-200 rounded"></div><div className="h-3 w-12 bg-gray-200 rounded"></div><div className="h-3 w-12 bg-gray-200 rounded"></div></div>
+                        <div className="h-3 w-full bg-gray-200 rounded"></div>
+                        <div className="h-3 w-3/4 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {error && !loading && (
+                <div className="text-center py-16">
+                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-red-50">
+                    <i className="ri-error-warning-line text-red-400 text-2xl"></i>
+                  </div>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">Something went wrong</h3>
+                  <p className="text-sm font-roboto text-gray-500 mb-4">{error}</p>
+                  <button onClick={refetch} className="px-6 py-2 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+                    Try again
+                  </button>
+                </div>
+              )}
+
+              {!loading && !error && paginated.length === 0 && (
+                <div className="text-center py-16">
+                  <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
+                    <i className="ri-search-line text-gray-400 text-2xl"></i>
+                  </div>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties found</h3>
+                  <p className="text-sm font-roboto text-gray-500 mb-4">Try adjusting your search or filters to see more results.</p>
+                  <button onClick={() => { triggerSearch('Nairobi'); setSelectedPrice('Any price'); setSelectedBeds('Any beds'); setSelectedType('Any type'); }} className="px-6 py-2 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+                    Clear filters
+                  </button>
+                </div>
+              )}
+
+              {!loading && !error && paginated.map((p) => {
                 const imgIdx = imageIndexes[p.id] || 0;
                 const isSaved = savedIds.has(p.id);
                 const isHovered = hoveredCard === p.id;
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[260px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                    className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[420px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
                     onMouseEnter={() => setHoveredCard(p.id)}
                     onMouseLeave={() => setHoveredCard(null)}
                   >
                     {/* Image area */}
-                    <div className="relative sm:w-[280px] md:w-[320px] lg:w-[340px] h-[220px] sm:h-full flex-shrink-0 overflow-hidden">
+                    <div className="relative sm:w-[380px] md:w-[440px] lg:w-[480px] h-[260px] sm:h-full flex-shrink-0 overflow-hidden group">
                       <Link to={`/property/${p.slug}`} className="block w-full h-full">
                         <img
                           src={p.images[imgIdx]}
                           alt={p.title}
                           className="w-full h-full object-cover object-top transition-transform duration-500"
-                          style={{ transform: isHovered ? 'scale(1.03)' : 'scale(1)' }}
+                          style={{ transform: isHovered ? 'scale(1.06)' : 'scale(1)', transition: 'transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
                         />
                       </Link>
 
@@ -482,6 +519,23 @@ export default function Buy() {
                       <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">
                         {imgIdx + 1}/{p.images.length}
                       </div>
+
+                      {/* Preview badge */}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setQuickViewProperty(p);
+                        }}
+                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                      >
+                        <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm cursor-pointer hover:bg-black/80 transition-colors">
+                          <span className="w-3.5 h-3.5 flex items-center justify-center">
+                            <i className="ri-expand-diagonal-line text-xs"></i>
+                          </span>
+                          Preview
+                        </span>
+                      </button>
 
                       {/* Nav arrows */}
                       {p.images.length > 1 && (
@@ -540,102 +594,94 @@ export default function Buy() {
                         >
                           <i className={`${isSaved ? 'ri-heart-fill' : 'ri-heart-line'} text-sm`}></i>
                         </button>
-                        <button className="w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors">
-                          <i className="ri-share-forward-line text-sm"></i>
+                        <button
+                          onClick={() => handleShare(p)}
+                          className={`w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors ${copiedId === p.id ? 'bg-primary text-white' : 'bg-black/40 hover:bg-black/60 text-white'}`}
+                          title={copiedId === p.id ? 'Link copied!' : 'Share property'}
+                        >
+                          <i className={`${copiedId === p.id ? 'ri-check-line' : 'ri-share-forward-line'} text-sm`}></i>
                         </button>
                       </div>
                     </div>
 
                     {/* Content area */}
-                    <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
+                    <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between min-w-0 overflow-hidden">
                       <div>
                         {/* Price & title */}
                         <div className="flex items-start justify-between gap-3 mb-1">
                           <div className="min-w-0">
-                            <span className="font-prata text-xl md:text-2xl text-primary font-semibold">{p.price}</span>
+                            <span className="text-2xl font-roboto font-medium text-[#002349]">{p.price}</span>
                             {p.priceUnit && <span className="text-sm text-gray-500 font-roboto ml-1">{p.priceUnit}</span>}
                           </div>
                         </div>
                         <Link to={`/property/${p.slug}`} className="block hover:underline">
-                          <h3 className="font-prata text-sm md:text-base text-primary leading-snug mb-1">{p.title}</h3>
+                          <h3 className="text-base font-roboto font-medium text-[#011328] leading-snug line-clamp-2 mb-3">{p.title}</h3>
                         </Link>
-                        <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500 mb-2">
+                        <p className="flex items-center gap-1.5 text-sm font-roboto text-[#636363] mb-2">
                           <span className="w-4 h-4 flex items-center justify-center">
                             <i className="ri-map-pin-line text-primary text-sm"></i>
                           </span>
-                          {p.location}, Nairobi
+                          {p.location.includes('Nairobi') ? p.location : `${p.location}, Nairobi`}
+                        </p>
+
+                        <p className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-[#1f1f1f] mb-3">
+                          {p.category}
                         </p>
 
                         {/* Meta badges */}
-                        <div className="flex items-center gap-3 mb-2.5">
-                          <span className="text-xs font-roboto text-gray-700">
-                            {toDisplayType(p.category)}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-hotel-bed-line text-primary text-sm"></i>
+                        <div className="flex items-center gap-4 mb-3">
+                          <span className="flex items-center gap-1 text-sm font-roboto text-[#363535]">
+                            <i className="ri-hotel-bed-line text-[#636363] text-xs"></i>
                             {p.beds}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-showers-line text-primary text-sm"></i>
+                          <span className="flex items-center gap-1 text-xs font-roboto text-[#363535]">
+                            <i className="ri-showers-line text-[#636363] text-xs"></i>
                             {p.baths}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-sofa-line text-primary text-sm"></i>
+                          <span className="flex items-center gap-1 text-xs font-roboto text-[#363535]">
+                            <i className="ri-sofa-line text-[#636363] text-xs"></i>
                             {p.receptions}
                           </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-car-line text-primary text-sm"></i>
+                          <span className="flex items-center gap-1 text-xs font-roboto text-[#363535]">
+                            <i className="ri-car-line text-[#636363] text-xs"></i>
                             {p.parking}
                           </span>
                         </div>
 
                         {/* Description */}
-                        <p className="text-xs font-roboto text-gray-600 leading-relaxed line-clamp-2 mb-3">{p.description}</p>
+                        <p className="text-sm font-roboto text-[#555555] leading-relaxed line-clamp-2 mb-3">{p.description}</p>
                       </div>
 
                       {/* Agent footer */}
                       <div className="flex items-end justify-between gap-3 pt-3 border-t border-gray-100">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-roboto font-bold text-[#228B22] uppercase tracking-wide">
+                          <span className="text-sm font-roboto font-medium text-[#005733] capitalize">
                             {(() => {
-                              const now = new Date('2026-05-29');
-                              const listed = new Date(now);
-                              listed.setDate(listed.getDate() - p.listedDays);
-                              const diffMs = now.getTime() - listed.getTime();
-                              const diffMins = Math.floor(diffMs / 60000);
-                              const diffHours = Math.floor(diffMs / 3600000);
-                              const diffDays = Math.floor(diffMs / 86400000);
-                              if (diffDays < 1) {
-                                if (diffHours < 1) {
-                                  if (diffMins < 2) return 'LISTED JUST NOW';
-                                  return `LISTED ${diffMins} MINS AGO`;
-                                }
-                                if (diffHours === 1) return 'LISTED 1 HOUR AGO';
-                                return `LISTED ${diffHours} HOURS AGO`;
-                              }
-                              if (diffDays === 1) return 'LISTED YESTERDAY';
-                              if (diffDays < 7) return `LISTED ${diffDays} DAYS AGO`;
-                              const diffWeeks = Math.floor(diffDays / 7);
-                              if (diffWeeks === 1) return 'LISTED 1 WEEK AGO';
-                              if (diffWeeks < 4) return `LISTED ${diffWeeks} WEEKS AGO`;
-                              const diffMonths = Math.floor(diffDays / 30);
-                              if (diffMonths === 1) return 'LISTED 1 MONTH AGO';
-                              return `LISTED ${diffMonths} MONTHS AGO`;
+                              const days = p.listedDays;
+                              if (days < 1) return 'LISTED JUST NOW';
+                              if (days === 1) return 'LISTED YESTERDAY';
+                              if (days < 7) return `LISTED ${days} DAYS AGO`;
+                              const weeks = Math.floor(days / 7);
+                              if (weeks === 1) return 'LISTED 1 WEEK AGO';
+                              if (weeks < 4) return `LISTED ${weeks} WEEKS AGO`;
+                              const months = Math.floor(days / 30);
+                              if (months === 1) return 'LISTED 1 MONTH AGO';
+                              return `LISTED ${months} MONTHS AGO`;
                             })()}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a href="tel:+254712345678" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3 h-3 flex items-center justify-center">
-                              <i className="ri-phone-line text-[10px]"></i>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <a href="tel:+254712345678" className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
+                            <span className="w-4 h-4 flex items-center justify-center">
+                              <i className="ri-phone-line text-sm"></i>
                             </span>
-                            Call
+                            <span className="underline underline-offset-2">Call</span>
                           </a>
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-golden text-white rounded-md text-[10px] font-roboto font-semibold hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3 h-3 flex items-center justify-center">
-                              <i className="ri-chat-1-line text-[10px]"></i>
+                          <button onClick={() => setContactModalProperty(p)} className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
+                            <span className="w-4 h-4 flex items-center justify-center">
+                              <i className="ri-mail-line text-sm"></i>
                             </span>
-                            Contact
+                            <span className="underline underline-offset-2">Email</span>
                           </button>
                         </div>
                       </div>
@@ -675,17 +721,23 @@ export default function Buy() {
             )}
 
             {/* Bottom CTA */}
-            <div className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
-              <h3 className="text-lg font-prata text-primary mb-2">Can&apos;t find what you&apos;re looking for?</h3>
+            <div ref={alertFormRef} className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
+              <h3 className="text-lg font-roboto font-bold text-primary mb-2">Can&apos;t find what you&apos;re looking for?</h3>
               <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">Register for property alerts and be the first to know about new homes for sale in your area.</p>
               <form data-readdy-form="true" id="buy-alert-form" onSubmit={handleEnquiry} className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
                 <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-gray-300 rounded-lg focus:outline-none focus:border-primary" />
                 <input type="hidden" name="type" value="buy_alert" />
                 <input type="hidden" name="location" value="Nairobi" />
-                <button type="submit" disabled={enquiryStatus === 'submitting'} className="w-full sm:w-auto h-11 px-6 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
-                  {enquiryStatus === 'success' ? 'Alert set!' : 'Get alerts'}
+                <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto h-11 px-6 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+                  {alertStatus === 'success' ? 'Alert set!' : 'Get alerts'}
                 </button>
               </form>
+              {alertStatus === 'success' && (
+                <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll respond within 24 hours.</p>
+              )}
+              {alertStatus === 'error' && (
+                <p className="text-red-500 text-sm font-roboto text-center">{alertError}</p>
+              )}
             </div>
           </div>
 
@@ -710,9 +762,9 @@ export default function Buy() {
                   </div>
                   <div className="px-4 py-3 grid grid-cols-2 gap-x-3 gap-y-2">
                     {nearbyAreas.map((area) => (
-                      <a key={area} href={`/buy?area=${encodeURIComponent(area.toLowerCase())}`} className="text-xs font-roboto text-gray-600 hover:text-primary hover:underline transition-colors">
+                      <button key={area} onClick={() => handleAreaClick(area)} className="text-left text-sm font-roboto text-gray-600 hover:text-primary hover:underline transition-colors cursor-pointer">
                         {area}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -724,16 +776,16 @@ export default function Buy() {
                   </div>
                   <div className="px-4 py-3 space-y-2">
                     {relatedSearches.map((search) => (
-                      <a key={search} href={`/buy?q=${encodeURIComponent(search.toLowerCase())}`} className="block text-xs font-roboto text-gray-600 hover:text-primary hover:underline transition-colors">
+                      <button key={search} onClick={() => handleRelatedSearch(search.replace(' for sale in Nairobi', '').replace(' in Nairobi', ''))} className="block text-left w-full text-sm font-roboto text-gray-600 hover:text-primary hover:underline transition-colors cursor-pointer">
                         {search}
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
 
                 {/* List property CTA */}
                 <div className="bg-primary rounded-lg p-4 text-center">
-                  <h3 className="text-white font-prata text-sm mb-2">List your property</h3>
+                  <h3 className="text-white font-roboto font-bold text-sm mb-2">List your property</h3>
                   <p className="text-white/70 font-roboto text-xs mb-3">Reach thousands of qualified buyers</p>
                   <Link to="/landlords" className="inline-flex items-center gap-1 px-4 py-2 bg-golden text-white font-roboto text-xs font-semibold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
                     Get started
@@ -783,16 +835,49 @@ export default function Buy() {
       {/* === FOOTER CTA === */}
       <div className="bg-primary py-12 px-6 text-center">
         <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">Own a Property?</p>
-        <h2 className="text-white font-prata text-2xl md:text-3xl mb-3">List Your Property With Us</h2>
+        <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">List Your Property With Us</h2>
         <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">Reach thousands of qualified buyers. Get a free market valuation from our expert team today.</p>
         <Link to="/landlords" className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
           <i className="ri-home-heart-line"></i>Get Free Valuation
         </Link>
       </div>
 
-      <ContactCTA pageSlug="buy" />
+      <PageContactSection />
       <Footer />
       <BackToTop />
+      {contactModalProperty && (
+        <ContactAgentModal
+          isOpen={true}
+          onClose={() => setContactModalProperty(null)}
+          propertyTitle={contactModalProperty.title}
+          propertyId={contactModalProperty.id}
+          propertySlug={contactModalProperty.slug}
+          propertyPrice={contactModalProperty.price}
+          propertyLocation={contactModalProperty.location}
+        />
+      )}
+      <QuickViewModal
+        isOpen={quickViewProperty !== null}
+        onClose={() => setQuickViewProperty(null)}
+        property={quickViewProperty ? {
+          id: quickViewProperty.id,
+          slug: quickViewProperty.slug,
+          title: quickViewProperty.title,
+          price: quickViewProperty.price,
+          priceUnit: quickViewProperty.priceUnit,
+          location: quickViewProperty.location,
+          category: quickViewProperty.category,
+          beds: Number(quickViewProperty.beds) || 0,
+          baths: Number(quickViewProperty.baths) || 0,
+          parking: Number(quickViewProperty.parking) || 0,
+          receptions: Number(quickViewProperty.receptions) || 0,
+          description: quickViewProperty.description,
+          images: quickViewProperty.images,
+          type: 'sale',
+          agentPhone: quickViewProperty.agentPhone,
+          agentEmail: quickViewProperty.agentEmail,
+        } : null}
+      />
     </div>
   );
 }

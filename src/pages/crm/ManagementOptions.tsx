@@ -4,7 +4,7 @@ import { broadcastSync } from '@/lib/syncEngine';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import {
   Save, Loader2, Settings, Palette, Type, Layout, Image, Search, ListChecks,
-  ToggleLeft, ToggleRight, Upload, X, ArrowUp, ArrowDown, GripVertical,
+  Upload, X, ArrowUp, ArrowDown, GripVertical,
   Globe, Share2, DollarSign, MapPin, Phone, Mail, Home, Eye, EyeOff,
   Grid3X3, CreditCard, FileText, ChevronRight, ExternalLink, RefreshCw,
   ChevronDown, ChevronUp, Info, Building2, Map, Layers, Tag, SquareStack,
@@ -427,13 +427,18 @@ export default function ManagementOptions() {
   );
 
   const toggleRow = (label: string, desc: string, value: boolean, onToggle: () => void) => (
-    <div className="flex items-center justify-between p-4 border border-gray-100 rounded-md">
-      <div>
-        <p className="text-sm font-roboto font-medium text-[#1a1a2e]">{label}</p>
-        <p className="text-xs text-gray-400 font-roboto">{desc}</p>
+    <div className="flex items-center justify-between p-4 border border-stone-200/70 rounded-lg bg-stone-50/50 hover:bg-stone-50 transition-colors group">
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-roboto font-medium text-stone-800 tracking-tight">{label}</p>
+        {desc && <p className="text-[11px] text-stone-400 font-roboto mt-0.5 leading-relaxed">{desc}</p>}
       </div>
-      <button onClick={onToggle} className="cursor-pointer">
-        {value ? <ToggleRight size={32} className="text-primary" /> : <ToggleLeft size={32} className="text-gray-300" />}
+      <button
+        onClick={onToggle}
+        className={`relative flex-shrink-0 ml-5 w-11 h-6 rounded-full transition-all duration-300 ease-out cursor-pointer ${value ? 'bg-[#1B4332] shadow-[0_0_0_1px_rgba(27,67,50,0.2)]' : 'bg-stone-300'}`}
+        role="switch"
+        aria-checked={value}
+      >
+        <span className={`absolute top-[3px] w-[18px] h-[18px] rounded-full bg-white transition-all duration-300 ease-out shadow-sm ${value ? 'left-[calc(100%-21px)] shadow-[0_1px_3px_rgba(27,67,50,0.3)]' : 'left-[3px]'}`} />
       </button>
     </div>
   );

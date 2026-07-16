@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { COLORS, AMENITIES } from './types';
+import { COLORS, AMENITIES, LAND_AMENITIES, getAmenities } from './types';
 
 interface Props {
   amenities: string[];
   setAmenities: React.Dispatch<React.SetStateAction<string[]>>;
   customFeatures: string[];
   setCustomFeatures: React.Dispatch<React.SetStateAction<string[]>>;
+  propertyType?: string;
 }
 
-export default function FeaturesStep({ amenities, setAmenities, customFeatures, setCustomFeatures }: Props) {
+export default function FeaturesStep({ amenities, setAmenities, customFeatures, setCustomFeatures, propertyType }: Props) {
   const [customInput, setCustomInput] = useState('');
+  const amenityList = getAmenities(propertyType || '');
+  const isLand = propertyType === 'land';
 
   const toggleAmenity = (name: string) => {
     setAmenities((prev) =>
@@ -37,12 +40,12 @@ export default function FeaturesStep({ amenities, setAmenities, customFeatures, 
             <i className="ri-checkbox-multiple-line text-lg" style={{ color: COLORS.navy }} />
           </div>
           <div>
-            <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Feature Checklist</h3>
-            <p className="text-xs" style={{ color: COLORS.gray }}>Select all amenities this property offers</p>
+            <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>{isLand ? 'Land Features & Utilities' : 'Feature Checklist'}</h3>
+            <p className="text-xs" style={{ color: COLORS.gray }}>{isLand ? 'Select all features this plot offers' : 'Select all amenities this property offers'}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {AMENITIES.map((amenity) => (
+          {amenityList.map((amenity) => (
             <label
               key={amenity}
               className="flex items-center gap-2 px-3 py-2.5 rounded-lg border cursor-pointer transition-all"

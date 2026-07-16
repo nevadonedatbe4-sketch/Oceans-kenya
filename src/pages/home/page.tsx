@@ -5,7 +5,7 @@ import BackToTop from '@/components/feature/BackToTop';
 import HeroSection from './components/HeroSection';
 import NeighborhoodsSection from './components/NeighborhoodsSection';
 import PropertiesSection from './components/PropertiesSection';
-import ContactSection from './components/ContactSection';
+import PageContactSection from '@/components/feature/PageContactSection';
 import ContactCTA from '@/components/feature/ContactCTA';
 
 export default function Home() {
@@ -16,7 +16,7 @@ export default function Home() {
         <HeroSection />
         <NeighborhoodsSection />
         <PropertiesSection />
-        <ContactSection />
+        <PageContactSection />
       </main>
       {/* CTA Banner */}
       <section className="relative py-10 md:py-14 px-6 overflow-hidden">
@@ -27,7 +27,7 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-[#0a1f33]/80"></div>
         <div className="relative max-w-4xl mx-auto text-center">
-          <h3 className="text-2xl md:text-3xl font-prata text-white mb-3">
+          <h3 className="text-2xl md:text-3xl font-roboto font-bold text-white mb-3">
             Know Your Property&apos;s Worth?
           </h3>
           <p className="text-white/60 text-sm font-roboto mb-6">

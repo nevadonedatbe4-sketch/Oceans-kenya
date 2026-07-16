@@ -75,7 +75,7 @@ export default function DashboardStats({ stats, loading }: DashboardStatsProps) 
               {loading ? (
                 <div className="h-7 sm:h-8 w-20 bg-[#f8fafc] rounded animate-pulse" />
               ) : (
-                <p className="font-prata text-xl sm:text-2xl text-[#001731]">
+                <p className="font-roboto font-bold text-xl sm:text-2xl text-[#001731]">
                   {card.value(stats)}
                 </p>
               )}
