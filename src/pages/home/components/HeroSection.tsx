@@ -22,7 +22,7 @@ export default function HeroSection() {
   const heroOverlayOpacity = getHero('hero_overlay_opacity') || '30';
 
   const overlayStyle = { opacity: Number(heroOverlayOpacity) / 100 };
-  const heightStyle = { minHeight: `${heroHeight}px` };
+  const heightStyle = { minHeight: '100vh' };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();

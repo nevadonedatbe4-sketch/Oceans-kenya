@@ -729,15 +729,15 @@ function PropertyCard({
           <>
             <button
               onClick={prevImg}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 md:w-7 md:h-7 flex items-center justify-center bg-white/90 hover:bg-white text-primary rounded-full cursor-pointer transition-all opacity-0 group-hover:opacity-100 shadow-sm"
             >
-              <i className="ri-arrow-left-s-line text-sm"></i>
+              <i className="ri-arrow-left-s-line text-base md:text-sm"></i>
             </button>
             <button
               onClick={nextImg}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 md:w-7 md:h-7 flex items-center justify-center bg-white/90 hover:bg-white text-primary rounded-full cursor-pointer transition-all opacity-0 group-hover:opacity-100 shadow-sm"
             >
-              <i className="ri-arrow-right-s-line text-sm"></i>
+              <i className="ri-arrow-right-s-line text-base md:text-sm"></i>
             </button>
           </>
         )}

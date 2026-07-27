@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
@@ -113,6 +113,8 @@ export default function PropertiesSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { getCardStyle } = useSiteSettings();
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
   const cardsPerView = typeof window !== 'undefined' && window.innerWidth >= 768 ? 3 : 1;
   const totalSlides = Math.max(1, Math.ceil(properties.length / cardsPerView));
@@ -188,8 +190,28 @@ export default function PropertiesSection() {
     if (typeof window === 'undefined') return 320;
     if (window.innerWidth >= 1024) return 360;
     if (window.innerWidth >= 768) return 320;
-    return 280;
+    return typeof window !== 'undefined' ? window.innerWidth - 48 : 280;
   };
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    const diff = touchStartX.current - touchEndX.current;
+    const threshold = 50;
+    if (Math.abs(diff) > threshold) {
+      if (diff > 0 && currentSlide < totalSlides - 1) {
+        setCurrentSlide((prev) => prev + 1);
+      } else if (diff < 0 && currentSlide > 0) {
+        setCurrentSlide((prev) => prev - 1);
+      }
+    }
+  }, [currentSlide, totalSlides]);
 
   if (error) {
     return (
@@ -247,50 +269,26 @@ export default function PropertiesSection() {
         </div>
 
         {loading ? (
-          <>
-            {/* Mobile loading skeleton */}
-            <div className="grid md:hidden grid-cols-1 sm:grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map((n) => (
-                <div key={n} className="bg-white overflow-hidden animate-pulse">
-                  <div className={`w-full bg-stone-200 ${aspectClass}`}></div>
-                  <div className="p-4 space-y-3">
-                    <div className="h-3 bg-stone-200 rounded w-1/2"></div>
-                    <div className="h-4 bg-stone-200 rounded w-3/4"></div>
-                    <div className="flex gap-4">
-                      <div className="h-3 bg-stone-200 rounded w-16"></div>
-                      <div className="h-3 bg-stone-200 rounded w-16"></div>
-                      <div className="h-3 bg-stone-200 rounded w-16"></div>
-                    </div>
-                    <div className="pt-3 border-t border-stone-100 flex justify-between">
-                      <div className="h-5 bg-stone-200 rounded w-24"></div>
-                      <div className="h-3 bg-stone-200 rounded w-20"></div>
-                    </div>
+          <div className="flex gap-5 overflow-hidden">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="flex-shrink-0 bg-white overflow-hidden animate-pulse" style={{ width: getCardWidth() }}>
+                <div className={`w-full bg-stone-200 ${aspectClass}`}></div>
+                <div className="p-4 space-y-3">
+                  <div className="h-3 bg-stone-200 rounded w-1/2"></div>
+                  <div className="h-4 bg-stone-200 rounded w-3/4"></div>
+                  <div className="flex gap-4">
+                    <div className="h-3 bg-stone-200 rounded w-16"></div>
+                    <div className="h-3 bg-stone-200 rounded w-16"></div>
+                    <div className="h-3 bg-stone-200 rounded w-16"></div>
+                  </div>
+                  <div className="pt-3 border-t border-stone-100 flex justify-between">
+                    <div className="h-5 bg-stone-200 rounded w-24"></div>
+                    <div className="h-3 bg-stone-200 rounded w-20"></div>
                   </div>
                 </div>
-              ))}
-            </div>
-            {/* Desktop loading skeleton */}
-            <div className="hidden md:flex gap-5 overflow-hidden">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="flex-shrink-0 bg-white overflow-hidden animate-pulse" style={{ width: getCardWidth() }}>
-                  <div className={`w-full bg-stone-200 ${aspectClass}`}></div>
-                  <div className="p-4 space-y-3">
-                    <div className="h-3 bg-stone-200 rounded w-1/2"></div>
-                    <div className="h-4 bg-stone-200 rounded w-3/4"></div>
-                    <div className="flex gap-4">
-                      <div className="h-3 bg-stone-200 rounded w-16"></div>
-                      <div className="h-3 bg-stone-200 rounded w-16"></div>
-                      <div className="h-3 bg-stone-200 rounded w-16"></div>
-                    </div>
-                    <div className="pt-3 border-t border-stone-100 flex justify-between">
-                      <div className="h-5 bg-stone-200 rounded w-24"></div>
-                      <div className="h-3 bg-stone-200 rounded w-20"></div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+              </div>
+            ))}
+          </div>
         ) : properties.length === 0 ? (
           <div className="py-16 text-center">
             <div className="w-14 h-14 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
@@ -301,15 +299,13 @@ export default function PropertiesSection() {
           </div>
         ) : (
           <>
-            {/* Mobile grid */}
-            <div className="grid md:hidden grid-cols-1 sm:grid-cols-2 gap-4">
-              {properties.slice(0, 4).map((property) => (
-                <PropertyCard key={property.id} property={property} aspectClass={aspectClass} shadowClass={shadowClass} hoverClass={hoverClass} showBadge={showBadge} showAgent={showAgent} badgeColor={badgeColor} />
-              ))}
-            </div>
-
-            {/* Desktop carousel */}
-            <div className="hidden md:block overflow-hidden">
+            {/* Unified carousel — mobile + desktop */}
+            <div
+              className="overflow-hidden"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
               <div
                 className="flex items-stretch gap-5 transition-transform duration-500 ease-in-out"
                 style={{ transform: `translateX(-${currentSlide * (getCardWidth() + 20)}px)` }}
