@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
@@ -416,7 +416,7 @@ export default function AllProperties() {
           {/* Listings column */}
           <div className="lg:w-[75%] xl:w-[78%] min-w-0">
         {/* Neighbourhood Tabs */}
-        <div className="mb-8 overflow-x-auto no-scrollbar border-b border-stone-200">
+        <div className="mb-8 overflow-x-auto no-scrollbar border-b-2 border-stone-300">
           <div className="flex items-center gap-0 min-w-max">
             {['All', ...neighbourhoodNames].map((area) => (
               <button
@@ -678,17 +678,32 @@ function PropertyCard({
   const { format } = useCurrency();
   const [imgIdx, setImgIdx] = useState(0);
   const totalImages = property.images.length;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollToImg = (idx: number) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const clamped = (idx + totalImages) % totalImages;
+    el.scrollTo({ left: el.clientWidth * clamped, behavior: 'smooth' });
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    if (idx !== imgIdx) setImgIdx(idx);
+  };
 
   const nextImg = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (totalImages > 1) setImgIdx((prev) => (prev + 1) % totalImages);
+    if (totalImages > 1) scrollToImg(imgIdx + 1);
   };
 
   const prevImg = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (totalImages > 1) setImgIdx((prev) => (prev === 0 ? totalImages - 1 : prev - 1));
+    if (totalImages > 1) scrollToImg(imgIdx - 1);
   };
 
   const handleCall = (e: React.MouseEvent) => {
@@ -709,37 +724,61 @@ function PropertyCard({
     <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 hover:shadow-md transition-all duration-200 group">
       {/* ── Image — Zoopla 645×430 ratio ── */}
       <div className="relative aspect-[645/430] w-full overflow-hidden">
-        <Link to={`/property/${property.slug}`} className="block w-full h-full">
-          <img
-            src={property.images[imgIdx] || property.image}
-            alt={property.title}
-            className="w-full h-full object-cover object-top scale-100 group-hover:scale-[1.06] transition-transform duration-500"
-          />
-        </Link>
-
-        {/* Image counter */}
-        {totalImages > 1 && (
-          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">
-            {imgIdx + 1}/{totalImages}
-          </div>
-        )}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex w-full h-full overflow-x-auto snap-x snap-mandatory no-scrollbar"
+          style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+        >
+          {(property.images.length > 0 ? property.images : [property.image]).map((src, i) => (
+            <Link
+              key={i}
+              to={`/property/${property.slug}`}
+              className="block w-full h-full flex-shrink-0 snap-center snap-always"
+              draggable={false}
+            >
+              <img
+                src={src}
+                alt={property.title}
+                draggable={false}
+                className="w-full h-full object-cover object-top pointer-events-none select-none"
+              />
+            </Link>
+          ))}
+        </div>
 
         {/* Nav arrows */}
         {totalImages > 1 && (
           <>
             <button
               onClick={prevImg}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 md:w-7 md:h-7 flex items-center justify-center bg-white/90 hover:bg-white text-primary rounded-full cursor-pointer transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-white/85 hover:bg-white text-primary rounded-sm cursor-pointer transition-all duration-150 shadow-sm active:scale-90 opacity-0 group-hover:opacity-100"
             >
-              <i className="ri-arrow-left-s-line text-base md:text-sm"></i>
+              <i className="ri-arrow-left-s-line text-base"></i>
             </button>
             <button
               onClick={nextImg}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 md:w-7 md:h-7 flex items-center justify-center bg-white/90 hover:bg-white text-primary rounded-full cursor-pointer transition-all opacity-0 group-hover:opacity-100 shadow-sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-white/85 hover:bg-white text-primary rounded-sm cursor-pointer transition-all duration-150 shadow-sm active:scale-90 opacity-0 group-hover:opacity-100"
             >
-              <i className="ri-arrow-right-s-line text-base md:text-sm"></i>
+              <i className="ri-arrow-right-s-line text-base"></i>
             </button>
           </>
+        )}
+
+        {/* Dot indicators */}
+        {totalImages > 1 && (
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5">
+            {property.images.slice(0, 6).map((_, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); scrollToImg(i); }}
+                className={`rounded-full transition-all duration-200 cursor-pointer ${
+                  i === imgIdx ? 'w-4 h-1.5 bg-white' : 'w-1.5 h-1.5 bg-white/60 hover:bg-white/90'
+                }`}
+                aria-label={`Image ${i + 1}`}
+              ></button>
+            ))}
+          </div>
         )}
 
         {/* Status badge */}
@@ -789,9 +828,16 @@ function PropertyCard({
       <div className="p-4 md:p-5 flex flex-col">
         {/* Price */}
         <div className="flex items-center gap-3 mb-3">
-          <span className="text-sm md:text-base font-roboto font-semibold text-[#011328]">
-            {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
-          </span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-sm md:text-base font-roboto font-semibold text-[#011328]">
+              {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+            </span>
+            {property.type === 'rent' ? (
+              <span className="text-sm md:text-base font-roboto font-semibold text-[#011328]">pcm</span>
+            ) : (
+              <span className="text-xs font-roboto text-[#636363]">Guide Price</span>
+            )}
+          </div>
           <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-roboto font-semibold uppercase tracking-wider bg-[#f0f4e8] text-[#4a6b2a] rounded-full">
             {property.category}
           </span>
