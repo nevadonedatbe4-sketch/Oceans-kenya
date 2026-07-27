@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { addToast } from '@/pages/crm/components/CRMToast';
 import ManagementLayout from '../ManagementLayout';
 
 interface FormModule {
@@ -9,22 +11,82 @@ interface FormModule {
   enabled: boolean;
 }
 
-const INITIAL_MODULES: FormModule[] = [
-  { id: 'basic-info', label: 'Basic Information', description: 'Property title, listing type, property type and description', icon: 'ri-file-info-line', enabled: true },
-  { id: 'price', label: 'Price', description: 'Main price, currency, frequency and optional secondary price', icon: 'ri-price-tag-3-line', enabled: true },
-  { id: 'details', label: 'Property Details', description: 'Bedrooms, bathrooms, parking, land area, building size, property ID and tags', icon: 'ri-home-4-line', enabled: true },
-  { id: 'media', label: 'Photos & Media', description: 'Upload photos, drag to reorder, set cover image, add video and floor plan links', icon: 'ri-image-2-line', enabled: true },
-  { id: 'features', label: 'Features & Amenities', description: 'Indoor features, outdoor features, amenities and custom features', icon: 'ri-list-check', enabled: true },
-  { id: 'location', label: 'Location', description: 'Country, city, area, neighborhood, address, coordinates and map', icon: 'ri-map-pin-2-line', enabled: true },
-  { id: 'contact-publish', label: 'Contact & Publish', description: 'Agent assignment, listing status, SEO settings and publish actions', icon: 'ri-check-double-line', enabled: false },
+const ALL_MODULES: Omit<FormModule, 'enabled'>[] = [
+  { id: 'basic-info', label: 'Basic Information', description: 'Property title, listing type, property type and description', icon: 'ri-file-info-line' },
+  { id: 'price', label: 'Price', description: 'Main price, currency, frequency and optional secondary price', icon: 'ri-price-tag-3-line' },
+  { id: 'details', label: 'Property Details', description: 'Bedrooms, bathrooms, parking, land area, building size, property ID and tags', icon: 'ri-home-4-line' },
+  { id: 'media', label: 'Photos & Media', description: 'Upload photos, drag to reorder, set cover image, add video and floor plan links', icon: 'ri-image-2-line' },
+  { id: 'features', label: 'Features & Amenities', description: 'Indoor features, outdoor features, amenities and custom features', icon: 'ri-list-check' },
+  { id: 'location', label: 'Location', description: 'Country, city, area, neighborhood, address, coordinates and map', icon: 'ri-map-pin-2-line' },
+  { id: 'contact-publish', label: 'Contact & Publish', description: 'Agent assignment, listing status, SEO settings and publish actions', icon: 'ri-check-double-line' },
+  { id: 'attachments', label: 'Attachments', description: 'Upload documents, brochures, title deeds, and other files', icon: 'ri-attachment-2' },
 ];
 
+const CONFIG_KEY = 'form_layout_config';
+
+function buildModules(order: string[]): FormModule[] {
+  const orderSet = new Set(order);
+  const ordered = order
+    .map((id) => ALL_MODULES.find((m) => m.id === id))
+    .filter((m): m is NonNullable<typeof m> => !!m);
+  const remaining = ALL_MODULES.filter((m) => !orderSet.has(m.id));
+  return [...ordered, ...remaining].map((m) => ({
+    ...m,
+    enabled: orderSet.has(m.id),
+  }));
+}
+
+function serializeConfig(modules: FormModule[]): string {
+  const ids = modules.filter((m) => m.enabled).map((m) => m.id);
+  return JSON.stringify(ids);
+}
+
 export default function FormLayoutManagerPage() {
-  const [modules, setModules] = useState<FormModule[]>(INITIAL_MODULES);
+  const [modules, setModules] = useState<FormModule[]>(() =>
+    ALL_MODULES.map((m) => ({ ...m, enabled: true }))
+  );
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [initialised, setInitialised] = useState(false);
 
   const enabledModules = modules.filter((m) => m.enabled);
   const disabledModules = modules.filter((m) => !m.enabled);
+
+  const fetchConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', CONFIG_KEY)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data?.value) {
+        const order: string[] = JSON.parse(data.value);
+        if (Array.isArray(order)) {
+          setModules(buildModules(order));
+        }
+      } else {
+        setModules(
+          ALL_MODULES.map((m) => ({
+            ...m,
+            enabled: m.id !== 'contact-publish',
+          }))
+        );
+      }
+    } catch {
+      addToast('Failed to load form layout — using defaults', 'error');
+    } finally {
+      setLoading(false);
+      setInitialised(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
 
   const toggleModule = (id: string) => {
     setModules((prev) =>
@@ -56,9 +118,42 @@ export default function FormLayoutManagerPage() {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setSaving(false);
+    try {
+      const jsonValue = serializeConfig(modules);
+
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({ key: CONFIG_KEY, value: jsonValue }, { onConflict: 'key' });
+
+      if (error) throw error;
+
+      await supabase.from('activity_logs').insert({
+        action: 'form_layout_updated',
+        details: `Form layout saved — ${enabledModules.length} enabled, ${disabledModules.length} disabled`,
+        created_at: new Date().toISOString(),
+      });
+
+      addToast('Form layout saved successfully', 'success');
+    } catch {
+      addToast('Failed to save layout — try again', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading || !initialised) {
+    return (
+      <ManagementLayout
+        title="Add New Property Form Layout Manager"
+        description="Drag-and-drop each module to quickly organize your property submission form layout"
+        icon={<i className="ri-clipboard-line text-[#1B4332] text-lg"></i>}
+      >
+        <div className="flex items-center justify-center py-20">
+          <div className="w-8 h-8 border-2 border-[#1B4332] border-t-transparent rounded-full animate-spin" />
+        </div>
+      </ManagementLayout>
+    );
+  }
 
   return (
     <ManagementLayout
@@ -106,6 +201,29 @@ export default function FormLayoutManagerPage() {
                 <div
                   key={mod.id}
                   draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', mod.id);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const draggedId = e.dataTransfer.getData('text/plain');
+                    if (draggedId === mod.id) return;
+                    setModules((prev) => {
+                      const enabled = prev.filter((m) => m.enabled);
+                      const disabled = prev.filter((m) => !m.enabled);
+                      const fromIdx = enabled.findIndex((m) => m.id === draggedId);
+                      const toIdx = enabled.findIndex((m) => m.id === mod.id);
+                      if (fromIdx < 0 || toIdx < 0) return prev;
+                      const reordered = [...enabled];
+                      const [moved] = reordered.splice(fromIdx, 1);
+                      reordered.splice(toIdx, 0, moved);
+                      return [...reordered, ...disabled];
+                    });
+                  }}
                   className="flex items-center gap-3 px-4 py-3.5 transition-all cursor-grab active:cursor-grabbing select-none bg-white hover:bg-[#f5f5f5]/60"
                 >
                   <div className="w-4 h-4 flex items-center justify-center text-stone-300 shrink-0">

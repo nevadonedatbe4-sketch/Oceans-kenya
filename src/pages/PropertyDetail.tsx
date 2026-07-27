@@ -2,11 +2,10 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { getMockBySlug } from '@/mocks/newDevelopments';
-import type { NewDevMock } from '@/mocks/newDevelopments';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { useCurrency } from '@/hooks/useCurrency';
 import PropertyGallery from '@/pages/PropertyDetail/components/Gallery';
 import PropertyStatsBar from '@/pages/PropertyDetail/components/StatsBar';
 import PropertyLeftColumn from '@/pages/PropertyDetail/components/LeftColumn';
@@ -65,52 +64,46 @@ interface ListingDetail {
   createdAt?: string;
 }
 
-function mockToListing(mock: NewDevMock): ListingDetail {
-  return {
-    id: `mock-${mock.id}`,
-    slug: mock.slug || mock.id,
-    title: mock.title,
-    propertyType: mock.propertyType,
-    location: mock.location,
-    district: mock.location,
-    area: mock.location,
-    price: mock.priceDisplay,
-    priceRaw: mock.price,
-    currency: 'USD',
-    description: mock.description,
-    image: mock.image,
-    images: mock.image ? [{ id: '1', url: mock.image, sort_order: 0 }] : [],
-    beds: mock.beds,
-    baths: mock.baths,
-    parking: mock.parking,
-    sqft: mock.sqft,
-    garages: 0,
-    status: 'available',
-    category: 'new_development',
-    size: mock.sqft ? `${mock.sqft.toLocaleString()} sqft` : '',
-    titleType: 'Freehold',
-    ref: mock.id.toUpperCase(),
-    purpose: 'sale',
-    neighbourhood: '',
-    latitude: null,
-    longitude: null,
-    amenities: mock.amenities,
-    features: [],
-    agentId: null,
-    city: mock.location,
-    furnished: 'Unfurnished',
-    createdAt: undefined,
-  };
+function mockToListing(mock: any): ListingDetail {
+  return mock as ListingDetail;
 }
 
 export default function PropertyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [listing, setListing] = useState<ListingDetail | null>(null);
-  const [mockDev, setMockDev] = useState<NewDevMock | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [agent, setAgent] = useState<AgentInfo | null>(null);
+  const { format } = useCurrency();
   const { enableBreadcrumbs } = useSiteSettings();
+
+  // ── Search bar state (above breadcrumb on all property detail pages) ──
+  const navigate = useNavigate();
+  const [detailSearchQuery, setDetailSearchQuery] = useState('');
+  const [detailPurpose, setDetailPurpose] = useState<'sale' | 'rent'>('sale');
+  const [detailRadius, setDetailRadius] = useState('This area only');
+  const [detailPrice, setDetailPrice] = useState('Any price');
+  const [detailType, setDetailType] = useState('Any type');
+
+  const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
+  const detailPriceOptions = ['Any price', 'Under KES 10M', 'KES 10M – 30M', 'KES 30M – 50M', 'KES 50M – 100M', 'KES 100M – 200M', 'Over KES 200M'];
+  const detailTypeOptions = ['Any type', 'Apartment', 'House', 'Townhouse', 'Penthouse', 'Villa', 'Studio', 'Land'];
+
+  const handleDetailSearch = () => {
+    const targetPage = detailPurpose === 'rent' ? '/rent' : '/buy';
+    // Build query params
+    const params = new URLSearchParams();
+    if (detailSearchQuery.trim()) params.set('search', detailSearchQuery.trim());
+    if (detailRadius !== 'This area only') params.set('radius', detailRadius);
+    if (detailPrice !== 'Any price') params.set('price', detailPrice);
+    if (detailType !== 'Any type') params.set('type', detailType);
+    const qs = params.toString();
+    navigate(qs ? `${targetPage}?${qs}` : targetPage);
+  };
+
+  const handleDetailSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleDetailSearch();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -129,30 +122,18 @@ export default function PropertyDetail() {
         if (cancelled) return;
 
         if (!data) {
-          const mock = getMockBySlug(slug || '');
-          if (mock) {
-            setMockDev(mock);
-            setListing(null);
-          } else {
-            setMockDev(null);
-            setListing(null);
-          }
+          setListing(null);
           setLoading(false);
           return;
         }
 
         const row = data as Record<string, unknown>;
-        const currencyLabel = String(row.currency || '').toUpperCase() === 'UGX' ? 'UGX'
-          : String(row.currency || '').toUpperCase() === 'USD' ? 'USD'
-          : 'KSh';
+        const currencyLabel = String(row.currency || '').toUpperCase() === 'USD' ? 'USD'
+          : 'KES';
         const priceVal = row.price ? Number(row.price) : 0;
         let priceDisplay = 'Price on request';
         if (priceVal > 0) {
-          if (priceVal >= 1_000_000) {
-            priceDisplay = `${currencyLabel} ${(priceVal / 1_000_000).toFixed(priceVal % 1_000_000 === 0 ? 0 : 1)}M`;
-          } else {
-            priceDisplay = `${currencyLabel} ${priceVal.toLocaleString()}`;
-          }
+          priceDisplay = `${currencyLabel} ${priceVal.toLocaleString()}`;
         }
 
         const isLand = String(row.property_type || '') === 'land';
@@ -233,7 +214,7 @@ export default function PropertyDetail() {
           || (amenitiesList.find(a => a.toLowerCase().includes('furnished')) ? 'Furnished' : 'Unfurnished')
         );
 
-        setListing({
+        const listingDetail: ListingDetail = {
           id: String(row.id),
           slug: String(row.slug || ''),
           title: String(row.title || ''),
@@ -271,18 +252,42 @@ export default function PropertyDetail() {
           city: String(row.city || ''),
           furnished: furnished,
           createdAt: row.created_at ? String(row.created_at) : undefined,
-        });
-        setMockDev(null);
+        };
+
+        // Track recently viewed for DB listing
+        try {
+          const key = 'recently_viewed_devs';
+          const existing = JSON.parse(localStorage.getItem(key) || '[]') as Array<{
+            id: string; slug: string; name: string; image: string; location: string;
+            priceRaw: number; currency: string; timestamp: number;
+          }>;
+          const entry = {
+            id: listingDetail.id,
+            slug: listingDetail.slug,
+            name: listingDetail.title,
+            image: listingDetail.image,
+            location: listingDetail.location,
+            priceRaw: listingDetail.priceRaw,
+            currency: listingDetail.currency,
+            timestamp: Date.now(),
+          };
+          const filtered = existing.filter((item) => item.id !== entry.id);
+          localStorage.setItem(key, JSON.stringify([entry, ...filtered].slice(0, 10)));
+          // Also log to generic recently_viewed_properties
+          try {
+            const genericKey = 'recently_viewed_properties';
+            const existingGeneric = JSON.parse(localStorage.getItem(genericKey) || '[]') as string[];
+            localStorage.setItem(genericKey, JSON.stringify([listingDetail.id, ...existingGeneric.filter((i) => i !== listingDetail.id)].slice(0, 10)));
+          } catch { /* ignore */ }
+        } catch {
+          // ignore
+        }
+
+        setListing(listingDetail);
       } catch (err: unknown) {
         if (!cancelled) {
-          const mock = getMockBySlug(slug || '');
-          if (mock) {
-            setMockDev(mock);
-            setListing(null);
-            setError('');
-          } else {
-            setError(err instanceof Error ? err.message : 'Failed to load listing');
-          }
+          setListing(null);
+          setError('');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -340,7 +345,7 @@ export default function PropertyDetail() {
   }
 
   // Not found
-  if (!listing && !mockDev) {
+  if (!listing) {
     return (
       <div className="min-h-screen bg-[#F5F5F5] pt-[88px] md:pt-[96px]">
         <Header />
@@ -363,7 +368,7 @@ export default function PropertyDetail() {
   }
 
   // Determine if this is a land listing (keep old layout)
-  const activeListing = listing || (mockDev ? mockToListing(mockDev) : null);
+  const activeListing = listing;
   if (!activeListing) return null;
 
   const isLand = activeListing.propertyType === 'land';
@@ -382,6 +387,111 @@ export default function PropertyDetail() {
       <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
         <Header />
         <main>
+          {/* Back to results — above the search bar */}
+          <div className="px-4 md:px-6 max-w-6xl mx-auto mt-10 md:mt-14">
+            <Link
+              to={breadcrumbCategory.href}
+              className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-stone-500 hover:text-primary transition-colors cursor-pointer whitespace-nowrap mb-2"
+            >
+              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                <i className="ri-arrow-left-line text-xs"></i>
+              </span>
+              Back to results
+            </Link>
+          </div>
+
+          {/* Search Bar — above breadcrumb on all property detail pages */}
+          <div className="bg-white border-b border-gray-100 mt-4">
+            <div className="px-4 md:px-6 pt-6 pb-5 max-w-6xl mx-auto">
+              {/* Desktop search bar */}
+              <div className="hidden lg:block">
+                <div className="flex items-stretch gap-2">
+                <div className="relative flex items-center gap-2 flex-1 min-w-0">
+                  <div className="relative flex-1 min-w-0 flex items-center gap-2.5 px-4 h-11 bg-white border border-stone-200 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+                    <span className="w-5 h-5 flex items-center justify-center shrink-0">
+                      <i className="ri-map-pin-line text-stone-400 text-base"></i>
+                    </span>
+                    <input
+                      value={detailSearchQuery}
+                      onChange={(e) => setDetailSearchQuery(e.target.value)}
+                      onKeyDown={handleDetailSearchKeyDown}
+                      placeholder="e.g. 'Nairobi', 'Kilimani', or '3 bed villa'"
+                      className="flex-1 min-w-0 text-sm font-roboto font-medium text-stone-800 placeholder:text-stone-400 focus:outline-none bg-transparent"
+                    />
+                    {detailSearchQuery && (
+                      <button onClick={() => setDetailSearchQuery('')} className="w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-600 cursor-pointer">
+                        <i className="ri-close-line text-sm"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <select value={detailPurpose} onChange={(e) => setDetailPurpose(e.target.value as 'sale' | 'rent')} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                      <option value="sale">For Sale</option>
+                      <option value="rent">For Rent</option>
+                    </select>
+                    <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                      <i className="ri-arrow-down-s-line text-sm"></i>
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <select value={detailRadius} onChange={(e) => setDetailRadius(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                      {radiusOptions.map((o) => <option key={o}>{o}</option>)}
+                    </select>
+                    <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                      <i className="ri-arrow-down-s-line text-sm"></i>
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <select value={detailPrice} onChange={(e) => setDetailPrice(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                      {detailPriceOptions.map((o) => <option key={o}>{o}</option>)}
+                    </select>
+                    <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                      <i className="ri-arrow-down-s-line text-sm"></i>
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <select value={detailType} onChange={(e) => setDetailType(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                      {detailTypeOptions.map((o) => <option key={o}>{o}</option>)}
+                    </select>
+                    <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                      <i className="ri-arrow-down-s-line text-sm"></i>
+                    </span>
+                  </div>
+                </div>
+                <button onClick={handleDetailSearch} className="flex items-center gap-2 h-11 px-5 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    <i className="ri-search-line text-sm"></i>
+                  </span>
+                  Search
+                </button>
+              </div>
+            </div>
+
+              {/* Mobile: compact row with back link + search trigger */}
+              <div className="lg:hidden flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="relative flex-1 min-w-0 flex items-center gap-2 px-3 h-9 bg-white border border-stone-200 rounded-lg">
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                      <i className="ri-map-pin-line text-stone-400 text-xs"></i>
+                    </span>
+                    <input
+                      value={detailSearchQuery}
+                      onChange={(e) => setDetailSearchQuery(e.target.value)}
+                      onKeyDown={handleDetailSearchKeyDown}
+                      placeholder="Search location..."
+                      className="flex-1 min-w-0 text-xs font-roboto font-medium text-stone-800 placeholder:text-stone-400 focus:outline-none bg-transparent"
+                    />
+                  </div>
+                  <button onClick={handleDetailSearch} className="flex items-center justify-center w-9 h-9 bg-primary text-white rounded-lg cursor-pointer shrink-0">
+                    <i className="ri-search-line text-sm"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {enableBreadcrumbs() && (
             <div className="px-6 py-3 bg-stone-50 border-b border-stone-100">
               <div className="max-w-6xl mx-auto">
@@ -439,7 +549,7 @@ export default function PropertyDetail() {
                     </div>
                     <div>
                       <p className="text-stone-400 font-roboto text-[10px] uppercase tracking-wider mb-1">Price</p>
-                      <p className="text-golden font-roboto text-base font-semibold">{activeListing.price}</p>
+                      <p className="text-golden font-roboto text-base font-semibold">{format(activeListing.priceRaw, activeListing.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</p>
                     </div>
                   </div>
                   <div className="mb-8">
@@ -513,6 +623,111 @@ export default function PropertyDetail() {
       <Header />
 
       <main className="pb-8">
+        {/* Back to results — above the search bar */}
+        <div className="px-4 md:px-6 max-w-6xl mx-auto mt-10 md:mt-14">
+          <Link
+            to={breadcrumbParent.href}
+            className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-stone-500 hover:text-primary transition-colors cursor-pointer whitespace-nowrap mb-2"
+          >
+            <span className="w-3.5 h-3.5 flex items-center justify-center">
+              <i className="ri-arrow-left-line text-xs"></i>
+            </span>
+            Back to results
+          </Link>
+        </div>
+
+        {/* Search Bar — above breadcrumb on all property detail pages */}
+        <div className="bg-white border-b border-gray-100 mt-4">
+          <div className="px-4 md:px-6 pt-6 pb-5 max-w-6xl mx-auto">
+            {/* Desktop search bar */}
+            <div className="hidden lg:block">
+              <div className="flex items-stretch gap-2">
+              <div className="relative flex items-center gap-2 flex-1 min-w-0">
+                <div className="relative flex-1 min-w-0 flex items-center gap-2.5 px-4 h-11 bg-white border border-stone-200 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
+                  <span className="w-5 h-5 flex items-center justify-center shrink-0">
+                    <i className="ri-map-pin-line text-stone-400 text-base"></i>
+                  </span>
+                  <input
+                    value={detailSearchQuery}
+                    onChange={(e) => setDetailSearchQuery(e.target.value)}
+                    onKeyDown={handleDetailSearchKeyDown}
+                    placeholder="e.g. 'Nairobi', 'Kilimani', or '3 bed villa'"
+                    className="flex-1 min-w-0 text-sm font-roboto font-medium text-stone-800 placeholder:text-stone-400 focus:outline-none bg-transparent"
+                  />
+                  {detailSearchQuery && (
+                    <button onClick={() => setDetailSearchQuery('')} className="w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-600 cursor-pointer">
+                      <i className="ri-close-line text-sm"></i>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <select value={detailPurpose} onChange={(e) => setDetailPurpose(e.target.value as 'sale' | 'rent')} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                    <option value="sale">For Sale</option>
+                    <option value="rent">For Rent</option>
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                    <i className="ri-arrow-down-s-line text-sm"></i>
+                  </span>
+                </div>
+                <div className="relative">
+                  <select value={detailRadius} onChange={(e) => setDetailRadius(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                    {radiusOptions.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                    <i className="ri-arrow-down-s-line text-sm"></i>
+                  </span>
+                </div>
+                <div className="relative">
+                  <select value={detailPrice} onChange={(e) => setDetailPrice(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                    {detailPriceOptions.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                    <i className="ri-arrow-down-s-line text-sm"></i>
+                  </span>
+                </div>
+                <div className="relative">
+                  <select value={detailType} onChange={(e) => setDetailType(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-stone-700 bg-white border border-stone-200 rounded-lg focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap transition-colors">
+                    {detailTypeOptions.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
+                    <i className="ri-arrow-down-s-line text-sm"></i>
+                  </span>
+                </div>
+              </div>
+              <button onClick={handleDetailSearch} className="flex items-center gap-2 h-11 px-5 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
+                <span className="w-4 h-4 flex items-center justify-center">
+                  <i className="ri-search-line text-sm"></i>
+                </span>
+                Search
+              </button>
+              </div>
+            </div>
+
+            {/* Mobile: compact row with search trigger */}
+            <div className="lg:hidden flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <div className="relative flex-1 min-w-0 flex items-center gap-2 px-3 h-9 bg-white border border-stone-200 rounded-lg">
+                  <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                    <i className="ri-map-pin-line text-stone-400 text-xs"></i>
+                  </span>
+                  <input
+                    value={detailSearchQuery}
+                    onChange={(e) => setDetailSearchQuery(e.target.value)}
+                    onKeyDown={handleDetailSearchKeyDown}
+                    placeholder="Search location..."
+                    className="flex-1 min-w-0 text-xs font-roboto font-medium text-stone-800 placeholder:text-stone-400 focus:outline-none bg-transparent"
+                  />
+                </div>
+                <button onClick={handleDetailSearch} className="flex items-center justify-center w-9 h-9 bg-primary text-white rounded-lg cursor-pointer shrink-0">
+                  <i className="ri-search-line text-sm"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Breadcrumb + Utility Bar */}
         {enableBreadcrumbs() && (
           <div className="px-4 md:px-6 pt-4 md:pt-6 max-w-6xl mx-auto">
@@ -560,7 +775,7 @@ export default function PropertyDetail() {
           <PropertyStatsBar
             title={activeListing.title}
             location={activeListing.location}
-            price={activeListing.price}
+            price={format(activeListing.priceRaw, activeListing.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
             propertyType={activeListing.propertyType}
             beds={activeListing.beds}
             baths={activeListing.baths}
@@ -587,7 +802,7 @@ export default function PropertyDetail() {
                 propertyType={activeListing.propertyType}
                 status={activeListing.status}
                 ref={activeListing.ref}
-                price={activeListing.price}
+                price={format(activeListing.priceRaw, activeListing.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
                 priceRaw={activeListing.priceRaw}
                 currency={activeListing.currency}
                 location={activeListing.location}

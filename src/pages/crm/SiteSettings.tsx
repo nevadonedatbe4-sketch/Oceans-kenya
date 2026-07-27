@@ -379,7 +379,6 @@ export default function SiteSettings() {
                     <option value="USD">USD (US Dollar)</option>
                     <option value="EUR">EUR (Euro)</option>
                     <option value="GBP">GBP (British Pound)</option>
-                    <option value="KES">KES (Kenyan Shilling)</option>
                   </select>
                 </div>
               </div>
@@ -421,19 +420,6 @@ export default function SiteSettings() {
                     onChange={(e) => setSetting('exchange_rate_eur', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
                     placeholder="140"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    1 KES = <span className="text-primary font-medium">? UGX</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={getSetting('exchange_rate_ugx')}
-                    onChange={(e) => setSetting('exchange_rate_ugx', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="28.5"
                   />
                 </div>
               </div>

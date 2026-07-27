@@ -32,6 +32,9 @@ interface ListingRow {
   virtual_tour_url?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  sub_type?: string | null;
+  owner_phone?: string | null;
+  owner_email?: string | null;
 }
 
 // ── Mapped shape used by the Buy page ──────────────────────────
@@ -49,11 +52,14 @@ export interface MappedListing {
   sqft: number;
   sqm: number;
   price: string;
+  rawPrice: number;
+  currency: string;
   priceUnit?: string;
   image: string;
   featured: boolean;
   listedDays: number;
   badges: string[];
+  createdAt: string;
   description: string;
   agent: string;
   agentLogo?: string;
@@ -72,6 +78,11 @@ export interface MappedListing {
   longitude?: number | null;
   // Calculated
   distanceKm?: number | null;
+  // JV / Land flags
+  isLand: boolean;
+  isJointVenture: boolean;
+  agentPhone?: string;
+  agentEmail?: string;
 }
 
 // ── Filter / Search / Sort input ───────────────────────────────
@@ -174,11 +185,16 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
   if (row.floor_plans && row.floor_plans.length > 0) badges.push('Floor plan');
   if (row.status === 'under_contract') badges.push('Under offer');
 
+  const isLand = (row.property_type || '').toLowerCase() === 'land';
+  const isJointVenture = (row.sub_type || '').toLowerCase() === 'joint_venture';
+
   const beds = row.bedrooms ?? 0;
   const baths = row.bathrooms ?? 0;
   const sqft = row.sqft ?? 1500;
 
   const agentInfo = deriveAgentInfo(null);
+  const agentPhone = row.owner_phone || undefined;
+  const agentEmail = row.owner_email || undefined;
 
   return {
     id: row.id,
@@ -194,11 +210,14 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
     sqft,
     sqm: Math.round(sqft * 0.0929),
     price: formattedPrice,
+    rawPrice: priceNum,
+    currency: row.currency || 'KES',
     priceUnit: undefined,
     image: allImages[0],
     featured: false,
     listedDays,
     badges,
+    createdAt: row.created_at,
     description: row.description || '',
     images: allImages,
     newHome,
@@ -210,6 +229,10 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
     houseShare: false,
     latitude: row.latitude ?? null,
     longitude: row.longitude ?? null,
+    isLand,
+    isJointVenture,
+    agentPhone,
+    agentEmail,
     ...agentInfo,
   };
 }
@@ -217,11 +240,9 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
 function formatPriceDisplay(price: number, currency: string, prefix?: string | null, postfix?: string | null): string {
   const p = prefix || '';
   const s = postfix || '';
-  const currencySymbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KSh' : currency === 'UGX' ? 'UGX' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '';
-  if (price >= 1_000_000_000) return `${p}${currencySymbol} ${(price / 1_000_000_000).toFixed(1)}B${s}`;
-  if (price >= 1_000_000) return `${p}${currencySymbol} ${(price / 1_000_000).toFixed(1)}M${s}`;
-  if (price >= 1_000) return `${p}${currencySymbol} ${(price / 1_000).toFixed(0)}K${s}`;
-  return `${p}${currencySymbol} ${price.toLocaleString()}${s}`;
+  if (!currency) currency = 'KES';
+  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'UGX' ? 'UGX' : currency === 'AED' ? 'AED' : currency === 'ZAR' ? 'R' : currency;
+  return `${p}${symbol} ${price.toLocaleString()}${s}`;
 }
 
 // ── Distance filtering helper ──────────────────────────────────

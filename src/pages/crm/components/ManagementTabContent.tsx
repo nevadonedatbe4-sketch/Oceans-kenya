@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { ManagementData } from '@/hooks/useManagementData';
+import CurrencyManager from '@/pages/crm/components/CurrencyManager';
 import {
   Save, Loader2, Settings, Palette, Type, Layout, Image, Search,
   Upload, X, ArrowUp, ArrowDown, GripVertical,
@@ -59,7 +60,7 @@ function ToggleRow({ label, desc, value, onToggle }: { label: string; desc: stri
     <div className="flex items-center justify-between p-4 border border-stone-200/70 rounded-lg bg-stone-50/50 hover:bg-stone-50 transition-colors group">
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-roboto font-medium text-stone-800 tracking-tight">{label}</p>
-        {desc && <p className="text-[11px] text-stone-400 font-roboto mt-0.5 leading-relaxed">{desc}</p>}
+        {desc && <p className="text-[13px] text-stone-400 font-roboto mt-0.5 leading-relaxed">{desc}</p>}
       </div>
       <button
         onClick={onToggle}
@@ -158,11 +159,6 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
 
   // Drag reorder uses up/down buttons instead of drag events for simplicity
 
-  // Currency management state
-  const [activeRateTab, setActiveRateTab] = useState<'ugx' | 'eur' | 'gbp'>('ugx');
-  const [rateMode, setRateMode] = useState<'auto' | 'manual'>('auto');
-  const [refreshingRate, setRefreshingRate] = useState(false);
-
   // Property Settings sub-tab
   const [propSubtab, setPropSubtab] = useState<'general' | 'required' | 'card'>('general');
 
@@ -175,34 +171,6 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
   // Listings hero page key helper
   const listingsPageKey = listingsSubtab === 'search' ? 'search' : listingsSubtab;
   const listingsHeroLabel = listingsSubtab === 'buy' ? 'Buy Page' : listingsSubtab === 'rent' ? 'Rent Page' : listingsSubtab === 'search' ? 'Search Page' : 'Layout & Defaults';
-
-  // Exchange rate helpers
-  const getRate = (currency: string): string => getSite(`exchange_rate_${currency}`);
-  const setRate = (currency: string, value: string) => setSite(`exchange_rate_${currency}`, value);
-
-  // Live preview computation (sample: $180,000 USD)
-  const samplePrice = 180000;
-  const usdRateVal = parseFloat(getRate('usd') || '130');
-  const ugxRateVal = parseFloat(getRate('ugx') || '28.5');
-  const eurRateVal = parseFloat(getRate('eur') || '140');
-  const gbpRateVal = parseFloat(getRate('gbp') || '165');
-  const kesFromSample = samplePrice * usdRateVal;
-  const ugxConverted = Math.round(kesFromSample * ugxRateVal);
-  const eurConverted = Math.round(kesFromSample / eurRateVal);
-  const gbpConverted = Math.round(kesFromSample / gbpRateVal);
-
-  const formatLarge = (n: number): string => {
-    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1) + 'B';
-    if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-    if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
-    return n.toLocaleString('en-US');
-  };
-
-  const handleRefreshRate = async () => {
-    setRefreshingRate(true);
-    await fetchData();
-    setRefreshingRate(false);
-  };
 
   if (loading) return <LoadingSpinner />;
 
@@ -815,7 +783,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-stone-700 block">Watermark Text</label>
                   <input
-                    type="text" placeholder="e.g. oceans.co.ug"
+                    type="text" placeholder="e.g. oceans.co.ke"
                     value={getPropSetting('watermark_text') || ''}
                     onChange={(e) => setPropSetting('watermark_text', e.target.value)}
                     className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] focus:ring-1 focus:ring-[#1B4332]/20 transition-colors bg-white"
@@ -998,7 +966,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
               .map((r) => {
                 const desc: Record<string, string> = {
                   title: 'Listing cannot be published without a title.',
-                  price: 'Listing cannot be published without a UGX price.',
+                  price: 'Listing cannot be published without a KES price.',
                   photos: 'Block publishing if no photos are attached.',
                   agent: 'Require an agent to be assigned before publishing.',
                 };
@@ -1516,9 +1484,9 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                 <option value="type">Property Type (e.g. Villa)</option>
                 <option value="status">Property Status (e.g. For Sale)</option>
                 <option value="status-type">Status + Type (e.g. For Sale › Villa)</option>
-                <option value="city">City only (e.g. Kampala)</option>
-                <option value="area">Area only (e.g. Kololo)</option>
-                <option value="city-area">City + Area (e.g. Kampala › Kololo)</option>
+                <option value="city">City only (e.g. Nairobi)</option>
+                <option value="area">Area only (e.g. Kilimani)</option>
+                <option value="city-area">City + Area (e.g. Nairobi › Kilimani)</option>
               </select>
               <p className="text-xs text-stone-400">Controls the middle segment of the breadcrumb trail on property pages.</p>
             </div>
@@ -1533,7 +1501,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                 <span className="text-stone-300">{getBread('separator_character') === 'chevron' ? '›' : getBread('separator_character') === 'arrow' ? '→' : getBread('separator_character') === 'pipe' ? '|' : getBread('separator_character') === 'dot' ? '·' : getBread('separator_character') || '/'}</span>
                 <span className="text-[#1B4332]">For Sale</span>
                 <span className="text-stone-300">{getBread('separator_character') === 'chevron' ? '›' : getBread('separator_character') === 'arrow' ? '→' : getBread('separator_character') === 'pipe' ? '|' : getBread('separator_character') === 'dot' ? '·' : getBread('separator_character') || '/'}</span>
-                <span className="text-stone-600 font-medium">4BR Villa — Kololo Hill</span>
+                <span className="text-stone-600 font-medium">4BR Villa — Kilimani</span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -1908,23 +1876,23 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
               { key: 'heading_font', label: 'Heading Font', type: 'font' },
               { key: 'body_font', label: 'Body Font', type: 'font' },
               { key: 'display_font', label: 'Display Font', type: 'font' },
-              { key: 'nav_font_size', label: 'Nav Font Size', type: 'text' },
+              { key: 'nav_font_size', label: 'Nav Font Size', type: 'fontsize' },
               { key: 'nav_font_weight', label: 'Nav Font Weight', type: 'text' },
               { key: 'nav_letter_spacing', label: 'Nav Letter Spacing', type: 'text' },
               { key: 'nav_text_transform', label: 'Nav Text Transform', type: 'select' },
-              { key: 'hero_font_size', label: 'Hero Font Size', type: 'text' },
+              { key: 'hero_font_size', label: 'Hero Font Size', type: 'fontsize' },
               { key: 'hero_font_weight', label: 'Hero Font Weight', type: 'text' },
               { key: 'hero_line_height', label: 'Hero Line Height', type: 'text' },
               { key: 'hero_letter_spacing', label: 'Hero Letter Spacing', type: 'text' },
-              { key: 'body_font_size', label: 'Body Font Size', type: 'text' },
+              { key: 'body_font_size', label: 'Body Font Size', type: 'fontsize' },
               { key: 'body_font_weight', label: 'Body Font Weight', type: 'text' },
               { key: 'body_line_height', label: 'Body Line Height', type: 'text' },
-              { key: 'button_font_size', label: 'Button Font Size', type: 'text' },
+              { key: 'button_font_size', label: 'Button Font Size', type: 'fontsize' },
               { key: 'button_font_weight', label: 'Button Font Weight', type: 'text' },
               { key: 'button_letter_spacing', label: 'Button Letter Spacing', type: 'text' },
               { key: 'button_text_transform', label: 'Button Text Transform', type: 'select' },
-              { key: 'footer_font_size', label: 'Footer Font Size', type: 'text' },
-              { key: 'breadcrumb_font_size', label: 'Breadcrumb Font Size', type: 'text' },
+              { key: 'footer_font_size', label: 'Footer Font Size', type: 'fontsize' },
+              { key: 'breadcrumb_font_size', label: 'Breadcrumb Font Size', type: 'fontsize' },
             ].map((typo) => (
               <div key={typo.key}>
                 <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">{typo.label}</label>
@@ -1937,6 +1905,15 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                     { value: 'Montserrat', label: 'Montserrat' },
                     { value: 'Lato', label: 'Lato' },
                     { value: 'Playfair Display', label: 'Playfair Display' },
+                  ]} onChange={(v) => setTypo(typo.key, v)} />
+                ) : typo.type === 'fontsize' ? (
+                  <SelectInput value={getTypo(typo.key) || '14'} options={[
+                    { value: '10', label: '10px' },
+                    { value: '12', label: '12px' },
+                    { value: '14', label: '14px' },
+                    { value: '18', label: '18px' },
+                    { value: '24', label: '24px' },
+                    { value: '26', label: '26px' },
                   ]} onChange={(v) => setTypo(typo.key, v)} />
                 ) : typo.type === 'select' ? (
                   <SelectInput value={getTypo(typo.key) || 'none'} options={[
@@ -1955,303 +1932,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
       )}
 
       {/* ═══════ CURRENCY ═══════ */}
-      {activeTab === 'currency' && (
-        <div className="space-y-5">
-          {/* Live Display Preview */}
-          <div className="bg-[#1B4332] rounded-xl p-5 text-white">
-            <p className="text-xs font-semibold uppercase tracking-widest text-white/50 mb-3">
-              Live Display Preview — Sample Property: USD {samplePrice.toLocaleString('en-US')}
-            </p>
-            <div className="space-y-1">
-              <p className="text-xs text-white/50">Starting from</p>
-              <p className="text-2xl font-bold text-white">
-                {getSite('currency_symbol') || '$'}{samplePrice.toLocaleString('en-US', { minimumFractionDigits: parseInt(getPropSetting('price_decimals') || '0'), maximumFractionDigits: parseInt(getPropSetting('price_decimals') || '0') })}
-              </p>
-              {ugxRateVal > 0 && ugxConverted > 0 && (
-                <p className="text-sm text-white/60">
-                  ≈ USh {ugxConverted.toLocaleString('en-US')}
-                </p>
-              )}
-              {eurRateVal > 0 && eurConverted > 0 && (
-                <p className="text-sm text-white/60">
-                  ≈ €{eurConverted.toLocaleString('en-US')}
-                </p>
-              )}
-              {gbpRateVal > 0 && gbpConverted > 0 && (
-                <p className="text-sm text-white/60">
-                  ≈ £{gbpConverted.toLocaleString('en-US')}
-                </p>
-              )}
-              {(ugxRateVal <= 0 || ugxConverted <= 0) && (eurRateVal <= 0 || eurConverted <= 0) && (gbpRateVal <= 0 || gbpConverted <= 0) && (
-                <p className="text-sm text-white/40 italic mt-2">Configure exchange rates below to see live conversions</p>
-              )}
-            </div>
-            <div className="mt-3 pt-3 border-t border-white/10 flex items-center gap-4 text-xs text-white/30">
-              <span>Base: {getSite('currency_default') || 'USD'}</span>
-              <span>·</span>
-              <span>Currencies: {getSite('currency_default') || 'USD'}, UGX, EUR, GBP</span>
-            </div>
-          </div>
-
-          {/* Exchange Rates */}
-          <div className="bg-white rounded-xl border border-stone-200/70 p-5 space-y-4">
-            <h3 className="text-[13px] font-jost font-semibold text-stone-800 uppercase tracking-[0.12em]">Exchange Rates (from USD)</h3>
-
-            {/* Rate tab switcher */}
-            <div className="flex items-center gap-1">
-              {(['ugx', 'eur', 'gbp'] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveRateTab(tab)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer whitespace-nowrap ${
-                    activeRateTab === tab
-                      ? 'bg-[#1B4332] text-white'
-                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                  }`}
-                >
-                  {tab === 'ugx' ? 'UGX (USh)' : tab === 'eur' ? 'EUR (€)' : 'GBP (£)'}
-                </button>
-              ))}
-            </div>
-
-            {/* Rate Mode */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-stone-700 block">Rate Mode</label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div
-                    onClick={() => setRateMode('auto')}
-                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                      rateMode === 'auto' ? 'border-[#1B4332] bg-[#1B4332]' : 'border-stone-300 bg-white'
-                    }`}
-                  >
-                    {rateMode === 'auto' && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
-                  </div>
-                  <span className="text-sm text-stone-700">Auto — fetch live rate from Open Exchange Rates API</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div
-                    onClick={() => setRateMode('manual')}
-                    className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors cursor-pointer ${
-                      rateMode === 'manual' ? 'border-[#1B4332] bg-[#1B4332]' : 'border-stone-300 bg-white'
-                    }`}
-                  >
-                    {rateMode === 'manual' && <span className="w-1.5 h-1.5 rounded-full bg-white"></span>}
-                  </div>
-                  <span className="text-sm text-stone-700">Manual Override — use a fixed rate you set yourself</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Current Rate Display & Edit */}
-            <div className="border border-stone-200 rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-stone-700">
-                    Current {rateMode === 'auto' ? 'Live' : 'Manual'} Rate — {activeRateTab.toUpperCase()}
-                  </p>
-                  {rateMode === 'auto' ? (
-                    <>
-                      {getRate(activeRateTab) ? (
-                        <p className="text-sm text-stone-500 mt-1">
-                          1 USD = {activeRateTab === 'ugx' ? formatLarge(usdRateVal * ugxRateVal) : (usdRateVal / (activeRateTab === 'eur' ? eurRateVal : gbpRateVal)).toFixed(2)} {activeRateTab === 'ugx' ? 'UGX' : activeRateTab === 'eur' ? 'EUR' : 'GBP'}
-                          <span className="text-xs text-stone-400 ml-2">
-                            (Stored: {getRate(activeRateTab)} {activeRateTab === 'ugx' ? 'UGX / KES' : 'KES / ' + activeRateTab.toUpperCase()})
-                          </span>
-                        </p>
-                      ) : (
-                        <p className="text-sm text-stone-400 mt-1">No rate fetched yet — click Refresh to pull the latest.</p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-3 mt-2">
-                      <input
-                        type="number"
-                        step="any"
-                        value={getRate(activeRateTab)}
-                        onChange={(e) => setRate(activeRateTab, e.target.value)}
-                        className="w-32 px-3 py-1.5 border border-stone-200 rounded-md text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] focus:ring-1 focus:ring-[#1B4332]/20 bg-white"
-                        placeholder="Rate"
-                      />
-                      <span className="text-xs text-stone-400">
-                        {activeRateTab === 'ugx' ? 'UGX per 1 KES' : `KES per 1 ${activeRateTab.toUpperCase()}`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={handleRefreshRate}
-                  disabled={refreshingRate}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#1B4332] text-white text-sm rounded-lg hover:bg-[#1B4332]/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 shrink-0"
-                >
-                  {refreshingRate ? (
-                    <><Loader2 size={14} className="animate-spin" /> Refreshing...</>
-                  ) : (
-                    <><i className="ri-refresh-line"></i> Refresh Rate</>
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-stone-400">
-                If API is unavailable, the system falls back to the last saved exchange rate. If no saved rate exists, the display reverts to USD only.
-              </p>
-            </div>
-          </div>
-
-          {/* Price Entry Logic */}
-          <div className="bg-white rounded-xl border border-stone-200/70 p-5 space-y-3">
-            <h3 className="text-[13px] font-jost font-semibold text-stone-800 uppercase tracking-[0.12em]">Price Entry Logic</h3>
-            <div className="rounded-lg border border-[#1B4332]/20 bg-[#1B4332]/5 p-4 space-y-2">
-              <p className="text-sm font-medium text-[#1B4332]">How prices work across the site</p>
-              <ul className="text-sm text-[#1B4332]/70 space-y-1.5">
-                <li className="flex items-start gap-2">
-                  <i className="ri-checkbox-circle-line mt-0.5 shrink-0"></i>
-                  Admin enters property prices in <strong>USD</strong> as the base currency
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="ri-checkbox-circle-line mt-0.5 shrink-0"></i>
-                  The frontend dynamically converts prices to the user's selected currency using current exchange rates
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="ri-checkbox-circle-line mt-0.5 shrink-0"></i>
-                  Available display currencies: <strong>USD, UGX, EUR, GBP</strong>
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="ri-checkbox-circle-line mt-0.5 shrink-0"></i>
-                  Users can switch currencies anytime via the top bar switcher — prices update instantly site-wide
-                </li>
-                <li className="flex items-start gap-2">
-                  <i className="ri-checkbox-circle-line mt-0.5 shrink-0"></i>
-                  All conversion happens on the frontend — stored prices in the database never change
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Display Format */}
-          <div className="bg-white rounded-xl border border-stone-200/70 p-5 space-y-4">
-            <h3 className="text-[13px] font-jost font-semibold text-stone-800 uppercase tracking-[0.12em]">Display Format</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-stone-700 block">Thousand Separator</label>
-                <SelectInput
-                  value={getPropSetting('thousands_separator') || ','}
-                  options={[
-                    { value: ',', label: 'Comma — 1,000,000' },
-                    { value: '.', label: 'Period — 1.000.000' },
-                    { value: ' ', label: 'Space — 1 000 000' },
-                  ]}
-                  onChange={(v) => setPropSetting('thousands_separator', v)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-stone-700 block">USD Decimal Places</label>
-                <SelectInput
-                  value={getPropSetting('price_decimals') || '0'}
-                  options={[
-                    { value: '0', label: '0 — $180,000' },
-                    { value: '2', label: '2 — $180,000.00' },
-                  ]}
-                  onChange={(v) => setPropSetting('price_decimals', v)}
-                />
-              </div>
-            </div>
-            <div className="border-t border-stone-100 pt-4 space-y-0">
-              <div className="flex items-start justify-between gap-4 py-3 border-b border-stone-100 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-stone-700">Show Currency Symbol</p>
-                  <p className="text-[11px] text-stone-400 mt-0.5">Display $, €, £ before amounts</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPropSetting('currency_show_symbol', getPropSetting('currency_show_symbol') === 'true' ? 'false' : 'true')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                    getPropSetting('currency_show_symbol') !== 'false' ? 'bg-[#1B4332]' : 'bg-stone-300'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    getPropSetting('currency_show_symbol') !== 'false' ? 'translate-x-6' : 'translate-x-1'
-                  }`}></span>
-                </button>
-              </div>
-              <div className="flex items-start justify-between gap-4 py-3 border-b border-stone-100 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-stone-700">Show Currency Code</p>
-                  <p className="text-[11px] text-stone-400 mt-0.5">Display USD, EUR, GBP as labels</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPropSetting('currency_show_code', getPropSetting('currency_show_code') === 'true' ? 'false' : 'true')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                    getPropSetting('currency_show_code') !== 'false' ? 'bg-[#1B4332]' : 'bg-stone-300'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    getPropSetting('currency_show_code') !== 'false' ? 'translate-x-6' : 'translate-x-1'
-                  }`}></span>
-                </button>
-              </div>
-              <div className="flex items-start justify-between gap-4 py-3 border-b border-stone-100 last:border-0">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-stone-700">Show 'Starting From' Label</p>
-                  <p className="text-[11px] text-stone-400 mt-0.5">Prefix prices with "Starting from" text</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setPropSetting('currency_show_starting_from', getPropSetting('currency_show_starting_from') === 'true' ? 'false' : 'true')}
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                    getPropSetting('currency_show_starting_from') !== 'false' ? 'bg-[#1B4332]' : 'bg-stone-300'
-                  }`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                    getPropSetting('currency_show_starting_from') !== 'false' ? 'translate-x-6' : 'translate-x-1'
-                  }`}></span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Fallback Rules */}
-          <div className="bg-white rounded-xl border border-stone-200/70 p-5">
-            <h3 className="text-[13px] font-jost font-semibold text-stone-800 uppercase tracking-[0.12em] mb-3">Fallback Rules</h3>
-            <div className="space-y-2">
-              <div className="flex items-start gap-2.5 text-sm text-stone-600">
-                <i className="ri-shield-check-line text-[#1B4332] mt-0.5 shrink-0"></i>
-                If API fails → use last saved exchange rate automatically
-              </div>
-              <div className="flex items-start gap-2.5 text-sm text-stone-600">
-                <i className="ri-shield-check-line text-[#1B4332] mt-0.5 shrink-0"></i>
-                If no saved rate exists → display prices in USD only
-              </div>
-              <div className="flex items-start gap-2.5 text-sm text-stone-600">
-                <i className="ri-shield-check-line text-[#1B4332] mt-0.5 shrink-0"></i>
-                Manual override always takes priority over API when mode is set to Manual
-              </div>
-            </div>
-          </div>
-
-          {/* Applied Across */}
-          <div className="bg-white rounded-xl border border-stone-200/70 p-5">
-            <h3 className="text-[13px] font-jost font-semibold text-stone-800 uppercase tracking-[0.12em] mb-3">Applied Across</h3>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
-              {[
-                'Property Cards',
-                'Listing Detail Pages',
-                'Featured Listings',
-                'Search Results',
-                'Agent Profiles',
-                'Neighbourhood Listings',
-                'Inquiry Summaries',
-                'Admin Listings Table',
-              ].map((item) => (
-                <div key={item} className="flex items-center gap-2 py-1.5">
-                  <i className="ri-checkbox-circle-fill text-[#1B4332] text-sm"></i>
-                  <span className="text-sm text-stone-600">{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'currency' && <CurrencyManager />}
 
       {/* ═══════ LISTINGS PAGES ═══════ */}
       {activeTab === 'listings-pages' && (

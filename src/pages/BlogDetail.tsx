@@ -1,13 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { blogPosts, type BlogPost } from '@/mocks/blogPosts';
-import { areaGuides } from '@/mocks/areaGuides';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
+
+interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  categoryTag: string;
+  author: string;
+  authorAvatar: string;
+  featured_image: string;
+  excerpt: string;
+  published_at: string;
+  readTime: string;
+  body: string;
+  relatedGuides: string[];
+}
 
 function Reveal({
   children,
@@ -64,12 +78,10 @@ export default function BlogDetail() {
         };
         setPost(mapped);
       } else {
-        const mockPost = blogPosts.find((p) => p.slug === slug);
-        setPost(mockPost || null);
+        setPost(null);
       }
     } catch {
-      const mockPost = blogPosts.find((p) => p.slug === slug);
-      setPost(mockPost || null);
+      setPost(null);
     }
     setLoading(false);
   }, [slug]);
@@ -79,7 +91,7 @@ export default function BlogDetail() {
   }, [fetchPost]);
 
   const relatedGuides = post?.relatedGuides
-    ? areaGuides.filter((g) => post.relatedGuides.includes(g.slug)).slice(0, 3)
+    ? [] 
     : [];
 
   if (loading) {

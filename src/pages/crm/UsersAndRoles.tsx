@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useRef } from 'react';
+import { supabase, uploadImageViaEdgeFunction } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
@@ -18,6 +18,9 @@ import {
   Save,
   Loader2,
   Mail,
+  UserPlus,
+  Crown,
+  Sparkles,
 } from 'lucide-react';
 
 interface UserProfile {
@@ -42,10 +45,17 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_COLORS: Record<string, string> = {
-  super_admin: 'bg-purple-50 text-purple-700',
-  admin: 'bg-blue-50 text-blue-700',
-  editor: 'bg-green-50 text-green-700',
-  agent: 'bg-amber-50 text-amber-700',
+  super_admin: 'bg-amber-400/15 text-amber-300 border-amber-400/30',
+  admin: 'bg-primary/15 text-primary-light border-primary/30',
+  editor: 'bg-emerald-400/15 text-emerald-300 border-emerald-400/30',
+  agent: 'bg-sky-400/15 text-sky-300 border-sky-400/30',
+};
+
+const ROLE_BG_GRADIENTS: Record<string, string> = {
+  super_admin: 'from-amber-400/20 to-amber-500/5',
+  admin: 'from-primary/20 to-primary/5',
+  editor: 'from-emerald-400/20 to-emerald-500/5',
+  agent: 'from-sky-400/20 to-sky-500/5',
 };
 
 export default function UsersAndRoles() {
@@ -61,6 +71,9 @@ export default function UsersAndRoles() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('agent');
   const [inviting, setInviting] = useState(false);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const perPage = 10;
 
   const fetchUsers = async () => {
@@ -99,7 +112,7 @@ export default function UsersAndRoles() {
       })
       .eq('id', editUser.id);
     if (error) {
-      showToast('Failed to update user', 'error');
+      showToast(error.message || 'Failed to update user', 'error');
     } else {
       showToast('User updated', 'success');
       setEditUser(null);
@@ -111,7 +124,7 @@ export default function UsersAndRoles() {
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('profiles').delete().eq('id', id);
     if (error) {
-      showToast('Failed to delete user', 'error');
+      showToast(error.message || 'Failed to delete user', 'error');
     } else {
       showToast('User deleted', 'success');
       setDeleteId(null);
@@ -125,7 +138,7 @@ export default function UsersAndRoles() {
       .update({ status: suspend ? 'suspended' : 'active' })
       .eq('id', id);
     if (error) {
-      showToast('Failed to update status', 'error');
+      showToast(error.message || 'Failed to update status', 'error');
     } else {
       showToast(suspend ? 'User suspended' : 'User reactivated', 'success');
       setSuspendId(null);
@@ -137,95 +150,179 @@ export default function UsersAndRoles() {
     e.preventDefault();
     if (!inviteEmail) return;
     setInviting(true);
-    // Create a new auth user and profile
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: inviteEmail,
-      password: Math.random().toString(36).substring(2, 10) + 'A1!',
-    });
-    if (authError || !authData.user) {
-      showToast('Failed to send invite', 'error');
+    setInviteSuccess(false);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+
+    if (!token) {
+      showToast('You must be logged in to invite users', 'error');
       setInviting(false);
       return;
     }
-    const { error: profileError } = await supabase.from('profiles').insert({
-      user_id: authData.user.id,
-      email: inviteEmail,
-      role: inviteRole,
-      name: inviteEmail.split('@')[0],
-      status: 'active',
-    });
-    if (profileError) {
-      showToast('Failed to create profile', 'error');
-    } else {
-      showToast('Invite sent successfully', 'success');
-      setInviteEmail('');
-      setInviteRole('agent');
-      fetchUsers();
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/functions/v1/invite-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: inviteEmail,
+            role: inviteRole,
+            name: inviteEmail.split('@')[0],
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to create user', 'error');
+      } else {
+        setInviteSuccess(true);
+        showToast(data?.message || 'User created successfully', 'success');
+        setInviteEmail('');
+        setInviteRole('agent');
+        fetchUsers();
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Network error. Please try again.', 'error');
+    } finally {
+      setInviting(false);
     }
-    setInviting(false);
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!editUser) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Image must be under 5MB', 'error');
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `avatars/${editUser.user_id}-${Date.now()}.${ext}`;
+
+      const { url } = await uploadImageViaEdgeFunction(file, path, 'agent-avatars');
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar: url })
+        .eq('id', editUser.id);
+
+      if (updateError) {
+        showToast(`Failed to save avatar: ${updateError.message}`, 'error');
+      } else {
+        setEditUser({ ...editUser, avatar: url });
+        showToast('Avatar updated', 'success');
+        fetchUsers();
+      }
+    } catch (err: any) {
+      showToast(`Upload failed: ${err.message}`, 'error');
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
   };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'super_admin': return <ShieldCheck size={14} />;
-      case 'admin': return <Shield size={14} />;
-      case 'editor': return <UserCog size={14} />;
-      default: return <ShieldAlert size={14} />;
+      case 'super_admin': return <Crown size={16} />;
+      case 'admin': return <ShieldCheck size={16} />;
+      case 'editor': return <UserCog size={16} />;
+      default: return <Shield size={16} />;
     }
   };
 
   return (
-    <div className="space-y-5">
+    <div className="-m-6 min-h-[calc(100vh-65px)] bg-gradient-to-b from-[#16161c] via-[#1a1a20] to-[#16161c] p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="font-jost text-lg text-[#1a1a2e]">Users & Roles</h2>
-          <p className="text-xs text-gray-500 font-roboto mt-0.5">Manage user access and permissions</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-golden/20 to-golden/5 flex items-center justify-center">
+            <Users size={20} className="text-golden" />
+          </div>
+          <div>
+            <h2 className="font-jost text-2xl font-bold text-white">Users & Roles</h2>
+            <p className="text-sm text-white/40 font-roboto mt-0.5">Manage team access and permissions</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+          <Sparkles size={14} className="text-golden" />
+          <span className="text-sm text-white/60 font-roboto">{totalCount} team members</span>
         </div>
       </div>
 
       {/* Invite Form */}
-      <div className="bg-white rounded-lg border border-gray-100 p-5">
-        <h3 className="font-jost text-sm text-[#1a1a2e] mb-3">Invite New User</h3>
-        <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3 items-end">
+      <div className="bg-gradient-to-br from-[#1E1E24] to-[#1a1a20] rounded-xl border border-white/[0.07] p-6">
+        <div className="flex items-center gap-2 mb-5">
+          <div className="w-8 h-8 rounded-lg bg-golden/10 flex items-center justify-center">
+            <UserPlus size={16} className="text-golden" />
+          </div>
+          <h3 className="font-jost text-base font-semibold text-white">Invite New Team Member</h3>
+        </div>
+
+        {inviteSuccess && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-5 py-4 mb-5">
+            <p className="text-sm font-roboto text-emerald-300 font-semibold mb-1">Account created successfully</p>
+            <p className="text-sm font-roboto text-emerald-300/70">
+              They can sign in at <strong className="text-emerald-200">/crm/login</strong> and use <strong className="text-emerald-200">Forgot password?</strong> to set their password.
+            </p>
+          </div>
+        )}
+
+        <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-4 items-end">
           <div className="flex-1 w-full">
-            <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-              <Mail size={12} className="inline mr-1" />
-              Email
+            <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">
+              <Mail size={12} className="inline mr-1.5" />
+              Email Address
             </label>
             <input
               type="email"
               required
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-              placeholder="user@example.com"
+              className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white placeholder:text-white/20 focus:outline-none focus:border-golden/40 focus:bg-white/[0.06] transition-all"
+              placeholder="colleague@agency.com"
             />
           </div>
-          <div className="w-full sm:w-40">
-            <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Role</label>
+          <div className="w-full sm:w-44">
+            <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Role</label>
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white"
+              className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white focus:outline-none focus:border-golden/40 focus:bg-white/[0.06] transition-all cursor-pointer appearance-none"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center' }}
             >
               {ROLES.map((r) => (
-                <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                <option key={r} value={r} className="bg-[#1a1a20] text-white">{ROLE_LABELS[r]}</option>
               ))}
             </select>
           </div>
           <button
             type="submit"
             disabled={inviting}
-            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-md text-sm font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+            className="w-full sm:w-auto bg-golden hover:bg-golden/90 text-[#1a1a20] px-7 py-3 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap disabled:opacity-40 tracking-wide"
           >
             {inviting ? (
               <span className="flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin" />
-                Inviting...
+                <Loader2 size={16} className="animate-spin" />
+                Sending Invite...
               </span>
             ) : (
-              'Send Invite'
+              <span className="flex items-center gap-2">
+                <Mail size={16} />
+                Send Invite
+              </span>
             )}
           </button>
         </form>
@@ -233,112 +330,120 @@ export default function UsersAndRoles() {
 
       {/* Search */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative flex-1 max-w-sm">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" />
           <input
             type="text"
-            placeholder="Search users by name or email..."
+            placeholder="Search by name or email..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+            className="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white placeholder:text-white/20 focus:outline-none focus:border-white/15 focus:bg-white/[0.06] transition-all"
           />
         </div>
       </div>
 
       {/* Users Table */}
       {loading ? (
-        <div className="text-center py-16">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400 font-roboto">Loading users...</p>
+        <div className="bg-gradient-to-br from-[#1E1E24] to-[#1a1a20] rounded-xl border border-white/[0.07] py-20 text-center">
+          <div className="w-10 h-10 border-2 border-golden border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-sm text-white/30 font-roboto">Loading team members...</p>
         </div>
       ) : users.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-100 py-16 text-center">
-          <Users size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-sm text-gray-400 font-roboto">No users found</p>
+        <div className="bg-gradient-to-br from-[#1E1E24] to-[#1a1a20] rounded-xl border border-white/[0.07] py-20 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] flex items-center justify-center mx-auto mb-4">
+            <Users size={28} className="text-white/15" />
+          </div>
+          <p className="text-base font-jost font-semibold text-white/50 mb-1">No users found</p>
+          <p className="text-sm text-white/25 font-roboto">Try adjusting your search or invite someone new.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        <div className="bg-gradient-to-br from-[#1E1E24] to-[#1a1a20] rounded-xl border border-white/[0.07] overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">User</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden sm:table-cell">Contact</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Actions</th>
+              <thead>
+                <tr className="border-b border-white/[0.05]">
+                  <th className="px-6 py-4 text-left text-xs font-roboto text-white/25 uppercase tracking-[0.15em] font-semibold">Team Member</th>
+                  <th className="px-6 py-4 text-left text-xs font-roboto text-white/25 uppercase tracking-[0.15em] font-semibold hidden md:table-cell">Contact</th>
+                  <th className="px-6 py-4 text-left text-xs font-roboto text-white/25 uppercase tracking-[0.15em] font-semibold">Role</th>
+                  <th className="px-6 py-4 text-left text-xs font-roboto text-white/25 uppercase tracking-[0.15em] font-semibold">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-roboto text-white/25 uppercase tracking-[0.15em] font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody>
                 {users.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <span className="text-primary text-sm font-semibold">
-                            {(user.name || user.email).charAt(0).toUpperCase()}
-                          </span>
+                  <tr key={user.id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-all duration-200">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0 ring-1 ring-white/[0.06] ${user.avatar ? '' : `bg-gradient-to-br ${ROLE_BG_GRADIENTS[user.role] || 'from-white/10 to-white/[0.02]'}`}`}>
+                          {user.avatar ? (
+                            <img src={user.avatar} alt={user.name || ''} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-white text-base font-bold font-jost">
+                              {(user.name || user.email).charAt(0).toUpperCase()}
+                            </span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-roboto font-medium text-[#1a1a2e] truncate">
+                          <p className="text-sm font-roboto font-semibold text-white truncate">
                             {user.name || 'Unnamed'}
                           </p>
-                          <p className="text-xs text-gray-400 font-roboto truncate">{user.email}</p>
+                          <p className="text-xs text-white/30 font-roboto truncate mt-0.5">{user.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 hidden sm:table-cell">
-                      <span className="text-xs text-gray-500 font-roboto">{user.phone || '—'}</span>
+                    <td className="px-6 py-4 hidden md:table-cell">
+                      <span className="text-sm text-white/35 font-roboto">{user.phone || '—'}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-roboto font-medium uppercase ${ROLE_COLORS[user.role] || 'bg-gray-50 text-gray-700'}`}>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-roboto font-bold uppercase border ${ROLE_COLORS[user.role] || 'bg-white/5 text-white/40 border-white/10'}`}>
                         {getRoleIcon(user.role)}
                         {ROLE_LABELS[user.role] || user.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-roboto font-medium uppercase ${
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-roboto font-bold uppercase ${
                         user.status === 'active'
-                          ? 'bg-green-50 text-green-700'
+                          ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
                           : user.status === 'suspended'
-                          ? 'bg-red-50 text-red-700'
-                          : 'bg-gray-50 text-gray-700'
+                          ? 'bg-red-500/10 text-red-300 border border-red-500/20'
+                          : 'bg-white/5 text-white/30 border border-white/10'
                       }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'active' ? 'bg-emerald-400' : user.status === 'suspended' ? 'bg-red-400' : 'bg-white/20'}`} />
                         {user.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => setEditUser(user)}
-                          className="p-1.5 hover:bg-gray-100 rounded-md cursor-pointer text-gray-400 hover:text-primary transition-colors"
-                          title="Edit"
+                          className="p-2 hover:bg-white/[0.06] rounded-lg cursor-pointer text-white/25 hover:text-golden transition-all"
+                          title="Edit user"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={16} />
                         </button>
                         {user.status === 'active' ? (
                           <button
                             onClick={() => setSuspendId(user.id)}
-                            className="p-1.5 hover:bg-red-50 rounded-md cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
-                            title="Suspend"
+                            className="p-2 hover:bg-red-500/10 rounded-lg cursor-pointer text-white/25 hover:text-red-400 transition-all"
+                            title="Suspend user"
                           >
-                            <Ban size={14} />
+                            <Ban size={16} />
                           </button>
                         ) : (
                           <button
                             onClick={() => handleSuspend(user.id, false)}
-                            className="p-1.5 hover:bg-green-50 rounded-md cursor-pointer text-gray-400 hover:text-green-600 transition-colors"
-                            title="Reactivate"
+                            className="p-2 hover:bg-emerald-500/10 rounded-lg cursor-pointer text-white/25 hover:text-emerald-400 transition-all"
+                            title="Reactivate user"
                           >
-                            <CheckCircle size={14} />
+                            <CheckCircle size={16} />
                           </button>
                         )}
                         <button
                           onClick={() => setDeleteId(user.id)}
-                          className="p-1.5 hover:bg-red-50 rounded-md cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete"
+                          className="p-2 hover:bg-red-500/10 rounded-lg cursor-pointer text-white/25 hover:text-red-400 transition-all"
+                          title="Delete user"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
@@ -347,101 +452,154 @@ export default function UsersAndRoles() {
               </tbody>
             </table>
           </div>
-          <CRMPagination
-            page={page}
-            totalPages={Math.ceil(totalCount / perPage)}
-            total={totalCount}
-            pageSize={perPage}
-            onPageChange={setPage}
-          />
+          <div className="border-t border-white/[0.05] px-4 py-3">
+            <CRMPagination
+              page={page}
+              totalPages={Math.ceil(totalCount / perPage)}
+              total={totalCount}
+              pageSize={perPage}
+              onPageChange={setPage}
+            />
+          </div>
         </div>
       )}
 
       {/* Edit Modal */}
       {editUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setEditUser(null)} />
-          <div className="relative bg-white rounded-lg w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-jost text-lg text-[#1a1a2e]">Edit User</h2>
-              <button onClick={() => setEditUser(null)} className="p-1 hover:bg-gray-100 rounded-md cursor-pointer">
-                <X size={18} className="text-gray-400" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditUser(null)} />
+          <div className="relative bg-gradient-to-br from-[#1E1E24] to-[#16161c] rounded-2xl w-full max-w-lg border border-white/[0.08] shadow-2xl shadow-black/40">
+            <div className="flex items-center justify-between px-7 py-5 border-b border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-golden/10 flex items-center justify-center">
+                  <Pencil size={17} className="text-golden" />
+                </div>
+                <h2 className="font-jost text-lg font-bold text-white">Edit Team Member</h2>
+              </div>
+              <button onClick={() => setEditUser(null)} className="p-2 hover:bg-white/[0.06] rounded-lg cursor-pointer text-white/30 hover:text-white transition-all">
+                <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleUpdate} className="p-6 space-y-4">
+            <form onSubmit={handleUpdate} className="p-7 space-y-5">
+              {/* Avatar Upload */}
+              <div className="flex items-center gap-4 pb-5 border-b border-white/[0.06]">
+                <div className="relative group">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="w-16 h-16 rounded-xl overflow-hidden flex items-center justify-center cursor-pointer transition-all ring-2 ring-offset-2 ring-offset-[#1E1E24] ring-transparent hover:ring-golden/50 bg-white/[0.06]"
+                    title="Click to change avatar"
+                  >
+                    {uploadingAvatar ? (
+                      <Loader2 size={20} className="animate-spin text-white/60" />
+                    ) : editUser.avatar ? (
+                      <img src={editUser.avatar} alt={editUser.name || ''} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white text-xl font-bold font-jost">
+                        {(editUser.name || editUser.email).charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </button>
+                  <div
+                    onClick={() => avatarInputRef.current?.click()}
+                    className={`absolute inset-0 rounded-xl flex items-center justify-center bg-black/50 transition-opacity cursor-pointer ${uploadingAvatar ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                  >
+                    <i className="ri-camera-line text-white text-lg" />
+                  </div>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarUpload(file);
+                    }}
+                    className="hidden"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-roboto font-semibold text-white">{editUser.name || 'Unnamed'}</p>
+                  <p className="text-xs text-white/40 font-roboto mt-0.5">Click the avatar to upload a photo</p>
+                </div>
+              </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Name</label>
+                <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Full Name</label>
                 <input
                   type="text"
                   value={editUser.name || ''}
                   onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white focus:outline-none focus:border-golden/40 focus:bg-white/[0.06] transition-all"
+                  placeholder="Enter full name"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Email</label>
+                <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Email Address</label>
                 <input
                   type="email"
                   value={editUser.email}
                   disabled
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto bg-gray-50 text-gray-400"
+                  className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.05] rounded-lg text-sm font-roboto text-white/30 cursor-not-allowed"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Role</label>
+                  <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Role</label>
                   <select
                     value={editUser.role}
                     onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white"
+                    className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white focus:outline-none focus:border-golden/40 focus:bg-white/[0.06] transition-all cursor-pointer appearance-none"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center' }}
                   >
                     {ROLES.map((r) => (
-                      <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                      <option key={r} value={r} className="bg-[#16161c] text-white">{ROLE_LABELS[r]}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
+                  <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Status</label>
                   <select
                     value={editUser.status}
                     onChange={(e) => setEditUser({ ...editUser, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white"
+                    className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white focus:outline-none focus:border-golden/40 focus:bg-white/[0.06] transition-all cursor-pointer appearance-none"
+                    style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.3)' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 16px center' }}
                   >
-                    <option value="active">Active</option>
-                    <option value="suspended">Suspended</option>
+                    <option value="active" className="bg-[#16161c] text-white">Active</option>
+                    <option value="suspended" className="bg-[#16161c] text-white">Suspended</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Phone</label>
+                <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Phone Number</label>
                 <input
                   type="text"
                   value={editUser.phone || ''}
                   onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white focus:outline-none focus:border-golden/40 focus:bg-white/[0.06] transition-all"
+                  placeholder="+1 (555) 000-0000"
                 />
               </div>
-              <div className="flex items-center gap-3 pt-2">
+              <div className="flex items-center gap-4 pt-3">
                 <button
                   type="button"
                   onClick={() => setEditUser(null)}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto text-gray-600 hover:bg-gray-50 cursor-pointer"
+                  className="flex-1 px-5 py-3 border border-white/[0.08] rounded-lg text-sm font-roboto font-semibold text-white/50 hover:bg-white/[0.04] hover:text-white/70 cursor-pointer transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-roboto cursor-pointer disabled:opacity-50"
+                  className="flex-1 px-5 py-3 bg-golden hover:bg-golden/90 text-[#16161c] rounded-lg text-sm font-roboto font-bold cursor-pointer disabled:opacity-40 transition-all"
                 >
                   {saving ? (
                     <span className="flex items-center gap-2 justify-center">
-                      <Loader2 size={14} className="animate-spin" />
+                      <Loader2 size={16} className="animate-spin" />
                       Saving...
                     </span>
                   ) : (
                     <span className="flex items-center gap-2 justify-center">
-                      <Save size={14} />
+                      <Save size={16} />
                       Save Changes
                     </span>
                   )}

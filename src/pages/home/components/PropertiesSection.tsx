@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { useCurrency } from '@/hooks/useCurrency';
+import { formatTimeAgo } from '@/lib/timeAgo';
 
 interface PropertyAgent {
   name: string;
@@ -19,11 +21,16 @@ interface Property {
   baths: number;
   parking: number;
   price: string;
+  priceRaw: number;
+  currency: string;
   priceUnit?: string;
   image: string;
   featured: boolean;
   listedDays: number;
+  createdAt: string;
   agent?: PropertyAgent;
+  isLand: boolean;
+  isJointVenture: boolean;
 }
 
 interface ListingRow {
@@ -42,6 +49,7 @@ interface ListingRow {
   purpose: string;
   is_featured: boolean;
   currency: string;
+  sub_type: string | null;
 }
 
 function buildSlug(id: string, title: string): string {
@@ -69,17 +77,9 @@ function mapRow(row: ListingRow): Property {
   const fallbackImg = 'https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20clean%20white%20walls%20large%20windows%20bright%20daylight%20architectural%20photography%20high%20quality%20warm%20neutral%20background%20professional%20real%20estate%20photo&width=800&height=600&seq=hp-property-fallback&orientation=landscape';
 
   const priceNum = row.price || 0;
-  const currencySymbol = row.currency === 'USD' ? '$' : row.currency === 'KES' ? 'KSh' : row.currency === 'UGX' ? 'UGX' : row.currency === 'GBP' ? '£' : row.currency === 'EUR' ? '€' : '';
-  let priceDisplay = 'On request';
-  if (priceNum > 0) {
-    if (priceNum >= 1_000_000) {
-      priceDisplay = `${currencySymbol} ${(priceNum / 1_000_000).toFixed(priceNum % 1_000_000 === 0 ? 0 : 1)}M`;
-    } else if (priceNum >= 1_000) {
-      priceDisplay = `${currencySymbol} ${(priceNum / 1_000).toFixed(0)}K`;
-    } else {
-      priceDisplay = `${currencySymbol} ${priceNum.toLocaleString()}`;
-    }
-  }
+  const currency = row.currency || 'KES';
+
+  let priceDisplay = '';
 
   const created = new Date(row.created_at);
   const listedDays = Math.floor((Date.now() - created.getTime()) / 86400000);
@@ -95,10 +95,15 @@ function mapRow(row: ListingRow): Property {
     baths: row.bathrooms ?? 0,
     parking: row.parking ?? 0,
     price: priceDisplay,
-    priceUnit: row.purpose === 'rent' ? 'pcm' : undefined,
+    priceRaw: priceNum,
+    currency,
+    priceUnit: row.purpose === 'rent' ? 'pm' : undefined,
     image: mainImg || fallbackImg,
     featured: row.is_featured || false,
     listedDays,
+    createdAt: row.created_at,
+    isLand: (row.property_type || '').toLowerCase() === 'land',
+    isJointVenture: (row.sub_type || '').toLowerCase() === 'joint_venture',
   };
 }
 
@@ -137,7 +142,7 @@ export default function PropertiesSection() {
       try {
         const { data, error: dbError } = await supabase
           .from('listings')
-          .select('id,title,location,price,property_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,is_featured,currency')
+          .select('id,title,location,price,property_type,sub_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,is_featured,currency')
           .eq('is_published', true)
           .neq('title', '')
           .gt('price', 0)
@@ -358,6 +363,7 @@ interface PropertyCardProps {
 }
 
 function PropertyCard({ property, aspectClass, shadowClass, hoverClass, showBadge, showAgent, badgeColor }: PropertyCardProps) {
+  const { format } = useCurrency();
   return (
     <Link to={`/property/${property.slug}`} className="block">
       <div className={`bg-white overflow-hidden transition-all duration-300 group cursor-pointer flex flex-col w-full h-full ${shadowClass} ${hoverClass}`}>
@@ -369,13 +375,18 @@ function PropertyCard({ property, aspectClass, shadowClass, hoverClass, showBadg
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-100 transition-opacity duration-300 group-hover:from-black/40"></div>
           {showBadge && (
-            <div className="absolute top-3 left-3 z-10">
+            <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
               <span
                 className="inline-block text-[9px] font-semibold uppercase tracking-[0.18em] px-2.5 py-1.5 whitespace-nowrap text-white rounded-sm"
                 style={{ backgroundColor: badgeColor }}
               >
                 For {property.type === 'sale' ? 'Sale' : 'Rent'}
               </span>
+              {property.isJointVenture && (
+                <span className="inline-block text-[9px] font-semibold uppercase tracking-[0.18em] px-2.5 py-1.5 whitespace-nowrap text-white rounded-sm bg-[#2B5B3C]">
+                  Joint Venture
+                </span>
+              )}
             </div>
           )}
           {property.featured && (
@@ -402,33 +413,33 @@ function PropertyCard({ property, aspectClass, shadowClass, hoverClass, showBadg
             </span>
           </div>
         </div>
-        <div className="flex flex-col flex-1" style={{ padding: '16px 20px' }}>
-          <p className="flex items-center gap-1 truncate" style={{ color: 'rgb(99, 99, 99)', fontSize: '13px', marginBottom: '6px' }}>
+        <div className="flex flex-col flex-1 p-4 px-5">
+          <p className="flex items-center gap-1 truncate text-[#636363] text-[11px] md:text-xs mb-1.5">
             <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
-              <i className="ri-map-pin-line text-xs" style={{ color: 'rgb(99, 99, 99)' }}></i>
+              <i className="ri-map-pin-line text-xs text-[#636363]"></i>
             </span>
             <span className="truncate">{property.location}</span>
           </p>
-          <h3 className="leading-snug line-clamp-2 group-hover:transition-colors" style={{ color: 'rgb(1, 19, 40)', fontSize: '15px', fontWeight: 500, textTransform: 'none', marginBottom: '10px' }}>
+          <h3 className="leading-snug line-clamp-2 group-hover:transition-colors text-[#011328] text-[13px] md:text-sm font-medium mb-2.5 break-words">
             {property.title}
           </h3>
-          <div className="flex items-center gap-4 text-xs whitespace-nowrap mb-3" style={{ color: 'rgb(54, 53, 53)', fontSize: '12px' }}>
+          <div className="flex items-center gap-4 text-xs whitespace-nowrap mb-3 text-[#363535]">
             <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-hotel-bed-line text-xs" style={{ color: 'rgb(99, 99, 99)' }}></i></span>
+              <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-hotel-bed-line text-xs text-[#636363]"></i></span>
               <span>{property.beds} Beds</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0"><i className="ri-drop-line text-xs" style={{ color: 'rgb(99, 99, 99)' }}></i></span>
+              <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0"><i className="fa-solid fa-bath text-xs text-[#636363]"></i></span>
               <span>{property.baths} Baths</span>
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-car-line text-xs" style={{ color: 'rgb(99, 99, 99)' }}></i></span>
+              <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-car-line text-xs text-[#636363]"></i></span>
               <span>{property.parking} Parking</span>
             </span>
           </div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'rgb(31, 31, 31)' }}>{property.category}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-3 text-[#1f1f1f]">{property.category}</p>
           {showAgent && property.agent && (
-            <div className="flex items-center gap-2 mb-3 pb-3" style={{ borderBottom: '1px solid rgb(214, 214, 214)' }}>
+            <div className="flex items-center gap-2 mb-3 pb-3 border-b border-[#d6d6d6]">
               <img
                 src={property.agent.photo}
                 alt={property.agent.name}
@@ -437,20 +448,26 @@ function PropertyCard({ property, aspectClass, shadowClass, hoverClass, showBadg
               <span className="text-xs text-stone-500 font-roboto">{property.agent.name}</span>
             </div>
           )}
-          <div className="mt-auto pt-3 flex items-end justify-between gap-2" style={{ borderTop: '1px solid rgb(214, 214, 214)' }}>
-            <div className="flex flex-col gap-0.5">
-              <span className="font-bold leading-tight whitespace-nowrap" style={{ color: 'rgb(0, 35, 73)', fontSize: '21px', fontWeight: 500 }}>
-                {property.price}
-                {property.priceUnit && (
-                  <span className="relative inline-flex items-baseline cursor-help">
-                    <span className="font-inherit" style={{ opacity: 1, fontSize: 'inherit', color: 'rgb(0, 35, 73)' }}>{property.priceUnit}</span>
-                  </span>
-                )}
+          <div className="mt-auto pt-3 flex items-end justify-between gap-2 border-t border-[#d6d6d6]">
+            <div className="flex items-baseline gap-1.5 whitespace-nowrap">
+              <span className="font-bold leading-tight text-[#002349] text-base md:text-lg lg:text-xl font-medium">
+                {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
               </span>
+              {property.priceUnit && (
+                <span className="inline-flex items-baseline gap-1 text-[#002349] text-base md:text-lg lg:text-xl font-medium">
+                  <span>{property.priceUnit}</span>
+                  <span className="relative inline-flex items-center cursor-help group text-base text-[#002349] opacity-60">
+                    <i className="ri-information-line"></i>
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 bg-stone-800 text-white text-[11px] whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none font-normal">
+                      per month
+                    </span>
+                  </span>
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="flex items-center gap-1 whitespace-nowrap flex-shrink-0" style={{ color: 'rgb(0, 87, 51)', fontSize: '12px', fontWeight: 500, textTransform: 'capitalize' }}>
-                <i className="ri-time-line" style={{ fontSize: '12px' }}></i>Listed {property.listedDays} days ago
+              <span className="text-xs font-roboto font-bold text-[#00703c] whitespace-nowrap">
+                {formatTimeAgo(property.createdAt)}
               </span>
             </div>
           </div>

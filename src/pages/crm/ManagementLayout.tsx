@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Settings, Palette, Type, Layout, Image, Search, Globe, Monitor,
   Grid3X3, CreditCard, Play, Building2, Shield, Home, Layers, ChevronRight,
   Phone, Share2, MapPin, DollarSign, Menu, Bell, SlidersHorizontal,
-  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building,
+  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X,
 } from 'lucide-react';
 
 const MIDDLE_ICON_MAP: Record<string, any> = {
@@ -144,7 +145,7 @@ const MIDDLE_RAIL_GROUPS = [
 
 function renderMiddleIcon(label: string) {
   const Icon = MIDDLE_ICON_MAP[label] || Settings;
-  return <Icon size={14} />;
+  return <Icon size={15} />;
 }
 
 interface ManagementLayoutProps {
@@ -156,11 +157,33 @@ interface ManagementLayoutProps {
 
 export default function ManagementLayout({ children, title, description, icon }: ManagementLayoutProps) {
   const location = useLocation();
+  const [railOpen, setRailOpen] = useState(false);
 
   return (
-    <div className="flex h-full min-h-0" style={{ height: '100%' }}>
-      {/* Middle Rail */}
-      <aside className="w-[260px] bg-white border-r border-stone-100 flex flex-col flex-shrink-0 overflow-hidden">
+    <div className="flex h-full min-h-0 relative" style={{ height: '100%' }}>
+      {/* Mobile rail toggle */}
+      <button
+        onClick={() => setRailOpen(true)}
+        className="md:hidden absolute top-3 left-3 z-30 flex items-center gap-1.5 px-3 py-2 bg-white border border-stone-200 rounded-lg text-sm font-medium text-stone-600 shadow-sm cursor-pointer whitespace-nowrap"
+      >
+        <Menu size={14} /> Options
+      </button>
+
+      {/* Mobile rail overlay */}
+      {railOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setRailOpen(false)} />
+        </div>
+      )}
+
+      {/* Middle Rail — fixed drawer on mobile, static column on md+ */}
+      <aside className={`bg-white border-r border-stone-100 flex flex-col flex-shrink-0 overflow-hidden z-40 transition-transform duration-300 md:transition-none w-[280px] md:w-[260px] fixed md:static top-0 left-0 h-full md:h-auto ${railOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        {/* Mobile close button */}
+        <div className="md:hidden flex justify-end px-3 pt-3">
+          <button onClick={() => setRailOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-stone-500 cursor-pointer">
+            <X size={16} />
+          </button>
+        </div>
         {/* Rail Header */}
         <div className="px-4 pt-5 pb-4 border-b border-stone-100 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -169,9 +192,9 @@ export default function ManagementLayout({ children, title, description, icon }:
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-stone-700 tracking-tight">Management</h2>
+                <h2 className="text-lg font-prata text-stone-800 tracking-tight">Management</h2>
               </div>
-              <p className="text-[11px] text-stone-400 mt-0.5">Options &amp; Controls</p>
+              <p className="text-xs text-stone-500 mt-0.5">Options &amp; Controls</p>
             </div>
           </div>
         </div>
@@ -181,7 +204,7 @@ export default function ManagementLayout({ children, title, description, icon }:
           {MIDDLE_RAIL_GROUPS.map((group) => (
             <div key={group.label} className="mb-5 last:mb-2">
               <div className="px-2 mb-2">
-                <span className="text-[10px] font-bold text-stone-700 uppercase tracking-[0.12em] font-sans">
+                <span className="text-xs font-bold text-stone-700 uppercase tracking-[0.12em]">
                   {group.label}
                 </span>
               </div>
@@ -192,10 +215,11 @@ export default function ManagementLayout({ children, title, description, icon }:
                     <Link
                       key={`${group.label}-${item.label}`}
                       to={item.path}
-                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[12px] font-sans transition-all duration-150 cursor-pointer relative group ${
+                      onClick={() => setRailOpen(false)}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all duration-150 cursor-pointer relative group ${
                         isActive
-                          ? 'text-stone-800 font-medium bg-stone-50'
-                          : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
+                          ? 'text-stone-900 bg-stone-100'
+                          : 'text-stone-600 hover:bg-stone-50 hover:text-stone-800'
                       }`}
                     >
                       {isActive && (
@@ -218,9 +242,9 @@ export default function ManagementLayout({ children, title, description, icon }:
       <div className="flex-1 overflow-y-auto custom-rail-scroll bg-stone-50">
         {/* Page Header */}
         {(title || description) && (
-          <div className="px-6 pt-6 pb-5">
-            <div className="max-w-[960px] space-y-4">
-              <div className="flex items-start gap-4 pb-5 border-b border-stone-100">
+          <div className="px-6 pt-16 md:pt-6 pb-6">
+            <div className="max-w-[960px] space-y-5">
+              <div className="flex items-start gap-4 pb-6 border-b border-stone-100">
                 {icon && (
                   <div className="w-10 h-10 rounded-lg bg-[#1B4332]/10 flex items-center justify-center shrink-0">
                     {icon}
@@ -228,10 +252,10 @@ export default function ManagementLayout({ children, title, description, icon }:
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-semibold text-stone-800 font-sans tracking-tight">{title}</h2>
+                    <h2 className="text-xl font-prata text-stone-800 tracking-tight">{title}</h2>
                   </div>
                   {description && (
-                    <p className="text-sm text-stone-500 mt-0.5 leading-relaxed">{description}</p>
+                    <p className="text-base text-stone-500 mt-1 leading-relaxed">{description}</p>
                   )}
                 </div>
               </div>
@@ -242,7 +266,7 @@ export default function ManagementLayout({ children, title, description, icon }:
           </div>
         )}
         {(!title && !description) && (
-          <div className="px-6 pt-6 pb-6">
+          <div className="px-6 pt-16 md:pt-6 pb-6">
             <div className="max-w-[960px]">
               {children}
             </div>

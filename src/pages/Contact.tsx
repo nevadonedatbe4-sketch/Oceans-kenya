@@ -4,6 +4,8 @@ import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { resolveSocials } from '@/lib/socialIcons';
 
 const officeHours = [
   { day: 'Monday', hours: '8:00 AM – 4:00 PM' },
@@ -15,7 +17,7 @@ const officeHours = [
   { day: 'Sunday', hours: 'Closed' },
 ];
 
-const socialLinks = [
+const defaultSocialLinks = [
   { icon: 'ri-facebook-fill', label: 'Facebook', href: 'https://www.facebook.com/oceanskenya' },
   { icon: 'ri-instagram-line', label: 'Instagram', href: 'https://www.instagram.com/oceans_estateagents' },
   { icon: 'ri-linkedin-fill', label: 'LinkedIn', href: 'https://www.linkedin.com/company/oceans-estate-agents' },
@@ -28,11 +30,27 @@ const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
 export default function Contact() {
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
+  const { getSite, social } = useSiteSettings();
+  const socialLinks = resolveSocials(social, 'contact', defaultSocialLinks);
+
+  const sitePhone = getSite('contact_phone') || '+254712345678';
+  const siteEmail = getSite('contact_email') || 'info@oceans.co.ke';
+  const siteWhatsapp = getSite('whatsapp_number') || sitePhone;
+  const siteAddress = getSite('address') || 'Riverside Drive, Westlands, Nairobi, Kenya';
+  const telHref = `tel:${sitePhone.replace(/[^+\d]/g, '')}`;
+  const waHref = `https://wa.me/${siteWhatsapp.replace(/[^\d]/g, '')}`;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const formData = new FormData(form);
+
+    // Anti-spam honeypot
+    const honeypot = (formData.get('company_alt') as string || '').trim();
+    if (honeypot) {
+      form.reset();
+      return;
+    }
 
     const fullName = (formData.get('full_name') as string || '').trim();
     const email = (formData.get('email') as string || '').trim();
@@ -109,7 +127,7 @@ export default function Contact() {
               <p className="text-stone-500 font-roboto text-sm leading-relaxed">Fill in the form below and one of our agents will be in touch within 24 hours. For urgent matters, call us directly.</p>
             </div>
 
-            <div className="bg-white border border-gray-100 p-6 md:p-10">
+            <div className="bg-white border-2 border-gray-200 p-6 md:p-10">
               <form data-readdy-form="true" id="contact-main-form" onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
@@ -124,7 +142,7 @@ export default function Contact() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-1">Phone Number</label>
-                    <input type="tel" name="phone" placeholder="+256 700 000 000" className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                    <input type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
                   </div>
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-1">Enquiry Type</label>
@@ -147,6 +165,7 @@ export default function Contact() {
                   <textarea name="message" required rows={4} maxLength={500} placeholder="Tell us about your property needs, questions, or anything else we can help with..." className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
                   <p className="text-right text-xs text-stone-300 font-roboto mt-1">Max 500 characters</p>
                 </div>
+                <input type="text" name="company_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="contact-hp-field" />
                 <button
                   type="submit"
                   disabled={formStatus === 'submitting'}
@@ -171,11 +190,11 @@ export default function Contact() {
                   <div className="w-7 h-7 flex items-center justify-center bg-white/10 rounded-full shrink-0">
                     <i className="ri-map-pin-2-fill text-golden text-xs"></i>
                   </div>
-                  <p className="text-white font-roboto text-xs font-bold truncate">Riverside Drive, Westlands, Nairobi, Kenya</p>
+                  <p className="text-white font-roboto text-xs font-bold truncate">{siteAddress}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <a href="tel:+254712345678" className="hidden sm:flex items-center gap-1 text-white font-roboto text-xs hover:text-white/80 transition-colors cursor-pointer">
-                    <i className="ri-phone-line text-xs"></i>+254712345678
+                  <a href={telHref} className="hidden sm:flex items-center gap-1 text-white font-roboto text-xs hover:text-white/80 transition-colors cursor-pointer">
+                    <i className="ri-phone-line text-xs"></i>{sitePhone}
                   </a>
                   <a href="https://www.google.com/maps/dir//Riverside%20Drive%2C%20Westlands%2C%20Nairobi%2C%20Kenya" target="_blank" rel="nofollow noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-roboto font-medium bg-golden text-white hover:bg-golden/90 transition cursor-pointer whitespace-nowrap">
                     <i className="ri-navigation-fill text-xs"></i>Get Directions
@@ -198,7 +217,7 @@ export default function Contact() {
 
           {/* Sidebar */}
           <div className="lg:col-span-4 relative pb-6 md:pb-8">
-            <div className="bg-white border border-gray-200/80 p-7 space-y-8 lg:sticky lg:top-24 lg:self-start">
+            <div className="bg-white border-2 border-gray-300 p-7 space-y-8 lg:sticky lg:top-24 lg:self-start">
               <div>
                 <p className="text-golden text-sm font-roboto font-semibold tracking-widest uppercase mb-2">Our Details</p>
                 <h2 className="text-2xl font-roboto font-bold text-primary">Visit or Call Us</h2>
@@ -217,7 +236,7 @@ export default function Contact() {
                 </div>
 
                 {/* Hours */}
-                <div className="bg-white border border-gray-100 p-4 md:p-5">
+                <div className="bg-white border-2 border-gray-200 p-4 md:p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-time-line text-primary text-xs"></i>
@@ -242,7 +261,7 @@ export default function Contact() {
                 </div>
 
                 {/* Contact info */}
-                <div className="bg-white border border-gray-100 p-4 md:p-5">
+                <div className="bg-white border-2 border-gray-200 p-4 md:p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-contacts-line text-primary text-xs"></i>
@@ -251,9 +270,9 @@ export default function Contact() {
                   </div>
                   <div className="space-y-2.5 md:space-y-3">
                     {[
-                      { icon: 'ri-phone-line', label: 'Phone', value: '+254712345678', href: 'tel:+254712345678' },
-                      { icon: 'ri-whatsapp-line', label: 'WhatsApp', value: '+254712345678', href: 'https://wa.me/254712345678' },
-                      { icon: 'ri-mail-line', label: 'Email', value: 'info@oceans.co.ke', href: 'mailto:info@oceans.co.ke' },
+                      { icon: 'ri-phone-line', label: 'Phone', value: sitePhone, href: telHref },
+                      { icon: 'ri-whatsapp-line', label: 'WhatsApp', value: siteWhatsapp, href: waHref },
+                      { icon: 'ri-mail-line', label: 'Email', value: siteEmail, href: `mailto:${siteEmail}` },
                     ].map((item) => (
                       <a key={item.label} href={item.href} target={item.href.startsWith('https://wa') ? '_blank' : undefined} rel={item.href.startsWith('https') ? 'nofollow' : undefined} className="flex items-start gap-2 md:gap-2.5 group cursor-pointer">
                         <div className="w-8 h-8 flex items-center justify-center bg-golden/10 rounded-full flex-shrink-0 group-hover:bg-golden/20 transition-colors">
@@ -278,7 +297,7 @@ export default function Contact() {
                 </div>
 
                 {/* Social */}
-                <div className="bg-white border border-gray-100 p-4 md:p-5">
+                <div className="bg-white border-2 border-gray-200 p-4 md:p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-share-line text-primary text-xs"></i>
@@ -311,7 +330,7 @@ export default function Contact() {
       </section>
 
       {/* Find our office */}
-      <section className="py-10 md:py-12 px-6 md:px-12 border-t border-gray-100">
+      <section className="py-10 md:py-12 px-6 md:px-12 border-t-2 border-gray-200">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <p className="text-golden text-sm font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Our Location</p>
@@ -344,8 +363,8 @@ export default function Contact() {
               <p className="text-stone-500 font-roboto text-xs leading-relaxed mb-3 max-w-sm mx-auto">
                 Prefer a face-to-face consultation? Call ahead to book a time with one of our property specialists.
               </p>
-              <a href="tel:+254712345678" className="inline-flex items-center gap-1.5 font-roboto text-xs text-golden hover:underline cursor-pointer mt-auto">
-                <i className="ri-phone-line"></i>+254712345678
+              <a href={telHref} className="inline-flex items-center gap-1.5 font-roboto text-xs text-golden hover:underline cursor-pointer mt-auto">
+                <i className="ri-phone-line"></i>{sitePhone}
               </a>
             </div>
           </div>

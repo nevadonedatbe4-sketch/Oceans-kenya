@@ -254,7 +254,7 @@ export default function PropertyDetailLayoutPage() {
                 { label: 'Price', desc: 'Display the main price with currency symbol', icon: 'ri-price-tag-3-line' },
                 { label: 'Property Type', desc: 'Show type badge (Villa, Apartment, etc.)', icon: 'ri-home-4-line' },
                 { label: 'Bedrooms', desc: 'Number of bedrooms with icon', icon: 'ri-hotel-bed-line' },
-                { label: 'Bathrooms', desc: 'Number of bathrooms with icon', icon: 'ri-drop-line' },
+                { label: 'Bathrooms', desc: 'Number of bathrooms with icon', icon: 'fa-solid fa-bath' },
                 { label: 'Area / Land Size', desc: 'Square meters or hectares', icon: 'ri-ruler-2-line' },
               ].map((field) => (
                 <div key={field.label} className="flex items-start justify-between gap-4 py-3 border-b border-stone-100 last:border-0">

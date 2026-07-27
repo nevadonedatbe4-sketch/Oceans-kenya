@@ -188,7 +188,7 @@ export default function BlogAdmin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-md p-1 w-fit">
+      <div className="flex items-center gap-1 bg-[#012144] lg:bg-white border border-[#1c3a5e] lg:border-gray-200 rounded-md p-1 w-fit">
         {TABS.map((tab) => (
           <button
             key={tab}
@@ -196,7 +196,7 @@ export default function BlogAdmin() {
             className={`px-4 py-2 rounded-md text-sm font-roboto capitalize transition-all cursor-pointer whitespace-nowrap ${
               activeTab === tab
                 ? 'bg-primary text-white'
-                : 'text-gray-500 hover:bg-gray-50'
+                : 'text-[#9ca3af] lg:text-gray-500 hover:text-white lg:hover:bg-gray-50'
             }`}
           >
             {tab}
@@ -214,9 +214,9 @@ export default function BlogAdmin() {
           <p className="text-sm text-gray-400 font-roboto">Loading posts...</p>
         </div>
       ) : posts.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-100 py-16 text-center">
+        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 py-16 text-center">
           <FileText size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-sm text-gray-400 font-roboto mb-1">
+          <p className="text-sm text-[#9ca3af] font-roboto mb-1">
             {search ? 'No posts match your search' : 'No posts yet'}
           </p>
           {!search && (
@@ -226,7 +226,7 @@ export default function BlogAdmin() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">

@@ -160,14 +160,14 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 <div className="flex items-center gap-3">
                   <div className="relative flex-1">
                     <select value={filters.minPrice} onChange={(e) => setFilters({ ...filters, minPrice: e.target.value })} className="w-full appearance-none h-10 px-3 pr-8 text-sm font-roboto text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                      {priceOptions.map((o) => <option key={o} value={o}>{o ? `KSh ${o}` : 'Min price'}</option>)}
+                      {priceOptions.map((o) => <option key={o} value={o}>{o ? `KES ${o}` : 'Min price'}</option>)}
                     </select>
                     <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                   </div>
                   <span className="text-sm font-roboto text-gray-400">to</span>
                   <div className="relative flex-1">
                     <select value={filters.maxPrice} onChange={(e) => setFilters({ ...filters, maxPrice: e.target.value })} className="w-full appearance-none h-10 px-3 pr-8 text-sm font-roboto text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                      {priceOptions.map((o) => <option key={o} value={o}>{o ? `KSh ${o}` : 'Max price'}</option>)}
+                      {priceOptions.map((o) => <option key={o} value={o}>{o ? `KES ${o}` : 'Max price'}</option>)}
                     </select>
                     <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
                   </div>

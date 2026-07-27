@@ -53,11 +53,11 @@ export function CRMToastContainer() {
       {activeToasts.map((toast) => (
         <div
           key={toast.id}
-          className={`flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-roboto transition-all animate-fade-in ${
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg text-sm transition-all animate-fade-in ${
             toast.type === 'success'
-              ? 'bg-[#0d5959] text-white'
+              ? 'bg-accent text-white'
               : toast.type === 'error'
-              ? 'bg-red-600 text-white'
+              ? 'bg-[#dc2626] text-white'
               : 'bg-[#001731] text-white'
           }`}
         >

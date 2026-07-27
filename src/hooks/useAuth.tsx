@@ -6,6 +6,7 @@ interface User {
   email: string;
   role: string;
   name?: string;
+  avatar?: string;
 }
 
 interface AuthContextType {
@@ -13,6 +14,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -75,18 +77,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, name')
+          .select('role, name, status, avatar')
           .eq('user_id', session.user.id)
           .maybeSingle();
+
+        if (!profile) {
+          await supabase.auth.signOut();
+          setUser(null);
+          setSessionUserId(null);
+          setLoading(false);
+          return;
+        }
+
+        if (profile.status === 'suspended') {
+          await supabase.auth.signOut();
+          setUser(null);
+          setSessionUserId(null);
+          setLoading(false);
+          return;
+        }
 
         setUser({
           id: session.user.id,
           email: session.user.email || '',
-          role: profile?.role || 'admin',
-          name: profile?.name || session.user.email?.split('@')[0] || 'Admin',
+          role: profile.role || 'admin',
+          name: profile.name || session.user.email?.split('@')[0] || 'Admin',
+          avatar: profile.avatar || undefined,
         });
       } catch {
-        // Fallback to basic user info if profile fetch fails
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser({
@@ -94,6 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: session.user.email || '',
             role: 'admin',
             name: session.user.email?.split('@')[0] || 'Admin',
+            avatar: undefined,
           });
         }
       } finally {
@@ -105,8 +124,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [sessionUserId]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error };
+
+    if (data?.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, name, status, avatar')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+
+      if (!profile) {
+        await supabase.auth.signOut();
+        return { error: new Error('No account found. Please contact your administrator.') };
+      }
+
+      if (profile.status === 'suspended') {
+        await supabase.auth.signOut();
+        return { error: new Error('Your account has been deactivated. Please contact your administrator.') };
+      }
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {
@@ -115,8 +154,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionUserId(null);
   };
 
+  const refreshProfile = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) return;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, name, status, avatar')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
+    if (profile) {
+      setUser({
+        id: session.user.id,
+        email: session.user.email || '',
+        role: profile.role || 'admin',
+        name: profile.name || session.user.email?.split('@')[0] || 'Admin',
+        avatar: profile.avatar || undefined,
+      });
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

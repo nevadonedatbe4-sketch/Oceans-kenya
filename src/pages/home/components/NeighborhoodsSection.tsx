@@ -1,12 +1,11 @@
 import { Link } from 'react-router-dom';
-import { neighborhoods } from '@/mocks/neighborhoods';
 
 export default function NeighborhoodsSection() {
   return (
     <section id="neighborhoods" className="relative bg-white">
       <div className="text-center pt-10 md:pt-16 pb-6 md:pb-8 px-4 md:px-6 lg:px-10">
         <h2 className="font-roboto font-bold text-2xl md:text-3xl text-primary">
-          Nairobi Prime Neighborhoods
+          Nairobi Prime Neighbourhoods
         </h2>
         <p className="text-golden text-xs sm:text-sm md:text-base font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] mt-2 md:mt-3">
           Premium Homes. Select Locations. Expat Representation.
@@ -165,14 +164,14 @@ export default function NeighborhoodsSection() {
           className="relative overflow-hidden block group cursor-pointer col-span-1"
         >
           <img
-            alt="Kitisuru"
+            alt="Langata"
             className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
             src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/6de2ea12-18c3-4a20-a5c5-5e1c77558704_kitsuru.jpg?v=1f8fb20c35fb32bdbe92812e2f7f26a5"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
             <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kitisuru
+              Langata
             </h3>
           </div>
         </Link>
@@ -321,14 +320,14 @@ export default function NeighborhoodsSection() {
           className="relative overflow-hidden block group cursor-pointer col-span-1"
         >
           <img
-            alt="Kitisuru"
+            alt="Langata"
             className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
             src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/6de2ea12-18c3-4a20-a5c5-5e1c77558704_kitsuru.jpg?v=1f8fb20c35fb32bdbe92812e2f7f26a5"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
           <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
             <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kitisuru
+              Langata
             </h3>
           </div>
         </Link>
@@ -339,7 +338,7 @@ export default function NeighborhoodsSection() {
           to="/neighbourhoods"
           className="inline-flex items-center gap-2.5 px-7 py-3 border border-stone-300 text-sm font-roboto font-medium text-stone-700 hover:border-stone-800 hover:text-stone-900 hover:bg-[#f5f5f5] transition-all duration-200 whitespace-nowrap group cursor-pointer"
         >
-          View More Neighborhoods
+          View More Neighbourhoods
           <span className="w-5 h-5 flex items-center justify-center bg-stone-100 group-hover:bg-stone-200 transition-colors">
             <i className="ri-arrow-right-line text-xs"></i>
           </span>

@@ -200,13 +200,25 @@ export function useManagementData(): ManagementData {
     setSiteSettings((prev) => ({ ...prev, [key]: value }));
   const getBrand = (key: string) => brandSettings.find((b) => b.key === key)?.value || '';
   const setBrand = (key: string, value: string) =>
-    setBrandSettings((prev) => prev.map((b) => (b.key === key ? { ...b, value } : b)));
+    setBrandSettings((prev) => {
+      const exists = prev.some((b) => b.key === key);
+      if (exists) return prev.map((b) => (b.key === key ? { ...b, value } : b));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getTypo = (key: string) => typoSettings.find((t) => t.key === key)?.value || '';
   const setTypo = (key: string, value: string) =>
-    setTypoSettings((prev) => prev.map((t) => (t.key === key ? { ...t, value } : t)));
+    setTypoSettings((prev) => {
+      const exists = prev.some((t) => t.key === key);
+      if (exists) return prev.map((t) => (t.key === key ? { ...t, value } : t));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getProp = (key: string) => propPageSettings.find((p) => p.key === key)?.value || '';
   const setProp = (key: string, value: string) =>
-    setPropPageSettings((prev) => prev.map((p) => (p.key === key ? { ...p, value } : p)));
+    setPropPageSettings((prev) => {
+      const exists = prev.some((p) => p.key === key);
+      if (exists) return prev.map((p) => (p.key === key ? { ...p, value } : p));
+      return [...prev, { id: crypto.randomUUID(), key, value, page: 'all' }];
+    });
   const getSocial = (platform: string) => socialLinks.find((s) => s.platform === platform);
   const setSocial = (platform: string, updates: Partial<SocialLink>) =>
     setSocialLinks((prev) => prev.map((s) => (s.platform === platform ? { ...s, ...updates } : s)));
@@ -215,25 +227,49 @@ export function useManagementData(): ManagementData {
     setSearchFilters((prev) => prev.map((s) => (s.key === key ? { ...s, ...updates } : s)));
   const getPropSetting = (key: string) => propertySettings.find((p) => p.key === key)?.value || '';
   const setPropSetting = (key: string, value: string) =>
-    setPropertySettings((prev) => prev.map((p) => (p.key === key ? { ...p, value } : p)));
+    setPropertySettings((prev) => {
+      const exists = prev.some((p) => p.key === key);
+      if (exists) return prev.map((p) => (p.key === key ? { ...p, value } : p));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getRequired = (key: string) => requiredFields.find((r) => r.key === key);
   const setRequired = (key: string, required: boolean) =>
     setRequiredFields((prev) => prev.map((r) => (r.key === key ? { ...r, required } : r)));
   const getHero = (key: string) => heroSettings.find((h) => h.key === key)?.value || '';
   const setHero = (key: string, value: string) =>
-    setHeroSettings((prev) => prev.map((h) => (h.key === key ? { ...h, value } : h)));
+    setHeroSettings((prev) => {
+      const exists = prev.some((h) => h.key === key);
+      if (exists) return prev.map((h) => (h.key === key ? { ...h, value } : h));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getBread = (key: string) => breadcrumbSettings.find((b) => b.key === key)?.value || '';
   const setBread = (key: string, value: string) =>
-    setBreadcrumbSettings((prev) => prev.map((b) => (b.key === key ? { ...b, value } : b)));
+    setBreadcrumbSettings((prev) => {
+      const exists = prev.some((b) => b.key === key);
+      if (exists) return prev.map((b) => (b.key === key ? { ...b, value } : b));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getMap = (key: string) => mapSettings.find((m) => m.key === key)?.value || '';
   const setMap = (key: string, value: string) =>
-    setMapSettings((prev) => prev.map((m) => (m.key === key ? { ...m, value } : m)));
+    setMapSettings((prev) => {
+      const exists = prev.some((m) => m.key === key);
+      if (exists) return prev.map((m) => (m.key === key ? { ...m, value } : m));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getCard = (key: string) => cardStyle.find((c) => c.key === key)?.value || '';
   const setCard = (key: string, value: string) =>
-    setCardStyle((prev) => prev.map((c) => (c.key === key ? { ...c, value } : c)));
+    setCardStyle((prev) => {
+      const exists = prev.some((c) => c.key === key);
+      if (exists) return prev.map((c) => (c.key === key ? { ...c, value } : c));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
   const getDetailStyle = (key: string) => detailStyle.find((d) => d.key === key)?.value || '';
   const setDetailStyleVal = (key: string, value: string) =>
-    setDetailStyle((prev) => prev.map((d) => (d.key === key ? { ...d, value } : d)));
+    setDetailStyle((prev) => {
+      const exists = prev.some((d) => d.key === key);
+      if (exists) return prev.map((d) => (d.key === key ? { ...d, value } : d));
+      return [...prev, { id: crypto.randomUUID(), key, value }];
+    });
 
   const toggleSite = (key: string) => setSite(key, getSite(key) === 'true' ? 'false' : 'true');
   const toggleHero = (key: string) => setHero(key, getHero(key) === 'true' ? 'false' : 'true');

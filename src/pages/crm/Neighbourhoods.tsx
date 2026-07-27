@@ -111,13 +111,13 @@ export default function Neighbourhoods() {
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
         <div className="flex items-center gap-3 flex-1 w-full lg:w-auto">
           <div className="relative flex-1 max-w-md">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#7a8a99] text-sm" />
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#636363] text-sm" />
             <input
               type="text"
               placeholder="Search neighbourhoods..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-white"
+              className="w-full pl-9 pr-4 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-white"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ export default function Neighbourhoods() {
             <i className="ri-add-line" />
             Add Neighbourhood
           </button>
-          <span className="text-xs font-roboto text-[#7a8a99]">{total} total</span>
+          <span className="text-xs font-roboto text-[#636363]">{total} total</span>
         </div>
       </div>
 
@@ -137,20 +137,20 @@ export default function Neighbourhoods() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-[#e8edf2] p-5 space-y-3">
-              <div className="h-32 bg-[#f8fafc] rounded-lg animate-pulse" />
-              <div className="h-4 w-32 bg-[#f8fafc] rounded animate-pulse" />
-              <div className="h-3 w-20 bg-[#f8fafc] rounded animate-pulse" />
+            <div key={i} className="bg-white rounded-xl border border-[#f0f0f0] p-5 space-y-3">
+              <div className="h-32 bg-[#f7f8fa] rounded-lg animate-pulse" />
+              <div className="h-4 w-32 bg-[#f7f8fa] rounded animate-pulse" />
+              <div className="h-3 w-20 bg-[#f7f8fa] rounded animate-pulse" />
             </div>
           ))}
         </div>
       ) : neighbourhoods.length === 0 ? (
-        <div className="bg-white rounded-xl border border-[#e8edf2] py-12 text-center">
+        <div className="bg-white rounded-xl border border-[#f0f0f0] py-12 text-center">
           <div className="flex flex-col items-center gap-2">
             <div className="w-12 h-12 rounded-xl bg-[#0d5959]/8 flex items-center justify-center">
               <i className="ri-map-pin-line text-[#0d5959] text-xl" />
             </div>
-            <p className="text-sm font-roboto text-[#7a8a99]">
+            <p className="text-sm font-roboto text-[#636363]">
               {total === 0 ? 'No neighbourhoods yet. Add your first one.' : 'No neighbourhoods match your search.'}
             </p>
             {total === 0 && (
@@ -166,13 +166,13 @@ export default function Neighbourhoods() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {neighbourhoods.map((hood) => (
-            <div key={hood.id} onClick={() => navigate(`/crm/neighbourhoods/edit/${hood.id}`)} className="bg-white rounded-xl border border-[#e8edf2] overflow-hidden hover:border-[#0d5959]/20 transition-all group cursor-pointer">
+            <div key={hood.id} onClick={() => navigate(`/crm/neighbourhoods/edit/${hood.id}`)} className="bg-white rounded-xl border border-[#f0f0f0] overflow-hidden hover:border-[#0d5959]/20 transition-all group cursor-pointer">
               <div className="relative h-40">
                 {hood.hero_image ? (
                   <img src={hood.hero_image} alt={hood.name} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full bg-[#f8fafc] flex items-center justify-center">
-                    <i className="ri-map-pin-line text-[#7a8a99] text-3xl" />
+                  <div className="w-full h-full bg-[#f7f8fa] flex items-center justify-center">
+                    <i className="ri-map-pin-line text-[#636363] text-3xl" />
                   </div>
                 )}
                 <div className="absolute top-3 left-3 flex gap-1.5">
@@ -186,7 +186,7 @@ export default function Neighbourhoods() {
                       Published
                     </span>
                   ) : (
-                    <span className="text-[10px] font-roboto text-gray-600 bg-gray-200 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-roboto text-[#636363] bg-gray-200 px-2 py-0.5 rounded-full">
                       Draft
                     </span>
                   )}
@@ -195,13 +195,13 @@ export default function Neighbourhoods() {
                   <div className="flex items-center gap-1">
                     <button
                       onClick={(e) => { e.stopPropagation(); navigate(`/crm/neighbourhoods/edit/${hood.id}`); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#7a8a99] hover:text-[#0d5959] cursor-pointer transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#636363] hover:text-[#0d5959] cursor-pointer transition-colors"
                     >
                       <i className="ri-edit-line text-sm" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setDeleteConfirm(hood.id); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#7a8a99] hover:text-red-600 cursor-pointer transition-colors"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#636363] hover:text-red-600 cursor-pointer transition-colors"
                     >
                       <i className="ri-delete-bin-line text-sm" />
                     </button>
@@ -212,30 +212,30 @@ export default function Neighbourhoods() {
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="font-jost text-sm font-medium text-[#001731]">{hood.name}</h3>
-                    <p className="text-xs font-roboto text-[#7a8a99]">{hood.city}, {hood.country}</p>
+                    <p className="text-xs font-roboto text-[#636363]">{hood.city}, {hood.country}</p>
                   </div>
-                  <span className="text-xs font-roboto text-[#7a8a99] bg-[#f8fafc] px-2 py-0.5 rounded-full">
+                  <span className="text-xs font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded-full">
                     #{hood.sort_order}
                   </span>
                 </div>
                 {hood.summary && (
-                  <p className="text-xs font-roboto text-[#7a8a99] mt-2 line-clamp-2">{hood.summary}</p>
+                  <p className="text-xs font-roboto text-[#636363] mt-2 line-clamp-2">{hood.summary}</p>
                 )}
                 {hood.tags && hood.tags.length > 0 && (
                   <div className="flex items-center gap-1 mt-2 flex-wrap">
                     {hood.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] font-roboto text-[#7a8a99] bg-[#f8fafc] px-2 py-0.5 rounded-full">
+                      <span key={tag} className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded-full">
                         {tag}
                       </span>
                     ))}
                   </div>
                 )}
-                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#e8edf2]/60">
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#f0f0f0]/60">
                   <button
                     onClick={(e) => { e.stopPropagation(); handleTogglePublish(hood.id, hood.is_published); }}
                     disabled={togglingId === hood.id}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-roboto transition-all cursor-pointer whitespace-nowrap ${
-                      hood.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'
+                      hood.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f7f8fa] text-[#636363]'
                     }`}
                   >
                     {hood.is_published ? <i className="ri-eye-line" /> : <i className="ri-eye-off-line" />}
@@ -245,7 +245,7 @@ export default function Neighbourhoods() {
                     onClick={(e) => { e.stopPropagation(); handleToggleFeatured(hood.id, hood.is_featured); }}
                     disabled={togglingId === hood.id}
                     className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-roboto transition-all cursor-pointer whitespace-nowrap ${
-                      hood.is_featured ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'
+                      hood.is_featured ? 'bg-amber-50 text-amber-700' : 'bg-[#f7f8fa] text-[#636363]'
                     }`}
                   >
                     <i className="ri-star-line" />

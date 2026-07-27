@@ -77,6 +77,40 @@ const featureIcons: Record<string, string> = {
   'wheelchair': 'ri-wheelchair-line',
 };
 
+function stripHtmlToParagraphs(raw: string): string[] {
+  if (!raw) return [];
+  let text = raw
+    // turn block-level breaks into newlines so paragraphs are preserved
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\s*\/\s*(p|div|li|h[1-6])\s*>/gi, '\n')
+    .replace(/<\s*(p|div|li|h[1-6])[^>]*>/gi, '\n');
+  // remove every remaining tag
+  text = text.replace(/<[^>]+>/g, '');
+  // decode the most common HTML entities
+  const entities: Record<string, string> = {
+    '&nbsp;': ' ',
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&apos;': "'",
+    '&mdash;': '—',
+    '&ndash;': '–',
+    '&hellip;': '…',
+    '&rsquo;': '’',
+    '&lsquo;': '‘',
+    '&rdquo;': '”',
+    '&ldquo;': '“',
+  };
+  text = text.replace(/&[a-zA-Z#0-9]+;/g, (m) => entities[m] ?? ' ');
+  // normalise whitespace within lines, then split into clean paragraphs
+  return text
+    .split('\n')
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter((line) => line.length > 0);
+}
+
 function getFeatureIcon(label: string): string {
   const key = label.toLowerCase();
   for (const [k, v] of Object.entries(featureIcons)) {
@@ -110,6 +144,10 @@ export default function PropertyLeftColumn({
 }: LeftColumnProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
+
+  const descParagraphs = stripHtmlToParagraphs(description);
+  const plainDescription = descParagraphs.join(' ');
+  const isLongDescription = plainDescription.length > 300;
 
   const allFeatures = [...features, ...amenities];
   const visibleFeatures = featuresExpanded ? allFeatures : allFeatures.slice(0, 8);
@@ -150,33 +188,36 @@ export default function PropertyLeftColumn({
   ];
 
   return (
-    <div className="min-w-0 p-4 md:p-6 lg:p-7 border border-[#e5e5e5] bg-white" style={{ borderRadius: '2px' }}>
+    <div className="min-w-0 p-4 md:p-6 lg:p-7 border border-[#e5e5e5] bg-white rounded-[2px]">
       {/* Description */}
       <section className="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#e5e5e5]">
         <div id="section-description" className="mb-3 md:mb-5 scroll-mt-24">
           <h2
-            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2"
-            style={{ color: '#001731', borderColor: '#CCCCCC' }}
+            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-[#001731] border-[#CCCCCC]"
           >
             Description
           </h2>
         </div>
         <div
-          className={`relative font-roboto text-sm ${descExpanded ? '' : 'max-h-[200px] overflow-hidden'}`}
-          style={{ color: '#555555', lineHeight: 1.8 }}
+          className={`relative font-roboto text-sm text-[#555555] leading-[1.8] ${descExpanded ? '' : 'max-h-[200px] overflow-hidden'}`}
         >
-          <p className="whitespace-pre-line">
-            {description || 'No description available for this property.'}
-          </p>
-          {!descExpanded && description && description.length > 300 && (
+          {descParagraphs.length > 0 ? (
+            <div className="space-y-3">
+              {descParagraphs.map((para, idx) => (
+                <p key={idx}>{para}</p>
+              ))}
+            </div>
+          ) : (
+            <p>No description available for this property.</p>
+          )}
+          {!descExpanded && isLongDescription && (
             <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
           )}
         </div>
-        {description && description.length > 300 && (
+        {isLongDescription && (
           <button
             onClick={() => setDescExpanded(!descExpanded)}
-            className="mt-4 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer"
-            style={{ color: '#555555' }}
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
           >
             {descExpanded ? 'Show less' : 'Read more'}
             <span className="w-4 h-4 flex items-center justify-center">
@@ -197,15 +238,14 @@ export default function PropertyLeftColumn({
             Updated {timeSince(createdAt)}
           </span>
         </div>
-        <div className="bg-white border-2 border-stone-300 p-5 md:p-7" style={{ borderRadius: '2px' }}>
+        <div className="bg-white border-2 border-stone-300 p-5 md:p-7 rounded-[2px]">
           {/* Mobile: stacked */}
           <div className="md:hidden flex flex-col">
             {[...detailsLeft, ...detailsRight].map((d, idx, arr) => (
               <div key={idx} className={`flex items-center justify-between py-3 px-1 ${idx < arr.length - 1 ? 'border-b border-stone-100' : ''}`}>
                 <span className="text-sm font-roboto font-semibold text-stone-800">{d.label}</span>
                 <span
-                  className="text-sm font-roboto font-bold text-right ml-4"
-                  style={d.isPrice ? { color: '#002349' } : { color: '#000000' }}
+                  className={`text-sm font-roboto font-bold text-right ml-4 ${d.isPrice ? 'text-[#002349]' : 'text-black'}`}
                 >
                   {d.value}
                 </span>
@@ -220,8 +260,7 @@ export default function PropertyLeftColumn({
                 <div key={idx} className={`flex items-center justify-between py-3 px-1 ${idx < detailsLeft.length - 1 ? 'border-b border-stone-100' : ''}`}>
                   <span className="text-sm font-roboto font-semibold text-stone-800">{d.label}</span>
                   <span
-                    className="text-sm font-roboto font-bold text-right ml-4"
-                    style={d.isPrice ? { color: '#002349' } : { color: '#000000' }}
+                    className={`text-sm font-roboto font-bold text-right ml-4 ${d.isPrice ? 'text-[#002349]' : 'text-black'}`}
                   >
                     {d.value}
                   </span>
@@ -233,7 +272,7 @@ export default function PropertyLeftColumn({
               {detailsRight.map((d, idx) => (
                 <div key={idx} className={`flex items-center justify-between py-3 px-1 ${idx < detailsRight.length - 1 ? 'border-b border-stone-100' : ''}`}>
                   <span className="text-sm font-roboto font-semibold text-stone-800">{d.label}</span>
-                  <span className="text-sm font-roboto font-bold text-right ml-4" style={{ color: '#000000' }}>{d.value}</span>
+                  <span className="text-sm font-roboto font-bold text-right ml-4 text-black">{d.value}</span>
                 </div>
               ))}
             </div>
@@ -246,13 +285,12 @@ export default function PropertyLeftColumn({
         <section className="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#e5e5e5]">
           <div id="section-features" className="mb-3 md:mb-5 scroll-mt-24">
             <h2
-              className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2"
-              style={{ color: '#001731', borderColor: '#CCCCCC' }}
+              className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-[#001731] border-[#CCCCCC]"
             >
               Features &amp; Amenities
             </h2>
           </div>
-          <div className="bg-white border-2 border-stone-300 p-4 md:p-6" style={{ borderRadius: '2px' }}>
+          <div className="bg-white border-2 border-stone-300 p-4 md:p-6 rounded-[2px]">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 md:gap-3">
               {visibleFeatures.map((feat: string, idx: number) => (
                 <div
@@ -260,7 +298,7 @@ export default function PropertyLeftColumn({
                   className="flex items-center gap-3 px-3.5 py-3 border border-stone-200 rounded-sm bg-white hover:border-stone-400 transition-colors cursor-default"
                 >
                   <div className="w-7 h-7 flex items-center justify-center shrink-0 border border-stone-200 rounded-sm bg-stone-50">
-                    <i className={`${getFeatureIcon(feat)} text-xs`} style={{ color: '#888888' }}></i>
+                    <i className={`${getFeatureIcon(feat)} text-xs text-[#888888]`}></i>
                   </div>
                   <span className="text-sm md:text-base font-roboto font-semibold text-stone-800 capitalize leading-snug">{feat}</span>
                 </div>
@@ -270,8 +308,7 @@ export default function PropertyLeftColumn({
           {hasMoreFeatures && (
             <button
               onClick={() => setFeaturesExpanded(!featuresExpanded)}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer"
-              style={{ color: '#555555' }}
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
             >
               {featuresExpanded ? 'View less' : `View all ${allFeatures.length} features`}
               <span className="w-4 h-4 flex items-center justify-center">
@@ -286,8 +323,7 @@ export default function PropertyLeftColumn({
       <section>
         <div id="section-location" className="mb-3 md:mb-5 scroll-mt-24">
           <h2
-            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2"
-            style={{ color: '#001731', borderColor: '#CCCCCC' }}
+            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-[#001731] border-[#CCCCCC]"
           >
             Location
           </h2>

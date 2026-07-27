@@ -4,28 +4,80 @@ import { useNavLinks } from '@/hooks/useNavLinks';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useCurrency } from '@/hooks/useCurrency';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-type Currency = 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX';
-const CURRENCIES: { code: Currency; label: string }[] = [
+type Currency = 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR';
+const FALLBACK_CURRENCIES: { code: Currency; label: string }[] = [
   { code: 'KES', label: 'KSh (KES)' },
   { code: 'USD', label: '$ (USD)' },
-  { code: 'GBP', label: '£ (GBP)' },
-  { code: 'EUR', label: '€ (EUR)' },
-  { code: 'UGX', label: 'UGX' },
+  { code: 'GBP', label: '\u00a3 (GBP)' },
+  { code: 'EUR', label: '\u20ac (EUR)' },
 ];
+
+function CurrencyDropdown({
+  currency,
+  setCurrency,
+  open,
+  setOpen,
+  buttonRef,
+  availableCurrencies,
+}: {
+  currency: Currency;
+  setCurrency: (c: Currency) => void;
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  buttonRef: React.RefObject<HTMLDivElement | null>;
+  availableCurrencies: { code: Currency; label: string }[];
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const handleDocClick = (e: MouseEvent) => {
+      if (buttonRef.current && !buttonRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, [open, setOpen, buttonRef]);
+
+  if (!open) return null;
+
+  return (
+    <div className="absolute top-full right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[150px] py-1 z-50 overflow-hidden">
+      {availableCurrencies.map((c) => (
+        <button
+          key={c.code}
+          onClick={() => { setCurrency(c.code); setOpen(false); }}
+          className={`w-full text-left px-4 py-2.5 text-sm font-roboto hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap ${currency === c.code ? 'text-primary font-semibold bg-primary/5' : 'text-gray-700'}`}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { links: navLinks, loading: navLoading } = useNavLinks();
   const { site, getSite } = useSiteSettings();
-  const { currency, setCurrency } = useCurrency();
-  const [currencyOpen, setCurrencyOpen] = useState(false);
-  const currencyRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
+  const { currency, setCurrency, currencies } = useCurrency();
+
+  // Build dropdown list — use DB-enabled currencies, fallback to hardcoded list while loading
+  const dropdownCurrencies: { code: Currency; label: string }[] = currencies.length > 0
+    ? currencies.map((c) => ({
+        code: c.code as Currency,
+        label: `${c.symbol} (${c.code})`,
+      }))
+    : FALLBACK_CURRENCIES;
+
+  const [desktopCurrencyOpen, setDesktopCurrencyOpen] = useState(false);
+  const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
+  const desktopCurrencyRef = useRef<HTMLDivElement>(null);
+  const mobileCurrencyRef = useRef<HTMLDivElement>(null);
 
   const [scrolled, setScrolled] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
   const companyRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -35,9 +87,6 @@ export default function Header() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (currencyRef.current && !currencyRef.current.contains(e.target as Node)) {
-        setCurrencyOpen(false);
-      }
       if (companyRef.current && !companyRef.current.contains(e.target as Node)) {
         setCompanyOpen(false);
       }
@@ -80,8 +129,7 @@ export default function Header() {
               {showPhone && (
                 <a
                   href={`tel:${contactPhone}`}
-                  className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap"
-                  style={{ lineHeight: '1.5', letterSpacing: '0' }}
+                  className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
                 >
                   <span className="w-5 h-5 flex items-center justify-center">
                     <i className="ri-phone-line text-sm"></i>
@@ -91,8 +139,7 @@ export default function Header() {
               )}
               <a
                 href={`mailto:${contactEmail}`}
-                className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap"
-                style={{ lineHeight: '1.5', letterSpacing: '0' }}
+                className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
               >
                 <span className="w-5 h-5 flex items-center justify-center">
                   <i className="ri-mail-line text-sm"></i>
@@ -100,39 +147,24 @@ export default function Header() {
                 {contactEmail}
               </a>
             </div>
-            <div className="w-px h-4 bg-white/20"></div>
-            <div className="relative" ref={currencyRef}>
+            <div className="relative" ref={desktopCurrencyRef}>
               <button
-                onClick={() => setCurrencyOpen(!currencyOpen)}
-                className="flex items-center gap-1 cursor-pointer whitespace-nowrap select-none text-white hover:text-golden transition-colors"
+                onClick={() => setDesktopCurrencyOpen(!desktopCurrencyOpen)}
+                className="flex items-center gap-2 cursor-pointer whitespace-nowrap select-none text-white hover:text-golden transition-colors"
                 aria-label={`Current currency: ${currency}. Click to switch.`}
               >
                 <span className="font-semibold text-sm">{currency}</span>
-                <span className="text-[10px] ml-0.5">&#9662;</span>
+                <span className={`text-base text-golden transition-transform duration-300 ${desktopCurrencyOpen ? 'rotate-180' : ''}`}>&#9662;</span>
               </button>
-              {currencyOpen && (
-                <div className="absolute top-full right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[130px] py-1 z-50">
-                  {CURRENCIES.map((c) => (
-                    <button
-                      key={c.code}
-                      onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs font-roboto hover:bg-gray-50 transition-colors cursor-pointer ${currency === c.code ? 'text-primary font-semibold' : 'text-gray-600'}`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <CurrencyDropdown
+                currency={currency}
+                setCurrency={setCurrency}
+                open={desktopCurrencyOpen}
+                setOpen={setDesktopCurrencyOpen}
+                buttonRef={desktopCurrencyRef}
+                availableCurrencies={dropdownCurrencies}
+              />
             </div>
-            <Link
-              to="/crm/login"
-              className="text-sm text-white/75 hover:text-golden transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5"
-            >
-              <span className="w-5 h-5 flex items-center justify-center">
-                <i className="ri-login-box-line text-sm"></i>
-              </span>
-              Login
-            </Link>
           </div>
         </div>
       </div>
@@ -162,7 +194,7 @@ export default function Header() {
                   <Link
                     key={link.href}
                     to={link.href}
-                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-lg font-medium uppercase tracking-[0.05em]"
+                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
                   >
                     {link.label}
                   </Link>
@@ -171,10 +203,10 @@ export default function Header() {
                   <div className="relative" ref={companyRef}>
                     <button
                       onClick={() => setCompanyOpen(!companyOpen)}
-                      className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-lg font-medium uppercase tracking-[0.05em] flex items-center gap-1"
+                      className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] flex items-center gap-2"
                     >
                       Connect
-                      <span className="text-[10px] ml-0.5">&#9662;</span>
+                      <span className={`text-base ml-0.5 text-golden transition-transform duration-300 ${companyOpen ? 'rotate-180' : ''}`}>&#9662;</span>
                     </button>
                     {companyOpen && (
                       <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[160px] py-1 z-50">
@@ -197,7 +229,7 @@ export default function Header() {
             {showCTA && (
               <Link
                 to={ctaLink}
-                className="ml-3 px-5 py-2.5 bg-golden text-white text-sm font-semibold uppercase tracking-wider hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
+                className="ml-3 px-5 py-2.5 bg-golden text-white text-xs font-semibold capitalize tracking-wider hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
               >
                 {ctaLabel}
               </Link>
@@ -206,37 +238,24 @@ export default function Header() {
 
           {/* Mobile header controls */}
           <div className="flex items-center gap-3 lg:hidden">
-            <div className="relative">
+            <div className="relative" ref={mobileCurrencyRef}>
               <button
-                onClick={() => setCurrencyOpen(!currencyOpen)}
-                className="flex items-center gap-1 cursor-pointer whitespace-nowrap select-none text-white hover:text-golden transition-colors"
+                onClick={() => setMobileCurrencyOpen(!mobileCurrencyOpen)}
+                className="flex items-center gap-2 cursor-pointer whitespace-nowrap select-none text-white hover:text-golden transition-colors"
                 aria-label={`Current currency: ${currency}. Click to switch.`}
               >
                 <span className="font-semibold text-sm">{currency}</span>
-                <span className="text-[10px] ml-0.5">&#9662;</span>
+                <span className={`text-base text-golden transition-transform duration-300 ${mobileCurrencyOpen ? 'rotate-180' : ''}`}>&#9662;</span>
               </button>
-              {currencyOpen && (
-                <div className="absolute top-full right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[130px] py-1 z-50">
-                  {CURRENCIES.map((c) => (
-                    <button
-                      key={c.code}
-                      onClick={() => { setCurrency(c.code); setCurrencyOpen(false); }}
-                      className={`w-full text-left px-3 py-2 text-xs font-roboto hover:bg-gray-50 transition-colors cursor-pointer ${currency === c.code ? 'text-primary font-semibold' : 'text-gray-600'}`}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <CurrencyDropdown
+                currency={currency}
+                setCurrency={setCurrency}
+                open={mobileCurrencyOpen}
+                setOpen={setMobileCurrencyOpen}
+                buttonRef={mobileCurrencyRef}
+                availableCurrencies={dropdownCurrencies}
+              />
             </div>
-            <Link
-              to="/crm/login"
-              className="text-white/75 hover:text-golden transition-colors"
-            >
-              <span className="w-8 h-8 flex items-center justify-center">
-                <i className="ri-login-box-line text-lg"></i>
-              </span>
-            </Link>
             <button
               className="flex items-center justify-center w-10 h-10 rounded-md cursor-pointer text-white"
               aria-label="Toggle menu"
@@ -255,7 +274,7 @@ export default function Header() {
                 <Link
                   key={link.href}
                   to={link.href}
-                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-base font-medium uppercase tracking-[0.05em] border-b border-white/5"
+                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] border-b border-white/5"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}
@@ -263,13 +282,13 @@ export default function Header() {
               ))}
               {companyLinks.length > 0 && (
                 <div className="px-4 py-3 border-b border-white/5">
-                  <p className="text-white/60 text-xs font-medium uppercase tracking-[0.05em] mb-2">Connect</p>
+                  <p className="text-white/60 text-xs font-medium capitalize tracking-[0.05em] mb-2">Connect</p>
                   <div className="flex flex-col gap-1">
                     {companyLinks.map((link) => (
                       <Link
                         key={link.href}
                         to={link.href}
-                        className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-base font-medium uppercase tracking-[0.05em]"
+                        className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
                         onClick={() => setMobileMenuOpen(false)}
                       >
                         {link.label}
@@ -281,7 +300,7 @@ export default function Header() {
               {showCTA && (
                 <Link
                   to={ctaLink}
-                  className="px-4 py-3 bg-golden text-white text-xs font-semibold uppercase tracking-wider text-center mt-2 cursor-pointer whitespace-nowrap"
+                  className="px-4 py-3 bg-golden text-white text-xs font-semibold capitalize tracking-wider text-center mt-2 cursor-pointer whitespace-nowrap"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {ctaLabel}

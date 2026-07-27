@@ -1,4 +1,4 @@
-import { COLORS, PURPOSE_LABELS, generateSlug } from './types';
+import { PURPOSE_LABELS, generateSlug } from './types';
 
 interface Props {
   title: string;
@@ -23,7 +23,6 @@ interface Props {
   slug: string;
   saving: boolean;
   handleSave: (publish: boolean) => void;
-  // Extended fields
   priceUgx: string;
   autoExchange: boolean;
   propertyLabel: string;
@@ -33,7 +32,6 @@ interface Props {
   yearBuilt: string;
   rooms: number;
   customFeatures: string[];
-  // Final fields
   priorityRanking: string;
   interiorFinish: string;
   flooringType: string;
@@ -61,8 +59,42 @@ interface Props {
   customFields: { key: string; value: string }[];
   landSize?: string;
   landUnit?: string;
+  tags?: string[];
   onPreview?: () => void;
 }
+
+const SectionHeader = ({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+}) => (
+  <div className="mb-5">
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 flex items-center justify-center shrink-0 bg-[#0d1f2d] rounded-lg">
+        <i className={`${icon} text-white text-sm`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-jost text-sm font-bold text-[#0d1f2d] uppercase tracking-[0.5px]">
+          {title}
+        </h4>
+        <p className="text-xs text-[#7a8a99] mt-0.5 leading-snug">{subtitle}</p>
+      </div>
+    </div>
+    <div className="h-px bg-[#d1d5db] mt-3" />
+  </div>
+);
+
+const Label = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-xs font-bold uppercase tracking-wider text-[#7a8a99]">{children}</p>
+);
+
+const Value = ({ children }: { children: React.ReactNode }) => (
+  <p className="text-sm font-bold text-[#1a1e24] mt-0.5">{children}</p>
+);
 
 export default function SummaryStep({
   title, location, propertyType, purpose, isFeatured, price, currency,
@@ -74,9 +106,10 @@ export default function SummaryStep({
   constructionType, completionDate, openGraphImage, autoSEO, featuredNewDevelopment,
   privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood,
   isHomepage, stateRegion, city, country, address, zipCode,
-  videoUrl, virtualTourUrl, propertyId, customFields, landSize, landUnit, onPreview,
+  videoUrl, virtualTourUrl, propertyId, customFields, landSize, landUnit, tags, onPreview,
 }: Props) {
   const isLand = propertyType === 'land';
+
   const getStatusLabel = () => {
     if (isPublished) return 'Published';
     if (isPending) return 'Pending Review';
@@ -91,300 +124,323 @@ export default function SummaryStep({
 
   const formatPrice = () => {
     if (!price) return '—';
-    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'UGX' ? 'UGX ' : currency === 'KES' ? 'KES ' : currency;
+    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'KES' ? 'KES ' : currency;
     return `${symbol}${Number(price).toLocaleString()}`;
   };
 
-  const formatUgxPrice = () => {
-    if (!priceUgx) return '—';
-    return `UGX ${Number(priceUgx).toLocaleString()}`;
-  };
-
   return (
-    <div className="space-y-5">
-      {/* Live Summary Card */}
-      <div className="bg-white rounded-lg border shadow-sm p-5" style={{ borderColor: COLORS.border }}>
-        <div className="flex items-start gap-4 mb-5">
-          {mainImage ? (
-            <img src={mainImage} alt="" className="w-24 h-24 rounded-lg object-cover flex-shrink-0" />
-          ) : images.length > 0 ? (
-            <img src={images[0]} alt="" className="w-24 h-24 rounded-lg object-cover flex-shrink-0" />
-          ) : (
-            <div className="w-24 h-24 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#f0f9ff' }}>
-              <i className="ri-building-line text-2xl" style={{ color: COLORS.navy }} />
-            </div>
-          )}
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold" style={{ color: COLORS.navy }}>{title || 'Untitled Draft'}</h2>
-            <p className="text-sm mt-0.5" style={{ color: COLORS.gray }}>{location || 'No location set'}</p>
-            <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor()}`}>
-                {getStatusLabel()}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border" style={{ borderColor: COLORS.border, color: COLORS.gray }}>
-                <i className="ri-building-line" /> {propertyType.replace(/_/g, ' ') || '—'}
-              </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border" style={{ borderColor: COLORS.border, color: COLORS.gray }}>
-                <i className="ri-price-tag-3-line" /> {PURPOSE_LABELS[purpose] || '—'}
-              </span>
-              {isFeatured && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-amber-200 bg-amber-50 text-amber-700">
-                  <i className="ri-star-fill" /> Featured
-                </span>
-              )}
-              {featuredNewDevelopment && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-sky-200 bg-sky-50 text-sky-700">
-                  <i className="ri-home-smile-line" /> New Dev
-                </span>
-              )}
-              {propertyLabel && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border border-red-200 bg-red-50 text-red-700">
-                  <i className="ri-fire-line" /> {propertyLabel}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="w-full space-y-10 md:space-y-12">
+      {/* Summary Card */}
+      <section className="pb-2">
+        <SectionHeader
+          icon="ri-file-list-line"
+          title="Property Summary"
+          subtitle="Review your listing before publishing"
+        />
 
-        {/* Key Details Grid */}
-        {isLand ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t" style={{ borderColor: COLORS.border }}>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (USD)</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatPrice()}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (UGX)</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatUgxPrice()}</p>
-              {autoExchange && <p className="text-[10px] text-emerald-600">Auto exchange rate</p>}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Land Size</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{landSize ? `${landSize} ${landUnit || 'sqm'}` : '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Property ID</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{propertyId || '—'}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t" style={{ borderColor: COLORS.border }}>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (USD)</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatPrice()}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Price (UGX)</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{formatUgxPrice()}</p>
-              {autoExchange && <p className="text-[10px] text-emerald-600">Auto exchange rate</p>}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Bedrooms</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{bedrooms || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Bathrooms</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{bathrooms || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Size</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{size ? `${size} ${sizeUnit}` : '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Rooms</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{rooms || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Garages</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{garages || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Year Built</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{yearBuilt || '—'}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Location & Address */}
-        <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Address</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{address || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>City / Region</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{city || '—'}{stateRegion ? `, ${stateRegion}` : ''}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Country</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{country || '—'}</p>
-          </div>
-        </div>
-
-        {/* Amenities & Custom Features */}
-        <div className="py-4 border-t" style={{ borderColor: COLORS.border }}>
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {amenities.length > 0 ? (
-              amenities.map((a) => (
-                <span key={a} className="px-2 py-0.5 rounded-full text-xs font-medium border" style={{ borderColor: COLORS.border, color: COLORS.navy }}>{a}</span>
-              ))
+        <div className="border border-[#d1d5db] bg-white p-5 md:p-6">
+          {/* Header with image */}
+          <div className="flex items-start gap-4 mb-5">
+            {mainImage ? (
+              <img src={mainImage} alt="" className="w-24 h-24 object-cover flex-shrink-0" />
+            ) : images.length > 0 ? (
+              <img src={images[0]} alt="" className="w-24 h-24 object-cover flex-shrink-0" />
             ) : (
-              <span className="text-xs" style={{ color: COLORS.gray }}>No amenities selected</span>
+              <div className="w-24 h-24 flex items-center justify-center flex-shrink-0 border border-[#d1d5db] bg-[#f4f6f8]">
+                <i className="ri-building-line text-2xl text-[#5a6a7a]" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-[#1a1e24]">{title || 'Untitled Draft'}</h2>
+              <p className="text-sm text-[#7a8a99] mt-0.5">{location || 'No location set'}</p>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold border ${getStatusColor()}`}>
+                  {getStatusLabel()}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-[#d1d5db] text-[#7a8a99]">
+                  <i className="ri-building-line" /> {propertyType.replace(/_/g, ' ') || '—'}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-[#d1d5db] text-[#7a8a99]">
+                  <i className="ri-price-tag-3-line" /> {PURPOSE_LABELS[purpose] || '—'}
+                </span>
+                {isFeatured && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-amber-200 bg-amber-50 text-amber-700">
+                    <i className="ri-star-fill" /> Featured
+                  </span>
+                )}
+                {featuredNewDevelopment && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-sky-200 bg-sky-50 text-sky-700">
+                    <i className="ri-home-smile-line" /> New Dev
+                  </span>
+                )}
+                {propertyLabel && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-red-200 bg-red-50 text-red-700">
+                    <i className="ri-fire-line" /> {propertyLabel}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Key Details */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-4 border-t border-[#d1d5db]">
+            <div>
+              <Label>Price ({currency})</Label>
+              <Value>{formatPrice()}</Value>
+            </div>
+            {isLand ? (
+              <>
+                <div>
+                  <Label>Land Size</Label>
+                  <Value>{landSize ? `${landSize} ${landUnit || 'sqm'}` : '—'}</Value>
+                </div>
+                <div>
+                  <Label>Property ID</Label>
+                  <Value>{propertyId || '—'}</Value>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <Label>Bedrooms</Label>
+                  <Value>{bedrooms || '—'}</Value>
+                </div>
+                <div>
+                  <Label>Bathrooms</Label>
+                  <Value>{bathrooms || '—'}</Value>
+                </div>
+                <div>
+                  <Label>Size</Label>
+                  <Value>{size ? `${size} ${sizeUnit}` : '—'}</Value>
+                </div>
+                <div>
+                  <Label>Rooms</Label>
+                  <Value>{rooms || '—'}</Value>
+                </div>
+                <div>
+                  <Label>Garages</Label>
+                  <Value>{garages || '—'}</Value>
+                </div>
+                <div>
+                  <Label>Year Built</Label>
+                  <Value>{yearBuilt || '—'}</Value>
+                </div>
+              </>
+            )}
+            <div>
+              <Label>Availability</Label>
+              <Value>{availabilityStatus || '—'}</Value>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 py-4 border-t border-[#d1d5db]">
+            <div>
+              <Label>Address</Label>
+              <Value>{address || '—'}</Value>
+            </div>
+            <div>
+              <Label>City / Region</Label>
+              <Value>{city || '—'}{stateRegion ? `, ${stateRegion}` : ''}</Value>
+            </div>
+            <div>
+              <Label>Country</Label>
+              <Value>{country || '—'}</Value>
+            </div>
+          </div>
+
+          {/* Amenities & Features */}
+          <div className="py-4 border-t border-[#d1d5db]">
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {amenities.length > 0 ? (
+                amenities.map((a) => (
+                  <span key={a} className="px-2 py-0.5 text-xs font-bold border border-[#d1d5db] text-[#1a1e24]">{a}</span>
+                ))
+              ) : (
+                <span className="text-xs text-[#7a8a99]">No amenities selected</span>
+              )}
+            </div>
+            {customFeatures.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {customFeatures.map((f) => (
+                  <span key={f} className="px-2 py-0.5 text-xs font-bold border border-amber-200 bg-amber-50 text-amber-700">{f}</span>
+                ))}
+              </div>
             )}
           </div>
-          {customFeatures.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {customFeatures.map((f) => (
-                <span key={f} className="px-2 py-0.5 rounded-full text-xs font-medium border bg-amber-50 border-amber-200 text-amber-700">{f}</span>
-              ))}
+
+          {/* Tags / Labels */}
+          {tags && tags.length > 0 && (
+            <div className="py-4 border-t border-[#d1d5db]">
+              <Label>Marketing Tags</Label>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {tags.map((tag, idx) => (
+                  <span
+                    key={tag}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border rounded-md ${
+                      idx === 0
+                        ? 'bg-[#0d1f2d] text-white border-[#0d1f2d]'
+                        : 'bg-[#f4f6f8] text-[#4a5568] border-[#d1d5db]'
+                    }`}
+                  >
+                    {idx === 0 && <i className="ri-star-fill text-[9px]" />}
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
-        </div>
 
-        {/* Media Summary */}
-        <div className="py-4 border-t grid grid-cols-1 md:grid-cols-4 gap-3" style={{ borderColor: COLORS.border }}>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Photos</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{images.length} images</p>
+          {/* Media */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-4 border-t border-[#d1d5db]">
+            <div>
+              <Label>Photos</Label>
+              <Value>{images.length} images</Value>
+            </div>
+            <div>
+              <Label>Floor Plans</Label>
+              <Value>{floorPlans.length} plans</Value>
+            </div>
+            <div>
+              <Label>Documents</Label>
+              <Value>{documents.length} files</Value>
+            </div>
+            <div>
+              <Label>Videos</Label>
+              <Value>{videoUrl || virtualTourUrl ? '1' : '0'}</Value>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Floor Plans</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{floorPlans.length} plans</p>
+
+          {/* SEO & Specs */}
+          {isLand ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 py-4 border-t border-[#d1d5db]">
+              <div>
+                <Label>SEO Title</Label>
+                <Value>{seoTitle || (autoSEO ? title : '—')}</Value>
+                {autoSEO && <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Auto-generated</p>}
+              </div>
+              <div>
+                <Label>Slug</Label>
+                <Value>{slug || generateSlug(title) || '—'}</Value>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Value>{priorityRanking || '—'}</Value>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 py-4 border-t border-[#d1d5db]">
+              <div>
+                <Label>SEO Title</Label>
+                <Value>{seoTitle || (autoSEO ? title : '—')}</Value>
+                {autoSEO && <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Auto-generated</p>}
+              </div>
+              <div>
+                <Label>Slug</Label>
+                <Value>{slug || generateSlug(title) || '—'}</Value>
+              </div>
+              <div>
+                <Label>Priority</Label>
+                <Value>{priorityRanking || '—'}</Value>
+              </div>
+              <div>
+                <Label>Interior Finish</Label>
+                <Value>{interiorFinish || '—'}</Value>
+              </div>
+              <div>
+                <Label>Construction</Label>
+                <Value>{constructionType || '—'}</Value>
+              </div>
+              <div>
+                <Label>Water Supply</Label>
+                <Value>{waterSupply || '—'}</Value>
+              </div>
+              <div>
+                <Label>Flooring</Label>
+                <Value>{flooringType || '—'}</Value>
+              </div>
+              <div>
+                <Label>Ceiling Height</Label>
+                <Value>{ceilingHeight || '—'}</Value>
+              </div>
+              <div>
+                <Label>Completion</Label>
+                <Value>{completionDate || '—'}</Value>
+              </div>
+            </div>
+          )}
+
+          {/* Settings */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-4 border-t border-[#d1d5db]">
+            <div>
+              <Label>Agent</Label>
+              <Value>{agentName}</Value>
+            </div>
+            <div>
+              <Label>Availability</Label>
+              <Value>{availabilityStatus || '—'}</Value>
+            </div>
+            <div>
+              <Label>Property ID</Label>
+              <Value>{propertyId || '—'}</Value>
+            </div>
+            <div>
+              <Label>Custom Fields</Label>
+              <Value>{customFields.length} fields</Value>
+            </div>
           </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Documents</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{documents.length} files</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Videos</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{videoUrl || virtualTourUrl ? '1' : '0'}</p>
+
+          {/* Toggles */}
+          <div className="pt-4 border-t border-[#d1d5db]">
+            <div className="flex flex-wrap gap-1.5">
+              {isFeatured && <span className="px-2 py-0.5 text-xs font-bold border border-amber-200 bg-amber-50 text-amber-700">Featured</span>}
+              {isHomepage && <span className="px-2 py-0.5 text-xs font-bold border border-emerald-200 bg-emerald-50 text-emerald-700">Homepage</span>}
+              {featuredNeighborhood && <span className="px-2 py-0.5 text-xs font-bold border border-sky-200 bg-sky-50 text-sky-700">Featured Neighborhood</span>}
+              {featuredNewDevelopment && <span className="px-2 py-0.5 text-xs font-bold border border-sky-200 bg-sky-50 text-sky-700">New Development</span>}
+              {privateListing && <span className="px-2 py-0.5 text-xs font-bold border border-gray-200 bg-gray-100 text-gray-600">Private</span>}
+              {stickyListing && <span className="px-2 py-0.5 text-xs font-bold border border-purple-200 bg-purple-50 text-purple-700">Sticky</span>}
+              {includeSearch && <span className="px-2 py-0.5 text-xs font-bold border border-emerald-200 bg-emerald-50 text-emerald-700">In Search</span>}
+              {includeFeatured && <span className="px-2 py-0.5 text-xs font-bold border border-amber-200 bg-amber-50 text-amber-700">In Featured</span>}
+            </div>
           </div>
         </div>
-
-        {/* SEO & Specs Summary */}
-        {isLand ? (
-          <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>SEO Title</p>
-              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{seoTitle || (autoSEO ? title : '—')}</p>
-              {autoSEO && <p className="text-[10px] text-emerald-600">Auto-generated</p>}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Slug</p>
-              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{slug || generateSlug(title) || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Priority</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{priorityRanking || '—'}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="py-4 border-t grid grid-cols-1 md:grid-cols-3 gap-3" style={{ borderColor: COLORS.border }}>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>SEO Title</p>
-              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{seoTitle || (autoSEO ? title : '—')}</p>
-              {autoSEO && <p className="text-[10px] text-emerald-600">Auto-generated</p>}
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Slug</p>
-              <p className="text-sm font-bold mt-0.5 truncate" style={{ color: COLORS.navy }}>{slug || generateSlug(title) || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Priority</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{priorityRanking || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Interior Finish</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{interiorFinish || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Construction</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{constructionType || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Water Supply</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{waterSupply || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Flooring</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{flooringType || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Ceiling Height</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{ceilingHeight || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Completion</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{completionDate || '—'}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Settings & Visibility Summary */}
-        <div className="py-4 border-t grid grid-cols-2 md:grid-cols-4 gap-3" style={{ borderColor: COLORS.border }}>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Agent</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{agentName}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Availability</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{availabilityStatus || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Property ID</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{propertyId || '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase tracking-wider font-bold" style={{ color: COLORS.gray }}>Custom Fields</p>
-            <p className="text-sm font-bold mt-0.5" style={{ color: COLORS.navy }}>{customFields.length} fields</p>
-          </div>
-        </div>
-
-        {/* Toggles Summary */}
-        <div className="pt-4 border-t" style={{ borderColor: COLORS.border }}>
-          <div className="flex flex-wrap gap-1.5">
-            {isFeatured && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200 text-amber-700">Featured</span>}
-            {isHomepage && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 border border-emerald-200 text-emerald-700">Homepage</span>}
-            {featuredNeighborhood && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 border border-sky-200 text-sky-700">Featured Neighborhood</span>}
-            {featuredNewDevelopment && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 border border-sky-200 text-sky-700">New Development</span>}
-            {privateListing && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 border border-gray-200 text-gray-600">Private</span>}
-            {stickyListing && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 border border-purple-200 text-purple-700">Sticky</span>}
-            {includeSearch && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 border border-emerald-200 text-emerald-700">In Search</span>}
-            {includeFeatured && <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 border border-amber-200 text-amber-700">In Featured</span>}
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* Action Buttons */}
-      <div className="flex flex-col gap-2.5">
-        <button
-          onClick={() => handleSave(false)}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 border-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
-          style={{ borderColor: COLORS.navy, color: COLORS.navy }}
-        >
-          {saving && !isPublished ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-save-line" />}
-          Save Draft
-        </button>
-        <button
-          onClick={onPreview}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 border rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
-          style={{ borderColor: COLORS.border, color: COLORS.gray }}
-        >
-          <i className="ri-external-link-line" />
-          Preview Listing
-        </button>
-        <button
-          onClick={() => handleSave(true)}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-5 py-3 text-white rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-50 hover:opacity-90 whitespace-nowrap"
-          style={{ backgroundColor: COLORS.navy }}
-        >
-          {saving ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-send-plane-line" />}
-          {isPublished ? 'Update & Publish' : 'Publish Property'}
-        </button>
-      </div>
+      <section className="pb-2">
+        <SectionHeader
+          icon="ri-send-plane-line"
+          title="Actions"
+          subtitle="Save, preview or publish your listing"
+        />
+
+        <div className="border border-[#d1d5db] bg-white p-5 md:p-6 space-y-3">
+          <button
+            onClick={() => handleSave(false)}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 border-2 border-[#0d1f2d] text-sm font-bold text-[#0d1f2d] hover:bg-[#f6f7f9] transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          >
+            {saving && !isPublished ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-save-line" />}
+            Save Draft
+          </button>
+          <button
+            onClick={onPreview}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 border border-[#d1d5db] text-sm font-bold text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d] transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
+          >
+            <i className="ri-external-link-line" />
+            Preview Listing
+          </button>
+          <button
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 px-5 py-3 text-white text-sm font-bold bg-[#0d1f2d] hover:bg-[#1a2f45] transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
+          >
+            {saving ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-send-plane-line" />}
+            {isPublished ? 'Update &amp; Publish' : 'Publish Property'}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useState, FormEvent } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { resolveSocials } from '@/lib/socialIcons';
 
-const socialLinks = [
+const defaultSocialLinks = [
   { icon: 'ri-facebook-fill', href: 'https://www.facebook.com/oceanskenya', label: 'Facebook' },
   { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
   { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
@@ -11,7 +12,8 @@ const socialLinks = [
 ];
 
 export default function HeroSection() {
-  const { getHero } = useSiteSettings();
+  const { getHero, social } = useSiteSettings();
+  const socialLinks = resolveSocials(social, 'header', defaultSocialLinks);
   const [searchQuery, setSearchQuery] = useState('');
 
   const heroOverlay = getHero('hero_show_overlay') !== 'false';
@@ -43,10 +45,12 @@ export default function HeroSection() {
       )}
 
       <div className="relative z-10 w-full px-6 md:px-8 lg:px-16 flex flex-col items-center text-center pt-24 md:pt-32">
-        <h1 className="text-white text-5xl md:text-7xl lg:text-8xl mb-3" style={{ fontFamily: 'Prata, serif', fontWeight: 400, letterSpacing: '0px', lineHeight: '1.2' }}>
+        <h1 className="text-white text-5xl md:text-7xl lg:text-8xl mb-3 font-[Prata,serif] font-normal tracking-[0] leading-[1.2]">
           Oceans
         </h1>
-        <p className="mb-4 font-roboto text-xs sm:text-sm md:text-xl font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-golden">
+        <p className="mb-4 font-roboto text-xs sm:text-sm md:text-xl font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-white"
+          style={{ textShadow: '0 1px 12px rgba(0,0,0,0.45), 0 0 2px rgba(255,255,255,0.15)' }}
+        >
           Estate &amp; Letting Agent
         </p>
 
@@ -91,20 +95,20 @@ export default function HeroSection() {
               to="/rent"
               className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
             >
-              RENters
+              Renters
             </Link>
             <Link
               to="/buy"
               className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
             >
-              BUYers
+              Buyers
             </Link>
           </div>
           <Link
             to="/valuation"
             className="w-full text-center transition-all duration-300 whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
           >
-            EVALUATION
+            Valuation
           </Link>
         </div>
       </div>

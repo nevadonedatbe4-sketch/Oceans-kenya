@@ -25,10 +25,7 @@ interface SimilarPropertiesProps {
 function formatPrice(row: Record<string, unknown>): string {
   const priceNum = Number(row.price || 0);
   const currency = String(row.currency || 'KES');
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KSh' : currency === 'UGX' ? 'UGX' : currency === 'GBP' ? '£' : '€';
-  if (priceNum >= 1_000_000_000) return `${symbol} ${(priceNum / 1_000_000_000).toFixed(1)}B`;
-  if (priceNum >= 1_000_000) return `${symbol} ${(priceNum / 1_000_000).toFixed(1)}M`;
-  if (priceNum >= 1_000) return `${symbol} ${(priceNum / 1_000).toFixed(0)}K`;
+  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : '€';
   return `${symbol} ${priceNum.toLocaleString()}`;
 }
 
@@ -143,7 +140,7 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
               )}
               {p.baths > 0 && (
                 <span className="flex items-center gap-1">
-                  <i className="ri-drop-line text-[#636363] text-xs"></i>{p.baths}
+                  <i className="fa-solid fa-bath text-[#636363] text-xs"></i>{p.baths}
                 </span>
               )}
               {p.parking > 0 && (

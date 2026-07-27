@@ -1,5 +1,22 @@
 import { Link } from 'react-router-dom';
-import type { DashboardStats } from '@/mocks/dashboard';
+
+interface DashboardStats {
+  totalProperties: number;
+  activeProperties: number;
+  featuredProperties: number;
+  publishedProperties: number;
+  draftProperties: number;
+  totalLeads: number;
+  newLeadsWeek: number;
+  openLeads: number;
+  pendingFollowUps: number;
+  totalDeals: number;
+  dealsInPipeline: number;
+  pipelineValue: number;
+  wonDeals: number;
+  winRate: number;
+  totalAgents: number;
+}
 
 interface DashboardStatsProps {
   stats: DashboardStats;
@@ -54,35 +71,35 @@ const cards = [
 
 export default function DashboardStats({ stats, loading }: DashboardStatsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
+    <div className="flex gap-4 md:gap-5 overflow-x-auto">
       {cards.map((card) => (
         <Link
           key={card.key}
           to={card.link}
-          className="relative block bg-white rounded-xl border border-[#e8edf2] overflow-hidden hover:border-[#0d5959]/20 transition-colors group cursor-pointer"
+          className="relative flex-1 min-w-[220px] bg-white rounded-xl overflow-hidden hover:ring-1 hover:ring-accent/20 transition-all group cursor-pointer"
         >
           <div className={`absolute top-0 left-0 right-0 h-0.5 ${card.accent}`} />
-          <div className="p-4 md:p-5">
+          <div className="p-5 md:p-6">
             <div className="flex items-start justify-between">
-              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-lg bg-[#0d5959]/8 flex items-center justify-center">
-                <i className={`${card.icon} text-[#0d5959] text-sm sm:text-base`} />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-accent/8 flex items-center justify-center">
+                <i className={`${card.icon} text-accent text-base sm:text-lg`} />
               </div>
               <div className="w-8 h-8 flex items-center justify-center">
-                <i className="ri-arrow-right-up-line text-[#7a8a99] text-sm group-hover:text-[#0d5959] transition-colors" />
+                <i className="ri-arrow-right-up-line text-stone-400 text-sm group-hover:text-accent transition-colors" />
               </div>
             </div>
-            <div className="mt-3 sm:mt-4">
+            <div className="mt-4 sm:mt-5">
               {loading ? (
-                <div className="h-7 sm:h-8 w-20 bg-[#f8fafc] rounded animate-pulse" />
+                <div className="h-8 sm:h-9 w-24 bg-stone-100 rounded animate-pulse" />
               ) : (
-                <p className="font-roboto font-bold text-xl sm:text-2xl text-[#001731]">
+                <p className="font-prata text-xl sm:text-2xl text-stone-900">
                   {card.value(stats)}
                 </p>
               )}
-              <p className="text-xs sm:text-sm font-roboto text-[#7a8a99] mt-1">
+              <p className="text-sm text-stone-600 mt-1.5">
                 {card.label}
               </p>
-              <p className="text-xs font-roboto text-[#7a8a99]/80 mt-0.5">
+              <p className="text-xs text-stone-400 mt-0.5">
                 {loading ? '...' : card.sub(stats)}
               </p>
             </div>

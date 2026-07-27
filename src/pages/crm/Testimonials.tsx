@@ -232,7 +232,7 @@ export default function Testimonials() {
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg border border-gray-100 p-6">
+        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-jost text-sm text-[#1a1a2e]">
               {editingId ? 'Edit Testimonial' : 'New Testimonial'}
@@ -351,7 +351,7 @@ export default function Testimonials() {
           <p className="text-sm text-gray-400 font-roboto">Loading...</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-100 p-6">
+        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 p-6">
           {items.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-sm text-gray-400 font-roboto">No testimonials yet. Add your first one.</p>
@@ -366,7 +366,7 @@ export default function Testimonials() {
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDragEnd={handleDragEnd}
                   className={`flex items-center gap-3 px-4 py-3 border rounded-md transition-all ${
-                    dragIndex === index ? 'border-primary ring-1 ring-primary' : 'border-gray-100'
+                    dragIndex === index ? 'border-primary ring-1 ring-primary' : 'border-[#1c3a5e] lg:border-gray-100'
                   }`}
                 >
                   <div className="w-8 h-8 flex items-center justify-center text-gray-300 hover:text-gray-500 cursor-move">

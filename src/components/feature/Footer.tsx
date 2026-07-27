@@ -1,9 +1,16 @@
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useFooterSettings } from '@/hooks/useFooterSettings';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { neighborhoods } from '@/mocks/neighborhoods';
+import { supabase } from '@/lib/supabase';
+
+interface FooterNeighbourhood {
+  id: string;
+  name: string;
+  slug: string;
+  is_published: boolean;
+}
 
 const defaultImportantLinks = [
   { label: 'Buy Property', href: '/buy' },
@@ -11,7 +18,7 @@ const defaultImportantLinks = [
   { label: 'Neighbourhoods', href: '/neighbourhoods' },
   { label: 'New Projects', href: '/new-developments' },
   { label: 'Landlords', href: '/landlords' },
-  { label: 'Blog & Guides', href: '/neighbourhoods' },
+  { label: 'Blog & Guides', href: '/neighbourhoods#blog' },
   { label: 'Contact Us', href: '/contact' },
 ];
 
@@ -19,7 +26,33 @@ export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const { status: newsletterStatus, error: newsletterError, submitToContacts, reset } = useFormSubmit();
   const { getValue, loading } = useFooterSettings();
-  const { site, getSite } = useSiteSettings();
+  const { site, getSite, social } = useSiteSettings();
+
+  // Map platform name -> Remix icon (matches admin Social Media manager)
+  const socialIcon = (platform: string): string => {
+    switch (platform.toLowerCase()) {
+      case 'facebook': return 'ri-facebook-fill';
+      case 'instagram': return 'ri-instagram-line';
+      case 'tiktok': return 'ri-tiktok-fill';
+      case 'linkedin': return 'ri-linkedin-fill';
+      case 'youtube': return 'ri-youtube-fill';
+      case 'twitter': case 'x': return 'ri-twitter-x-fill';
+      case 'whatsapp': return 'ri-whatsapp-line';
+      default: return 'ri-global-line';
+    }
+  };
+
+  // Prefer admin-managed social links (show_in_footer + a real URL). Fall back to defaults.
+  const defaultFooterSocials = [
+    { icon: 'ri-facebook-fill', href: 'https://www.facebook.com/oceanskenya', label: 'Facebook' },
+    { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
+    { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
+    { icon: 'ri-youtube-fill', href: 'https://www.youtube.com/@oceanskenya', label: 'YouTube' },
+  ];
+  const managedFooterSocials = (social || [])
+    .filter((s) => s.show_in_footer && s.url && s.url.trim())
+    .map((s) => ({ icon: socialIcon(s.platform), href: s.url as string, label: s.platform }));
+  const footerSocials = managedFooterSocials.length > 0 ? managedFooterSocials : defaultFooterSocials;
 
   const footerLinksJson = getValue('important_links_json');
   const importantLinks = footerLinksJson
@@ -43,7 +76,19 @@ export default function Footer() {
   const footerBg = getSite('footer_background') || '#0C1A2F';
   const footerTextColor = getSite('footer_text_color') || '#FFFFFF';
 
-  const areaNeighbourhoods = neighborhoods.filter(n => n.is_published).slice(0, 8);
+  const [areaNeighbourhoods, setAreaNeighbourhoods] = useState<FooterNeighbourhood[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('neighbourhoods')
+      .select('id, name, slug, is_published')
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .limit(8)
+      .then(({ data }) => {
+        if (data) setAreaNeighbourhoods(data as FooterNeighbourhood[]);
+      });
+  }, []);
 
   const colClass = {
     '2': 'md:grid-cols-2',
@@ -55,6 +100,14 @@ export default function Footer() {
   const handleNewsletterSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!newsletterEmail) return;
+
+    // Anti-spam honeypot check
+    const formEl = e.currentTarget as HTMLFormElement;
+    const honeypot = (new FormData(formEl).get('company_alt') as string || '').trim();
+    if (honeypot) {
+      setNewsletterEmail('');
+      return;
+    }
 
     const success = await submitToContacts({
       name: 'Newsletter Subscriber',
@@ -201,6 +254,7 @@ export default function Footer() {
                 >
                   {newsletterStatus === 'submitting' ? '...' : 'Go'}
                 </button>
+                <input type="text" name="company_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="footer-hp-field" />
               </form>
               {newsletterStatus === 'success' && (
                 <p className="text-green-400 text-xs font-roboto mt-2">Thanks for subscribing!</p>
@@ -229,21 +283,16 @@ export default function Footer() {
           <p className="text-xs font-roboto text-center" style={faintStyle}>
             &copy; {copyrightYear} {siteName}. All rights reserved.
           </p>
-          {footerShowSocial && (
+          {footerShowSocial && footerSocials.length > 0 && (
             <div className="flex items-center gap-3">
-              {[
-                { icon: 'ri-facebook-fill', href: 'https://www.facebook.com/oceanskenya', label: 'Facebook' },
-                { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
-                { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
-                { icon: 'ri-youtube-fill', href: 'https://www.youtube.com/@oceanskenya', label: 'YouTube' },
-              ].map((s) => (
+              {footerSocials.map((s) => (
                 <a
                   key={s.label}
                   href={s.href}
                   target="_blank"
                   rel="nofollow noreferrer"
                   aria-label={s.label}
-                  className="w-7 h-7 flex items-center justify-center hover:text-golden transition-colors"
+                  className="w-7 h-7 flex items-center justify-center hover:text-golden transition-colors capitalize"
                   style={faintStyle}
                 >
                   <i className={`${s.icon} text-sm`}></i>

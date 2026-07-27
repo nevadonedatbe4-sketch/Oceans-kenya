@@ -1,7 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { newDevMocks } from '@/mocks/newDevelopments';
-import type { NewDevMock } from '@/mocks/newDevelopments';
 
 export interface NewDevListing {
   id: string;
@@ -9,7 +7,7 @@ export interface NewDevListing {
   title: string;
   location: string;
   price: number;
-  priceDisplay: string;
+  currency: string;
   beds: number;
   baths: number;
   parking: number;
@@ -19,17 +17,30 @@ export interface NewDevListing {
   tag: string;
   featured: boolean;
   completionDate: string;
+  developer: string;
+  developerLogo: string;
+  featureList?: string[];
+  floorPlans?: string[];
 }
 
-function formatPrice(price: number, currency: string): string {
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KSh ' : currency === 'UGX' ? 'UGX ' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : '';
-  if (price >= 1_000_000) {
-    return `${symbol}${(price / 1_000_000).toFixed(price % 1_000_000 === 0 ? 0 : 1)}M`;
-  }
-  if (price >= 1_000) {
-    return `${symbol}${(price / 1_000).toFixed(0)}K`;
-  }
-  return `${symbol}${price.toLocaleString()}`;
+export interface DevUnitOption {
+  beds: number;
+  fromPrice: number;
+  currency: string;
+}
+
+export interface DevelopmentGroup {
+  id: string;
+  name: string;
+  location: string;
+  developer: string;
+  developerLogo: string;
+  image: string;
+  featured: boolean;
+  completionDate: string;
+  propertyType: string;
+  unitOptions: DevUnitOption[];
+  slug: string;
 }
 
 function generateSlug(id: string, title: string): string {
@@ -77,13 +88,14 @@ export function useNewDevelopments() {
         const img = String(row.main_image || row.cover_image || '');
         const title = String(row.title || '');
         const rowSlug = row.slug ? String(row.slug) : '';
+        const developer = String(row.owner_name || row.developer || '').trim();
         return {
           id: String(row.id),
           slug: rowSlug || generateSlug(String(row.id), title),
           title,
           location: String(row.location || ''),
           price: priceVal,
-          priceDisplay: formatPrice(priceVal, currency),
+          currency,
           beds: Number(row.bedrooms) || 0,
           baths: Number(row.bathrooms) || 0,
           parking: Number(row.parking) || 0,
@@ -93,16 +105,18 @@ export function useNewDevelopments() {
           tag: 'For Sale',
           featured: Boolean(row.is_featured || row.featured_new_development),
           completionDate: String(row.completion_date || ''),
+          developer,
+          developerLogo: '',
+          featureList: Array.isArray(row.amenities) ? row.amenities as string[] : [],
+          floorPlans: Array.isArray(row.floor_plans) ? row.floor_plans as string[] : [],
         };
       });
 
-      // Filter to only listings that have at least a title and either a real slug or a valid id
       const validListings = mapped.filter((l) => l.title);
 
       if (validListings.length === 0) {
-        // Fallback to mock data when Supabase has no matching listings
-        setAllListings(newDevMocks);
-        setFeaturedListings(newDevMocks.filter((l) => l.featured));
+        setAllListings([]);
+        setFeaturedListings([]);
         setLoading(false);
         return;
       }
@@ -112,9 +126,8 @@ export function useNewDevelopments() {
       setAllListings(validListings);
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
-      // On error, fallback to mock data so the page still works
-      setAllListings(newDevMocks);
-      setFeaturedListings(newDevMocks.filter((l) => l.featured));
+      setAllListings([]);
+      setFeaturedListings([]);
       setError(null);
     } finally {
       if (!controller.signal.aborted) setLoading(false);
@@ -128,5 +141,76 @@ export function useNewDevelopments() {
     };
   }, [fetchListings]);
 
-  return { allListings, featuredListings, loading, error, refetch: fetchListings };
+  // Derive unique locations from live data (or mocks as fallback)
+  const locations = useMemo(() => {
+    const source = allListings.length > 0 ? allListings : [];
+    const raw = source
+      .map((l) => l.location)
+      .filter((loc): loc is string => Boolean(loc))
+      .map((loc) => loc.split(',')[0].trim());
+    const unique = [...new Set(raw)].sort();
+    return ['All Areas', ...unique];
+  }, [allListings]);
+
+  /**
+   * Group individual listings into Zoopla-style development cards.
+   * Listings that share the same developer AND location area are merged
+   * into a single development with multiple bedroom/price options.
+   * Standalone listings become single-unit development cards.
+   */
+  const developments = useMemo((): DevelopmentGroup[] => {
+    const source = allListings.length > 0 ? allListings : [];
+    const groups = new Map<string, NewDevListing[]>();
+
+    source.forEach((listing) => {
+      const area = listing.location.split(',')[0].trim().toLowerCase();
+      const devKey = listing.developer
+        ? `${listing.developer.toLowerCase()}|||${area}`
+        : listing.id;
+      const existing = groups.get(devKey) || [];
+      existing.push(listing);
+      groups.set(devKey, existing);
+    });
+
+    const result: DevelopmentGroup[] = [];
+    groups.forEach((listings) => {
+      const sorted = [...listings].sort((a, b) => a.beds - b.beds);
+      if (listings.length === 1) {
+        const l = listings[0];
+        result.push({
+          id: l.id,
+          name: l.title,
+          location: l.location,
+          developer: l.developer,
+          developerLogo: l.developerLogo,
+          image: l.image,
+          featured: l.featured,
+          completionDate: l.completionDate,
+          propertyType: l.propertyType,
+          slug: l.slug,
+          unitOptions: [{ beds: l.beds, fromPrice: l.price, currency: l.currency }],
+        });
+      } else {
+        const primary = sorted[sorted.length - 1];
+        const name = primary.developer || primary.title;
+        result.push({
+          id: primary.id,
+          name,
+          location: primary.location,
+          developer: primary.developer,
+          developerLogo: primary.developerLogo,
+          image: primary.image,
+          featured: primary.featured || listings.some((l) => l.featured),
+          completionDate: primary.completionDate,
+          propertyType: primary.propertyType,
+          slug: primary.slug,
+          unitOptions: sorted.map((l) => ({ beds: l.beds, fromPrice: l.price, currency: l.currency })),
+        });
+      }
+    });
+
+    return result;
+  }, [allListings]);
+
+  return { allListings, developments, featuredListings, loading, error, locations, refetch: fetchListings };
 }

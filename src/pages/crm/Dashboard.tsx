@@ -1,22 +1,61 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
-import {
-  mockStats,
-  mockRecentLeads,
-  mockRecentDeals,
-  mockRecentProperties,
-  type DashboardStats,
-  type RecentLead,
-  type RecentDeal,
-  type RecentProperty,
-} from '@/mocks/dashboard';
-import DashboardStats from './components/DashboardStats';
 import RecentLeads from './components/RecentLeads';
 import RecentDeals from './components/RecentDeals';
 import RecentProperties from './components/RecentProperties';
+import AgentDashboard from './AgentDashboard';
+
+interface DashboardStats {
+  totalProperties: number;
+  activeProperties: number;
+  featuredProperties: number;
+  publishedProperties: number;
+  draftProperties: number;
+  totalLeads: number;
+  newLeadsWeek: number;
+  openLeads: number;
+  pendingFollowUps: number;
+  totalDeals: number;
+  dealsInPipeline: number;
+  pipelineValue: number;
+  wonDeals: number;
+  winRate: number;
+  totalAgents: number;
+}
+
+interface RecentLead {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string | null;
+  status: string;
+  source: string | null;
+  created_at: string;
+}
+
+interface RecentDeal {
+  id: string;
+  title: string;
+  status: string;
+  price: number | null;
+  created_at: string;
+}
+
+interface RecentProperty {
+  id: string;
+  title: string;
+  location: string | null;
+  price: number | null;
+  status: string;
+  property_type: string | null;
+  is_published: boolean;
+  created_at: string;
+}
 
 interface PipelineStage {
   name: string;
@@ -24,16 +63,48 @@ interface PipelineStage {
   value: number;
 }
 
+const emptyStats: DashboardStats = {
+  totalProperties: 0,
+  activeProperties: 0,
+  featuredProperties: 0,
+  publishedProperties: 0,
+  draftProperties: 0,
+  totalLeads: 0,
+  newLeadsWeek: 0,
+  openLeads: 0,
+  pendingFollowUps: 0,
+  totalDeals: 0,
+  dealsInPipeline: 0,
+  pipelineValue: 0,
+  wonDeals: 0,
+  winRate: 0,
+  totalAgents: 0,
+};
+
 export default function Dashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState<DashboardStats>(mockStats);
-  const [recentLeads, setRecentLeads] = useState<RecentLead[]>(mockRecentLeads);
-  const [recentDeals, setRecentDeals] = useState<RecentDeal[]>(mockRecentDeals);
-  const [recentProperties, setRecentProperties] = useState<RecentProperty[]>(mockRecentProperties);
+  const location = useLocation();
+  const { agentId } = useAgentProfile();
+  const isAgentView = user?.role === 'agent' || location.pathname === '/agent-dashboard';
+  const isPreviewing = user?.role === 'super_admin' && location.pathname === '/agent-dashboard';
+
+  const [stats, setStats] = useState<DashboardStats>(emptyStats);
+  const [recentLeads, setRecentLeads] = useState<RecentLead[]>([]);
+  const [recentDeals, setRecentDeals] = useState<RecentDeal[]>([]);
+  const [recentProperties, setRecentProperties] = useState<RecentProperty[]>([]);
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showWelcome = searchParams.get('welcome') === '1';
+
+  const dismissWelcome = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('welcome');
+    setSearchParams(next, { replace: true });
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -43,6 +114,8 @@ export default function Dashboard() {
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
       const weekAgoStr = weekAgo.toISOString();
+
+      const agentFilter = isAgentView && agentId ? { agent_id: agentId } : null;
 
       const [
         totalPropertiesRes,
@@ -63,23 +136,55 @@ export default function Dashboard() {
         dealsDataRes,
         propertiesDataRes,
       ] = await Promise.all([
-        supabase.from('listings').select('*', { count: 'exact', head: true }),
-        supabase.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'available'),
-        supabase.from('listings').select('*', { count: 'exact', head: true }).eq('is_featured', true),
-        supabase.from('listings').select('*', { count: 'exact', head: true }).eq('is_published', true),
-        supabase.from('listings').select('*', { count: 'exact', head: true }).eq('is_published', false),
-        supabase.from('leads').select('*', { count: 'exact', head: true }),
-        supabase.from('leads').select('*', { count: 'exact', head: true }).gte('created_at', weekAgoStr),
-        supabase.from('leads').select('*', { count: 'exact', head: true }).in('status', ['new', 'contacted', 'viewing', 'negotiating']),
-        supabase.from('leads').select('*', { count: 'exact', head: true }).in('status', ['new', 'contacted']),
-        supabase.from('deals').select('*', { count: 'exact', head: true }),
-        supabase.from('deals').select('*', { count: 'exact', head: true }).in('status', ['prospect', 'negotiation', 'offer', 'due_diligence']),
-        supabase.from('deals').select('*', { count: 'exact', head: true }).eq('status', 'closed_won'),
+        agentFilter
+          ? supabase.from('listings').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id)
+          : supabase.from('listings').select('*', { count: 'exact', head: true }),
+        agentFilter
+          ? supabase.from('listings').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).eq('status', 'available')
+          : supabase.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'available'),
+        agentFilter
+          ? supabase.from('listings').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).eq('is_featured', true)
+          : supabase.from('listings').select('*', { count: 'exact', head: true }).eq('is_featured', true),
+        agentFilter
+          ? supabase.from('listings').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).eq('is_published', true)
+          : supabase.from('listings').select('*', { count: 'exact', head: true }).eq('is_published', true),
+        agentFilter
+          ? supabase.from('listings').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).eq('is_published', false)
+          : supabase.from('listings').select('*', { count: 'exact', head: true }).eq('is_published', false),
+        agentFilter
+          ? supabase.from('leads').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id)
+          : supabase.from('leads').select('*', { count: 'exact', head: true }),
+        agentFilter
+          ? supabase.from('leads').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).gte('created_at', weekAgoStr)
+          : supabase.from('leads').select('*', { count: 'exact', head: true }).gte('created_at', weekAgoStr),
+        agentFilter
+          ? supabase.from('leads').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).in('status', ['new', 'contacted', 'viewing', 'negotiating'])
+          : supabase.from('leads').select('*', { count: 'exact', head: true }).in('status', ['new', 'contacted', 'viewing', 'negotiating']),
+        agentFilter
+          ? supabase.from('leads').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).in('status', ['new', 'contacted'])
+          : supabase.from('leads').select('*', { count: 'exact', head: true }).in('status', ['new', 'contacted']),
+        agentFilter
+          ? supabase.from('deals').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id)
+          : supabase.from('deals').select('*', { count: 'exact', head: true }),
+        agentFilter
+          ? supabase.from('deals').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).in('status', ['prospect', 'negotiation', 'offer', 'due_diligence'])
+          : supabase.from('deals').select('*', { count: 'exact', head: true }).in('status', ['prospect', 'negotiation', 'offer', 'due_diligence']),
+        agentFilter
+          ? supabase.from('deals').select('*', { count: 'exact', head: true }).eq('agent_id', agentFilter.agent_id).eq('status', 'closed_won')
+          : supabase.from('deals').select('*', { count: 'exact', head: true }).eq('status', 'closed_won'),
         supabase.from('agents').select('*', { count: 'exact', head: true }).eq('is_active', true),
-        supabase.from('deals').select('status, price').in('status', ['prospect', 'negotiation', 'offer', 'due_diligence']),
-        supabase.from('leads').select('id, first_name, last_name, email, phone, status, source, created_at').order('created_at', { ascending: false }).limit(6),
-        supabase.from('deals').select('id, title, status, price, created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at').order('created_at', { ascending: false }).limit(4),
+        agentFilter
+          ? supabase.from('deals').select('status, price').eq('agent_id', agentFilter.agent_id).in('status', ['prospect', 'negotiation', 'offer', 'due_diligence'])
+          : supabase.from('deals').select('status, price').in('status', ['prospect', 'negotiation', 'offer', 'due_diligence']),
+        agentFilter
+          ? supabase.from('leads').select('id, first_name, last_name, email, phone, status, source, created_at').eq('agent_id', agentFilter.agent_id).order('created_at', { ascending: false }).limit(6)
+          : supabase.from('leads').select('id, first_name, last_name, email, phone, status, source, created_at').order('created_at', { ascending: false }).limit(6),
+        agentFilter
+          ? supabase.from('deals').select('id, title, status, price, created_at').eq('agent_id', agentFilter.agent_id).order('created_at', { ascending: false }).limit(5)
+          : supabase.from('deals').select('id, title, status, price, created_at').order('created_at', { ascending: false }).limit(5),
+        agentFilter
+          ? supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at').eq('agent_id', agentFilter.agent_id).order('created_at', { ascending: false }).limit(4)
+          : supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at').order('created_at', { ascending: false }).limit(4),
       ]);
 
       const totalDeals = totalDealsRes.count ?? 0;
@@ -133,7 +238,7 @@ export default function Dashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isAgentView, agentId]);
 
   useEffect(() => {
     fetchData();
@@ -171,111 +276,170 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-[1280px]">
-      {/* Welcome bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="font-jost text-lg sm:text-xl font-semibold text-[#001731]">
-            {greeting()}, {user?.name?.split(' ')[0] || 'Admin'}
-          </h1>
-          <p className="text-xs sm:text-sm font-roboto text-[#7a8a99] mt-0.5">
-            {today}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-[#001731] rounded-lg text-xs sm:text-sm font-roboto font-medium border border-[#e8edf2] hover:bg-[#f8fafc] transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50"
-          >
-            <i className={`ri-refresh-line ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-          <button
-            onClick={handleSyncFrontend}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white text-[#001731] rounded-lg text-xs sm:text-sm font-roboto font-medium border border-[#e8edf2] hover:bg-[#f8fafc] transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <i className="ri-refresh-line" />
-            Sync Frontend
-          </button>
+      {/* Preview banner for super admins */}
+      {isPreviewing && (
+        <div className="bg-[#fff5e6] border border-[#f58300]/20 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <i className="ri-eye-line text-[#f58300] text-base" />
+            <div>
+              <p className="text-sm font-inter font-medium text-[#f58300]">Preview Mode</p>
+              <p className="text-xs font-inter text-[#f58300]/70">You&apos;re viewing the agent dashboard layout. Data shown is unfiltered (all agents).</p>
+            </div>
+          </div>
           <Link
-            to="/crm/listings/new"
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0d5959] text-white rounded-lg text-xs sm:text-sm font-roboto font-medium hover:bg-[#0d5959]/90 transition-colors whitespace-nowrap cursor-pointer"
+            to="/admin-dashboard"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f58300] text-white rounded-lg text-xs font-inter font-medium hover:bg-[#f58300]/90 transition-colors whitespace-nowrap cursor-pointer shrink-0"
           >
-            <i className="ri-add-line" />
-            Add Listing
+            <i className="ri-arrow-go-back-line text-sm" />
+            Back to Admin
           </Link>
         </div>
-      </div>
+      )}
 
       {/* Error banner */}
       {error && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-2">
-          <i className="ri-error-warning-line text-amber-600 text-sm" />
-          <p className="text-xs sm:text-sm font-roboto text-amber-700">{error}</p>
+        <div className="bg-[#fff5e6] border border-[#f58300]/20 rounded-lg px-4 py-3 flex items-center gap-2">
+          <i className="ri-error-warning-line text-[#f58300] text-sm" />
+          <p className="text-xs sm:text-sm font-inter text-[#f58300]">{error}</p>
           <button
             onClick={handleRefresh}
-            className="ml-auto text-xs font-roboto text-amber-700 hover:text-amber-900 underline cursor-pointer"
+            className="ml-auto text-xs font-inter text-[#f58300] hover:text-amber-900 underline cursor-pointer"
           >
             Retry
           </button>
         </div>
       )}
 
-      {/* KPI Cards */}
-      <DashboardStats stats={stats} loading={loading} />
+      {/* Welcome onboarding banner */}
+      {showWelcome && (
+        <div className="bg-gradient-to-r from-[#0d5959] to-[#0a4a4a] rounded-xl overflow-hidden animate-fade-in">
+          <div className="relative px-5 py-5 sm:px-6 sm:py-6">
+            <button
+              onClick={dismissWelcome}
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors cursor-pointer"
+              aria-label="Dismiss welcome message"
+            >
+              <i className="ri-close-line text-white text-sm" />
+            </button>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5">
+              <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                <i className="ri-hand-heart-line text-white text-xl" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2.5 mb-1 flex-wrap">
+                  <h2 className="font-inter text-base sm:text-lg font-semibold text-white">
+                    Welcome aboard{user?.name ? `, ${user.name.split(' ')[0]}` : ''}!
+                  </h2>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-inter font-semibold uppercase tracking-wider bg-white/15 text-white`}>
+                    {isAgentView ? 'Agent' : user?.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                  </span>
+                </div>
+                <p className="text-sm text-white/80 font-inter leading-relaxed">
+                  {isAgentView
+                    ? 'Your account is all set. Start by checking your assigned listings and leads — everything is ready for you to hit the ground running.'
+                    : 'Your admin account is ready to go. You can add your first listing, invite team members, or customise the site — it\'s all yours.'}
+                </p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {isAgentView ? (
+                    <>
+                      <Link
+                        to="/crm/listings"
+                        onClick={dismissWelcome}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#0d5959] rounded-lg text-xs font-inter font-semibold hover:bg-white/90 transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        <i className="ri-building-line text-sm" />
+                        View Listings
+                      </Link>
+                      <Link
+                        to="/crm/leads"
+                        onClick={dismissWelcome}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs font-inter font-medium hover:bg-white/20 transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        <i className="ri-user-star-line text-sm" />
+                        Check Leads
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to="/crm/listings/new"
+                        onClick={dismissWelcome}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#0d5959] rounded-lg text-xs font-inter font-semibold hover:bg-white/90 transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        <i className="ri-add-line text-sm" />
+                        Add First Listing
+                      </Link>
+                      <Link
+                        to="/crm/users"
+                        onClick={dismissWelcome}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs font-inter font-medium hover:bg-white/20 transition-colors whitespace-nowrap cursor-pointer"
+                      >
+                        <i className="ri-team-line text-sm" />
+                        Invite Team
+                      </Link>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Activity Feed — mobile only */}
       <div className="lg:hidden space-y-4">
-        <div className="bg-white rounded-xl border border-[#e8edf2] p-4">
-          <h3 className="font-jost text-sm font-medium text-[#001731] mb-3">Quick Activity</h3>
+        <div className="bg-[#012144] border border-[#1c3a5e] rounded-xl p-4">
+          <h3 className="font-inter text-sm font-medium text-white mb-3">Quick Activity</h3>
           <div className="space-y-3">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#f8fafc] animate-pulse" />
+                  <div className="w-8 h-8 rounded-lg bg-[#012a52] animate-pulse" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="h-3 w-32 bg-[#f8fafc] rounded animate-pulse" />
-                    <div className="h-2.5 w-20 bg-[#f8fafc] rounded animate-pulse" />
+                    <div className="h-3 w-32 bg-[#012a52] rounded animate-pulse" />
+                    <div className="h-2.5 w-20 bg-[#012a52] rounded animate-pulse" />
                   </div>
                 </div>
               ))
             ) : (
               <>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#0d5959]/8 flex items-center justify-center shrink-0">
-                    <i className="ri-user-add-line text-[#0d5959] text-sm" />
+                  <div className="w-8 h-8 rounded-lg bg-[#0d5959]/20 flex items-center justify-center shrink-0">
+                    <i className="ri-user-add-line text-[#5eead4] text-sm" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-roboto text-[#001731] font-medium truncate">
+                    <p className="text-sm font-inter text-white font-semibold truncate">
                       {stats.newLeadsWeek} new leads this week
                     </p>
-                    <p className="text-xs font-roboto text-[#7a8a99]">
+                    <p className="text-xs font-inter text-[#6b7280]">
                       {stats.openLeads} currently open · {stats.pendingFollowUps} pending follow-up
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#001731]/8 flex items-center justify-center shrink-0">
-                    <i className="ri-briefcase-3-line text-[#001731] text-sm" />
+                  <div className="w-8 h-8 rounded-lg bg-[#001731]/40 flex items-center justify-center shrink-0">
+                    <i className="ri-briefcase-3-line text-[#5eead4] text-sm" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-roboto text-[#001731] font-medium truncate">
+                    <p className="text-sm font-inter text-white font-semibold truncate">
                       {stats.dealsInPipeline} deals in pipeline
                     </p>
-                    <p className="text-xs font-roboto text-[#7a8a99]">
+                    <p className="text-xs font-inter text-[#6b7280]">
                       {formatCurrency(stats.pipelineValue)} expected · {stats.winRate}% win rate
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#0d5959]/8 flex items-center justify-center shrink-0">
-                    <i className="ri-building-line text-[#0d5959] text-sm" />
+                  <div className="w-8 h-8 rounded-lg bg-[#0d5959]/20 flex items-center justify-center shrink-0">
+                    <i className="ri-building-line text-[#5eead4] text-sm" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-roboto text-[#001731] font-medium truncate">
+                    <p className="text-sm font-inter text-white font-semibold truncate">
                       {stats.activeProperties} active properties
                     </p>
-                    <p className="text-xs font-roboto text-[#7a8a99]">
+                    <p className="text-xs font-inter text-[#6b7280]">
                       {stats.totalProperties} total · {stats.publishedProperties} published · {stats.draftProperties} draft
                     </p>
                   </div>
@@ -287,91 +451,95 @@ export default function Dashboard() {
       </div>
 
       {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
-        {/* Left column — Leads + Deals */}
-        <div className="lg:col-span-2 space-y-4 sm:space-y-5">
-          <RecentLeads leads={recentLeads} loading={loading} />
-          <RecentDeals deals={recentDeals} loading={loading} />
-        </div>
+      {isAgentView ? (
+        <AgentDashboard />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+          {/* Left column — Leads + Deals */}
+          <div className="lg:col-span-2 space-y-4 sm:space-y-5">
+            <RecentLeads leads={recentLeads} loading={loading} />
+            <RecentDeals deals={recentDeals} loading={loading} />
+          </div>
 
-        {/* Right column — Properties + Pipeline */}
-        <div className="space-y-4 sm:space-y-5">
-          <RecentProperties properties={recentProperties} loading={loading} />
+          {/* Right column — Properties + Pipeline */}
+          <div className="space-y-4 sm:space-y-5">
+            <RecentProperties properties={recentProperties} loading={loading} />
 
-          {/* Pipeline summary card */}
-          <div className="relative bg-white rounded-xl border border-[#e8edf2] overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />
-            <div className="bg-[#0d5959]/5 px-4 md:px-5 py-3 md:py-4 flex items-center gap-2.5 sm:gap-3">
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#0d5959]/10 flex items-center justify-center">
-                <i className="ri-funds-line text-[#0d5959] text-sm" />
-              </div>
-              <div>
-                <h3 className="font-jost text-sm sm:text-base font-medium text-[#001731]">Pipeline</h3>
-                <p className="text-xs font-roboto text-[#7a8a99]">Deals by stage</p>
-              </div>
-            </div>
-            <div className="p-4 md:p-5 space-y-3">
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="h-3 w-20 bg-[#f8fafc] rounded animate-pulse" />
-                      <div className="h-3 w-12 bg-[#f8fafc] rounded animate-pulse" />
-                    </div>
-                    <div className="h-2 w-full bg-[#f8fafc] rounded animate-pulse" />
-                  </div>
-                ))
-              ) : pipelineStages.length === 0 ? (
-                <div className="py-6 text-center">
-                  <i className="ri-funds-line text-[#7a8a99] text-2xl mb-2 block" />
-                  <p className="text-sm font-roboto text-[#7a8a99]">No active pipeline data</p>
-                  <Link
-                    to="/crm/deals"
-                    className="text-xs font-roboto text-[#0d5959] hover:text-[#001731] mt-1 inline-block cursor-pointer"
-                  >
-                    Add your first deal
-                  </Link>
+            {/* Pipeline summary card */}
+            <div className="relative bg-white rounded-xl overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-accent" />
+              <div className="bg-[#0d5959]/5 px-4 md:px-5 py-3 md:py-4 flex items-center gap-2.5 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#0d5959]/10 flex items-center justify-center">
+                  <i className="ri-funds-line text-[#0d5959] text-sm" />
                 </div>
-              ) : (
-                pipelineStages.map((stage) => {
-                  const maxValue = Math.max(...pipelineStages.map((s) => s.value), 1);
-                  const pct = (stage.value / maxValue) * 100;
-                  return (
-                    <div key={stage.name} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm font-roboto text-[#001731] font-medium">
-                          {stage.name}
-                        </span>
-                        <span className="text-xs font-roboto text-[#7a8a99]">
-                          {stage.count} deals · {formatCurrency(stage.value)}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full bg-[#f8fafc] rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-[#0d5959] transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-              <div className="pt-2 border-t border-[#e8edf2]/60 flex items-center justify-between">
-                <span className="text-xs font-roboto text-[#7a8a99]">Total Pipeline</span>
-                <span className="text-sm font-roboto font-bold text-[#001731] font-medium">
-                  {loading ? '...' : formatCurrency(stats.pipelineValue)}
-                </span>
+                <div>
+                  <h3 className="font-inter text-sm sm:text-base font-medium text-[#001731]">Pipeline</h3>
+                  <p className="text-xs font-inter text-[#636363]">Deals by stage</p>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-roboto text-[#7a8a99]">Win Rate</span>
-                <span className="text-sm font-roboto font-bold text-[#001731] font-medium">
-                  {loading ? '...' : `${stats.winRate}%`}
-                </span>
+              <div className="p-4 md:p-5 space-y-3">
+                {loading ? (
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div className="h-3 w-20 bg-[#f7f8fa] rounded animate-pulse" />
+                        <div className="h-3 w-12 bg-[#f7f8fa] rounded animate-pulse" />
+                      </div>
+                      <div className="h-2 w-full bg-[#f7f8fa] rounded animate-pulse" />
+                    </div>
+                  ))
+                ) : pipelineStages.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <i className="ri-funds-line text-[#636363] text-2xl mb-2 block" />
+                    <p className="text-sm font-inter text-[#636363]">No active pipeline data</p>
+                    <Link
+                      to="/crm/deals"
+                      className="text-xs font-inter text-[#0d5959] hover:text-[#001731] mt-1 inline-block cursor-pointer"
+                    >
+                      Add your first deal
+                    </Link>
+                  </div>
+                ) : (
+                  pipelineStages.map((stage) => {
+                    const maxValue = Math.max(...pipelineStages.map((s) => s.value), 1);
+                    const pct = (stage.value / maxValue) * 100;
+                    return (
+                      <div key={stage.name} className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm font-inter text-[#001731] font-semibold">
+                            {stage.name}
+                          </span>
+                          <span className="text-xs font-inter text-[#636363]">
+                            {stage.count} deals · {formatCurrency(stage.value)}
+                          </span>
+                        </div>
+                        <div className="h-2 w-full bg-[#f7f8fa] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#0d5959] transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div className="pt-2 border-t border-[#f0f0f0]/60 flex items-center justify-between">
+                  <span className="text-xs font-inter text-[#636363]">Total Pipeline</span>
+                  <span className="text-sm font-inter font-bold text-[#001731] font-medium">
+                    {loading ? '...' : formatCurrency(stats.pipelineValue)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-inter text-[#636363]">Win Rate</span>
+                  <span className="text-sm font-inter font-bold text-[#001731] font-medium">
+                    {loading ? '...' : `${stats.winRate}%`}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

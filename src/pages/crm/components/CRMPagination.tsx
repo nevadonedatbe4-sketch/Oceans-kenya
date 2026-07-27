@@ -27,16 +27,16 @@ export default function CRMPagination({
   });
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-[#e8edf2]">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-roboto text-[#7a8a99]">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-stone-100">
+      <div className="flex items-center gap-2.5">
+        <span className="text-sm text-stone-600">
           Showing {total === 0 ? 0 : start}–{end} of {total}
         </span>
         {onPageSizeChange && (
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="text-xs font-roboto text-[#7a8a99] border border-[#e8edf2] rounded-md px-2 py-1 bg-white cursor-pointer"
+            className="text-sm text-stone-600 border border-stone-200 rounded-lg px-2.5 py-1.5 bg-white cursor-pointer"
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -49,7 +49,7 @@ export default function CRMPagination({
         <button
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e8edf2] text-[#7a8a99] hover:bg-[#f8fafc] hover:text-[#001731] transition-colors disabled:opacity-40 cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-800 transition-colors disabled:opacity-40 cursor-pointer"
         >
           <i className="ri-arrow-left-s-line" />
         </button>
@@ -58,10 +58,10 @@ export default function CRMPagination({
           <button
             key={p}
             onClick={() => onPageChange(p)}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-roboto transition-colors cursor-pointer ${
+            className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm transition-colors cursor-pointer ${
               p === page
-                ? 'bg-[#0d5959] text-white'
-                : 'text-[#7a8a99] hover:bg-[#f8fafc] hover:text-[#001731]'
+                ? 'bg-accent text-white'
+                : 'text-stone-600 hover:bg-stone-50 hover:text-stone-800'
             }`}
           >
             {p}
@@ -71,7 +71,7 @@ export default function CRMPagination({
         <button
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e8edf2] text-[#7a8a99] hover:bg-[#f8fafc] hover:text-[#001731] transition-colors disabled:opacity-40 cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-800 transition-colors disabled:opacity-40 cursor-pointer"
         >
           <i className="ri-arrow-right-s-line" />
         </button>

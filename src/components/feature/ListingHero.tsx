@@ -19,7 +19,7 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
   if (!eyebrow && !title && !subtitle && !hero.bgImage) return null;
 
   return (
-    <section className="relative w-full h-[420px] md:h-[500px] overflow-hidden">
+    <section className="relative w-full h-[210px] md:h-[250px] overflow-hidden">
       {/* Background image */}
       {hero.bgImage ? (
         <img
@@ -40,13 +40,13 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
           <p
             style={{
               fontWeight: hero.eyebrowWeight || '400',
-              fontSize: `${hero.eyebrowSize || '12'}px`,
+              fontSize: `clamp(10px, 2vw, ${hero.eyebrowSize || '12'}px)`,
               letterSpacing: `${hero.eyebrowSpacing || '0.3'}em`,
               textTransform: (hero.eyebrowTransform || 'uppercase') as any,
               fontFamily: hero.eyebrowFont || undefined,
               color: '#C9A84C',
             }}
-            className="mb-2 max-w-3xl"
+            className="mb-2 w-full max-w-3xl px-2"
           >
             {eyebrow}
           </p>
@@ -56,13 +56,15 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
             style={{
               fontFamily: hero.titleFont || undefined,
               fontWeight: hero.titleWeight || '400',
-              fontSize: `${hero.titleSize || '48'}px`,
+              fontSize: `clamp(20px, 5vw, ${hero.titleSize || '48'}px)`,
               letterSpacing: `${hero.titleSpacing || '0'}em`,
-              lineHeight: hero.titleLineHeight || '1.1',
+              lineHeight: hero.titleLineHeight || '1.2',
               textTransform: (hero.titleTransform || 'none') as any,
               color: '#FFFFFF',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
             }}
-            className="mb-3 max-w-3xl"
+            className="mb-3 w-full max-w-3xl px-2"
           >
             {title}
           </h1>
@@ -72,12 +74,14 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
             style={{
               fontFamily: hero.subtitleFont || undefined,
               fontWeight: hero.subtitleWeight || '400',
-              fontSize: `${hero.subtitleSize || '14'}px`,
+              fontSize: `clamp(11px, 2.5vw, ${hero.subtitleSize || '14'}px)`,
               letterSpacing: `${hero.subtitleSpacing || '0'}em`,
               lineHeight: hero.subtitleLineHeight || '1.5',
               color: 'rgba(255,255,255,0.7)',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
             }}
-            className="max-w-2xl"
+            className="w-full max-w-2xl px-2"
           >
             {subtitle}
           </p>

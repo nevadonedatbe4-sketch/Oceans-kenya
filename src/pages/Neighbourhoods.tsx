@@ -3,14 +3,36 @@ import { Link } from 'react-router-dom';
 import { useNeighbourhoods } from '@/hooks/useNeighbourhoods';
 import type { DBNeighbourhood } from '@/hooks/useNeighbourhoods';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
-import { areaGuides } from '@/mocks/areaGuides';
-import { blogPosts } from '@/mocks/blogPosts';
-import { comparisonData } from '@/mocks/neighbourhoodComparisons';
-import type { NeighbourhoodComparison } from '@/mocks/neighbourhoodComparisons';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
+import { supabase } from '@/lib/supabase';
+
+interface NeighbourhoodComparison {
+  slug: string;
+  name: string;
+  tagline: string;
+  safety: { rating: number; description: string; note?: string };
+  vibe: string;
+  bestFor: string[];
+  pros: string[];
+  cons: string[];
+  priceRange: string;
+  rentalRange: string;
+  typicalRent1BR: string;
+  walkability: { rating: number; description: string; note?: string };
+  nightlife: { rating: number; description: string; note?: string };
+  familyFriendliness: { rating: number; description: string; note?: string };
+  greenSpace: { rating: number; description: string; note?: string };
+  valueForMoney: { rating: number; description: string; note?: string };
+  prestige: { rating: number; description: string; note?: string };
+  accessibility: { rating: number; description: string; note?: string };
+  rentalYield: { rating: number; description: string; note?: string };
+  schoolAccess: { rating: number; description: string; note?: string };
+  healthAccess: { rating: number; description: string; note?: string };
+  verdict: string;
+}
 
 type TabKey = 'neighbourhoods' | 'guides' | 'blog' | 'compare';
 type FilterKey = 'all' | 'sale' | 'rent' | 'luxury' | 'family';
@@ -47,7 +69,7 @@ function ComparisonCard({
           {winnerLabel}
         </div>
       )}
-      <div className="bg-white border border-stone-100 rounded-lg p-4 md:p-5 h-full">
+      <div className="bg-white border-2 border-stone-200 rounded-lg p-4 md:p-5 h-full">
         <div className="mb-4">
           <h3 className="text-lg font-roboto font-medium text-primary mb-0.5">{data.name}</h3>
           <p className="font-roboto text-stone-400 text-base leading-relaxed">{data.tagline}</p>
@@ -97,7 +119,7 @@ function ComparisonCard({
           <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-1.5">Best For</p>
           <div className="flex flex-wrap gap-1">
             {data.bestFor.slice(0, 5).map((b) => (
-              <span key={b} className="px-2 py-0.5 bg-stone-50 text-sm font-roboto text-stone-500 rounded-full border border-stone-100">
+              <span key={b} className="px-2 py-0.5 bg-stone-50 text-sm font-roboto text-stone-500 rounded-full border-2 border-stone-200">
                 {b}
               </span>
             ))}
@@ -169,6 +191,25 @@ export default function Neighbourhoods() {
   const [guideFilter, setGuideFilter] = useState<string[]>([]);
   const [compareA, setCompareA] = useState<string>('');
   const [compareB, setCompareB] = useState<string>('');
+  const [comparisonData, setComparisonData] = useState<NeighbourhoodComparison[]>([]);
+
+  useEffect(() => {
+    supabase
+      .from('neighbourhood_comparisons')
+      .select('*')
+      .eq('is_published', true)
+      .then(({ data }) => {
+        if (data) {
+          const parsed = (data as any[]).map((d: any) => ({
+            ...d.data,
+            slug: d.slug,
+            name: d.name,
+            tagline: d.tagline,
+          })) as NeighbourhoodComparison[];
+          setComparisonData(parsed);
+        }
+      });
+  }, []);
 
   const {
     neighbourhoods: hoods,
@@ -179,10 +220,7 @@ export default function Neighbourhoods() {
     refetch,
   } = useNeighbourhoods();
 
-  const displayBlogPosts = useMemo(() => {
-    if (supabaseBlogPosts.length > 0) return supabaseBlogPosts;
-    return blogPosts;
-  }, [supabaseBlogPosts]);
+  const displayBlogPosts = useMemo(() => supabaseBlogPosts, [supabaseBlogPosts]);
 
   const filteredBlogPosts = useMemo(() => {
     if (blogCategory === 'all') return displayBlogPosts;
@@ -232,17 +270,14 @@ export default function Neighbourhoods() {
     return result;
   }, [hoods, searchQuery, activeFilter, guideFilter]);
 
-  const guideHoods = useMemo(() => {
-    const guideSlugs = new Set(areaGuides.map((g) => g.slug));
-    return hoods.filter((h) => guideSlugs.has(h.slug));
-  }, [hoods]);
+  const guideHoods = useMemo(() => hoods, [hoods]);
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
 
       {/* Hero */}
-      <section className="relative pt-28 md:pt-32 pb-16 md:pb-24 overflow-hidden">
+      <section className="relative pt-36 md:pt-44 pb-20 md:pb-28">
         <div className="absolute inset-0">
           <img
             alt="Nairobi skyline"
@@ -370,7 +405,7 @@ export default function Neighbourhoods() {
 
               {/* Quick Decision Guide */}
               <Reveal>
-                <div className="bg-stone-50 border border-stone-100 rounded-lg p-5 md:p-6">
+                <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-5 md:p-6">
                   <div className="flex items-start gap-3 mb-4">
                     <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full shrink-0">
                       <i className="ri-guide-line text-primary"></i>
@@ -473,7 +508,7 @@ export default function Neighbourhoods() {
                         ))}
                       </div>
                     ) : filteredHoods.length === 0 ? (
-                      <div className="text-center py-16 bg-stone-50 rounded-lg border border-stone-100">
+                      <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
                         <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
                           <i className="ri-map-pin-line text-stone-400 text-xl"></i>
                         </div>
@@ -486,7 +521,7 @@ export default function Neighbourhoods() {
                           <Reveal key={n.id} delay={i * 80}>
                             <Link
                               to={`/neighbourhood/${n.slug}`}
-                              className="group cursor-pointer block bg-white rounded-lg overflow-hidden border border-stone-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                              className="group cursor-pointer block bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
                             >
                               <div className="relative aspect-[16/10] overflow-hidden">
                                 <img
@@ -540,7 +575,7 @@ export default function Neighbourhoods() {
                   {!loading && (
                     <Reveal delay={200}>
                       <aside className="w-full lg:w-72 shrink-0">
-                        <div className="bg-stone-50 border border-stone-100 rounded-lg p-5 sticky top-28">
+                        <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-5 sticky top-28">
                           <div className="flex items-center gap-2 mb-4">
                             <div className="w-7 h-7 flex items-center justify-center bg-accent-100 rounded-full shrink-0">
                               <i className="ri-compass-3-line text-accent-600 text-sm"></i>
@@ -551,7 +586,7 @@ export default function Neighbourhoods() {
                             Beyond the main areas, Nairobi has several other neighbourhoods worth knowing — each with its own character and value proposition.
                           </p>
                           <div className="space-y-3">
-                            <div className="bg-white p-3 rounded-md border border-stone-100">
+                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
                               <h4 className="font-roboto font-bold text-sm text-primary mb-1">South B &amp; South C</h4>
                               <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
                                 More local, affordable, and close to Nairobi National Park — ideal for experienced residents and budget-conscious travellers who want space without the Karen price tag. Strong community feel with markets, local eateries, and easy access to the CBD.
@@ -564,7 +599,7 @@ export default function Neighbourhoods() {
                                 <i className="ri-arrow-right-line text-xs"></i>
                               </Link>
                             </div>
-                            <div className="bg-white p-3 rounded-md border border-stone-100">
+                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
                               <h4 className="font-roboto font-bold text-sm text-primary mb-1">City Centre &amp; Upper Hill</h4>
                               <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
                                 Busy, central, and all business — ideal for short stays and professionals who need to be in the thick of it. Upper Hill hosts major corporate HQs and hotels. The CBD offers unmatched convenience but can be hectic.
@@ -577,7 +612,7 @@ export default function Neighbourhoods() {
                                 <i className="ri-arrow-right-line text-xs"></i>
                               </Link>
                             </div>
-                            <div className="bg-white p-3 rounded-md border border-stone-100">
+                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
                               <h4 className="font-roboto font-bold text-sm text-primary mb-1">Langata</h4>
                               <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
                                 Nature-focused living on a budget — bordering Nairobi National Park and close to the Giraffe Centre and Elephant Orphanage. More affordable than neighbouring Karen while sharing the same green, relaxed atmosphere. Popular with families seeking space.
@@ -590,7 +625,7 @@ export default function Neighbourhoods() {
                                 <i className="ri-arrow-right-line text-xs"></i>
                               </Link>
                             </div>
-                            <div className="bg-white p-3 rounded-md border border-stone-100">
+                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
                               <h4 className="font-roboto font-bold text-sm text-primary mb-1">Ruaka</h4>
                               <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
                                 A fast-growing satellite suburb north of the city — significantly cheaper rents than Gigiri or Runda but only 15–20 minutes from the UN and diplomatic quarter. Popular with young professionals and families priced out of the core northern suburbs.
@@ -641,7 +676,7 @@ export default function Neighbourhoods() {
                   ))}
                 </div>
               ) : guideHoods.length === 0 ? (
-                <div className="text-center py-16 bg-stone-50 rounded-lg border border-stone-100">
+                <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
                   <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
                     <i className="ri-book-open-line text-stone-400 text-xl"></i>
                   </div>
@@ -654,7 +689,7 @@ export default function Neighbourhoods() {
                     <Reveal key={h.id} delay={i * 100}>
                       <Link
                         to={`/neighbourhood/${h.slug}`}
-                        className="group cursor-pointer flex flex-col sm:flex-row bg-white rounded-lg overflow-hidden border border-stone-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                        className="group cursor-pointer flex flex-col sm:flex-row bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
                       >
                         <div className="sm:w-48 h-40 sm:h-auto shrink-0 relative overflow-hidden bg-stone-100">
                           {h.hero_image ? (
@@ -746,7 +781,7 @@ export default function Neighbourhoods() {
                   ))}
                 </div>
               ) : filteredBlogPosts.length === 0 ? (
-                <div className="text-center py-16 bg-stone-50 rounded-lg border border-stone-100">
+                <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
                   <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
                     <i className="ri-article-line text-stone-400 text-xl"></i>
                   </div>
@@ -759,7 +794,7 @@ export default function Neighbourhoods() {
                     <Reveal key={post.id} delay={i * 90}>
                       <Link
                         to={`/blog/${post.slug}`}
-                        className="group cursor-pointer block bg-white rounded-lg overflow-hidden border border-stone-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                        className="group cursor-pointer block bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
                       >
                         <div className="relative aspect-[16/10] overflow-hidden">
                           <img
@@ -801,7 +836,7 @@ export default function Neighbourhoods() {
             <div className="space-y-6 md:space-y-8">
               {/* Selector Panel */}
               <Reveal>
-                <div className="bg-stone-50 border border-stone-100 rounded-lg p-5 md:p-6">
+                <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-5 md:p-6">
                   <div className="flex items-start gap-3 mb-5">
                     <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full shrink-0">
                       <i className="ri-scales-line text-primary"></i>
@@ -917,7 +952,7 @@ export default function Neighbourhoods() {
                     <div className="space-y-6">
                       {/* Scoreboard */}
                       <Reveal>
-                        <div className="bg-stone-50 border border-stone-100 rounded-lg p-4 md:p-5">
+                        <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4 md:p-5">
                           <div className="grid grid-cols-3 gap-4 items-center">
                             <div className="text-center">
                               <p className="text-lg font-roboto font-medium text-primary">{dataA.name}</p>
@@ -948,7 +983,7 @@ export default function Neighbourhoods() {
                       {/* Top-line comparison: Safety, Price, Best For, Vibe */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
                         <Reveal delay={80}>
-                          <div className="bg-stone-50 border border-stone-100 rounded-lg p-4">
+                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
                             <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Safety</p>
                             <div className="flex items-center gap-3">
                               <div className="flex-1">
@@ -968,7 +1003,7 @@ export default function Neighbourhoods() {
                           </div>
                         </Reveal>
                         <Reveal delay={160}>
-                          <div className="bg-stone-50 border border-stone-100 rounded-lg p-4">
+                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
                             <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Price &amp; Value</p>
                             <div className="space-y-2">
                               <div>
@@ -989,7 +1024,7 @@ export default function Neighbourhoods() {
                       {/* Vibe & Best For */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
                         <Reveal delay={80}>
-                          <div className="bg-stone-50 border border-stone-100 rounded-lg p-4">
+                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
                             <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Vibe</p>
                             <div className="space-y-3">
                               <div>
@@ -1004,14 +1039,14 @@ export default function Neighbourhoods() {
                           </div>
                         </Reveal>
                         <Reveal delay={160}>
-                          <div className="bg-stone-50 border border-stone-100 rounded-lg p-4">
+                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
                             <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Best For</p>
                             <div className="space-y-3">
                               <div>
                                 <p className="font-roboto text-sm font-medium text-stone-600 mb-1">{dataA.name}</p>
                                 <div className="flex flex-wrap gap-1">
                                   {dataA.bestFor.slice(0, 4).map((b) => (
-                                    <span key={b} className="px-2 py-0.5 bg-white text-sm font-roboto text-stone-500 rounded-full border border-stone-100">{b}</span>
+                                    <span key={b} className="px-2 py-0.5 bg-white text-sm font-roboto text-stone-500 rounded-full border-2 border-stone-200">{b}</span>
                                   ))}
                                 </div>
                               </div>
@@ -1019,7 +1054,7 @@ export default function Neighbourhoods() {
                                 <p className="font-roboto text-sm font-medium text-stone-600 mb-1">{dataB.name}</p>
                                 <div className="flex flex-wrap gap-1">
                                   {dataB.bestFor.slice(0, 4).map((b) => (
-                                    <span key={b} className="px-2 py-0.5 bg-white text-sm font-roboto text-stone-500 rounded-full border border-stone-100">{b}</span>
+                                    <span key={b} className="px-2 py-0.5 bg-white text-sm font-roboto text-stone-500 rounded-full border-2 border-stone-200">{b}</span>
                                   ))}
                                 </div>
                               </div>
@@ -1040,7 +1075,7 @@ export default function Neighbourhoods() {
 
                       {/* Dimension-by-dimension comparison table */}
                       <Reveal>
-                        <div className="overflow-x-auto bg-white border border-stone-100 rounded-lg">
+                        <div className="overflow-x-auto bg-white border-2 border-stone-200 rounded-lg">
                           <table className="w-full text-left">
                             <thead>
                               <tr className="border-b border-stone-100">
@@ -1086,7 +1121,7 @@ export default function Neighbourhoods() {
                   );
                 })()
               ) : (
-                <div className="text-center py-16 bg-stone-50 rounded-lg border border-stone-100">
+                <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
                   <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
                     <i className="ri-scales-line text-stone-400 text-xl"></i>
                   </div>
@@ -1120,7 +1155,7 @@ export default function Neighbourhoods() {
                   <Reveal key={n.id} delay={i * 100}>
                     <Link
                       to={`/neighbourhood/${n.slug}`}
-                      className="group cursor-pointer bg-stone-50 rounded-lg p-5 md:p-6 border border-stone-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                      className="group cursor-pointer bg-stone-50 rounded-lg p-5 md:p-6 border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
                     >
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 flex items-center justify-center bg-primary/10 rounded-full shrink-0">

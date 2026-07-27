@@ -15,12 +15,17 @@ import Valuation from "../pages/Valuation";
 import PropertyDetail from "../pages/PropertyDetail";
 import JointVentures from "../pages/JointVentures";
 import CRMLogin from "../pages/crm/Login";
+import ForgotPassword from "../pages/crm/ForgotPassword";
+import UpdatePassword from "../pages/crm/UpdatePassword";
+import Signup from "../pages/crm/Signup";
 import DashboardLayout from "../pages/crm/DashboardLayout";
 import Dashboard from "../pages/crm/Dashboard";
 import Listings from "../pages/crm/Listings";
 import Leads from "../pages/crm/Leads";
 import Deals from "../pages/crm/Deals";
 import Contacts from "../pages/crm/Contacts";
+import Enquiries from "../pages/crm/Enquiries";
+import Inbox from "../pages/crm/Inbox";
 import Agents from "../pages/crm/Agents";
 import MediaLibrary from "../pages/crm/MediaLibrary";
 import ListingEdit from "../pages/crm/ListingEdit";
@@ -44,6 +49,8 @@ import NavLinks from "../pages/crm/NavLinks";
 import ContactSectionsAdmin from "../pages/crm/ContactSectionsAdmin";
 import ProfilePage from "../pages/crm/Profile";
 import BlogDetail from "../pages/BlogDetail";
+import DashboardRedirect from "../pages/crm/DashboardRedirect";
+import PipelineView from "../pages/crm/PipelineView";
 
 // Management sub-pages
 import MgmtGeneral from "../pages/crm/management/General";
@@ -152,9 +159,21 @@ const routes: RouteObject[] = [
     element: <CRMLogin />,
   },
   {
-    path: "/crm/dashboard",
+    path: "/crm/forgot-password",
+    element: <ForgotPassword />,
+  },
+  {
+    path: "/crm/update-password",
+    element: <UpdatePassword />,
+  },
+  {
+    path: "/crm/signup",
+    element: <Signup />,
+  },
+  {
+    path: "/admin-dashboard",
     element: (
-      <ProtectedRoute>
+      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
         <DashboardLayout />
       </ProtectedRoute>
     ),
@@ -164,6 +183,24 @@ const routes: RouteObject[] = [
         element: <Dashboard />,
       },
     ],
+  },
+  {
+    path: "/agent-dashboard",
+    element: (
+      <ProtectedRoute requiredRoles={['agent', 'super_admin']}>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <Dashboard />,
+      },
+    ],
+  },
+  {
+    path: "/crm/dashboard",
+    element: <DashboardRedirect />,
   },
   {
     path: "/crm/listings",
@@ -222,6 +259,20 @@ const routes: RouteObject[] = [
     ],
   },
   {
+    path: "/crm/pipeline",
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <PipelineView />,
+      },
+    ],
+  },
+  {
     path: "/crm/deals",
     element: (
       <ProtectedRoute>
@@ -260,6 +311,34 @@ const routes: RouteObject[] = [
       {
         path: "",
         element: <Contacts />,
+      },
+    ],
+  },
+  {
+    path: "/crm/inbox",
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <Inbox />,
+      },
+    ],
+  },
+  {
+    path: "/crm/enquiries",
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <Enquiries />,
       },
     ],
   },

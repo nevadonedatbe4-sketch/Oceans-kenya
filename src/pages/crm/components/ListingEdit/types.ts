@@ -114,24 +114,28 @@ export interface ListingFormState {
 }
 
 export const STEPS = [
-  { id: 'description', label: 'Description', desc: 'Title, type & write-up' },
-  { id: 'media', label: 'Media', desc: 'Photos & floor plans' },
-  { id: 'details', label: 'Details', desc: 'Price, size & rooms' },
+  { id: 'basic-info', label: 'Basic Information', desc: 'Title, type & write-up' },
+  { id: 'price', label: 'Price', desc: 'Main price, currency & options' },
+  { id: 'details', label: 'Property Details', desc: 'Size, rooms & specs' },
+  { id: 'media', label: 'Photos & Media', desc: 'Photos & floor plans' },
+  { id: 'features', label: 'Features & Amenities', desc: 'Amenities & highlights' },
+  { id: 'labels-tags', label: 'Labels & Tags', desc: 'Marketing badges' },
   { id: 'location', label: 'Location', desc: 'Address & map' },
-  { id: 'features', label: 'Features', desc: 'Amenities & highlights' },
   { id: 'attachments', label: 'Attachments', desc: 'Docs & brochures' },
-  { id: 'settings', label: 'Settings', desc: 'Agent, SEO & publish' },
+  { id: 'contact-publish', label: 'Contact & Publish', desc: 'Agent, SEO & publish' },
   { id: 'summary', label: 'Summary', desc: 'Review & publish' },
 ];
 
 export const LAND_STEPS = [
-  { id: 'description', label: 'Description', desc: 'Title, type & write-up' },
-  { id: 'media', label: 'Media', desc: 'Photos & site images' },
-  { id: 'details', label: 'Details', desc: 'Price, land size & title' },
+  { id: 'basic-info', label: 'Basic Information', desc: 'Title, type & write-up' },
+  { id: 'price', label: 'Price', desc: 'Main price, currency & options' },
+  { id: 'details', label: 'Property Details', desc: 'Land size, title & plot info' },
+  { id: 'media', label: 'Photos & Media', desc: 'Photos & site images' },
+  { id: 'features', label: 'Features & Amenities', desc: 'Land features & utilities' },
+  { id: 'labels-tags', label: 'Labels & Tags', desc: 'Marketing badges' },
   { id: 'location', label: 'Location', desc: 'Address & map' },
-  { id: 'features', label: 'Features', desc: 'Land features & utilities' },
   { id: 'attachments', label: 'Attachments', desc: 'Docs & brochures' },
-  { id: 'settings', label: 'Settings', desc: 'Agent, SEO & publish' },
+  { id: 'contact-publish', label: 'Contact & Publish', desc: 'Agent, SEO & publish' },
   { id: 'summary', label: 'Summary', desc: 'Review & publish' },
 ];
 
@@ -205,6 +209,9 @@ export const PURPOSE_LABELS: Record<string, string> = {
   rented: 'Rented',
 };
 
+// Admin-only listing-editor chrome palette. Public-facing brand colours
+// (primary/golden/accent) live in index.css :root and are DB-overridable via
+// useBrandTheme — see that file for the single source of truth.
 export const COLORS = {
   navy: '#0d1b2a',
   navyLight: '#1a2f45',
@@ -232,15 +239,25 @@ export const fetchNeighborhoods = async () => {
   return data || [];
 };
 
-export const EXCHANGE_RATE = 130; // USD to KES
+export const EXCHANGE_RATE = 130; // 1 USD = 130 KES
 
 export const PROPERTY_TYPES = [
   'Apartment',
   'House',
   'Villa',
+  'Townhouse',
+  'Penthouse',
+  'Studio Flat',
+  'Detached',
+  'Semi-detached',
+  'Terraced',
+  'Flat',
+  'Bungalow',
   'Commercial',
-  'Land',
   'Office',
+  'Land',
+  'Farms / Land',
+  'Park Home',
 ];
 
 export const SUB_TYPES = [
@@ -318,9 +335,9 @@ export const CONSTRUCTION_TYPES = [
 
 export const LAND_TITLE_TYPES = [
   'Freehold',
-  'Buganda',
-  'Mailo',
-  'Lease',
+  'Leasehold',
+  'Sectional Title',
+  'Absolute',
   'Customary',
   'Grant',
 ];

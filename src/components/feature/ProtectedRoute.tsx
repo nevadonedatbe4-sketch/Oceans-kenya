@@ -3,9 +3,9 @@ import { useAuth } from '@/hooks/useAuth';
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   super_admin: ['*'],
-  admin: ['dashboard', 'listings', 'leads', 'deals', 'contacts', 'agents', 'media', 'neighbourhoods', 'insights', 'activities', 'blog', 'home-sections', 'site-settings', 'users', 'management'],
-  editor: ['dashboard', 'listings', 'leads', 'deals', 'contacts', 'agents', 'media', 'neighbourhoods', 'blog', 'home-sections'],
-  agent: ['dashboard', 'listings', 'leads', 'contacts', 'media'],
+  admin: ['dashboard', 'listings', 'leads', 'deals', 'contacts', 'agents', 'media', 'neighbourhoods', 'insights', 'activities', 'blog', 'home-sections', 'site-settings', 'users', 'management', 'testimonials', 'joint-ventures', 'nav-links', 'contact-sections', 'menu', 'sync', 'profile'],
+  editor: ['dashboard', 'listings', 'leads', 'deals', 'contacts', 'agents', 'media', 'neighbourhoods', 'blog', 'home-sections', 'testimonials', 'joint-ventures', 'insights', 'activities', 'profile'],
+  agent: ['dashboard', 'listings', 'leads', 'deals', 'contacts', 'agents', 'media', 'neighbourhoods', 'insights', 'activities', 'blog', 'testimonials', 'joint-ventures', 'profile'],
 };
 
 function getRouteModule(pathname: string): string {
@@ -14,6 +14,13 @@ function getRouteModule(pathname: string): string {
   if (pathname.includes('/crm/site-settings')) return 'site-settings';
   if (pathname.includes('/crm/blog')) return 'blog';
   if (pathname.includes('/crm/home-sections')) return 'home-sections';
+  if (pathname.includes('/crm/testimonials')) return 'testimonials';
+  if (pathname.includes('/crm/joint-ventures')) return 'joint-ventures';
+  if (pathname.includes('/crm/nav-links')) return 'nav-links';
+  if (pathname.includes('/crm/contact-sections')) return 'contact-sections';
+  if (pathname.includes('/crm/menu')) return 'menu';
+  if (pathname.includes('/crm/sync')) return 'sync';
+  if (pathname.includes('/crm/profile')) return 'profile';
   if (pathname.includes('/crm/listings')) return 'listings';
   if (pathname.includes('/crm/leads')) return 'leads';
   if (pathname.includes('/crm/deals')) return 'deals';
@@ -32,14 +39,19 @@ function hasPermission(role: string, module: string): boolean {
   return perms.includes(module);
 }
 
-export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
+interface ProtectedRouteProps {
+  children: React.ReactNode;
+  requiredRoles?: string[];
+}
+
+export default function ProtectedRoute({ children, requiredRoles }: ProtectedRouteProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
   const module = getRouteModule(location.pathname);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f4f3ee] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -49,8 +61,18 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     return <Navigate to="/crm/login" replace />;
   }
 
+  // Role-based access check
+  if (requiredRoles && requiredRoles.length > 0) {
+    if (!requiredRoles.includes(user.role)) {
+      const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+      return <Navigate to={isAdmin ? '/admin-dashboard' : '/agent-dashboard'} replace />;
+    }
+  }
+
+  // Module-based permission check (for /crm/* routes)
   if (!hasPermission(user.role, module)) {
-    return <Navigate to="/crm/dashboard" replace />;
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    return <Navigate to={isAdmin ? '/admin-dashboard' : '/agent-dashboard'} replace />;
   }
 
   return <>{children}</>;

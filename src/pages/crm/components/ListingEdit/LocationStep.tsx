@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { COLORS, COUNTRIES, fetchNeighborhoods } from './types';
+import { fetchNeighborhoods } from './types';
 
 interface Props {
   address: string;
@@ -12,24 +12,45 @@ interface Props {
   setCity: (v: string) => void;
   country: string;
   setCountry: (v: string) => void;
-  latitude: string;
-  setLatitude: (v: string) => void;
-  longitude: string;
-  setLongitude: (v: string) => void;
-  stateRegion: string;
-  setStateRegion: (v: string) => void;
-  zipCode: string;
-  setZipCode: (v: string) => void;
 }
+
+/* ── Design tokens ── */
+const inputBase =
+  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+
+const selectClass = `${inputBase} cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%237a8a99%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_14px_center] bg-[length:20px_20px] pr-11`;
+
+const labelClass = 'block text-[14px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
+
+const hintClass = 'text-[15px] text-[#4a5568] mt-2 leading-relaxed';
+
+const SectionHeader = ({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) => (
+  <div className="mb-7">
+    <div className="flex items-center gap-4">
+      <div className="w-10 h-10 flex items-center justify-center shrink-0 bg-[#0d1f2d] rounded-lg">
+        <i className={`${icon} text-white text-base`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="text-base font-semibold text-[#0d1f2d] tracking-wide">{title}</h4>
+        <p className="text-[13px] text-[#7a8a99] mt-0.5 leading-relaxed">{subtitle}</p>
+      </div>
+    </div>
+    <div className="h-px bg-[#e5e7eb] mt-4" />
+  </div>
+);
+
+const Card = ({ children }: { children: React.ReactNode }) => (
+  <div className="border border-[#e8ecf0] bg-white overflow-hidden rounded-xl">
+    <div className="px-6 py-6">{children}</div>
+  </div>
+);
 
 export default function LocationStep({
   address, setAddress, location, setLocation, neighbourhood, setNeighbourhood,
-  city, setCity, country, setCountry, latitude, setLatitude, longitude, setLongitude,
-  stateRegion, setStateRegion, zipCode, setZipCode,
+  city, setCity, country, setCountry,
 }: Props) {
   const [neighborhoods, setNeighborhoods] = useState<{ id: string; name: string }[]>([]);
   const [loadingHoods, setLoadingHoods] = useState(false);
-  const [manualPin, setManualPin] = useState(false);
 
   useEffect(() => {
     setLoadingHoods(true);
@@ -39,172 +60,79 @@ export default function LocationStep({
     });
   }, []);
 
-  const handleGeolocate = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLatitude(String(pos.coords.latitude));
-          setLongitude(String(pos.coords.longitude));
-        },
-        () => {
-          // fallback: use address approximation
-        }
-      );
-    }
-  };
+  useEffect(() => {
+    if (!city) setCity('Nairobi');
+  }, [city, setCity]);
 
-  const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!manualPin) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 180 - 90;
-    const y = ((e.clientY - rect.top) / rect.height) * 360 - 180;
-    setLatitude(String(x));
-    setLongitude(String(y));
-  };
+  useEffect(() => {
+    if (!country) setCountry('Kenya');
+  }, [country, setCountry]);
 
   return (
-    <div className="space-y-5">
-      {/* Address Fields */}
-      <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#f0f9ff' }}>
-            <i className="ri-map-pin-line text-lg" style={{ color: COLORS.navy }} />
-          </div>
+    <div className="w-full space-y-5">
+      <SectionHeader
+        icon="ri-map-pin-2-line"
+        title="Location Details"
+        subtitle="Where is this property situated?"
+      />
+
+      <Card>
+        <div className="space-y-6">
+          {/* Street Address */}
           <div>
-            <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Address</h3>
-            <p className="text-xs" style={{ color: COLORS.gray }}>Set the property address and location</p>
+            <label className={labelClass}>
+              Full Street Address <span className="text-red-500 normal-case">*</span>
+            </label>
+            <input
+              placeholder="e.g. Plot 24, Acacia Avenue"
+              className={inputBase}
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+            <p className={hintClass}>Street address, plot number, or building name</p>
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Property Address</label>
-            <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="123 Riverside Drive, Westlands" />
-          </div>
+
+          {/* Neighbourhood */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Country</label>
-            <select
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white cursor-pointer"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
-            >
-              {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>State / Region</label>
-            <input type="text" value={stateRegion} onChange={(e) => setStateRegion(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="e.g. Central Region" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>City</label>
-            <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="Nairobi" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Area / Neighborhood</label>
+            <label className={labelClass}>
+              Area / Neighbourhood <span className="text-red-500 normal-case">*</span>
+            </label>
             <select
               value={neighbourhood}
               onChange={(e) => setNeighbourhood(e.target.value)}
               disabled={loadingHoods}
-              className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white cursor-pointer disabled:opacity-60"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className={`${selectClass} ${loadingHoods ? 'opacity-60' : ''}`}
             >
-              <option value="">Select neighborhood</option>
+              <option value="">Select neighbourhood</option>
               {neighborhoods.map((n) => (
                 <option key={n.id} value={n.name}>{n.name}</option>
               ))}
             </select>
+            <p className={hintClass}>Select the neighbourhood where the property is located</p>
           </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Zip Code</label>
-            <input type="text" value={zipCode} onChange={(e) => setZipCode(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="e.g. 256" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Location / Area</label>
-            <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="e.g. Karen, Nairobi" />
-          </div>
-        </div>
-      </div>
 
-      {/* Coordinates */}
-      <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#f0f9ff' }}>
-              <i className="ri-compass-line text-lg" style={{ color: COLORS.navy }} />
+          {/* City + Country (locked) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <label className={labelClass}>City</label>
+              <div className="w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#9ba5b1] bg-[#f8f9fa] rounded-md cursor-not-allowed select-none flex items-center gap-2">
+                <i className="ri-lock-line text-xs text-[#c8cdd5]" />
+                {city || 'Nairobi'}
+              </div>
+              <p className={hintClass}>Automatically set</p>
             </div>
             <div>
-              <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Coordinates</h3>
-              <p className="text-xs" style={{ color: COLORS.gray }}>Map position for this property</p>
+              <label className={labelClass}>Country</label>
+              <div className="w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#9ba5b1] bg-[#f8f9fa] rounded-md cursor-not-allowed select-none flex items-center gap-2">
+                <i className="ri-lock-line text-xs text-[#c8cdd5]" />
+                {country || 'Kenya'}
+              </div>
+              <p className={hintClass}>Automatically set</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleGeolocate}
-              className="inline-flex items-center gap-1.5 px-3 py-2 border rounded-lg text-xs font-medium transition-colors cursor-pointer hover:bg-gray-50"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
-            >
-              <i className="ri-map-pin-2-line" /> Auto Geolocate
-            </button>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={manualPin}
-                onChange={(e) => setManualPin(e.target.checked)}
-                className="w-4 h-4 rounded"
-                style={{ accentColor: COLORS.navy }}
-              />
-              <span className="text-xs font-medium" style={{ color: COLORS.navy }}>Manual Pin</span>
-            </label>
-          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Latitude</label>
-            <input type="text" value={latitude} onChange={(e) => setLatitude(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="0.3136" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Longitude</label>
-            <input type="text" value={longitude} onChange={(e) => setLongitude(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="32.5811" />
-          </div>
-        </div>
-      </div>
-
-      {/* Map Preview */}
-      {(latitude && longitude) ? (
-        <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Map Preview</h3>
-            {manualPin && <span className="text-xs font-medium" style={{ color: COLORS.navy }}>Click map to place pin</span>}
-          </div>
-          <div
-            className="w-full h-64 rounded-lg overflow-hidden border relative cursor-pointer"
-            style={{ borderColor: COLORS.border }}
-            onClick={handleMapClick}
-          >
-            <iframe
-              width="100%"
-              height="100%"
-              style={{ border: 0, pointerEvents: manualPin ? 'none' : 'auto' }}
-              loading="lazy"
-              allowFullScreen
-              referrerPolicy="no-referrer-when-downgrade"
-              src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${latitude},${longitude}`}
-            />
-            {manualPin && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-8 h-8 flex items-center justify-center bg-red-500 rounded-full shadow-lg">
-                  <i className="ri-map-pin-fill text-white" />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg border p-5 text-center" style={{ borderColor: COLORS.border }}>
-          <i className="ri-map-2-line text-3xl mb-2" style={{ color: COLORS.border }} />
-          <p className="text-sm font-medium" style={{ color: COLORS.gray }}>Enter coordinates to preview the map</p>
-        </div>
-      )}
+      </Card>
     </div>
   );
 }

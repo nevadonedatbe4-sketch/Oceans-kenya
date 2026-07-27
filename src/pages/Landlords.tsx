@@ -144,7 +144,7 @@ ${message}`;
       </div>
 
       {/* Priority section */}
-      <section className="py-16 px-6 border-b border-gray-100">
+      <section className="py-16 px-6 border-b-2 border-gray-200">
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Commitment</p>
@@ -178,7 +178,7 @@ ${message}`;
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((s) => (
-              <div key={s.title} className="group p-7 border border-gray-100 rounded-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+              <div key={s.title} className="group p-7 border-2 border-gray-200 rounded-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                 <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
                   <i className={`${s.icon} text-xl text-primary`}></i>
                 </div>
@@ -201,7 +201,7 @@ ${message}`;
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Let Only */}
             <div className="bg-white border-2 border-primary overflow-hidden rounded-sm hover:shadow-lg transition-all duration-300">
-              <div className="px-8 py-7 border-b border-gray-100">
+              <div className="px-8 py-7 border-b-2 border-gray-200">
                 <div className="w-10 h-10 flex items-center justify-center rounded-full mb-4 bg-primary/5">
                   <i className="ri-key-2-line text-lg text-primary"></i>
                 </div>
@@ -293,7 +293,7 @@ ${message}`;
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {whyUs.map((item) => (
-              <div key={item.title} className="p-7 border border-gray-100 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+              <div key={item.title} className="p-7 border-2 border-gray-200 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                 <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
                   <i className={`${item.icon} text-xl text-primary`}></i>
                 </div>
@@ -314,7 +314,7 @@ ${message}`;
           </div>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
-              <div key={i} className="border border-gray-100 overflow-hidden rounded-sm">
+              <div key={i} className="border-2 border-gray-200 overflow-hidden rounded-sm">
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-6 py-5 text-left cursor-pointer group hover:bg-gray-50/80 transition-colors"
@@ -385,10 +385,10 @@ ${message}`;
             </div>
 
             {/* Form */}
-            <div className="lg:col-span-3 bg-white border border-stone-100 p-8 md:p-10">
+            <div className="lg:col-span-3 bg-white border-2 border-stone-200 p-8 md:p-10">
               <form data-readdy-form="true" id="landlord-property-form" onSubmit={handleFormSubmit} className="space-y-6">
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b border-stone-100">About Your Property</p>
+                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-stone-200">About Your Property</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Address <span className="text-red-400">*</span></label>
@@ -444,7 +444,7 @@ ${message}`;
                   </div>
                 </div>
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b border-stone-100">Your Details</p>
+                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-stone-200">Your Details</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full Name <span className="text-red-400">*</span></label>

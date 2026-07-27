@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
@@ -53,28 +54,32 @@ const todayStr = new Date().toLocaleDateString('en-GB', {
 });
 
 const COLORS = {
-  navy: '#0d1b2a',
-  navyLight: '#1a2f45',
-  yellow: '#f5c842',
-  green: '#16a34a',
-  gray: '#6b7280',
+  navy: '#001731',
+  navyLight: '#002349',
+  yellow: '#C9A84C',
+  snowBlue: '#cce4f0',
+  green: '#088135',
+  gray: '#88929e',
   border: '#e5e7eb',
-  bg: '#f4f6f9',
+  bg: '#f7f8fa',
   white: '#ffffff',
 };
 
 export default function Listings() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { agentId } = useAgentProfile();
+  const isAgent = user?.role === 'agent';
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<ListingStats>({ total: 0, published: 0, draft: 0, pending: 0 });
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterPurpose, setFilterPurpose] = useState('all');
-  const [filterType, setFilterType] = useState('all');
-  const [sortBy, setSortBy] = useState('date');
-  const [page, setPage] = useState(1);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all');
+  const [filterPurpose, setFilterPurpose] = useState(searchParams.get('purpose') || 'all');
+  const [filterType, setFilterType] = useState(searchParams.get('type') || 'all');
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'date');
+  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [pageSize] = useState(10);
   const [total, setTotal] = useState(0);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -84,6 +89,7 @@ export default function Listings() {
   const [bulkActionOpen, setBulkActionOpen] = useState(false);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
   const [actionMenuPos, setActionMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const actionButtonRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bulkDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -94,6 +100,12 @@ export default function Listings() {
       .from('listings')
       .select('id, title, location, neighbourhood, property_type, sub_type, status, purpose, price, currency, bedrooms, bathrooms, is_published, is_pending, is_featured, is_homepage, created_at, main_image, cover_image, slug, agent_id, images')
       .range((page - 1) * pageSize, page * pageSize - 1);
+
+    // Agent filter — agents only see their own listings
+    if (isAgent && agentId) {
+      countQuery = countQuery.eq('agent_id', agentId);
+      dataQuery = dataQuery.eq('agent_id', agentId);
+    }
 
     if (filterStatus !== 'all') {
       if (filterStatus === 'published') {
@@ -161,9 +173,9 @@ export default function Listings() {
     }
 
     // Fetch stats
-    const { data: statsData } = await supabase
-      .from('listings')
-      .select('is_published, is_pending, is_featured');
+    const { data: statsData } = agentId && isAgent
+      ? await supabase.from('listings').select('is_published, is_pending, is_featured').eq('agent_id', agentId)
+      : await supabase.from('listings').select('is_published, is_pending, is_featured');
 
     const s = statsData || [];
     const published = s.filter((x) => x.is_published).length;
@@ -177,7 +189,7 @@ export default function Listings() {
     });
 
     setLoading(false);
-  }, [page, pageSize, filterStatus, filterPurpose, filterType, search, sortBy]);
+  }, [page, pageSize, filterStatus, filterPurpose, filterType, search, sortBy, isAgent, agentId]);
 
   useEffect(() => {
     fetchListings();
@@ -185,15 +197,35 @@ export default function Listings() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        // Don't close if clicking the same button that opened the menu
+        if (actionButtonRef.current && actionButtonRef.current.contains(target)) {
+          return;
+        }
         setActionMenu(null);
       }
-      if (bulkDropdownRef.current && !bulkDropdownRef.current.contains(e.target as Node)) {
+      if (bulkDropdownRef.current && !bulkDropdownRef.current.contains(target)) {
         setBulkActionOpen(false);
       }
     };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActionMenu(null);
+        setBulkActionOpen(false);
+      }
+    };
+    const handleScroll = () => {
+      setActionMenu(null);
+    };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleTogglePublish = async (id: string, current: boolean) => {
@@ -240,6 +272,64 @@ export default function Listings() {
     setActionMenu(null);
   };
 
+  const handleToggleHomepage = async (id: string, current: boolean) => {
+    setTogglingId(id);
+    const { error } = await supabase.from('listings').update({ is_homepage: !current }).eq('id', id);
+    if (error) {
+      addToast('Failed to update homepage status', 'error');
+    } else {
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, is_homepage: !current } : l)));
+      addToast(current ? 'Removed from homepage' : 'Featured on homepage', 'success');
+      broadcastSync();
+    }
+    setTogglingId(null);
+    setActionMenu(null);
+  };
+
+  const handleMarkAsSold = async (id: string) => {
+    setTogglingId(id);
+    const { error } = await supabase.from('listings').update({ status: 'sold', is_published: false, is_pending: false }).eq('id', id);
+    if (error) {
+      addToast('Failed to mark as sold', 'error');
+    } else {
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: 'sold', is_published: false, is_pending: false } : l)));
+      addToast('Property marked as sold', 'success');
+      broadcastSync();
+      fetchListings();
+    }
+    setTogglingId(null);
+    setActionMenu(null);
+  };
+
+  const handleMarkAsUnderOffer = async (id: string) => {
+    setTogglingId(id);
+    const { error } = await supabase.from('listings').update({ status: 'under_offer' }).eq('id', id);
+    if (error) {
+      addToast('Failed to mark as under offer', 'error');
+    } else {
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: 'under_offer' } : l)));
+      addToast('Property marked as under offer', 'success');
+      broadcastSync();
+    }
+    setTogglingId(null);
+    setActionMenu(null);
+  };
+
+  const handleReactivate = async (id: string) => {
+    setTogglingId(id);
+    const { error } = await supabase.from('listings').update({ status: 'available', is_published: true, is_pending: false }).eq('id', id);
+    if (error) {
+      addToast('Failed to reactivate listing', 'error');
+    } else {
+      setListings((prev) => prev.map((l) => (l.id === id ? { ...l, status: 'available', is_published: true, is_pending: false } : l)));
+      addToast('Listing reactivated', 'success');
+      broadcastSync();
+      fetchListings();
+    }
+    setTogglingId(null);
+    setActionMenu(null);
+  };
+
   const handleDuplicate = async (id: string) => {
     const listing = listings.find((l) => l.id === id);
     if (!listing) return;
@@ -269,15 +359,21 @@ export default function Listings() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('listings').delete().eq('id', id);
-    if (error) {
-      addToast('Failed to delete listing', 'error');
-    } else {
+    try {
+      const { error } = await supabase.from('listings').delete().eq('id', id);
+      if (error) {
+        addToast('Failed to delete listing', 'error');
+        setDeleteConfirm(null);
+        return;
+      }
       setListings((prev) => prev.filter((l) => l.id !== id));
       setTotal((prev) => Math.max(0, prev - 1));
       addToast('Listing deleted', 'success');
       broadcastSync();
       fetchListings();
+    } catch (err) {
+      console.error('Delete listing error:', err);
+      addToast('Failed to delete listing', 'error');
     }
     setDeleteConfirm(null);
     setActionMenu(null);
@@ -285,16 +381,29 @@ export default function Listings() {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
-    const { error } = await supabase.from('listings').delete().in('id', ids);
-    if (error) {
-      addToast('Failed to delete listings', 'error');
-    } else {
+    if (ids.length === 0) {
+      addToast('No properties selected', 'error');
+      setDeleteConfirm(null);
+      setBulkAction('');
+      return;
+    }
+    try {
+      const { error } = await supabase.from('listings').delete().in('id', ids);
+      if (error) {
+        addToast('Failed to delete listings', 'error');
+        setDeleteConfirm(null);
+        return;
+      }
       setListings((prev) => prev.filter((l) => !ids.includes(l.id)));
       setTotal((prev) => Math.max(0, prev - ids.length));
       addToast(`${ids.length} listings deleted`, 'success');
       broadcastSync();
       fetchListings();
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      addToast('Failed to delete listings', 'error');
     }
+    setDeleteConfirm(null);
     setBulkAction('');
     setSelectedIds(new Set());
     setBulkActionOpen(false);
@@ -333,6 +442,11 @@ export default function Listings() {
   };
 
   const applyBulkAction = () => {
+    if (selectedIds.size === 0) {
+      addToast('No properties selected', 'error');
+      setBulkAction('');
+      return;
+    }
     if (bulkAction === 'delete') setDeleteConfirm('bulk');
     else if (bulkAction === 'publish') handleBulkPublish(true);
     else if (bulkAction === 'unpublish') handleBulkPublish(false);
@@ -359,24 +473,42 @@ export default function Listings() {
 
   const openActionMenu = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const btn = e.currentTarget as HTMLElement;
+    actionButtonRef.current = btn;
+    if (actionMenu === id) {
+      setActionMenu(null);
+      return;
+    }
+    const rect = btn.getBoundingClientRect();
     setActionMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.left - 200) });
     setActionMenu(id);
   };
 
   const getPublishStatus = (l: Listing) => {
-    if (l.is_featured && l.is_published) return { label: 'Featured', class: 'bg-amber-50 text-amber-700 border border-amber-200' };
-    if (l.is_published) return { label: 'Published', class: 'bg-emerald-50 text-emerald-700 border border-emerald-200' };
-    if (l.is_pending) return { label: 'Pending Review', class: 'bg-amber-50 text-amber-700 border border-amber-200' };
-    return { label: 'Draft', class: 'bg-gray-100 text-gray-600 border border-gray-200' };
+    if (l.is_featured && l.is_published) return { label: 'Featured', class: 'bg-[#f58300] text-white' };
+    if (l.is_published) return { label: 'Published', class: 'bg-[#088135] text-white' };
+    if (l.is_pending) return { label: 'Pending', class: 'bg-[#F5C518] text-[#001731]' };
+    return { label: 'Draft', class: 'bg-[#dc2626] text-white' };
   };
+
+  const syncUrlParams = useCallback(() => {
+    const params = new URLSearchParams();
+    if (search.trim()) params.set('search', search.trim());
+    if (filterStatus !== 'all') params.set('status', filterStatus);
+    if (filterPurpose !== 'all') params.set('purpose', filterPurpose);
+    if (filterType !== 'all') params.set('type', filterType);
+    if (sortBy !== 'date') params.set('sort', sortBy);
+    if (page > 1) params.set('page', String(page));
+    setSearchParams(params, { replace: true });
+  }, [search, filterStatus, filterPurpose, filterType, sortBy, page, setSearchParams]);
+
+  useEffect(() => {
+    syncUrlParams();
+  }, [syncUrlParams]);
 
   const formatPrice = (price: number, currency: string) => {
     if (!price || price === 0) return '—';
-    const sym = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'UGX' ? 'UGX ' : currency === 'KES' ? 'KES ' : currency;
-    if (price >= 1000000000) return `${sym}${(price / 1000000000).toFixed(1)}B`;
-    if (price >= 1000000) return `${sym}${(price / 1000000).toFixed(1)}M`;
-    if (price >= 1000) return `${sym}${(price / 1000).toFixed(0)}K`;
+    const sym = currency === 'USD' ? '$' : currency === 'KES' ? 'KES ' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : 'KES ';
     return `${sym}${price.toLocaleString()}`;
   };
 
@@ -398,27 +530,28 @@ export default function Listings() {
   ];
 
   const statCards = [
-    { label: 'Total Properties', value: stats.total, icon: 'ri-bar-chart-line', color: 'text-gray-500', bg: 'bg-gray-50', border: 'border-gray-200' },
-    { label: 'Published', value: stats.published, icon: 'ri-check-double-line', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
-    { label: 'Draft', value: stats.draft, icon: 'ri-draft-line', color: 'text-gray-500', bg: 'bg-gray-50', border: 'border-gray-200' },
-    { label: 'Pending Review', value: stats.pending, icon: 'ri-time-line', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
+    { label: 'Total Properties', value: stats.total, icon: 'ri-bar-chart-line', color: 'text-[#9ca3af]', bg: 'bg-[#f7f8fa]', border: 'border-[#e5e7eb]' },
+    { label: 'Published', value: stats.published, icon: 'ri-check-double-line', color: 'text-[#088135]', bg: 'bg-[#e6f4ea]', border: 'border-[#088135]/20' },
+    { label: 'Draft', value: stats.draft, icon: 'ri-draft-line', color: 'text-[#9ca3af]', bg: 'bg-[#f7f8fa]', border: 'border-[#e5e7eb]' },
+    { label: 'Pending Review', value: stats.pending, icon: 'ri-time-line', color: 'text-[#f58300]', bg: 'bg-[#fff5e6]', border: 'border-[#f58300]/20' },
   ];
 
   return (
-    <div className="space-y-5" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+    <div className="space-y-5">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: COLORS.navy }}>All Properties</h1>
-          <p className="text-sm mt-0.5" style={{ color: COLORS.gray }}>Manage every property on the Oceans Kenya platform</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-[#001731]">All Properties</h1>
+          <p className="text-sm mt-0.5 text-[#6b7280] lg:text-[#88929e]">Manage every property on the Oceans Kenya platform</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs hidden sm:block" style={{ color: COLORS.gray }}>{todayStr}</span>
-          <button className="w-9 h-9 flex items-center justify-center rounded-lg border transition-colors hover:bg-gray-50 cursor-pointer" style={{ borderColor: COLORS.border, color: COLORS.gray }}>
-            <i className="ri-notification-3-line text-sm" />
-          </button>
-          <button className="w-9 h-9 flex items-center justify-center rounded-lg border transition-colors hover:bg-gray-50 cursor-pointer" style={{ borderColor: COLORS.border, color: COLORS.gray }}>
-            <i className="ri-settings-3-line text-sm" />
+          <button
+            onClick={() => navigate('/crm/listings/new')}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer"
+            style={{ backgroundColor: '#0d5959', color: '#ffffff' }}
+          >
+            <i className="ri-add-line text-sm" />
+            Add Property
           </button>
         </div>
       </div>
@@ -426,60 +559,36 @@ export default function Listings() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((stat) => (
-          <div key={stat.label} className={`rounded-lg border p-4 flex items-center gap-3 ${stat.bg}`} style={{ borderColor: stat.border, backgroundColor: stat.bg === 'bg-gray-50' ? '#f9fafb' : stat.bg === 'bg-emerald-50' ? '#ecfdf5' : '#fffbeb' }}>
-            <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center border" style={{ borderColor: stat.border }}>
+          <div key={stat.label} className="rounded-lg p-4 flex items-center gap-3 bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent">
+            <div className="w-10 h-10 rounded-lg bg-[#001731] lg:bg-white flex items-center justify-center lg:border" style={{ borderColor: stat.border }}>
               <i className={`${stat.icon} ${stat.color} text-lg`} />
             </div>
             <div>
-              <p className="text-xl font-bold" style={{ color: COLORS.navy }}>{stat.value}</p>
-              <p className="text-xs font-medium" style={{ color: COLORS.gray }}>{stat.label}</p>
+              <p className="text-xl font-bold text-white lg:text-[#001731]">{stat.value}</p>
+              <p className="text-xs font-medium text-[#6b7280] lg:text-[#88929e]">{stat.label}</p>
             </div>
           </div>
         ))}
       </div>
 
-      {/* CTA Bar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/crm/listings/new')}
-            className="inline-flex items-center gap-2 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer hover:opacity-90"
-            style={{ backgroundColor: COLORS.navy }}
-          >
-            <i className="ri-add-line" />
-            Add Property
-          </button>
-          <button
-            onClick={() => { setPage(1); fetchListings(); }}
-            className="inline-flex items-center gap-2 px-3 py-2.5 border rounded-lg text-sm font-medium transition-colors cursor-pointer hover:bg-gray-50 whitespace-nowrap"
-            style={{ borderColor: COLORS.border, color: COLORS.gray }}
-          >
-            <i className="ri-refresh-line" />
-            Refresh
-          </button>
-        </div>
-      </div>
-
       {/* Search & Filters */}
-      <div className="bg-white rounded-lg border p-4 space-y-3" style={{ borderColor: COLORS.border }}>
+      <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 space-y-3">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           <div className="relative flex-1 max-w-md w-full">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: COLORS.gray }} />
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6b7280] lg:text-[#88929e]" />
             <input
               type="text"
               placeholder="Search title or location..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-white"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
             />
           </div>
           <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
             <select
               value={filterStatus}
               onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white cursor-pointer"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="published">Published</option>
@@ -490,8 +599,7 @@ export default function Listings() {
             <select
               value={filterPurpose}
               onChange={(e) => { setFilterPurpose(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white cursor-pointer"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
             >
               <option value="all">All Purposes</option>
               <option value="sale">For Sale</option>
@@ -500,8 +608,7 @@ export default function Listings() {
             <select
               value={filterType}
               onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white cursor-pointer"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
             >
               {propertyTypes.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -510,8 +617,7 @@ export default function Listings() {
             <select
               value={sortBy}
               onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white cursor-pointer"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
             >
               <option value="date">Sort by Date</option>
               <option value="price">Sort by Price</option>
@@ -520,7 +626,7 @@ export default function Listings() {
             </select>
           </div>
         </div>
-        <div className="flex items-center justify-between text-xs font-medium" style={{ color: COLORS.gray }}>
+        <div className="flex items-center justify-between text-xs font-medium text-[#6b7280] lg:text-[#88929e]">
           <span>{total} listings</span>
           <span>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
         </div>
@@ -528,35 +634,76 @@ export default function Listings() {
 
       {/* Bulk Actions */}
       {selectedIds.size > 0 && (
-        <div className="flex items-center gap-3 bg-white rounded-lg border px-4 py-2.5" style={{ borderColor: COLORS.border }}>
-          <span className="text-sm font-medium" style={{ color: COLORS.navy }}>{selectedIds.size} selected</span>
-          <div className="w-px h-4 bg-gray-200" />
+        <div className="flex items-center gap-3 bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg px-4 py-2.5">
+          <span className="text-sm font-medium text-white lg:text-[#001731]">{selectedIds.size} selected</span>
+          <div className="w-px h-4 bg-[#1c3a5e] lg:bg-[#e5e7eb]" />
           <div className="relative" ref={bulkDropdownRef}>
             <button
               onClick={() => setBulkActionOpen(!bulkActionOpen)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium cursor-pointer hover:bg-gray-50 whitespace-nowrap"
-              style={{ borderColor: COLORS.border, color: COLORS.navy }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium cursor-pointer hover:bg-[#0d5959]/10 lg:hover:bg-[#f7f8fa] whitespace-nowrap border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731]"
             >
               <i className="ri-arrow-down-s-line" />
               {bulkAction ? bulkAction.charAt(0).toUpperCase() + bulkAction.slice(1) : 'Bulk Actions'}
             </button>
             {bulkActionOpen && (
-              <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border shadow-lg min-w-[160px] py-1 z-20" style={{ borderColor: COLORS.border }}>
-                <button onClick={() => { setBulkAction('publish'); setBulkActionOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 cursor-pointer" style={{ color: COLORS.navy }}>
-                  <i className="ri-eye-line mr-1.5 text-emerald-600" /> Publish
+              <div
+                className="absolute top-full left-0 mt-1 rounded-xl overflow-hidden min-w-[180px] py-2 animate-dropdown-enter"
+                style={{
+                  backgroundColor: '#001731',
+                  border: '1px solid rgba(13,89,89,0.35)',
+                  boxShadow: '0 16px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(13,89,89,0.15)',
+                }}
+              >
+                <button
+                  onClick={() => { setBulkAction('publish'); setBulkActionOpen(false); }}
+                  className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                  style={{ color: '#e2e8f0' }}
+                >
+                  <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(8,129,53,0.15)' }}>
+                    <i className="ri-eye-line text-[#4ade80] text-[11px]" />
+                  </span>
+                  Publish
                 </button>
-                <button onClick={() => { setBulkAction('unpublish'); setBulkActionOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 cursor-pointer" style={{ color: COLORS.navy }}>
-                  <i className="ri-eye-off-line mr-1.5 text-gray-500" /> Unpublish
+                <button
+                  onClick={() => { setBulkAction('unpublish'); setBulkActionOpen(false); }}
+                  className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                  style={{ color: '#e2e8f0' }}
+                >
+                  <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(156,163,175,0.15)' }}>
+                    <i className="ri-eye-off-line text-[#94a3b8] text-[11px]" />
+                  </span>
+                  Unpublish
                 </button>
-                <button onClick={() => { setBulkAction('feature'); setBulkActionOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 cursor-pointer" style={{ color: COLORS.navy }}>
-                  <i className="ri-star-fill mr-1.5 text-amber-500" /> Mark Featured
+                <button
+                  onClick={() => { setBulkAction('feature'); setBulkActionOpen(false); }}
+                  className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#C9A84C]/15"
+                  style={{ color: '#e2e8f0' }}
+                >
+                  <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(201,168,76,0.15)' }}>
+                    <i className="ri-star-fill text-[#fbbf24] text-[11px]" />
+                  </span>
+                  Mark Featured
                 </button>
-                <button onClick={() => { setBulkAction('unfeature'); setBulkActionOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 cursor-pointer" style={{ color: COLORS.navy }}>
-                  <i className="ri-star-line mr-1.5 text-gray-500" /> Remove Featured
+                <button
+                  onClick={() => { setBulkAction('unfeature'); setBulkActionOpen(false); }}
+                  className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#C9A84C]/15"
+                  style={{ color: '#e2e8f0' }}
+                >
+                  <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(156,163,175,0.15)' }}>
+                    <i className="ri-star-line text-[#94a3b8] text-[11px]" />
+                  </span>
+                  Remove Featured
                 </button>
-                <div className="my-1 border-t" style={{ borderColor: COLORS.border }} />
-                <button onClick={() => { setBulkAction('delete'); setBulkActionOpen(false); }} className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-red-50 cursor-pointer text-red-600">
-                  <i className="ri-delete-bin-line mr-1.5" /> Delete
+                <div className="mx-3 my-1" style={{ height: 1, backgroundColor: 'rgba(220,38,38,0.2)' }} />
+                <button
+                  onClick={() => { setBulkAction('delete'); setBulkActionOpen(false); }}
+                  className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#dc2626]/15"
+                  style={{ color: '#f87171' }}
+                >
+                  <span className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(220,38,38,0.15)' }}>
+                    <i className="ri-delete-bin-line text-[#f87171] text-[11px]" />
+                  </span>
+                  Delete
                 </button>
               </div>
             )}
@@ -577,8 +724,85 @@ export default function Listings() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-lg border overflow-hidden" style={{ borderColor: COLORS.border }}>
-        <div className="overflow-x-auto">
+      <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg overflow-hidden" style={{ borderColor: COLORS.border }}>
+        {/* Mobile Cards */}
+        <div className="lg:hidden space-y-3 p-4">
+          {loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="bg-[#001731] border border-[#1c3a5e] rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-10 rounded bg-[#012a52] animate-pulse" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="h-3.5 w-full bg-[#012a52] rounded animate-pulse" />
+                    <div className="h-3 w-20 bg-[#012a52] rounded animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : listings.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 rounded-xl bg-[#0d5959]/20 flex items-center justify-center mx-auto mb-3">
+                <i className="ri-building-line text-[#5eead4] text-xl" />
+              </div>
+              <p className="text-sm font-medium text-[#6b7280]">
+                {total === 0 ? 'No properties yet. Add your first property.' : 'No properties match your filters.'}
+              </p>
+              {total === 0 && (
+                <button onClick={() => navigate('/crm/listings/new')} className="text-sm text-[#5eead4] mt-2 cursor-pointer">
+                  Create a property
+                </button>
+              )}
+            </div>
+          ) : (
+            listings.map((listing) => {
+              const status = getPublishStatus(listing);
+              return (
+                <div
+                  key={listing.id}
+                  onClick={() => navigate(`/crm/listings/edit/${listing.id}`)}
+                  className="bg-[#001731] border border-[#1c3a5e] rounded-xl p-4 space-y-2.5 cursor-pointer"
+                >
+                  <div className="flex items-start gap-3">
+                    {listing.main_image ? (
+                      <img src={listing.main_image} alt="" className="w-14 h-10 rounded object-cover flex-shrink-0" />
+                    ) : listing.images && listing.images.length > 0 ? (
+                      <img src={listing.images[0]} alt="" className="w-14 h-10 rounded object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-14 h-10 rounded flex items-center justify-center flex-shrink-0 bg-[#0d5959]/20">
+                        <i className="ri-building-line text-[#5eead4] text-sm" />
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-semibold text-white leading-snug truncate">{listing.title || 'Untitled Draft'}</p>
+                      <p className="text-[11px] font-semibold text-[#6b7280] truncate">{listing.neighbourhood || '—'}</p>
+                    </div>
+                    <button
+                      onClick={(e) => openActionMenu(listing.id, e)}
+                      className="w-8 h-8 flex items-center justify-center rounded-lg flex-shrink-0"
+                      style={{ backgroundColor: 'rgba(13,89,89,0.15)', color: '#5eead4' }}
+                    >
+                      <i className="ri-more-fill text-sm" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-white">{formatPrice(Number(listing.price), listing.currency)}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold capitalize text-white">
+                        {listing.purpose === 'sale' ? 'For Sale' : listing.purpose === 'rent' ? 'For Rent' : '—'}
+                      </span>
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${status.class}`}>
+                        {status.label}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Desktop Table */}
+        <div className="overflow-x-auto hidden lg:block">
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ borderColor: COLORS.border }}>
@@ -597,45 +821,45 @@ export default function Listings() {
                     )}
                   </button>
                 </th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Property</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: COLORS.gray }}>Type</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Price</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Status</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Featured</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Agent</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Listed</th>
-                <th className="px-4 md:px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Actions</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Property</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: COLORS.gray }}>Property Type</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Price</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Purpose</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Status</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Date</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Edit</th>
               </tr>
             </thead>
-            <tbody className="divide-y" style={{ borderColor: '#f3f4f6' }}>
+            <tbody className="divide-y" style={{ borderColor: '#f0f0f0' }}>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    <td className="px-3 md:px-5 py-3"><div className="w-5 h-5 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3">
+                    <td className="px-3 md:px-5 py-4"><div className="w-5 h-5 bg-[#f7f8fa] rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gray-100 animate-pulse" />
+                        <div className="w-[72px] h-[52px] rounded bg-[#f7f8fa] animate-pulse" />
                         <div className="space-y-1.5">
-                          <div className="h-3.5 w-32 bg-gray-100 rounded animate-pulse" />
-                          <div className="h-3 w-20 bg-gray-100 rounded animate-pulse" />
+                          <div className="h-3.5 w-full bg-[#f7f8fa] rounded animate-pulse" />
+                          <div className="h-3.5 w-3/4 bg-[#f7f8fa] rounded animate-pulse" />
+                          <div className="h-3 w-20 bg-[#f7f8fa] rounded animate-pulse" />
+                          <div className="h-2.5 w-32 bg-[#f7f8fa] rounded animate-pulse" />
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 md:px-5 py-3 hidden sm:table-cell"><div className="h-3 w-16 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3"><div className="h-3.5 w-20 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3"><div className="h-5 w-16 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3 hidden md:table-cell"><div className="h-5 w-10 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3 hidden md:table-cell"><div className="h-3 w-20 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3 hidden md:table-cell"><div className="h-3 w-16 bg-gray-100 rounded animate-pulse" /></td>
-                    <td className="px-4 md:px-5 py-3"><div className="h-8 w-20 bg-gray-100 rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4 hidden sm:table-cell"><div className="h-3 w-16 bg-[#f7f8fa] rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4"><div className="h-3.5 w-20 bg-[#f7f8fa] rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4"><div className="h-5 w-16 bg-[#f7f8fa] rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4 hidden md:table-cell"><div className="h-5 w-10 bg-[#f7f8fa] rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4 hidden md:table-cell"><div className="h-3 w-16 bg-[#f7f8fa] rounded animate-pulse" /></td>
+                    <td className="px-4 md:px-5 py-4"><div className="h-8 w-20 bg-[#f7f8fa] rounded animate-pulse" /></td>
                   </tr>
                 ))
               ) : listings.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 md:px-5 py-12 text-center">
+                  <td colSpan={8} className="px-4 md:px-5 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ecfdf5' }}>
-                        <i className="ri-building-line text-emerald-600 text-xl" />
+                      <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#e6f4ea' }}>
+                        <i className="ri-building-line text-[#088135] text-xl" />
                       </div>
                       <p className="text-sm font-medium" style={{ color: COLORS.gray }}>
                         {total === 0 ? 'No properties yet. Add your first property.' : 'No properties match your filters.'}
@@ -652,8 +876,8 @@ export default function Listings() {
                 listings.map((listing) => {
                   const status = getPublishStatus(listing);
                   return (
-                    <tr key={listing.id} onClick={() => navigate(`/crm/listings/edit/${listing.id}`)} className="hover:bg-gray-50/80 transition-colors group cursor-pointer">
-                      <td className="px-3 md:px-5 py-3">
+                    <tr key={listing.id} onClick={() => navigate(`/crm/listings/edit/${listing.id}`)} className="hover:bg-[#f7f8fa]/80 transition-colors group cursor-pointer">
+                      <td className="px-3 md:px-5 py-4">
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSelect(listing.id); }}
                           className="w-5 h-5 rounded border flex items-center justify-center cursor-pointer transition-colors"
@@ -666,74 +890,65 @@ export default function Listings() {
                           {selectedIds.has(listing.id) && <i className="ri-check-line text-xs" />}
                         </button>
                       </td>
-                      <td className="px-4 md:px-5 py-3">
-                        <div className="flex items-center gap-3">
+                      <td className="px-4 md:px-5 py-4 max-w-[260px]">
+                        <div className="flex items-start gap-3">
                           {listing.main_image ? (
-                            <img src={listing.main_image} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            <img src={listing.main_image} alt="" className="w-[72px] h-[52px] rounded object-cover flex-shrink-0 mt-0.5" />
                           ) : listing.images && listing.images.length > 0 ? (
-                            <img src={listing.images[0]} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            <img src={listing.images[0]} alt="" className="w-[72px] h-[52px] rounded object-cover flex-shrink-0 mt-0.5" />
                           ) : (
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#ecfdf5' }}>
-                              <i className="ri-building-line text-emerald-600 text-sm" />
+                            <div className="w-[72px] h-[52px] rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: '#e6f4ea' }}>
+                              <i className="ri-building-line text-[#088135] text-sm" />
                             </div>
                           )}
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                             <button
                               onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}`); }}
-                              className="text-sm font-semibold truncate text-left hover:underline cursor-pointer transition-colors"
-                              style={{ color: COLORS.navy }}
+                              className="text-[13px] font-semibold block w-full text-left hover:underline cursor-pointer transition-colors leading-snug"
+                              style={{ color: '#0d5959' }}
                             >
-                              {listing.title || 'Untitled Draft'}
+                              {(() => {
+                                const base = listing.title || 'Untitled Draft';
+                                const words = base.split(/\s+/);
+                                return words.length > 10 ? words.slice(0, 10).join(' ') + '...' : base;
+                              })()}
                             </button>
-                            <p className="text-xs" style={{ color: COLORS.gray }}>{listing.location || '—'}</p>
+                            <p className="text-[11px] font-semibold truncate leading-snug" style={{ color: '#1a1a1a' }}>
+                              {listing.neighbourhood || '—'}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 md:px-5 py-3 hidden sm:table-cell">
+                      <td className="px-4 md:px-5 py-4 hidden sm:table-cell">
                         <span className="text-xs capitalize" style={{ color: COLORS.gray }}>{listing.property_type?.replace(/_/g, ' ')}</span>
                         {listing.sub_type && <p className="text-xs capitalize opacity-70" style={{ color: COLORS.gray }}>{listing.sub_type}</p>}
                       </td>
-                      <td className="px-4 md:px-5 py-3">
+                      <td className="px-4 md:px-5 py-4">
                         <p className="text-sm font-semibold" style={{ color: COLORS.navy }}>{formatPrice(Number(listing.price), listing.currency)}</p>
                       </td>
-                      <td className="px-4 md:px-5 py-3">
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize whitespace-nowrap border ${status.class}`}>
+                      <td className="px-4 md:px-5 py-4">
+                        <span className="text-xs font-bold capitalize whitespace-nowrap" style={{ color: COLORS.navy }}>
+                          {listing.purpose === 'sale' ? 'For Sale' : listing.purpose === 'rent' ? 'For Rent' : listing.purpose || '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 md:px-5 py-4 hidden md:table-cell">
+                        <span className={`inline-flex px-2.5 py-1 rounded text-[11px] font-bold whitespace-nowrap ${status.class}`}>
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-4 md:px-5 py-3 hidden md:table-cell">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleToggleFeature(listing.id, listing.is_featured); }}
-                          disabled={togglingId === listing.id}
-                          className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-gray-100 cursor-pointer transition-colors"
-                        >
-                          <i className={`${listing.is_featured ? 'ri-star-fill text-amber-500' : 'ri-star-line text-gray-400'} text-sm`} />
-                          {togglingId === listing.id && <i className="ri-loader-4-line animate-spin text-xs ml-0.5 text-gray-400" />}
-                        </button>
-                      </td>
-                      <td className="px-4 md:px-5 py-3 hidden md:table-cell">
-                        <span className="text-xs font-medium" style={{ color: COLORS.gray }}>{listing.agent_name || '—'}</span>
-                      </td>
-                      <td className="px-4 md:px-5 py-3 hidden md:table-cell">
+                      <td className="px-4 md:px-5 py-4 hidden md:table-cell">
                         <span className="text-xs" style={{ color: COLORS.gray }}>{formatDate(listing.created_at)}</span>
                       </td>
-                      <td className="px-4 md:px-5 py-3">
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}`); }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                            style={{ color: COLORS.gray }}
-                            title="Edit Property"
-                          >
-                            <i className="ri-pencil-line text-sm" />
-                          </button>
+                      <td className="px-4 md:px-5 py-4">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={(e) => openActionMenu(listing.id, e)}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                            style={{ color: COLORS.gray }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold border transition-colors cursor-pointer hover:bg-[#001731]/5 whitespace-nowrap"
+                            style={{ borderColor: 'rgba(13,89,89,0.3)', color: '#0d5959', backgroundColor: 'rgba(13,89,89,0.06)' }}
                             title="More actions"
                           >
-                            <i className="ri-more-2-line text-sm" />
+                            <i className="ri-more-fill text-xs" />
+                            Actions
                           </button>
                         </div>
                       </td>
@@ -756,108 +971,250 @@ export default function Listings() {
         )}
       </div>
 
-      {/* Action Menu Dropdown */}
       {actionMenu && (
         <div
           ref={menuRef}
-          className="fixed z-50 bg-white rounded-lg border shadow-xl min-w-[210px] py-2"
-          style={{ top: actionMenuPos.top, left: Math.min(actionMenuPos.left, window.innerWidth - 220), borderColor: COLORS.border }}
+          className="fixed z-50 rounded-xl overflow-hidden animate-dropdown-enter"
+          style={{
+            top: actionMenuPos.top,
+            left: Math.min(actionMenuPos.left, window.innerWidth - 260),
+            width: 240,
+            backgroundColor: '#001731',
+            border: '1px solid rgba(13,89,89,0.35)',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(13,89,89,0.15)',
+          }}
         >
           {(() => {
             const listing = listings.find((l) => l.id === actionMenu);
             if (!listing) return null;
             return (
-              <div>
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: COLORS.gray }}>
-                  View &amp; Performance
+              <div className="flex flex-col">
+                {/* Property Header */}
+                <div
+                  className="px-4 py-3 flex items-start gap-3"
+                  style={{ borderBottom: '1px solid rgba(13,89,89,0.25)' }}
+                >
+                  {listing.main_image ? (
+                    <img src={listing.main_image} alt="" className="w-12 h-9 rounded-lg object-cover flex-shrink-0" />
+                  ) : listing.images && listing.images.length > 0 ? (
+                    <img src={listing.images[0]} alt="" className="w-12 h-9 rounded-lg object-cover flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-building-line text-[#5eead4] text-sm" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[12px] font-semibold text-white leading-snug truncate">
+                      {(() => {
+                        const base = listing.title || 'Untitled Draft';
+                        const words = base.split(/\s+/);
+                        return words.length > 8 ? words.slice(0, 8).join(' ') + '...' : base;
+                      })()}
+                    </p>
+                    <p className="text-[10px] text-[#6b8fa8] mt-0.5 truncate">{listing.neighbourhood || '—'}</p>
+                  </div>
                 </div>
-                <button
-                  onClick={() => { window.open(`/property/${listing.slug || listing.id}`, '_blank'); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-bar-chart-line text-gray-400" /> View Stats
-                </button>
-                <button
-                  onClick={() => { window.open(`/property/${listing.slug || listing.id}`, '_blank'); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-global-line text-gray-400" /> View Public Page
-                </button>
-                <button
-                  onClick={() => { window.open(`/property/${listing.slug || listing.id}`, '_blank'); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-eye-line text-gray-400" /> Preview Listing
-                </button>
-                <button
-                  onClick={() => { navigate(`/crm/leads?listing=${listing.id}`); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-mail-line text-gray-400" /> View Inquiries
-                </button>
-                <div className="my-1 border-t" style={{ borderColor: COLORS.border }} />
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider" style={{ color: COLORS.gray }}>
-                  Edit &amp; Management
+
+                {/* Quick Actions */}
+                <div className="px-2 pt-2 pb-1">
+                  <p className="px-2 pb-1.5 text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: '#5eead4' }}>
+                    Quick Actions
+                  </p>
+                  <button
+                    onClick={() => { navigate(`/crm/listings/edit/${listing.id}`); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-edit-box-line text-[#5eead4] text-xs" />
+                    </span>
+                    Edit Property
+                  </button>
+                  <button
+                    onClick={() => { navigate(`/crm/listings/edit/${listing.id}?tab=media`); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-image-add-line text-[#5eead4] text-xs" />
+                    </span>
+                    Update Media
+                  </button>
+                  <button
+                    onClick={() => { navigate(`/crm/listings/edit/${listing.id}?tab=details`); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-price-tag-3-line text-[#5eead4] text-xs" />
+                    </span>
+                    Update Price &amp; Details
+                  </button>
                 </div>
-                <button
-                  onClick={() => { navigate(`/crm/listings/edit/${listing.id}`); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-edit-line text-gray-400" /> Edit Property
-                </button>
-                <button
-                  onClick={() => { navigate(`/crm/listings/edit/${listing.id}`); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-pencil-ruler-line text-gray-400" /> Quick Edit
-                </button>
-                <button
-                  onClick={() => handleDuplicate(listing.id)}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-file-copy-line text-gray-400" /> Duplicate Listing
-                </button>
-                <button
-                  onClick={() => { navigate(`/crm/listings/edit/${listing.id}?tab=media`); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-image-line text-gray-400" /> Edit Media Only
-                </button>
-                <div className="my-1 border-t" style={{ borderColor: COLORS.border }} />
-                <button
-                  onClick={() => { handleTogglePublish(listing.id, listing.is_published); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className={`${listing.is_published ? 'ri-eye-off-line' : 'ri-eye-line'} text-gray-400`} />
-                  {listing.is_published ? 'Unpublish' : 'Publish'}
-                </button>
-                <button
-                  onClick={() => { handleTogglePending(listing.id, listing.is_pending); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 transition-colors cursor-pointer flex items-center gap-2"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className={`${listing.is_pending ? 'ri-close-circle-line' : 'ri-time-line'} text-gray-400`} />
-                  {listing.is_pending ? 'Remove Pending Review' : 'Mark Pending Review'}
-                </button>
-                <div className="my-1 border-t" style={{ borderColor: COLORS.border }} />
-                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-red-500">
-                  Danger
+
+                {/* Divider */}
+                <div className="mx-3 my-1" style={{ height: 1, backgroundColor: 'rgba(13,89,89,0.2)' }} />
+
+                {/* Status & Publishing */}
+                <div className="px-2 pt-1 pb-1">
+                  <p className="px-2 pb-1.5 text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: '#C9A84C' }}>
+                    Status &amp; Publishing
+                  </p>
+                  <button
+                    onClick={() => { handleTogglePublish(listing.id, listing.is_published); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#C9A84C]/15"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: listing.is_published ? 'rgba(220,38,38,0.15)' : 'rgba(8,129,53,0.15)' }}>
+                      <i className={`${listing.is_published ? 'ri-eye-off-line' : 'ri-eye-line'} text-xs`} style={{ color: listing.is_published ? '#f87171' : '#4ade80' }} />
+                    </span>
+                    {listing.is_published ? 'Unpublish' : 'Publish'}
+                  </button>
+                  <button
+                    onClick={() => { handleToggleFeature(listing.id, listing.is_featured); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#C9A84C]/15"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: listing.is_featured ? 'rgba(245,131,0,0.15)' : 'rgba(201,168,76,0.15)' }}>
+                      <i className={`${listing.is_featured ? 'ri-star-fill' : 'ri-star-line'} text-xs`} style={{ color: listing.is_featured ? '#fbbf24' : '#C9A84C' }} />
+                    </span>
+                    {listing.is_featured ? 'Remove Featured' : 'Mark Featured'}
+                  </button>
+                  <button
+                    onClick={() => { handleToggleHomepage(listing.id, listing.is_homepage); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#C9A84C]/15"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: listing.is_homepage ? 'rgba(8,129,53,0.15)' : 'rgba(201,168,76,0.15)' }}>
+                      <i className={`${listing.is_homepage ? 'ri-home-2-fill' : 'ri-home-2-line'} text-xs`} style={{ color: listing.is_homepage ? '#4ade80' : '#C9A84C' }} />
+                    </span>
+                    {listing.is_homepage ? 'Remove Homepage' : 'Homepage'}
+                  </button>
+                  <button
+                    onClick={() => { handleTogglePending(listing.id, listing.is_pending); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#C9A84C]/15"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: listing.is_pending ? 'rgba(220,38,38,0.15)' : 'rgba(245,131,0,0.15)' }}>
+                      <i className={`${listing.is_pending ? 'ri-close-circle-line' : 'ri-time-line'} text-xs`} style={{ color: listing.is_pending ? '#f87171' : '#fbbf24' }} />
+                    </span>
+                    {listing.is_pending ? 'Remove Pending' : 'Pending Review'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => { setDeleteConfirm(listing.id); setActionMenu(null); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-red-50 transition-colors cursor-pointer flex items-center gap-2 text-red-600"
-                >
-                  <i className="ri-delete-bin-line text-red-500" /> Delete Property
-                </button>
+
+                {/* Divider */}
+                <div className="mx-3 my-1" style={{ height: 1, backgroundColor: 'rgba(13,89,89,0.2)' }} />
+
+                {/* Transaction Status */}
+                <div className="px-2 pt-1 pb-1">
+                  <p className="px-2 pb-1.5 text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: '#6b8fa8' }}>
+                    Transaction
+                  </p>
+                  <button
+                    onClick={() => { handleMarkAsSold(listing.id); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#088135]/15"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(8,129,53,0.15)' }}>
+                      <i className="ri-check-double-line text-[#4ade80] text-xs" />
+                    </span>
+                    Mark as Sold
+                  </button>
+                  <button
+                    onClick={() => { handleMarkAsUnderOffer(listing.id); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#f58300]/15"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(245,131,0,0.15)' }}>
+                      <i className="ri-hand-coin-line text-[#fbbf24] text-xs" />
+                    </span>
+                    Under Offer
+                  </button>
+                  <button
+                    onClick={() => { handleReactivate(listing.id); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-refresh-line text-[#5eead4] text-xs" />
+                    </span>
+                    Reactivate
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="mx-3 my-1" style={{ height: 1, backgroundColor: 'rgba(13,89,89,0.2)' }} />
+
+                {/* View & Share */}
+                <div className="px-2 pt-1 pb-1">
+                  <p className="px-2 pb-1.5 text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: '#6b8fa8' }}>
+                    View &amp; Share
+                  </p>
+                  <button
+                    onClick={() => { window.open(`/property/${listing.slug || listing.id}`, '_blank'); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-eye-line text-[#94a3b8] text-xs" />
+                    </span>
+                    Public Page
+                  </button>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/property/${listing.slug || listing.id}`); addToast('Link copied to clipboard', 'success'); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-link text-[#94a3b8] text-xs" />
+                    </span>
+                    Copy Link
+                  </button>
+                  <button
+                    onClick={() => { navigate(`/crm/leads?listing=${listing.id}`); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-mail-line text-[#94a3b8] text-xs" />
+                    </span>
+                    View Inquiries
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="mx-3 my-1" style={{ height: 1, backgroundColor: 'rgba(13,89,89,0.2)' }} />
+
+                {/* Utility */}
+                <div className="px-2 pt-1 pb-1">
+                  <button
+                    onClick={() => handleDuplicate(listing.id)}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-file-copy-line text-[#94a3b8] text-xs" />
+                    </span>
+                    Duplicate
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="mx-3 my-1" style={{ height: 1, backgroundColor: 'rgba(220,38,38,0.2)' }} />
+
+                {/* Danger Zone */}
+                <div className="px-2 pt-1 pb-2">
+                  <button
+                    onClick={() => { setDeleteConfirm(listing.id); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#dc2626]/15"
+                    style={{ color: '#f87171' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(220,38,38,0.15)' }}>
+                      <i className="ri-delete-bin-line text-[#f87171] text-xs" />
+                    </span>
+                    Delete Property
+                  </button>
+                </div>
               </div>
             );
           })()}

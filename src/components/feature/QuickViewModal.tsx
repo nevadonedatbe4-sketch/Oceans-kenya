@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { useCurrency } from '@/hooks/useCurrency';
 
 export interface QuickViewProperty {
   id: string;
   slug: string;
   title: string;
   price: string;
+  rawPrice?: number;
+  currency?: string;
   priceUnit?: string;
   location: string;
   category?: string;
@@ -27,6 +30,7 @@ interface QuickViewModalProps {
 }
 
 export default function QuickViewModal({ isOpen, onClose, property }: QuickViewModalProps) {
+  const { format } = useCurrency();
   const [imgIdx, setImgIdx] = useState(0);
 
   useEffect(() => {
@@ -126,7 +130,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           {/* Type badge */}
           {property.type && (
             <div className="absolute top-3 left-3">
-              <span className={`text-[10px] font-roboto font-semibold px-2.5 py-1 rounded text-white uppercase tracking-wider ${property.type === 'rent' ? 'bg-[#0E7C7B]' : 'bg-[#002349]'}`}>
+              <span className={`text-[10px] font-roboto font-semibold px-2.5 py-1 rounded text-white uppercase tracking-wider ${property.type === 'rent' ? 'bg-[#0D5959]' : 'bg-[#002349]'}`}>
                 For {property.type === 'rent' ? 'Rent' : 'Sale'}
               </span>
             </div>
@@ -138,8 +142,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl md:text-3xl font-roboto font-medium text-[#002349]">{property.price}</span>
-                {property.priceUnit && <span className="text-sm text-gray-500 font-roboto">{property.priceUnit}</span>}
+                <span className="text-2xl md:text-3xl font-roboto font-medium text-[#002349]">{property.rawPrice ? format(property.rawPrice, (property.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR') : property.price}</span>
               </div>
               <h2 className="text-lg md:text-xl font-roboto font-bold text-primary leading-snug mb-2">{property.title}</h2>
               <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500">
@@ -172,7 +175,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
             {property.baths > 0 && (
               <span className="flex items-center gap-1.5 text-sm font-roboto text-[#363535]">
                 <span className="w-5 h-5 flex items-center justify-center">
-                  <i className="ri-drop-line text-[#636363]"></i>
+                  <i className="fa-solid fa-bath text-[#636363]"></i>
                 </span>
                 {property.baths} Baths
               </span>
@@ -204,7 +207,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
 
           {/* Description */}
           {property.description && (
-            <p className="text-sm font-roboto text-[#555555] leading-relaxed mb-4">{property.description}</p>
+            <p className="text-sm font-roboto text-[#555555] leading-relaxed mb-4">{property.description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim()}</p>
           )}
 
           {/* Call / Email */}

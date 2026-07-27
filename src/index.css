@@ -1,6 +1,28 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Prata&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================================
+   SINGLE SOURCE OF TRUTH — Brand Design Tokens
+   Values are space-separated RGB channels so Tailwind can apply
+   opacity via rgb(var(--token) / <alpha-value>), e.g. bg-primary/90.
+   These are overridden at runtime from brand_settings (admin panel)
+   by useBrandTheme — so editing colours in the CRM updates the site.
+   ============================================================ */
+:root {
+  /* Public site brand */
+  --color-primary: 0 23 49;      /* #001731 — navy */
+  --color-golden: 201 168 76;    /* #C9A84C — brand golden accent */
+  --color-accent: 13 89 89;      /* #0D5959 — teal accent */
+  /* CRM admin brand (green) */
+  --color-crm: 0 23 49;          /* #001731 — brand primary */
+  --color-crm-navy: 0 23 49;     /* #001731 — brand primary */
+  /* CRM typography tokens */
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
 
 @layer base {
   body {
@@ -68,4 +90,158 @@
   .stagger-6 { transition-delay: 0.48s; }
   .stagger-7 { transition-delay: 0.56s; }
   .stagger-8 { transition-delay: 0.64s; }
+}
+
+/* Anti-spam honeypot fields — visually removed, not connected to obvious names */
+.footer-hp-field,
+.contact-hp-field {
+  position: absolute !important;
+  left: -9999px !important;
+  top: auto !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+@keyframes dropdown-enter {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-dropdown-enter {
+  animation: dropdown-enter 160ms ease-out forwards;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+  to { opacity: 1; max-height: 300px; transform: translateY(0); }
+}
+
+/* ============================================================
+   CRM DASHBOARD — UNIFIED DESIGN SYSTEM
+   Scoped to .crm-dashboard. Every page inside the admin/agent
+   dashboard inherits Prata headings, Roboto body, and a
+   consistent 15px+ baseline for readability.
+   ============================================================ */
+
+/* --- Typography: headings → Prata --- */
+.crm-dashboard h1,
+.crm-dashboard h2,
+.crm-dashboard h3,
+.crm-dashboard h4,
+.crm-dashboard h5,
+.crm-dashboard h6 {
+  font-family: 'Prata', serif !important;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+
+/* --- Typography: body → Roboto --- */
+.crm-dashboard,
+.crm-dashboard p,
+.crm-dashboard span,
+.crm-dashboard li,
+.crm-dashboard td,
+.crm-dashboard th,
+.crm-dashboard label,
+.crm-dashboard input,
+.crm-dashboard textarea,
+.crm-dashboard select,
+.crm-dashboard button {
+  font-family: 'Roboto', sans-serif !important;
+}
+
+/* --- Baseline minimum: nothing below 14px --- */
+.crm-dashboard .text-\[10px\] { font-size: 14px; }
+.crm-dashboard .text-\[11px\] { font-size: 14px; }
+.crm-dashboard .text-\[12px\] { font-size: 14px; }
+.crm-dashboard .text-\[13px\] { font-size: 15px; }
+.crm-dashboard .text-xs {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.25rem;
+}
+.crm-dashboard .text-sm {
+  font-size: 0.9375rem; /* 15px */
+  line-height: 1.4rem;
+}
+.crm-dashboard .text-base {
+  font-size: 1rem; /* 16px */
+  line-height: 1.5rem;
+}
+.crm-dashboard .text-lg {
+  font-size: 1.125rem; /* 18px */
+  line-height: 1.6rem;
+}
+.crm-dashboard .text-xl {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1.7rem;
+}
+.crm-dashboard .text-2xl {
+  font-size: 1.5rem; /* 24px */
+  line-height: 1.35;
+}
+
+/* --- Input baseline — 15px minimum --- */
+.crm-dashboard input[type="text"],
+.crm-dashboard input[type="email"],
+.crm-dashboard input[type="password"],
+.crm-dashboard input[type="number"],
+.crm-dashboard input[type="search"],
+.crm-dashboard input[type="date"],
+.crm-dashboard input[type="url"],
+.crm-dashboard input[type="tel"],
+.crm-dashboard textarea,
+.crm-dashboard select {
+  font-size: 0.9375rem; /* 15px */
+}
+
+/* --- Table text baseline --- */
+.crm-dashboard table,
+.crm-dashboard th,
+.crm-dashboard td {
+  font-size: 0.9375rem; /* 15px */
+}
+
+/* --- Sidebar / nav text baseline --- */
+.crm-dashboard nav a,
+.crm-dashboard nav button,
+.crm-dashboard nav span,
+.crm-dashboard aside a,
+.crm-dashboard aside button,
+.crm-dashboard aside span {
+  font-size: 0.9375rem; /* 15px */
+}
+
+/* --- Dropdown text --- */
+.crm-dashboard select option {
+  font-size: 0.9375rem;
+}
+
+/* --- Darken faint text colors --- */
+.crm-dashboard .text-gray-400,
+.crm-dashboard .text-stone-400,
+.crm-dashboard .text-slate-400,
+.crm-dashboard .text-zinc-400,
+.crm-dashboard .text-neutral-400 {
+  color: #78716c; /* stone-500 */
+}
+.crm-dashboard .text-gray-500,
+.crm-dashboard .text-stone-500,
+.crm-dashboard .text-slate-500,
+.crm-dashboard .text-zinc-500,
+.crm-dashboard .text-neutral-500 {
+  color: #57534e; /* stone-600 */
+}
+.crm-dashboard .text-gray-300,
+.crm-dashboard .text-stone-300,
+.crm-dashboard .text-slate-300 {
+  color: #a8a29e; /* stone-400 */
+}
+
+/* --- Form label baseline --- */
+.crm-dashboard label {
+  font-size: 0.9375rem; /* 15px */
 }

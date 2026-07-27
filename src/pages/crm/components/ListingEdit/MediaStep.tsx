@@ -1,5 +1,4 @@
-import { useRef, useState } from 'react';
-import { COLORS } from './types';
+import { useRef, useState, useCallback } from 'react';
 import { addToast } from '@/pages/crm/components/CRMToast';
 
 interface Props {
@@ -22,6 +21,34 @@ interface Props {
   propertyType?: string;
 }
 
+const SectionHeader = ({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: string;
+  title: string;
+  subtitle: string;
+}) => (
+  <div className="mb-5">
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 flex items-center justify-center shrink-0 bg-[#0d1f2d] rounded-lg">
+        <i className={`${icon} text-white text-sm`} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="font-jost text-sm font-bold text-[#0d1f2d] uppercase tracking-[0.5px]">
+          {title}
+        </h4>
+        <p className="text-xs text-[#7a8a99] mt-0.5 leading-snug">{subtitle}</p>
+      </div>
+    </div>
+    <div className="h-px bg-[#d1d5db] mt-3" />
+  </div>
+);
+
+const inputBase =
+  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+
 export default function MediaStep({
   images, setImages, mainImage, setMainImage, coverImage, setCoverImage,
   floorPlans, setFloorPlans, videoUrl, setVideoUrl, virtualTourUrl, setVirtualTourUrl,
@@ -29,16 +56,19 @@ export default function MediaStep({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const floorPlanInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+  const processFiles = useCallback(async (files: FileList) => {
     setUploading(true);
     let uploaded = 0;
     let failed = 0;
     const newUrls: string[] = [];
     for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        failed++;
+        continue;
+      }
       const ext = file.name.split('.').pop() || 'jpg';
       const fileName = `listing-${id || 'new'}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
       const filePath = `listings/${fileName}`;
@@ -55,15 +85,31 @@ export default function MediaStep({
     if (!mainImage && newUrls.length > 0) setMainImage(newUrls[0]);
     if (!coverImage && newUrls.length > 0) setCoverImage(newUrls[0]);
     setUploading(false);
-    if (failed > 0) {
+    if (failed > 0 && uploaded > 0) {
       addToast(`${uploaded} uploaded, ${failed} failed`, 'error');
+    } else if (failed > 0) {
+      addToast(`Upload failed for ${failed} file(s)`, 'error');
     } else {
       addToast(`${uploaded} images uploaded`, 'success');
     }
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
+  }, [id, mainImage, coverImage, setImages, setMainImage, setCoverImage, setUploading, uploadImageViaEdgeFunction]);
 
-  const handleFloorPlanUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    processFiles(files);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [processFiles]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+    processFiles(files);
+  }, [processFiles]);
+
+  const handleFloorPlanUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setUploading(true);
@@ -81,24 +127,14 @@ export default function MediaStep({
     }
     setFloorPlans((prev) => [...prev, ...newUrls]);
     setUploading(false);
-    addToast(`${newUrls.length} floor plans uploaded`, 'success');
+    if (newUrls.length > 0) addToast(`${newUrls.length} floor plan(s) uploaded`, 'success');
     if (floorPlanInputRef.current) floorPlanInputRef.current.value = '';
-  };
+  }, [id, setFloorPlans, setUploading, uploadImageViaEdgeFunction]);
 
   const handleRemoveImage = (url: string) => {
     setImages((prev) => prev.filter((u) => u !== url));
-    if (mainImage === url) setMainImage('');
-    if (coverImage === url) setCoverImage('');
-  };
-
-  const setMain = (url: string) => {
-    setMainImage(url);
-    addToast('Main image set', 'success');
-  };
-
-  const setCover = (url: string) => {
-    setCoverImage(url);
-    addToast('Cover image set', 'success');
+    if (mainImage === url) setMainImage(images.filter((u) => u !== url)[0] || '');
+    if (coverImage === url) setCoverImage(images.filter((u) => u !== url)[0] || '');
   };
 
   const handleDragStart = (index: number) => {
@@ -117,120 +153,251 @@ export default function MediaStep({
     setDragIndex(index);
   };
 
+  const handleDragEnd = () => {
+    setDragIndex(null);
+  };
+
   return (
-    <div className="space-y-5">
-      {/* Gallery Images */}
-      <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Gallery Images</h3>
-            <p className="text-xs" style={{ color: COLORS.gray }}>Drag to reorder. Hover for actions.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer hover:bg-gray-50"
-              style={{ borderColor: COLORS.border, color: COLORS.gray }}
-            >
-              <i className="ri-add-line" /> Add Images
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
+    <div className="w-full space-y-10 md:space-y-12">
+      {/* Photos & Media Section */}
+      <section className="pb-2">
+        <SectionHeader
+          icon="ri-image-2-line"
+          title="Photos & Media"
+          subtitle="Upload high-quality images · drag to reorder · star for cover"
+        />
+      </section>
+
+      {/* Photo Tips */}
+      <section className="pb-2">
+        <div className="border-l-2 border-[#0d5959] pl-5 py-1">
+          <p className="text-xs font-bold text-[#1a1e24] mb-2 uppercase tracking-widest">Photo tips</p>
+          <ul className="text-xs text-[#7a8a99] space-y-1.5 font-light">
+            <li>Upload multiple photos at once — drag &amp; drop or click to browse</li>
+            <li>Drag thumbnails to reorder — the first image appears on property cards</li>
+            <li>Click the <i className="ri-star-line text-[#0d5959]" /> star on any photo to set it as the cover image</li>
+            <li>Recommended: at least 5 photos · landscape orientation · min 1200px wide</li>
+          </ul>
+        </div>
+      </section>
+
+      <div className="space-y-6">
+        {/* Drop Zone */}
+        <div
+          role="button"
+          aria-label="Upload images"
+          tabIndex={0}
+          className={`relative border-2 border-dashed transition-all cursor-pointer select-none ${
+            dragOver
+              ? 'border-[#0d5959]/70 bg-[#0d5959]/5'
+              : 'border-[#d1d5db] bg-[#f4f6f8] hover:border-[#0d5959]/50 hover:bg-[#0d5959]/3'
+          }`}
+          style={{ minHeight: '180px' }}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+        >
+          <input
+            ref={fileInputRef}
+            id="_r_media_"
+            accept="image/*"
+            multiple
+            className="hidden"
+            type="file"
+            onChange={handleFileInput}
+          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6">
+            <div className={`w-14 h-14 flex items-center justify-center transition-colors ${
+              dragOver ? 'bg-[#0d5959]/10' : 'bg-[#e2e6eb]'
+            }`}>
+              {uploading ? (
+                <i className="ri-loader-4-line text-2xl animate-spin text-[#7a8a99]" />
+              ) : (
+                <i className={`ri-upload-cloud-2-line text-2xl transition-colors ${dragOver ? 'text-[#0d5959]' : 'text-[#7a8a99]'}`} />
+              )}
+            </div>
+            <div className="text-center">
+              <p className={`text-sm font-bold transition-colors ${dragOver ? 'text-[#0d5959]' : 'text-[#1a1e24]'}`}>
+                {uploading ? 'Uploading...' : 'Drag &amp; drop photos here'}
+              </p>
+              <p className="text-xs text-[#7a8a99] mt-1">
+                or <span className="text-[#0d5959] font-bold">click to browse</span> — select multiple at once
+              </p>
+              <p className="text-xs text-[#9ba5b1] mt-1">JPG, PNG, WEBP supported</p>
+            </div>
           </div>
         </div>
-        {images.length > 0 ? (
-          <div className="grid grid-cols-3 gap-3">
+
+        {/* Uploaded Images Grid */}
+        {images.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {images.map((url, idx) => (
               <div
                 key={idx}
                 draggable
                 onDragStart={() => handleDragStart(idx)}
                 onDragOver={(e) => handleDragOver(e, idx)}
-                className={`relative group rounded-lg border overflow-hidden cursor-move ${mainImage === url ? 'ring-2' : ''}`}
-                style={mainImage === url ? { ringColor: COLORS.navy } : { borderColor: COLORS.border }}
+                onDragEnd={handleDragEnd}
+                className={`relative group overflow-hidden cursor-move transition-all ${
+                  mainImage === url ? 'ring-2 ring-[#0d5959]' : 'border border-[#d1d5db]'
+                } ${dragIndex === idx ? 'opacity-50 scale-95' : ''}`}
               >
                 <img src={url} alt="" className="w-full aspect-[4/3] object-cover" loading="lazy" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all" />
+
                 <div className="absolute top-2 left-2 flex items-center gap-1">
-                  <span className="w-5 h-5 flex items-center justify-center bg-black/50 text-white text-[10px] font-bold rounded">{idx + 1}</span>
-                  {mainImage === url && <span className="text-[10px] font-medium text-white px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.navy }}>Main</span>}
-                  {coverImage === url && <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: COLORS.yellow, color: COLORS.navy }}>Cover</span>}
+                  <span className="w-5 h-5 flex items-center justify-center bg-black/50 text-white text-[10px] font-bold">
+                    {idx + 1}
+                  </span>
+                  {mainImage === url && (
+                    <span className="text-[10px] font-bold text-white px-1.5 py-0.5 bg-[#0d5959]">Main</span>
+                  )}
+                  {coverImage === url && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 bg-[#d3bb6e] text-[#0d1f2d]">Cover</span>
+                  )}
                 </div>
+
                 <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => setMain(url)} className="w-7 h-7 flex items-center justify-center rounded-md bg-white/90 hover:bg-white cursor-pointer" style={{ color: COLORS.navy }} title="Set as main"><i className="ri-image-line text-xs" /></button>
-                  <button onClick={() => setCover(url)} className="w-7 h-7 flex items-center justify-center rounded-md bg-white/90 hover:bg-white cursor-pointer" style={{ color: COLORS.navy }} title="Set as cover"><i className="ri-star-line text-xs" /></button>
-                  <button onClick={() => handleRemoveImage(url)} className="w-7 h-7 flex items-center justify-center bg-white/90 rounded-md hover:bg-red-50 hover:text-red-600 cursor-pointer" style={{ color: COLORS.navy }} title="Remove"><i className="ri-delete-bin-line text-xs" /></button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setMainImage(url); }}
+                    className="w-7 h-7 flex items-center justify-center bg-white/90 hover:bg-white cursor-pointer text-[#1a1e24]"
+                    title="Set as main"
+                  >
+                    <i className="ri-image-line text-xs" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setCoverImage(url); }}
+                    className="w-7 h-7 flex items-center justify-center bg-white/90 hover:bg-white cursor-pointer text-[#1a1e24]"
+                    title="Set as cover"
+                  >
+                    <i className="ri-star-line text-xs" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemoveImage(url); }}
+                    className="w-7 h-7 flex items-center justify-center bg-white/90 hover:bg-red-50 hover:text-red-600 cursor-pointer text-[#1a1e24]"
+                    title="Remove"
+                  >
+                    <i className="ri-delete-bin-line text-xs" />
+                  </button>
                 </div>
+
                 <div className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <i className="ri-drag-move-line text-white text-xs" />
                 </div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: COLORS.border }}>
-            <i className="ri-image-line text-3xl mb-2" style={{ color: COLORS.border }} />
-            <p className="text-sm font-medium" style={{ color: COLORS.gray }}>No gallery images yet. Add images to this property.</p>
-          </div>
         )}
-      </div>
 
-      {/* Floor Plans */}
-      {propertyType !== 'land' && (
-      <div className="bg-white rounded-lg border p-5" style={{ borderColor: COLORS.border }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-bold" style={{ color: COLORS.navy }}>Floor Plans</h3>
-            <p className="text-xs" style={{ color: COLORS.gray }}>Upload floor plan images</p>
+        {/* Video Tour URL */}
+        <div className="pt-4 border-t border-[#d1d5db]">
+          <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
+            <i className="ri-video-line text-[#0d5959]" />
+            Video Tour URL <span className="text-[#7a8a99] font-normal">(optional)</span>
+          </label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
+              <i className="ri-links-line text-[#9ba5b1] text-base" />
+            </div>
+            <input
+              placeholder="Paste YouTube or Vimeo URL…"
+              className={`${inputBase} pl-11 pr-10`}
+              type="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
+              {videoUrl && (<i className="ri-check-line text-green-500 text-sm" />)}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <input ref={floorPlanInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFloorPlanUpload} />
-            <button
-              onClick={() => floorPlanInputRef.current?.click()}
-              disabled={uploading}
-              className="inline-flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer hover:bg-gray-50"
-              style={{ borderColor: COLORS.border, color: COLORS.gray }}
-            >
-              {uploading ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-upload-cloud-line" />}
-              Upload Floor Plans
-            </button>
-          </div>
+          <p className="text-xs text-[#7a8a99] mt-2">
+            Supports: <span className="text-red-500 font-bold">YouTube</span> and <span className="text-sky-500 font-bold">Vimeo</span> — paste any share or watch URL
+          </p>
         </div>
-        {floorPlans.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {floorPlans.map((url, idx) => (
-              <div key={idx} className="relative group rounded-lg border overflow-hidden" style={{ borderColor: COLORS.border }}>
-                <img src={url} alt="" className="w-full aspect-[4/3] object-cover" loading="lazy" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all" />
-                <button
-                  onClick={() => setFloorPlans((prev) => prev.filter((u) => u !== url))}
-                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center bg-white/90 rounded-md hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  style={{ color: COLORS.navy }}
-                >
-                  <i className="ri-delete-bin-line text-xs" />
-                </button>
-                <div className="absolute bottom-2 left-2 text-[10px] text-white font-medium bg-black/50 px-1.5 py-0.5 rounded">Floor {idx + 1}</div>
+
+        {/* Floor Plans */}
+        {propertyType !== 'land' && (
+          <div className="pt-4 border-t border-[#d1d5db]">
+            <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
+              <i className="ri-layout-2-line text-[#0d5959]" />
+              Floor Plans <span className="text-[#7a8a99] font-normal">(optional)</span>
+            </label>
+
+            <div className="flex items-center gap-3 mb-3">
+              <input
+                ref={floorPlanInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFloorPlanUpload}
+              />
+              <button
+                type="button"
+                onClick={() => floorPlanInputRef.current?.click()}
+                disabled={uploading}
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold border transition-all cursor-pointer whitespace-nowrap bg-white text-[#1a1e24] border-[#d1d5db] hover:border-[#0d5959] hover:text-[#0d5959] disabled:opacity-50"
+              >
+                {uploading ? (
+                  <i className="ri-loader-4-line animate-spin text-xs" />
+                ) : (
+                  <i className="ri-upload-cloud-line text-xs" />
+                )}
+                Upload Floor Plans
+              </button>
+            </div>
+
+            {floorPlans.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {floorPlans.map((url, idx) => (
+                  <div
+                    key={idx}
+                    className="relative group overflow-hidden border border-[#d1d5db]"
+                  >
+                    <img src={url} alt={`Floor plan ${idx + 1}`} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all" />
+                    <button
+                      onClick={() => setFloorPlans((prev) => prev.filter((u) => u !== url))}
+                      className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center bg-white/90 hover:bg-red-50 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-[#1a1e24]"
+                    >
+                      <i className="ri-delete-bin-line text-xs" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 text-[10px] text-white font-bold bg-black/50 px-1.5 py-0.5">
+                      Floor {idx + 1}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-8 border-2 border-dashed rounded-lg" style={{ borderColor: COLORS.border }}>
-            <i className="ri-map-2-line text-3xl mb-2" style={{ color: COLORS.border }} />
-            <p className="text-sm font-medium" style={{ color: COLORS.gray }}>No floor plans uploaded yet.</p>
+            )}
           </div>
         )}
-      </div>
-      )}
 
-      {/* Video & Virtual Tour */}
-      <div className="bg-white rounded-lg border p-5 grid grid-cols-1 md:grid-cols-2 gap-4" style={{ borderColor: COLORS.border }}>
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Video URL</label>
-          <input type="text" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="YouTube or Vimeo link" />
-        </div>
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider mb-1.5" style={{ color: COLORS.navy }}>Virtual Tour URL</label>
-          <input type="text" value={virtualTourUrl} onChange={(e) => setVirtualTourUrl(e.target.value)} className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-white" style={{ borderColor: COLORS.border, color: COLORS.navy }} placeholder="Matterport or 360 tour link" />
+        {/* Virtual Tour URL */}
+        <div className="pt-4 border-t border-[#d1d5db]">
+          <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
+            <i className="ri-global-line text-[#0d5959]" />
+            Virtual Tour URL <span className="text-[#7a8a99] font-normal">(optional)</span>
+          </label>
+          <div className="relative">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
+              <i className="ri-links-line text-[#9ba5b1] text-base" />
+            </div>
+            <input
+              placeholder="Paste Matterport or 360 tour URL…"
+              className={`${inputBase} pl-11 pr-10`}
+              type="url"
+              value={virtualTourUrl}
+              onChange={(e) => setVirtualTourUrl(e.target.value)}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center">
+              {virtualTourUrl && (<i className="ri-check-line text-green-500 text-sm" />)}
+            </div>
+          </div>
+          <p className="text-xs text-[#7a8a99] mt-2">
+            Supports Matterport and other 360° virtual tour platforms
+          </p>
         </div>
       </div>
     </div>

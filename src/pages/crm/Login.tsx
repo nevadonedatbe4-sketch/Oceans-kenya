@@ -1,7 +1,28 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import { Eye, EyeOff, LogIn } from 'lucide-react';
+
+function getFriendlyError(message: string): string {
+  const msg = message.toLowerCase();
+  if (msg.includes('invalid login credentials') || msg.includes('invalid email') || msg.includes('invalid password')) {
+    return 'Incorrect email or password.';
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'Please check your email to confirm your account before signing in.';
+  }
+  if (msg.includes('deactivated') || msg.includes('suspended')) {
+    return 'Your account has been deactivated. Please contact your administrator.';
+  }
+  if (msg.includes('no account found')) {
+    return 'No account found. Please contact your administrator.';
+  }
+  if (msg.includes('rate') || msg.includes('too many')) {
+    return 'Too many attempts. Please try again in a few minutes.';
+  }
+  return 'An unexpected error occurred. Please try again.';
+}
 
 export default function CRMLogin() {
   const [email, setEmail] = useState('');
@@ -14,19 +35,43 @@ export default function CRMLogin() {
 
   useEffect(() => {
     if (user) {
-      navigate('/crm/dashboard', { replace: true });
+      const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+      navigate(isAdmin ? '/admin-dashboard' : '/agent-dashboard', { replace: true });
+      return;
     }
+
+    // Detect recovery flow from URL hash (e.g. #access_token=...&type=recovery)
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery')) {
+      navigate('/crm/update-password', { replace: true });
+      return;
+    }
+
+    // Also check if user has a valid recovery session but no profile yet
+    const checkRecoverySession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        navigate('/crm/update-password', { replace: true });
+      }
+    };
+    checkRecoverySession();
   }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!email.trim() || !password.trim()) {
+      setError('Please enter both email and password.');
+      return;
+    }
+
     setLoading(true);
 
     const { error: signInError } = await signIn(email, password);
 
     if (signInError) {
-      setError(signInError.message || 'Invalid credentials');
+      setError(getFriendlyError(signInError.message || 'Invalid credentials'));
     }
 
     setLoading(false);
@@ -49,7 +94,7 @@ export default function CRMLogin() {
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-md mb-6 font-roboto">
+            <div className="bg-[#fef2f2] text-[#dc2626] text-sm px-4 py-3 rounded-md mb-6 font-roboto">
               {error}
             </div>
           )}
@@ -88,6 +133,15 @@ export default function CRMLogin() {
               </div>
             </div>
 
+            <div className="flex items-center justify-end">
+              <Link
+                to="/crm/forgot-password"
+                className="text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
+              >
+                Forgot password?
+              </Link>
+            </div>
+
             <button
               type="submit"
               disabled={loading}
@@ -98,8 +152,14 @@ export default function CRMLogin() {
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-400 mt-6 font-roboto">
-            Oceans Kenya Real Estate CRM
+          <p className="text-center text-xs text-gray-500 mt-6 font-roboto">
+            Don&apos;t have an account?{' '}
+            <Link
+              to="/crm/signup"
+              className="text-primary hover:text-primary/80 transition-colors cursor-pointer"
+            >
+              Sign up
+            </Link>
           </p>
         </div>
       </div>

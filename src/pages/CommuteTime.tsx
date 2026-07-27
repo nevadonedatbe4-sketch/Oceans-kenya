@@ -7,6 +7,7 @@ import PageContactSection from '@/components/feature/PageContactSection';
 import ContactAgentModal from '@/components/feature/ContactAgentModal';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import { supabase } from '@/lib/supabase';
+import { useCurrency } from '@/hooks/useCurrency';
 
 interface CommuteProperty {
   id: string;
@@ -19,7 +20,8 @@ interface CommuteProperty {
   baths: number;
   parking: number;
   receptions: number;
-  price: string;
+  priceRaw: number;
+  currency: string;
   priceUnit?: string;
   image: string;
   commuteTime: number;
@@ -52,13 +54,14 @@ function buildSlug(id: string, title: string): string {
 }
 
 function formatPrice(price: number, currency: string): string {
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KSh' : currency === 'UGX' ? 'UGX' : currency === 'GBP' ? '£' : '€';
+  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : '€';
   if (price >= 1_000_000) return `${symbol} ${(price / 1_000_000).toFixed(price % 1_000_000 === 0 ? 0 : 1)}M`;
   if (price >= 1_000) return `${symbol} ${(price / 1_000).toFixed(0)}K`;
   return `${symbol} ${price.toLocaleString()}`;
 }
 
 export default function CommuteTime() {
+  const { format } = useCurrency();
   const [destination, setDestination] = useState('Nairobi CBD');
   const [transportMode, setTransportMode] = useState('Driving');
   const [maxTime, setMaxTime] = useState('Under 30 min');
@@ -111,6 +114,8 @@ export default function CommuteTime() {
             parking: Number(row.parking ?? 0),
             receptions: Math.max(1, Math.floor(Number(row.bedrooms ?? 1) / 2)),
             price: formatPrice(Number(row.price || 0), String(row.currency || 'KES')),
+            priceRaw: Number(row.price || 0),
+            currency: String(row.currency || 'KES'),
             priceUnit: purpose === 'rent' ? 'pcm' : undefined,
             image: mainImg || (images.length > 0 ? images[0] : fallbackImg),
             commuteTime: commuteTimes[i % commuteTimes.length],
@@ -253,7 +258,7 @@ export default function CommuteTime() {
             {loading && !error && (
               <div className="space-y-4">
                 {[1, 2, 3].map((n) => (
-                  <div key={n} className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[220px] animate-pulse">
+                  <div key={n} className="flex flex-col sm:flex-row bg-white border-2 border-gray-200 rounded-lg overflow-hidden sm:h-[220px] animate-pulse">
                     <div className="sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full bg-stone-200 flex-shrink-0"></div>
                     <div className="flex-1 p-4 sm:p-5 space-y-3">
                       <div className="h-5 bg-stone-200 rounded w-28"></div>
@@ -275,7 +280,7 @@ export default function CommuteTime() {
                 {filtered.map((p) => (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden sm:h-[220px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                    className="flex flex-col sm:flex-row bg-white border-2 border-gray-200 rounded-lg overflow-hidden sm:h-[220px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
                   >
                     {/* Image */}
                     <div className="relative sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full flex-shrink-0 overflow-hidden group">
@@ -313,7 +318,7 @@ export default function CommuteTime() {
                     {/* Content */}
                     <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
                       <div>
-                        <span className="font-roboto font-bold text-lg md:text-xl text-primary font-semibold">{p.price}</span>
+                        <span className="font-roboto font-bold text-lg md:text-xl text-primary font-semibold">{format(p.priceRaw, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
                         {p.priceUnit && <span className="text-sm text-gray-500 font-roboto ml-1">{p.priceUnit}</span>}
                         <Link to={`/property/${p.slug}`} className="block hover:underline mt-1">
                           <h3 className="font-roboto font-bold text-sm md:text-base text-primary leading-snug mb-1">{p.title}</h3>
@@ -346,7 +351,7 @@ export default function CommuteTime() {
                           {p.distance} km to {destination} &middot; {p.commuteTime} min {transportMode.toLowerCase()}
                         </div>
                       </div>
-                      <div className="flex items-end justify-between gap-3 pt-3 border-t border-gray-100 mt-2">
+                      <div className="flex items-end justify-between gap-3 pt-3 border-t-2 border-gray-200 mt-2">
                         <span className="text-xs font-roboto text-gray-500">{p.type === 'rent' ? 'To rent' : 'For sale'}</span>
                         <div className="flex items-center gap-3 shrink-0">
                           <a href="tel:+254712345678" className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
@@ -457,7 +462,7 @@ export default function CommuteTime() {
           propertyTitle={contactModalProp.title}
           propertyId={contactModalProp.id}
           propertySlug={contactModalProp.slug}
-          propertyPrice={contactModalProp.price}
+          propertyPrice={format(contactModalProp.priceRaw, contactModalProp.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
           propertyLocation={contactModalProp.location}
         />
       )}
@@ -468,7 +473,9 @@ export default function CommuteTime() {
           id: quickViewProperty.id,
           slug: quickViewProperty.slug,
           title: quickViewProperty.title,
-          price: quickViewProperty.price,
+          price: format(quickViewProperty.priceRaw, quickViewProperty.currency as 'KES' | 'USD' | 'GBP' | 'EUR'),
+          rawPrice: quickViewProperty.priceRaw,
+          currency: quickViewProperty.currency,
           priceUnit: quickViewProperty.priceUnit,
           location: quickViewProperty.location,
           category: quickViewProperty.category,

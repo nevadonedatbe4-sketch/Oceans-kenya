@@ -227,9 +227,9 @@ export default function HomeSections() {
           <p className="text-sm text-gray-400 font-roboto">Loading sections...</p>
         </div>
       ) : sections.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-100 py-16 text-center">
+        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 py-16 text-center">
           <LayoutGrid size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-sm text-gray-400 font-roboto">No sections found</p>
+          <p className="text-sm text-[#9ca3af] lg:text-gray-400 font-roboto">No sections found</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -240,8 +240,8 @@ export default function HomeSections() {
               onDragStart={() => handleDragStart(index)}
               onDragOver={(e) => handleDragOver(e, index)}
               onDragEnd={handleDragEnd}
-              className={`bg-white rounded-lg border transition-all hover:shadow-sm cursor-move ${
-                dragIndex === index ? 'border-primary ring-1 ring-primary' : 'border-gray-100'
+              className={`bg-[#012144] lg:bg-white rounded-lg border transition-all hover:shadow-sm cursor-move ${
+                dragIndex === index ? 'border-primary ring-1 ring-primary' : 'border-[#1c3a5e] lg:border-gray-100'
               }`}
             >
               <div className="flex items-center gap-3 px-4 py-3">

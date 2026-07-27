@@ -18,7 +18,7 @@ interface PrevNextProps {
 function formatPrice(row: Record<string, unknown>): string {
   const priceNum = Number(row.price || 0);
   const currency = String(row.currency || 'KES');
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KSh' : currency === 'UGX' ? 'UGX' : currency === 'GBP' ? '£' : '€';
+  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : '€';
   if (priceNum >= 1_000_000_000) return `${symbol} ${(priceNum / 1_000_000_000).toFixed(1)}B`;
   if (priceNum >= 1_000_000) return `${symbol} ${(priceNum / 1_000_000).toFixed(1)}M`;
   if (priceNum >= 1_000) return `${symbol} ${(priceNum / 1_000).toFixed(0)}K`;

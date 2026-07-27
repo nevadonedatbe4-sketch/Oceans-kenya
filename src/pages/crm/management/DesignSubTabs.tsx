@@ -744,13 +744,13 @@ export function CardBoxTab() {
             <img
               alt="preview"
               className="w-full h-full object-cover object-top"
-              src="https://readdy.ai/api/search-image?query=modern%20luxury%20apartment%20interior%20living%20room%20elegant%20minimal%20design%20bright%20natural%20light%20Kampala%20Uganda&width=480&height=288&seq=card-box-preview-2&orientation=landscape"
+              src="https://readdy.ai/api/search-image?query=modern%20luxury%20apartment%20interior%20living%20room%20elegant%20minimal%20design%20bright%20natural%20light%20Nairobi%20Kenya&width=480&height=288&seq=card-box-preview-2&orientation=landscape&nocache=true"
             />
           </div>
           <div style={{ padding: `${structureSettings.card_padding_y}px ${structureSettings.card_padding_x}px` }}>
             <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: colorSettings.normal_labels_color }}>For Sale · Featured</p>
             <h3 className="text-sm font-semibold leading-snug mb-1" style={{ color: colorSettings.normal_title_color, marginBottom: '10px' }}>Luxury 3-Bed Apartment</h3>
-            <p className="text-xs mb-2" style={{ color: colorSettings.normal_address_color, marginBottom: '8px' }}>Kololo, Kampala</p>
+            <p className="text-xs mb-2" style={{ color: colorSettings.normal_address_color, marginBottom: '8px' }}>Kilimani, Nairobi</p>
             <div className="flex items-center gap-3 mb-2">
               <span className="flex items-center gap-1 text-xs" style={{ color: colorSettings.normal_figure_color }}>
                 <i className="ri-hotel-bed-line" style={{ color: colorSettings.normal_icons_color }}></i> 3 beds
@@ -977,7 +977,7 @@ export function CardContentTab() {
         <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide mb-4">Card Field Order Preview</h3>
         <div className="max-w-[220px] border border-stone-100 rounded-lg overflow-hidden">
           <div className="w-full h-28 bg-stone-100">
-            <img alt="preview" className="w-full h-full object-cover object-top" src="https://readdy.ai/api/search-image?query=modern%20luxury%20apartment%20interior%20living%20room%20elegant%20minimal%20design%20bright%20natural%20light%20Kampala&width=440&height=224&seq=card-content-preview-1&orientation=landscape" />
+            <img alt="preview" className="w-full h-full object-cover object-top" src="https://readdy.ai/api/search-image?query=modern%20luxury%20apartment%20interior%20living%20room%20elegant%20minimal%20design%20bright%20natural%20light%20Nairobi&width=440&height=224&seq=card-content-preview-1&orientation=landscape&nocache=true" />
           </div>
           <div className="p-3 space-y-1">
             {fieldOrder.map((key) => {

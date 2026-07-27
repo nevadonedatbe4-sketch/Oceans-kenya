@@ -318,7 +318,7 @@ export default function Schools() {
                       className="w-full h-full object-cover object-top"
                     />
                     <div className="absolute top-2 left-2">
-                      <span className={`text-[10px] font-roboto font-semibold px-2 py-0.5 rounded text-white ${school.type === 'International' ? 'bg-[#0E7C7B]' : school.type === 'Secondary' ? 'bg-[#4B0082]' : school.type === 'Primary' ? 'bg-[#D2691E]' : 'bg-[#556B2F]'}`}>
+                      <span className={`text-[10px] font-roboto font-semibold px-2 py-0.5 rounded text-white ${school.type === 'International' ? 'bg-[#0D5959]' : school.type === 'Secondary' ? 'bg-[#4B0082]' : school.type === 'Primary' ? 'bg-[#D2691E]' : 'bg-[#556B2F]'}`}>
                         {school.type}
                       </span>
                     </div>
@@ -370,7 +370,7 @@ export default function Schools() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-gray-200">
                       <Link
                         to={`/rent?area=${school.location.toLowerCase()}`}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"

@@ -18,7 +18,7 @@ interface ContactCardProps {
 }
 
 const countryCodes = [
-  { code: '+256', label: 'Uganda (+256)' },
+
   { code: '+254', label: 'Kenya (+254)' },
   { code: '+255', label: 'Tanzania (+255)' },
   { code: '+44', label: 'UK (+44)' },
@@ -49,7 +49,7 @@ const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep
 export default function PropertyContactCard({ agent, propertyTitle, propertyRef, formSubmitUrl, tourFormSubmitUrl }: ContactCardProps) {
   const [activeTab, setActiveTab] = useState<'info' | 'tour'>('tour');
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
-  const [countryCode, setCountryCode] = useState('+256');
+  const [countryCode, setCountryCode] = useState('+254');
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [message, setMessage] = useState(`I am interested in ${propertyTitle} (Ref: ${propertyRef}). Please contact me with more information.`);
@@ -181,7 +181,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-roboto font-semibold truncate" style={{ color: '#0D1B2A' }}>
-              {agent?.name || 'Oceans Uganda'}
+              {agent?.name || 'Oceans Kenya'}
             </p>
             <p className="text-xs font-roboto text-gray-400 truncate">{agentRole}</p>
           </div>

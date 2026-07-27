@@ -5,7 +5,12 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import QuickViewModal from '@/components/feature/QuickViewModal';
+import CompareToolbar from '@/components/feature/CompareToolbar';
+import CompareModal from '@/components/feature/CompareModal';
+import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { supabase } from '@/lib/supabase';
+import { useCurrency } from '@/hooks/useCurrency';
+import { formatTimeAgo } from '@/lib/timeAgo';
 
 interface Property {
   id: string;
@@ -20,16 +25,15 @@ interface Property {
   price: string;
   priceUnit?: string;
   priceRaw: number;
+  currency: string;
   image: string;
   images: string[];
   listedDays: number;
+  createdAt: string;
   agentPhone?: string;
   agentEmail?: string;
-}
-
-interface NeighbourhoodTab {
-  name: string;
-  count: number;
+  isLand: boolean;
+  isJointVenture: boolean;
 }
 
 const PAGE_SIZE = 12;
@@ -41,23 +45,6 @@ function toCategoryLabel(cat: string): string {
 function buildSlug(id: string, title: string): string {
   if (!title) return id;
   return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80);
-}
-
-function formatPrice(priceNum: number, currency: string): string {
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KSh' : currency === 'UGX' ? 'UGX' : currency === 'GBP' ? '£' : '€';
-  if (priceNum >= 1_000_000_000) return `${symbol} ${(priceNum / 1_000_000_000).toFixed(1)}B`;
-  if (priceNum >= 1_000_000) return `${symbol} ${(priceNum / 1_000_000).toFixed(priceNum % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (priceNum >= 1_000) return `${symbol} ${(priceNum / 1_000).toFixed(0)}K`;
-  return `${symbol} ${priceNum.toLocaleString()}`;
-}
-
-function formatListedDate(listedDays: number): string {
-  if (listedDays === 0) return 'Listed today';
-  if (listedDays === 1) return 'Listed yesterday';
-  if (listedDays < 7) return `Listed ${listedDays} days ago`;
-  if (listedDays < 30) return `Listed ${Math.floor(listedDays / 7)} weeks ago`;
-  if (listedDays < 365) return `Listed ${Math.floor(listedDays / 30)} months ago`;
-  return `Listed ${Math.floor(listedDays / 365)} years ago`;
 }
 
 function mapRow(row: Record<string, unknown>): Property {
@@ -83,29 +70,42 @@ function mapRow(row: Record<string, unknown>): Property {
     beds: Number(row.bedrooms ?? 0),
     baths: Number(row.bathrooms ?? 0),
     parking: Number(row.parking ?? 0),
-    price: formatPrice(priceNum, currency),
-    priceUnit: String(row.purpose || 'sale') === 'rent' ? 'pcm' : undefined,
+    price: '',
+    priceUnit: String(row.purpose || 'sale') === 'rent' ? 'pm' : undefined,
     priceRaw: priceNum,
+    currency,
     image: mainImg || (images.length > 0 ? images[0] : fallbackImg),
     images: mainImg ? [mainImg, ...images] : images.length > 0 ? images : [fallbackImg],
     listedDays,
+    createdAt: String(row.created_at || new Date().toISOString()),
     agentPhone: String(row.owner_phone || ''),
     agentEmail: String(row.owner_email || ''),
+    isLand: (String(row.property_type || '')).toLowerCase() === 'land',
+    isJointVenture: (String(row.sub_type || '')).toLowerCase() === 'joint_venture',
   };
 }
 
 export default function AllProperties() {
-  const [filterType, setFilterType] = useState<'all' | 'sale' | 'rent'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
+  const { format } = useCurrency();
+  const [filterType, setFilterType] = useState<'all' | 'sale' | 'rent'>(() => {
+    try { return (localStorage.getItem('ap_filter_type') as 'all' | 'sale' | 'rent') || 'all'; } catch { return 'all'; }
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    try { return localStorage.getItem('ap_search_query') || ''; } catch { return ''; }
+  });
+  const [sortBy, setSortBy] = useState(() => {
+    try { return localStorage.getItem('ap_sort_by') || 'newest'; } catch { return 'newest'; }
+  });
+  const [selectedNeighbourhood, setSelectedNeighbourhood] = useState(() => {
+    try { return localStorage.getItem('ap_neighbourhood') || 'All'; } catch { return 'All'; }
+  });
+  const [neighbourhoodNames, setNeighbourhoodNames] = useState<string[]>([]);
   const [listings, setListings] = useState<Property[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [neighbourhoods, setNeighbourhoods] = useState<NeighbourhoodTab[]>([]);
-  const [selectedNeighbourhood, setSelectedNeighbourhood] = useState<string | null>(null);
   const [recentlyViewed, setRecentlyViewed] = useState<Property[]>([]);
   const [quickViewProperty, setQuickViewProperty] = useState<Property | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(() => {
@@ -114,25 +114,90 @@ export default function AllProperties() {
       return new Set(stored ? JSON.parse(stored) : []);
     } catch { return new Set(); }
   });
+  const compare = useCompareToolbar();
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
-  // Load recently viewed from localStorage
+  // Persist search filters to localStorage
   useEffect(() => {
+    try { localStorage.setItem('ap_filter_type', filterType); } catch { /* ignore */ }
+    try { localStorage.setItem('ap_search_query', searchQuery); } catch { /* ignore */ }
+    try { localStorage.setItem('ap_sort_by', sortBy); } catch { /* ignore */ }
+    try { localStorage.setItem('ap_neighbourhood', selectedNeighbourhood); } catch { /* ignore */ }
+  }, [filterType, searchQuery, sortBy, selectedNeighbourhood]);
+
+  // Load recently viewed from localStorage — try stored objects first, then Supabase for real listings
+  useEffect(() => {
+    let cancelled = false;
+
+    // First try: stored full-object entries (recently_viewed_devs) — instant, no network needed
+    try {
+      const devsRaw = localStorage.getItem('recently_viewed_devs');
+      if (devsRaw) {
+        const devs: Record<string, unknown>[] = JSON.parse(devsRaw);
+        if (devs.length > 0) {
+          const mapped = devs.slice(0, 8).map((obj) => ({
+            id: String(obj.id || ''),
+            slug: String(obj.slug || ''),
+            title: String(obj.name || obj.title || ''),
+            location: String(obj.location || 'Nairobi'),
+            type: 'sale' as const,
+            category: '',
+            beds: 0,
+            baths: 0,
+            parking: 0,
+            price: '',
+            priceUnit: undefined,
+            priceRaw: Number(obj.priceRaw ?? obj.price ?? 0),
+            currency: String(obj.currency || 'KES'),
+            image: String(obj.image || ''),
+            images: obj.image ? [String(obj.image)] : [],
+            listedDays: 0,
+            createdAt: String(obj.timestamp || ''),
+            agentPhone: '',
+            agentEmail: '',
+            isLand: false,
+            isJointVenture: false,
+          }));
+          if (!cancelled) setRecentlyViewed(mapped);
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Second try: enrich with full Supabase data for real listings
     try {
       const stored = localStorage.getItem('recently_viewed_properties');
       if (stored) {
         const ids: string[] = JSON.parse(stored);
-        if (ids.length > 0) {
+        const realIds = ids.filter((id) => !id.startsWith('mock-')).slice(0, 8);
+        if (realIds.length > 0) {
           supabase
             .from('listings')
             .select('id,title,location,price,property_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email')
-            .in('id', ids.slice(0, 8))
+            .in('id', realIds)
             .then(({ data }) => {
-              if (data) setRecentlyViewed(((data || []) as Record<string, unknown>[]).map(mapRow));
+              if (!cancelled && data) setRecentlyViewed(((data || []) as Record<string, unknown>[]).map(mapRow));
             })
             .catch(() => {});
         }
       }
     } catch { /* ignore */ }
+
+    return () => { cancelled = true; };
+  }, []);
+
+  // Load neighbourhood names from DB for filter tabs
+  useEffect(() => {
+    supabase
+      .from('neighbourhoods')
+      .select('name')
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setNeighbourhoodNames((data as { name: string }[]).map((n) => n.name));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const toggleSave = useCallback((id: string) => {
@@ -147,30 +212,9 @@ export default function AllProperties() {
 
   const clearRecentlyViewed = () => {
     localStorage.removeItem('recently_viewed_properties');
+    localStorage.removeItem('recently_viewed_devs');
     setRecentlyViewed([]);
   };
-
-  // Fetch neighbourhoods — show all, not limited to 12
-  useEffect(() => {
-    supabase
-      .from('listings')
-      .select('neighbourhood')
-      .eq('is_published', true)
-      .neq('title', '')
-      .then(({ data }) => {
-        if (!data) return;
-        const counts: Record<string, number> = {};
-        (data as Array<{ neighbourhood: string | null }>).forEach((row) => {
-          const n = row.neighbourhood;
-          if (n) counts[n] = (counts[n] || 0) + 1;
-        });
-        const sorted = Object.entries(counts)
-          .sort(([, a], [, b]) => b - a)
-          .map(([name, count]) => ({ name, count }));
-        setNeighbourhoods(sorted);
-      })
-      .catch(() => {});
-  }, []);
 
   const fetchListings = useCallback(async (reset = false) => {
     const currentPage = reset ? 0 : page;
@@ -192,13 +236,13 @@ export default function AllProperties() {
         query = query.eq('purpose', filterType);
       }
 
+      if (selectedNeighbourhood !== 'All') {
+        query = query.ilike('location', `%${selectedNeighbourhood}%`);
+      }
+
       if (searchQuery.trim()) {
         const q = searchQuery.trim();
         query = query.or(`title.ilike.%${q}%,location.ilike.%${q}%`);
-      }
-
-      if (selectedNeighbourhood) {
-        query = query.eq('neighbourhood', selectedNeighbourhood);
       }
 
       switch (sortBy) {
@@ -237,12 +281,12 @@ export default function AllProperties() {
     } finally {
       setLoading(false);
     }
-  }, [filterType, searchQuery, selectedNeighbourhood, sortBy, page]);
+  }, [filterType, searchQuery, sortBy, page, selectedNeighbourhood]);
 
   useEffect(() => {
     fetchListings(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterType, searchQuery, selectedNeighbourhood, sortBy]);
+  }, [filterType, searchQuery, sortBy, selectedNeighbourhood]);
 
   const loadMore = () => {
     setPage((prev) => prev + 1);
@@ -279,14 +323,6 @@ export default function AllProperties() {
               <i className="ri-arrow-right-s-line text-stone-300"></i>
             </span>
             <span className="text-stone-500">Properties</span>
-            {selectedNeighbourhood && (
-              <>
-                <span className="w-3 h-3 flex items-center justify-center">
-                  <i className="ri-arrow-right-s-line text-stone-300"></i>
-                </span>
-                <span className="text-stone-500">{selectedNeighbourhood}</span>
-              </>
-            )}
           </nav>
         </div>
       </div>
@@ -374,50 +410,30 @@ export default function AllProperties() {
         </div>
       </div>
 
-      {/* === FILTER TABS === */}
-      <div className="bg-white border-b border-stone-100">
-        <div className="px-5 md:px-10 max-w-7xl mx-auto">
-          <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
-            {(['all', 'sale', 'rent'] as const).map((tab) => (
+      {/* === MAIN CONTENT === */}
+      <main className="flex-1 px-5 md:px-10 py-8 pb-24 max-w-7xl mx-auto w-full">
+        <div className="flex gap-6 flex-col lg:flex-row">
+          {/* Listings column */}
+          <div className="lg:w-[75%] xl:w-[78%] min-w-0">
+        {/* Neighbourhood Tabs */}
+        <div className="mb-8 overflow-x-auto no-scrollbar border-b border-stone-200">
+          <div className="flex items-center gap-0 min-w-max">
+            {['All', ...neighbourhoodNames].map((area) => (
               <button
-                key={tab}
-                onClick={() => { setFilterType(tab); setPage(0); }}
-                className={`px-5 py-3.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap border-b-2 -mb-px ${filterType === tab ? 'border-primary text-primary' : 'border-transparent text-stone-400 hover:text-stone-600 hover:border-stone-200'}`}
+                key={area}
+                onClick={() => { setSelectedNeighbourhood(area); setPage(0); }}
+                className={`px-5 py-3.5 text-xs font-roboto font-semibold uppercase tracking-widest whitespace-nowrap transition-all cursor-pointer border-b-2 -mb-px ${
+                  selectedNeighbourhood === area
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-stone-400 hover:text-primary hover:border-gray-300'
+                }`}
               >
-                {tab === 'all' ? 'All' : tab === 'sale' ? 'For Sale' : 'For Rent'}
+                {area}
               </button>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* === NEIGHBOURHOOD TABS === */}
-      {neighbourhoods.length > 0 && (
-        <div className="bg-white border-b border-stone-100">
-          <div className="px-5 md:px-10 max-w-7xl mx-auto">
-            <div className="flex items-center gap-0 overflow-x-auto no-scrollbar">
-              <button
-                onClick={() => setSelectedNeighbourhood(null)}
-                className={`px-4 py-3 text-xs font-roboto font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap border-b-2 -mb-px ${!selectedNeighbourhood ? 'border-primary text-primary' : 'border-transparent text-stone-400 hover:text-stone-600 hover:border-stone-200'}`}
-              >
-                All Areas
-              </button>
-              {neighbourhoods.map((n) => (
-                <button
-                  key={n.name}
-                  onClick={() => setSelectedNeighbourhood(selectedNeighbourhood === n.name ? null : n.name)}
-                  className={`px-4 py-3 text-xs font-roboto font-semibold uppercase tracking-wider transition-colors cursor-pointer whitespace-nowrap border-b-2 -mb-px ${selectedNeighbourhood === n.name ? 'border-primary text-primary' : 'border-transparent text-stone-400 hover:text-stone-600 hover:border-stone-200'}`}
-                >
-                  {n.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* === MAIN CONTENT === */}
-      <main className="flex-1 px-5 md:px-10 py-8 pb-12 max-w-7xl mx-auto w-full">
         {error && !loading && (
           <div className="text-center py-16">
             <div className="w-14 h-14 mx-auto mb-4 flex items-center justify-center bg-red-50 rounded-full">
@@ -440,8 +456,8 @@ export default function AllProperties() {
           </div>
         )}
 
-        {/* Property Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Property Cards — grid matching Zoopla development card proportions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {loading && listings.length === 0
             ? Array.from({ length: 9 }).map((_, n) => <PropertyCardSkeleton key={n} />)
             : listings.map((p) => (
@@ -472,72 +488,128 @@ export default function AllProperties() {
         )}
 
         {/* End of results */}
-        {!hasMore && listings.length > 0 && !loading && (
-          <div className="text-center mt-10">
-            <p className="text-xs font-roboto text-stone-400">Showing all {totalCount} properties</p>
+          {!hasMore && listings.length > 0 && !loading && (
+            <div className="text-center mt-10">
+              <p className="text-xs font-roboto text-stone-400">Showing all {totalCount} properties</p>
+            </div>
+          )}
           </div>
-        )}
+
+          {/* Sidebar */}
+          <div className="hidden lg:block lg:w-[25%] xl:w-[22%]">
+            <div className="sticky top-[140px] space-y-3">
+              {recentlyViewed.length > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="text-xs font-roboto font-semibold text-primary flex items-center gap-1.5">
+                      <span className="w-3.5 h-3.5 flex items-center justify-center">
+                        <i className="ri-time-line text-[10px]"></i>
+                      </span>
+                      Recently Viewed
+                    </h3>
+                    <button
+                      onClick={clearRecentlyViewed}
+                      className="text-[10px] font-roboto text-gray-400 hover:text-gray-600 cursor-pointer whitespace-nowrap"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="px-3 py-2 space-y-2">
+                    {recentlyViewed.slice(0, 4).map((p) => (
+                      <div key={p.id} className="group">
+                        <Link
+                          to={`/property/${p.slug}`}
+                          className="flex items-center gap-2.5 cursor-pointer"
+                        >
+                          <div className="w-14 h-10 flex-shrink-0 overflow-hidden rounded">
+                            <img
+                              src={p.image}
+                              alt={p.title}
+                              className="w-full h-full object-cover object-top"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-roboto font-semibold text-[#002349] group-hover:text-primary transition-colors truncate">
+                              {format(p.priceRaw, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+                            </p>
+                            <p className="text-[10px] font-roboto text-gray-500 truncate">{p.title}</p>
+                          </div>
+                        </Link>
+                        <div className="flex items-center justify-between mt-1 pl-[66px]">
+                          <button
+                            onClick={() => {
+                              const cp: CompareProperty = {
+                                id: p.id, slug: p.slug, title: p.title,
+                                location: p.location, type: p.type, category: p.category,
+                                beds: p.beds, baths: p.baths, parking: p.parking,
+                                rawPrice: p.priceRaw, currency: p.currency, image: p.image,
+                              };
+                              compare.toggleCompare(cp);
+                            }}
+                            className={`text-[10px] font-roboto cursor-pointer whitespace-nowrap transition-colors ${
+                              compare.isSelected(p.id)
+                                ? 'text-primary font-semibold'
+                                : 'text-gray-400 hover:text-primary'
+                            }`}
+                          >
+                            <span className="w-3 h-3 inline-flex items-center justify-center mr-0.5">
+                              <i className={`${compare.isSelected(p.id) ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'} text-[10px]`}></i>
+                            </span>
+                            {compare.isSelected(p.id) ? 'Added' : 'Compare'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2.5">
+                  <p className="text-[10px] font-roboto text-gray-400 uppercase tracking-wider mb-0.5">Search Filters Saved</p>
+                  <p className="text-xs font-roboto text-gray-600 leading-relaxed">
+                    Your filters are remembered. Return anytime to pick up where you left off.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2.5 border-b border-gray-100">
+                  <h3 className="text-xs font-roboto font-semibold text-primary">Quick Links</h3>
+                </div>
+                <div className="px-3 py-2 space-y-1.5">
+                  <Link to="/buy" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
+                    <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-home-line text-[10px]"></i></span>
+                    Properties for Sale
+                  </Link>
+                  <Link to="/rent" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
+                    <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-key-line text-[10px]"></i></span>
+                    Properties for Rent
+                  </Link>
+                  <Link to="/new-developments" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
+                    <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-building-4-line text-[10px]"></i></span>
+                    New Developments
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
 
-      {/* === RECENTLY VIEWED === */}
-      {recentlyViewed.length > 0 && (
-        <section className="bg-[#f8f6f2] border-t border-stone-200 py-10 md:py-14">
-          <div className="max-w-7xl mx-auto px-5 md:px-10">
-            <div className="flex items-end justify-between mb-6">
-              <div>
-                <p className="text-xs font-roboto font-semibold uppercase tracking-[0.2em] text-golden mb-1.5">Your History</p>
-                <h3 className="font-roboto font-bold text-xl md:text-2xl text-primary">Recently Viewed</h3>
-              </div>
-              <button
-                onClick={clearRecentlyViewed}
-                className="text-sm font-roboto text-stone-400 hover:text-stone-600 underline underline-offset-2 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                Clear all
-              </button>
-            </div>
-            <div className="flex gap-5 overflow-x-auto pb-2 no-scrollbar">
-              {recentlyViewed.map((p) => (
-                <Link
-                  key={p.id}
-                  to={`/property/${p.slug}`}
-                  className="flex-shrink-0 w-64 bg-white overflow-hidden hover:shadow-lg transition-shadow duration-300 cursor-pointer group"
-                >
-                  <div className="relative aspect-[4/3] overflow-hidden">
-                    <img
-                      src={p.image}
-                      alt={p.title}
-                      className="w-full h-full object-cover object-top group-hover:scale-[1.06] transition-transform duration-600"
-                    />
-                    <div className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/40 flex items-center justify-center backdrop-blur-sm">
-                      <i className="ri-time-line text-white text-xs"></i>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <p className="text-xs font-roboto font-semibold uppercase tracking-widest text-[#1f1f1f] mb-1.5">
-                      {p.category}
-                    </p>
-                    <h4 className="text-base font-roboto font-medium text-[#011328] leading-snug line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">
-                      {p.title}
-                    </h4>
-                    <p className="flex items-center gap-1 text-sm font-roboto text-[#636363] mb-3">
-                      <span className="w-3 h-3 flex items-center justify-center">
-                        <i className="ri-map-pin-line text-golden text-[10px]"></i>
-                      </span>
-                      {p.location}
-                    </p>
-                    <p className="text-lg font-roboto font-medium text-[#002349] mb-2">{p.price}</p>
-                    <div className="flex items-center gap-3 text-sm font-roboto text-[#363535]">
-                      <span className="flex items-center gap-1"><i className="ri-hotel-bed-line text-[#636363] text-xs"></i>{p.beds}</span>
-                      <span className="flex items-center gap-1"><i className="ri-drop-line text-[#636363] text-xs"></i>{p.baths}</span>
-                      <span className="flex items-center gap-1"><i className="ri-car-line text-[#636363] text-xs"></i>{p.parking}</span>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <CompareToolbar
+        selected={compare.selected}
+        onRemove={compare.removeFromCompare}
+        onClearAll={compare.clearAll}
+        onCompare={() => setShowCompareModal(true)}
+      />
+
+      <CompareModal
+        isOpen={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        properties={compare.selected}
+        onRemove={compare.removeFromCompare}
+      />
 
       <PageContactSection />
       <Footer />
@@ -550,6 +622,8 @@ export default function AllProperties() {
           slug: quickViewProperty.slug,
           title: quickViewProperty.title,
           price: quickViewProperty.price,
+          rawPrice: quickViewProperty.priceRaw,
+          currency: quickViewProperty.currency,
           priceUnit: quickViewProperty.priceUnit,
           location: quickViewProperty.location,
           category: quickViewProperty.category,
@@ -567,30 +641,29 @@ export default function AllProperties() {
   );
 }
 
-/* ── Property Card Skeleton ── */
+/* ── Property Card Skeleton — Zoopla dev-card proportions ── */
 function PropertyCardSkeleton() {
   return (
-    <div className="bg-white overflow-hidden animate-pulse">
-      <div className="aspect-[4/3] bg-stone-200"></div>
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden animate-pulse">
+      <div className="aspect-[645/430] w-full bg-stone-200"></div>
       <div className="p-4 space-y-3">
-        <div className="h-3 bg-stone-200 rounded w-1/3"></div>
-        <div className="h-4 bg-stone-200 rounded w-4/5"></div>
-        <div className="h-3 bg-stone-200 rounded w-2/3"></div>
-        <div className="h-3 bg-stone-200 rounded w-1/2"></div>
-        <div className="h-5 bg-stone-200 rounded w-1/3 mt-2"></div>
-        <div className="flex justify-between gap-3 pt-2 border-t border-stone-100">
-          <div className="flex gap-3">
-            <div className="h-4 bg-stone-200 rounded w-16"></div>
-            <div className="h-4 bg-stone-200 rounded w-16"></div>
-          </div>
-          <div className="h-3 bg-stone-200 rounded w-24"></div>
+        <div className="h-5 w-2/3 bg-stone-200 rounded"></div>
+        <div className="h-4 w-1/2 bg-stone-200 rounded"></div>
+        <div className="h-4 w-3/4 bg-stone-200 rounded"></div>
+        <div className="flex gap-2 pt-1">
+          <div className="h-6 w-16 bg-stone-200 rounded-full"></div>
+          <div className="h-6 w-20 bg-stone-200 rounded-full"></div>
+        </div>
+        <div className="flex items-center justify-between pt-3 border-t border-stone-100">
+          <div className="h-4 w-14 bg-stone-200 rounded"></div>
+          <div className="h-4 w-20 bg-stone-200 rounded"></div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ── Luxury Property Card ── */
+/* ── Luxury Property Card — Zoopla dev-card vertical style ── */
 function PropertyCard({
   property,
   isSaved,
@@ -602,8 +675,8 @@ function PropertyCard({
   onToggleSave: (id: string) => void;
   onQuickView: (p: Property) => void;
 }) {
+  const { format } = useCurrency();
   const [imgIdx, setImgIdx] = useState(0);
-  const [showPhotosOverlay, setShowPhotosOverlay] = useState(false);
   const totalImages = property.images.length;
 
   const nextImg = (e: React.MouseEvent) => {
@@ -633,17 +706,53 @@ function PropertyCard({
   };
 
   return (
-    <div className="group bg-white overflow-hidden hover:shadow-xl transition-shadow duration-300">
-      {/* Image Area */}
-      <Link to={`/property/${property.slug}`} className="block relative aspect-[4/3] overflow-hidden group">
-        <img
-          src={property.images[imgIdx] || property.image}
-          alt={property.title}
-          className="w-full h-full object-cover object-top group-hover:scale-[1.06] transition-transform duration-600"
-        />
+    <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 hover:shadow-md transition-all duration-200 group">
+      {/* ── Image — Zoopla 645×430 ratio ── */}
+      <div className="relative aspect-[645/430] w-full overflow-hidden">
+        <Link to={`/property/${property.slug}`} className="block w-full h-full">
+          <img
+            src={property.images[imgIdx] || property.image}
+            alt={property.title}
+            className="w-full h-full object-cover object-top scale-100 group-hover:scale-[1.06] transition-transform duration-500"
+          />
+        </Link>
 
-        {/* Dark gradient at bottom for text overlays */}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/50 to-transparent pointer-events-none"></div>
+        {/* Image counter */}
+        {totalImages > 1 && (
+          <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">
+            {imgIdx + 1}/{totalImages}
+          </div>
+        )}
+
+        {/* Nav arrows */}
+        {totalImages > 1 && (
+          <>
+            <button
+              onClick={prevImg}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <i className="ri-arrow-left-s-line text-sm"></i>
+            </button>
+            <button
+              onClick={nextImg}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+            >
+              <i className="ri-arrow-right-s-line text-sm"></i>
+            </button>
+          </>
+        )}
+
+        {/* Status badge */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+          <span className="inline-block text-[10px] font-roboto font-semibold uppercase tracking-wider px-2.5 py-1 text-white bg-[#088135]">
+            {property.type === 'sale' ? 'For Sale' : 'For Rent'}
+          </span>
+          {property.isJointVenture && (
+            <span className="inline-block text-[10px] font-roboto font-semibold uppercase tracking-wider px-2.5 py-1 text-white bg-[#2B5B3C]">
+              Joint Venture
+            </span>
+          )}
+        </div>
 
         {/* Save / Heart button */}
         <button
@@ -652,25 +761,11 @@ function PropertyCard({
             e.stopPropagation();
             onToggleSave(property.id);
           }}
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 hover:bg-white flex items-center justify-center cursor-pointer transition-colors shadow-sm"
+          className={`absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors ${isSaved ? 'bg-primary text-white' : 'bg-black/40 hover:bg-black/60 text-white'}`}
           aria-label={isSaved ? 'Remove from saved' : 'Save property'}
         >
-          <i className={`${isSaved ? 'ri-heart-fill text-red-500' : 'ri-heart-line text-stone-600'} text-sm`}></i>
+          <i className={`${isSaved ? 'ri-heart-fill' : 'ri-heart-line'} text-sm`}></i>
         </button>
-
-        {/* Status badge — top-left */}
-        <div className="absolute top-3 left-3 z-10">
-          <span className="inline-block text-[10px] font-roboto font-bold uppercase tracking-wider px-2.5 py-1 text-white bg-[#088135]">
-            {property.type === 'sale' ? 'For Sale' : 'For Rent'}
-          </span>
-        </div>
-
-        {/* Image counter badge */}
-        {totalImages > 1 && (
-          <div className="absolute bottom-3 left-3 z-10 bg-black/60 backdrop-blur-sm text-white text-xs font-roboto font-medium px-2 py-1 rounded-sm">
-            {imgIdx + 1}/{totalImages}
-          </div>
-        )}
 
         {/* Preview badge */}
         <button
@@ -688,103 +783,48 @@ function PropertyCard({
             Preview
           </span>
         </button>
+      </div>
 
-        {/* "View X photos" overlay on hover */}
-        {totalImages > 1 && (
-          <div
-            className={`absolute inset-x-0 bottom-0 z-10 flex items-end justify-center pb-3 transition-opacity duration-200 ${showPhotosOverlay ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-            onMouseEnter={() => setShowPhotosOverlay(true)}
-            onMouseLeave={() => setShowPhotosOverlay(false)}
-          >
-            <span className="bg-black/70 backdrop-blur-sm text-white text-xs font-roboto font-medium px-3 py-1.5 rounded-sm cursor-pointer hover:bg-black/80 transition-colors">
-              View {totalImages} photos
-            </span>
-          </div>
-        )}
-
-        {/* Nav arrows — appear on hover */}
-        {totalImages > 1 && (
-          <>
-            <button
-              onClick={prevImg}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white text-stone-700 rounded-full cursor-pointer transition-all opacity-0 group-hover:opacity-100 shadow-sm"
-              aria-label="Previous image"
-            >
-              <i className="ri-arrow-left-s-line text-base"></i>
-            </button>
-            <button
-              onClick={nextImg}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-white/80 hover:bg-white text-stone-700 rounded-full cursor-pointer transition-all opacity-0 group-hover:opacity-100 shadow-sm"
-              aria-label="Next image"
-            >
-              <i className="ri-arrow-right-s-line text-base"></i>
-            </button>
-          </>
-        )}
-      </Link>
-
-      {/* Content */}
-      <div className="p-5">
-        {/* Category */}
-        <p className="text-xs font-roboto font-semibold uppercase tracking-widest text-[#1f1f1f] mb-2">
-          {property.category}
-        </p>
-
-        {/* Title */}
-        <Link to={`/property/${property.slug}`} className="block">
-          <h3 className="text-base font-roboto font-medium text-[#011328] leading-snug line-clamp-2 mb-1.5 group-hover:text-primary transition-colors">
-            {property.title}
-          </h3>
-        </Link>
+      {/* ── Content — Zoopla dev-card content style ── */}
+      <div className="p-4 md:p-5 flex flex-col">
+        {/* Price */}
+        <div className="flex items-center gap-3 mb-3">
+          <span className="text-sm md:text-base font-roboto font-semibold text-[#011328]">
+            {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+          </span>
+          <span className="inline-flex items-center px-2.5 py-1 text-[10px] font-roboto font-semibold uppercase tracking-wider bg-[#f0f4e8] text-[#4a6b2a] rounded-full">
+            {property.category}
+          </span>
+        </div>
 
         {/* Location */}
-        <p className="flex items-center gap-1 text-sm font-roboto text-stone-400 mb-2">
-          <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-            <i className="ri-map-pin-line text-stone-300 text-xs"></i>
+        <p className="text-xs font-roboto text-[#636363] mb-1.5 flex items-center gap-1">
+          <span className="w-3 h-3 flex items-center justify-center">
+            <i className="ri-map-pin-line text-golden text-[10px]"></i>
           </span>
           {property.location}
         </p>
 
-        {/* Specs row — clean inline */}
-        <div className="flex items-center gap-4 mb-3 text-sm font-roboto text-stone-500">
-          {property.beds > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="w-3.5 h-3.5 flex items-center justify-center">
-                <i className="ri-hotel-bed-line text-stone-400 text-xs"></i>
-              </span>
-              {property.beds} Beds
-            </span>
-          )}
-          {property.baths > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="w-3.5 h-3.5 flex items-center justify-center">
-                <i className="ri-drop-line text-stone-400 text-xs"></i>
-              </span>
-              {property.baths} Baths
-            </span>
-          )}
-          {property.parking > 0 && (
-            <span className="flex items-center gap-1">
-              <span className="w-3.5 h-3.5 flex items-center justify-center">
-                <i className="ri-car-line text-stone-400 text-xs"></i>
-              </span>
-              {property.parking} Parking
-            </span>
-          )}
-        </div>
+        {/* Title */}
+        <Link to={`/property/${property.slug}`} className="block hover:underline mb-2">
+          <h3 className="text-sm md:text-base font-roboto font-semibold text-[#011328] leading-snug line-clamp-2">
+            {property.title}
+          </h3>
+        </Link>
 
-        {/* Price */}
-        <p className="text-lg font-roboto font-bold text-primary mb-3">
-          {property.price}
-          {property.priceUnit && <span className="text-xs text-stone-400 font-roboto ml-1">{property.priceUnit}</span>}
+        {/* Beds | Baths | Parking */}
+        <p className="text-xs md:text-sm font-roboto text-[#363535] mb-3">
+          {property.beds > 0 && <>{property.beds} {property.beds === 1 ? 'bed' : 'beds'}</>}
+          {property.baths > 0 && <> | {property.baths} {property.baths === 1 ? 'bath' : 'baths'}</>}
+          {property.parking > 0 && <> | <span className="w-3.5 h-3.5 inline-flex items-center justify-center align-middle"><i className="ri-car-line text-xs"></i></span> {property.parking} {property.parking === 1 ? 'parking space' : 'parking spaces'}</>}
         </p>
 
-        {/* Call + Email + Listed date — all in one row */}
-        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
-          <div className="flex items-center gap-4">
+        {/* Footer: actions + date */}
+        <div className="flex items-center justify-between pt-3 border-t-2 border-gray-200 mt-auto">
+          <div className="flex items-center gap-3">
             <button
               onClick={handleCall}
-              className="flex items-center gap-1.5 text-sm font-roboto font-medium text-stone-700 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 text-xs font-roboto font-medium text-gray-600 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className="ri-phone-line text-sm"></i>
@@ -793,7 +833,7 @@ function PropertyCard({
             </button>
             <button
               onClick={handleEmail}
-              className="flex items-center gap-1.5 text-sm font-roboto font-medium text-stone-700 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 text-xs font-roboto font-medium text-gray-600 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className="ri-mail-line text-sm"></i>
@@ -801,8 +841,8 @@ function PropertyCard({
               <span className="underline underline-offset-2">Email</span>
             </button>
           </div>
-          <p className="text-sm font-roboto font-medium text-[#005733] capitalize whitespace-nowrap ml-2">
-            {formatListedDate(property.listedDays)}
+          <p className="text-xs font-roboto font-semibold text-[#00703c] whitespace-nowrap">
+            {formatTimeAgo(property.createdAt)}
           </p>
         </div>
       </div>

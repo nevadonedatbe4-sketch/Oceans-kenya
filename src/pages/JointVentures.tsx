@@ -5,8 +5,8 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import { supabase } from '@/lib/supabase';
-import { jvFaqs } from '@/mocks/jointVentures';
 import { useLeadSubmit } from '@/hooks/useFormSubmit';
+import { useCurrency } from '@/hooks/useCurrency';
 
 const projectTypes = [
   'Apartment Blocks',
@@ -100,13 +100,17 @@ interface LandListing {
   size: string;
   titleType: string;
   price: string;
+  priceRaw: number;
+  currency: string;
   category: 'outright' | 'joint_venture';
   description: string;
   image: string;
 }
 
 export default function JointVentures() {
+  const { format } = useCurrency();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [jvFaqs, setJvFaqs] = useState<{ question: string; answer: string }[]>([]);
   const [landTab, setLandTab] = useState<'all' | 'outright' | 'joint_venture'>('all');
   const [requestTab, setRequestTab] = useState<'landowner' | 'investor'>('landowner');
   const [landData, setLandData] = useState<LandListing[]>([]);
@@ -117,7 +121,21 @@ export default function JointVentures() {
 
   useEffect(() => {
     fetchLandListings();
+    fetchFaqs();
   }, []);
+
+  async function fetchFaqs() {
+    try {
+      const { data } = await supabase
+        .from('jv_faqs')
+        .select('question, answer')
+        .eq('is_published', true)
+        .order('sort_order', { ascending: true });
+      if (data) setJvFaqs(data);
+    } catch {
+      // non-critical
+    }
+  }
 
   async function fetchLandListings() {
     setLandLoading(true);
@@ -135,7 +153,7 @@ export default function JointVentures() {
 
       if (data && data.length > 0) {
           const mapped: LandListing[] = data.map((row: Record<string, unknown>) => {
-            const currencyLabel = String(row.currency || '').toUpperCase() === 'UGX' ? 'UGX' : String(row.currency || '').toUpperCase() === 'USD' ? 'USD' : 'KSh';
+            const currencyLabel = String(row.currency || '').toUpperCase() === 'USD' ? 'USD' : 'KES';
             const priceVal = row.price ? Number(row.price) : 0;
             let priceDisplay = 'On request';
             if (priceVal > 0) {
@@ -155,6 +173,8 @@ export default function JointVentures() {
               size: row.land_size ? `${row.land_size} ${row.land_unit || 'acres'}` : (row.size ? `${row.size} ${row.size_unit || 'sqm'}` : ''),
               titleType: (row.custom_fields as Record<string, unknown> | null)?.title_type as string || 'Freehold',
               price: priceDisplay,
+              priceRaw: priceVal,
+              currency: currencyLabel,
               category: (row.sub_type === 'joint_venture' ? 'joint_venture' : 'outright') as 'outright' | 'joint_venture',
               description: String(row.description || ''),
               image: String(row.main_image || ''),
@@ -203,9 +223,9 @@ export default function JointVentures() {
               </h1>
               <p className="text-white/55 font-roboto text-sm md:text-base leading-relaxed mb-8 max-w-lg">
                 Post your land and find capital, or submit a brief and find a
-                plot. Oceans Uganda matches landowners with investors for joint
+                plot. Oceans Kenya matches landowners with investors for joint
                 ventures — and lists prime land available for outright purchase
-                across Kampala and beyond.
+                across Nairobi and beyond.
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-3">
                 <a
@@ -271,7 +291,7 @@ export default function JointVentures() {
       </section>
 
       {/* Project types strip */}
-      <section className="border-b border-stone-100">
+      <section className="border-b-2 border-stone-200">
         <div className="max-w-6xl mx-auto px-6 py-5 md:py-6">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <span className="text-stone-400 font-roboto text-xs uppercase tracking-wider mr-1">What gets built on JV land:</span>
@@ -298,7 +318,7 @@ export default function JointVentures() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 items-stretch">
             {/* Landowner card */}
-            <div className="border border-stone-200 bg-white p-6 md:p-8 flex flex-col">
+            <div className="border-2 border-stone-200 bg-white p-6 md:p-8 flex flex-col">
               <span className="inline-block self-start px-3 py-1 bg-primary/5 text-primary font-roboto text-[10px] uppercase tracking-widest font-semibold mb-5">
                 Landowner
               </span>
@@ -339,7 +359,7 @@ export default function JointVentures() {
             </div>
 
             {/* Investor card */}
-            <div className="border border-stone-200 bg-white p-6 md:p-8 flex flex-col">
+            <div className="border-2 border-stone-200 bg-white p-6 md:p-8 flex flex-col">
               <span className="inline-block self-start px-3 py-1 bg-accent/10 text-accent font-roboto text-[10px] uppercase tracking-widest font-semibold mb-5">
                 Investor
               </span>
@@ -434,7 +454,7 @@ export default function JointVentures() {
           {landLoading && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
               {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div key={n} className="border border-stone-200 bg-white p-5 md:p-6 animate-pulse">
+                <div key={n} className="border-2 border-stone-200 bg-white p-5 md:p-6 animate-pulse">
                   <div className="flex items-center justify-between mb-3">
                     <div className="h-3 bg-stone-200 rounded w-24" />
                     <div className="h-5 bg-stone-200 rounded w-20" />
@@ -494,7 +514,7 @@ export default function JointVentures() {
                     </svg>
 
                     {/* Card body — receipt paper */}
-                    <div className="bg-white border border-stone-200 p-6 md:p-7 relative">
+                    <div className="bg-white border-2 border-stone-200 p-6 md:p-7 relative">
                       {/* Ref code — mono, top center */}
                       <span className="font-mono text-xs text-stone-500 tracking-[0.2em] uppercase font-semibold block text-center mb-4">
                         {land.ref}
@@ -534,7 +554,7 @@ export default function JointVentures() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">{land.category === 'joint_venture' ? 'Ask' : 'Price'}</span>
-                          <span className="font-mono text-sm text-golden font-bold">{land.price}</span>
+                          <span className="font-mono text-sm text-golden font-bold">{format(land.priceRaw, land.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
                         </div>
                       </div>
 
@@ -572,7 +592,7 @@ export default function JointVentures() {
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Submit a Request</p>
             <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">Open a file with the JV desk.</h2>
             <p className="text-white/55 font-roboto text-sm max-w-lg mx-auto leading-relaxed">
-              Fill in whichever side applies to you. A member of the Oceans Uganda land team reviews every submission and responds within 48 hours.
+              Fill in whichever side applies to you. A member of the Oceans Kenya land team reviews every submission and responds within 48 hours.
             </p>
           </div>
 
@@ -657,7 +677,7 @@ export default function JointVentures() {
                   <p className="text-right text-xs text-stone-300 font-roboto mt-1">Max 500 characters</p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-stone-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t-2 border-stone-200">
                 <p className="text-stone-400 font-roboto text-xs leading-relaxed max-w-md">
                   Have a survey map or photos? Mention it here — our team will follow up to collect them by WhatsApp or email.
                 </p>
@@ -716,7 +736,7 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred district(s)</label>
-                  <input name="preferred_location" placeholder="e.g. Mukono, Entebbe, Gulu" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input name="preferred_location" placeholder="e.g. Karen, Westlands, Kileleshwa" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred use</label>
@@ -745,7 +765,7 @@ export default function JointVentures() {
                   <p className="text-right text-xs text-stone-300 font-roboto mt-1">Max 500 characters</p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-stone-100">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t-2 border-stone-200">
                 <p className="text-stone-400 font-roboto text-xs leading-relaxed max-w-md">
                   We only share your brief with landowners once you approve a shortlist — your details stay private until then.
                 </p>
@@ -783,7 +803,7 @@ export default function JointVentures() {
           </div>
           <div className="space-y-3">
             {jvFaqs.map((faq, idx) => (
-              <div key={idx} className="border border-stone-200 overflow-hidden">
+              <div key={idx} className="border-2 border-stone-200 overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
                   className="w-full flex items-start gap-3 p-4 md:p-5 text-left hover:bg-stone-50 transition-colors cursor-pointer"

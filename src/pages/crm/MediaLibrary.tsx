@@ -412,7 +412,7 @@ export default function MediaLibrary() {
       case 'document': return <FileText size={16} className="text-blue-500" />;
       case 'floorplan': return <Layout size={16} className="text-green-500" />;
       case 'brochure': return <FileText size={16} className="text-orange-500" />;
-      default: return <Image size={16} className="text-gray-400" />;
+      default: return <Image size={16} className="text-[#9ca3af]" />;
     }
   };
 
@@ -438,21 +438,21 @@ export default function MediaLibrary() {
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
         <div className="flex items-center gap-3 flex-1 w-full lg:w-auto">
           <div className="relative flex-1 max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
             <input
               type="text"
               placeholder="Search by name, alt text, caption..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+              className="w-full pl-9 pr-4 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
             />
           </div>
           <div className="relative">
-            <Folder size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Folder size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
             <select
               value={selectedFolder}
               onChange={(e) => setSelectedFolder(e.target.value)}
-              className="pl-9 pr-8 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white appearance-none cursor-pointer"
+              className="pl-9 pr-8 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white appearance-none cursor-pointer"
             >
               <option value="all">All Folders</option>
               {folders.map((f) => (
@@ -464,7 +464,7 @@ export default function MediaLibrary() {
             <select
               value={fileTypeFilter}
               onChange={(e) => setFileTypeFilter(e.target.value)}
-              className="px-3 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white cursor-pointer"
+              className="px-3 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white cursor-pointer"
             >
               {FILE_TYPE_FILTERS.map((f) => (
                 <option key={f.value} value={f.value}>{f.label}</option>
@@ -474,16 +474,16 @@ export default function MediaLibrary() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center border border-gray-200 rounded-md overflow-hidden">
+          <div className="flex items-center border border-[#e5e7eb] rounded-md overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2.5 cursor-pointer ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`p-2.5 cursor-pointer ${viewMode === 'grid' ? 'bg-primary text-white' : 'text-[#9ca3af] hover:bg-[#f7f8fa]'}`}
             >
               <Grid3X3 size={16} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2.5 cursor-pointer ${viewMode === 'list' ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+              className={`p-2.5 cursor-pointer ${viewMode === 'list' ? 'bg-primary text-white' : 'text-[#9ca3af] hover:bg-[#f7f8fa]'}`}
             >
               <List size={16} />
             </button>
@@ -492,7 +492,7 @@ export default function MediaLibrary() {
           {selectedIds.size > 0 && (
             <button
               onClick={() => setBulkDeleteConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 rounded-md text-sm font-roboto hover:bg-red-50 transition-colors cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-[#dc2626] rounded-md text-sm font-roboto hover:bg-red-50 transition-colors cursor-pointer"
             >
               <Trash2 size={16} />
               Delete ({selectedIds.size})
@@ -514,7 +514,7 @@ export default function MediaLibrary() {
               placeholder="Upload folder"
               value={folderFilter}
               onChange={(e) => setFolderFilter(e.target.value)}
-              className="w-32 px-3 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+              className="w-32 px-3 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
             />
           </div>
 
@@ -539,7 +539,7 @@ export default function MediaLibrary() {
       </div>
 
       {/* Stats bar */}
-      <div className="flex items-center gap-4 text-xs text-gray-500 font-roboto">
+      <div className="flex items-center gap-4 text-xs text-[#9ca3af] font-roboto">
         <span>{media.length} total items</span>
         <span>&middot;</span>
         <span>{filteredMedia.length} filtered</span>
@@ -565,12 +565,12 @@ export default function MediaLibrary() {
       {loading ? (
         <div className="text-center py-16">
           <Loader2 size={32} className="mx-auto text-gray-300 animate-spin mb-3" />
-          <p className="text-sm text-gray-400 font-roboto">Loading media library...</p>
+          <p className="text-sm text-[#9ca3af] font-roboto">Loading media library...</p>
         </div>
       ) : filteredMedia.length === 0 ? (
-        <div className="bg-white rounded-lg border border-gray-100 py-16 text-center">
+        <div className="bg-[#012144] lg:bg-white rounded-lg py-16 text-center">
           <Image size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-sm text-gray-400 font-roboto mb-1">
+          <p className="text-sm text-[#9ca3af] font-roboto mb-1">
             {media.length === 0 ? 'No media yet. Upload your first file.' : 'No media matches your search.'}
           </p>
           {media.length === 0 && (
@@ -589,11 +589,11 @@ export default function MediaLibrary() {
             return (
               <div
                 key={item.id}
-                className={`group bg-white rounded-lg border overflow-hidden transition-all hover:shadow-md ${
-                  isSelected ? 'border-primary ring-1 ring-primary' : 'border-gray-100'
+                className={`group bg-[#012144] lg:bg-white rounded-lg border overflow-hidden transition-all hover:shadow-md ${
+                  isSelected ? 'border-[#5eead4] ring-1 ring-[#5eead4] lg:border-primary lg:ring-primary' : 'border-[#1c3a5e] lg:border-[#f0f0f0]'
                 }`}
               >
-                <div className="relative aspect-square bg-gray-50">
+                <div className="relative aspect-square bg-[#f7f8fa]">
                   {item.file_type === 'image' ? (
                     <img
                       src={item.file_url}
@@ -604,7 +604,7 @@ export default function MediaLibrary() {
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                       {getFileIcon(item.file_type)}
-                      <span className="text-xs text-gray-400 font-roboto uppercase">{item.file_type}</span>
+                      <span className="text-xs text-[#9ca3af] font-roboto uppercase">{item.file_type}</span>
                     </div>
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
@@ -616,7 +616,7 @@ export default function MediaLibrary() {
                       className={`w-6 h-6 rounded border flex items-center justify-center cursor-pointer transition-all ${
                         isSelected
                           ? 'bg-primary border-primary text-white'
-                          : 'bg-white/80 border-gray-300 text-transparent hover:text-gray-500'
+                          : 'bg-white/80 border-gray-300 text-transparent hover:text-[#9ca3af]'
                       }`}
                     >
                       <Check size={14} />
@@ -627,35 +627,35 @@ export default function MediaLibrary() {
                   <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => setPreviewItem(item)}
-                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-gray-600 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-[#636363] transition-colors"
                       title="Preview"
                     >
                       <Eye size={14} />
                     </button>
                     <button
                       onClick={() => setEditItem(item)}
-                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-gray-600 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-[#636363] transition-colors"
                       title="Edit"
                     >
                       <Edit3 size={14} />
                     </button>
                     <button
                       onClick={() => handleCopyUrl(item.file_url)}
-                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-gray-600 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-[#636363] transition-colors"
                       title="Copy URL"
                     >
                       <Copy size={14} />
                     </button>
                     <button
                       onClick={() => handleReplaceGlobal(item)}
-                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-gray-600 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-white cursor-pointer text-[#636363] transition-colors"
                       title="Replace Globally"
                     >
                       <Replace size={14} />
                     </button>
                     <button
                       onClick={() => setDeleteConfirm(item.id)}
-                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-red-50 cursor-pointer text-gray-600 hover:text-red-600 transition-colors"
+                      className="w-8 h-8 flex items-center justify-center bg-white/90 rounded-md hover:bg-red-50 cursor-pointer text-[#636363] hover:text-[#dc2626] transition-colors"
                       title="Delete"
                     >
                       <Trash2 size={14} />
@@ -671,14 +671,14 @@ export default function MediaLibrary() {
                 </div>
 
                 <div className="p-3">
-                  <p className="text-xs font-roboto text-gray-700 truncate" title={item.file_name}>
+                  <p className="text-xs font-roboto text-[#9ca3af] lg:text-[#636363] truncate" title={item.file_name}>
                     {item.file_name}
                   </p>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-[10px] text-gray-400 font-roboto">
+                    <span className="text-[10px] text-[#6b7280] lg:text-[#9ca3af] font-roboto">
                       {formatFileSize(item.file_size)}
                     </span>
-                    <span className="text-[10px] text-gray-400 font-roboto">
+                    <span className="text-[10px] text-[#6b7280] lg:text-[#9ca3af] font-roboto">
                       {item.folder || 'General'}
                     </span>
                   </div>
@@ -693,10 +693,10 @@ export default function MediaLibrary() {
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
+        <div className="bg-[#012144] lg:bg-white rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-[#f7f8fa]">
                 <tr>
                   <th className="px-4 py-3 w-10">
                     <button
@@ -712,20 +712,20 @@ export default function MediaLibrary() {
                       )}
                     </button>
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Preview</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden sm:table-cell">Alt / Caption</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden md:table-cell">Folder</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Size</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden sm:table-cell">Linked</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider">Preview</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider hidden sm:table-cell">Alt / Caption</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider hidden md:table-cell">Folder</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider">Size</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider hidden sm:table-cell">Linked</th>
+                  <th className="px-4 py-3 text-left text-xs font-roboto text-[#9ca3af] uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredMedia.map((item) => (
                   <tr
                     key={item.id}
-                    className={`hover:bg-gray-50/50 transition-colors ${
+                    className={`hover:bg-[#f7f8fa]/50 transition-colors ${
                       selectedIds.has(item.id) ? 'bg-primary/5' : ''
                     }`}
                   >
@@ -749,28 +749,28 @@ export default function MediaLibrary() {
                           className="w-12 h-12 object-cover rounded"
                         />
                       ) : (
-                        <div className="w-12 h-12 rounded bg-gray-50 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded bg-[#f7f8fa] flex items-center justify-center">
                           {getFileIcon(item.file_type)}
                         </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="text-sm font-roboto text-[#1a1a2e] truncate max-w-[200px]">
+                      <p className="text-sm font-roboto text-[#1a1a1a] truncate max-w-[200px]">
                         {item.file_name}
                       </p>
-                      <p className="text-[10px] text-gray-400 font-roboto">
+                      <p className="text-[10px] text-[#9ca3af] font-roboto">
                         {new Date(item.created_at).toLocaleDateString()}
                       </p>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
-                      <p className="text-xs text-gray-500 font-roboto truncate max-w-[200px]">{item.alt_text || '—'}</p>
-                      <p className="text-[10px] text-gray-400 font-roboto truncate max-w-[200px]">{item.caption || '—'}</p>
+                      <p className="text-xs text-[#9ca3af] font-roboto truncate max-w-[200px]">{item.alt_text || '—'}</p>
+                      <p className="text-[10px] text-[#9ca3af] font-roboto truncate max-w-[200px]">{item.caption || '—'}</p>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs text-gray-500 font-roboto">{item.folder || 'General'}</span>
+                      <span className="text-xs text-[#9ca3af] font-roboto">{item.folder || 'General'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-xs text-gray-500 font-roboto">{formatFileSize(item.file_size)}</span>
+                      <span className="text-xs text-[#9ca3af] font-roboto">{formatFileSize(item.file_size)}</span>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell">
                       {item.linked_module ? (
@@ -778,35 +778,35 @@ export default function MediaLibrary() {
                           {item.linked_module}
                         </span>
                       ) : (
-                        <span className="text-xs text-gray-400 font-roboto">—</span>
+                        <span className="text-xs text-[#9ca3af] font-roboto">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => handleCopyUrl(item.file_url)}
-                          className="p-1.5 hover:bg-gray-100 rounded-md cursor-pointer text-gray-400 hover:text-primary transition-colors"
+                          className="p-1.5 hover:bg-[#f7f8fa] rounded-md cursor-pointer text-[#9ca3af] hover:text-primary transition-colors"
                           title="Copy URL"
                         >
                           <Copy size={14} />
                         </button>
                         <button
                           onClick={() => setEditItem(item)}
-                          className="p-1.5 hover:bg-gray-100 rounded-md cursor-pointer text-gray-400 hover:text-primary transition-colors"
+                          className="p-1.5 hover:bg-[#f7f8fa] rounded-md cursor-pointer text-[#9ca3af] hover:text-primary transition-colors"
                           title="Edit"
                         >
                           <Edit3 size={14} />
                         </button>
                         <button
                           onClick={() => setAttachModal(item)}
-                          className="p-1.5 hover:bg-gray-100 rounded-md cursor-pointer text-gray-400 hover:text-primary transition-colors"
+                          className="p-1.5 hover:bg-[#f7f8fa] rounded-md cursor-pointer text-[#9ca3af] hover:text-primary transition-colors"
                           title="Attach to listing"
                         >
                           <Link size={14} />
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(item.id)}
-                          className="p-1.5 hover:bg-red-50 rounded-md cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
+                          className="p-1.5 hover:bg-red-50 rounded-md cursor-pointer text-[#9ca3af] hover:text-[#dc2626] transition-colors"
                           title="Delete"
                         >
                           <Trash2 size={14} />
@@ -826,13 +826,13 @@ export default function MediaLibrary() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setPreviewItem(null)} />
           <div className="relative bg-white rounded-lg w-full max-w-3xl shadow-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-jost text-lg text-[#1a1a2e] truncate">{previewItem.file_name}</h2>
-              <button onClick={() => setPreviewItem(null)} className="p-1 hover:bg-gray-100 rounded-md cursor-pointer">
-                <X size={18} className="text-gray-400" />
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0]">
+              <h2 className="font-jost text-lg text-[#1a1a1a] truncate">{previewItem.file_name}</h2>
+              <button onClick={() => setPreviewItem(null)} className="p-1 hover:bg-[#f7f8fa] rounded-md cursor-pointer">
+                <X size={18} className="text-[#9ca3af]" />
               </button>
             </div>
-            <div className="p-6 flex items-center justify-center bg-gray-50">
+            <div className="p-6 flex items-center justify-center bg-[#f7f8fa]">
               {previewItem.file_type === 'image' ? (
                 <img src={previewItem.file_url} alt={previewItem.alt_text || ''} className="max-w-full max-h-[60vh] object-contain rounded-lg" />
               ) : previewItem.file_type === 'video' ? (
@@ -840,7 +840,7 @@ export default function MediaLibrary() {
               ) : (
                 <div className="flex flex-col items-center gap-3 py-12">
                   {getFileIcon(previewItem.file_type)}
-                  <p className="text-sm text-gray-500 font-roboto">Preview not available for this file type</p>
+                  <p className="text-sm text-[#9ca3af] font-roboto">Preview not available for this file type</p>
                   <a href={previewItem.file_url} target="_blank" rel="noreferrer" className="text-primary text-sm font-roboto hover:underline">
                     Download file
                   </a>
@@ -848,12 +848,12 @@ export default function MediaLibrary() {
               )}
             </div>
             <div className="p-6 space-y-2">
-              <p className="text-xs text-gray-500 font-roboto"><span className="font-semibold">Type:</span> {previewItem.file_type}</p>
-              <p className="text-xs text-gray-500 font-roboto"><span className="font-semibold">Size:</span> {formatFileSize(previewItem.file_size)}</p>
-              <p className="text-xs text-gray-500 font-roboto"><span className="font-semibold">Alt:</span> {previewItem.alt_text || '—'}</p>
-              <p className="text-xs text-gray-500 font-roboto"><span className="font-semibold">Caption:</span> {previewItem.caption || '—'}</p>
-              <p className="text-xs text-gray-500 font-roboto"><span className="font-semibold">Folder:</span> {previewItem.folder || 'General'}</p>
-              <p className="text-xs text-gray-500 font-roboto"><span className="font-semibold">Linked:</span> {previewItem.linked_module || 'None'}</p>
+              <p className="text-xs text-[#9ca3af] font-roboto"><span className="font-semibold">Type:</span> {previewItem.file_type}</p>
+              <p className="text-xs text-[#9ca3af] font-roboto"><span className="font-semibold">Size:</span> {formatFileSize(previewItem.file_size)}</p>
+              <p className="text-xs text-[#9ca3af] font-roboto"><span className="font-semibold">Alt:</span> {previewItem.alt_text || '—'}</p>
+              <p className="text-xs text-[#9ca3af] font-roboto"><span className="font-semibold">Caption:</span> {previewItem.caption || '—'}</p>
+              <p className="text-xs text-[#9ca3af] font-roboto"><span className="font-semibold">Folder:</span> {previewItem.folder || 'General'}</p>
+              <p className="text-xs text-[#9ca3af] font-roboto"><span className="font-semibold">Linked:</span> {previewItem.linked_module || 'None'}</p>
               <div className="pt-2">
                 <button
                   onClick={() => handleCopyUrl(previewItem.file_url)}
@@ -873,15 +873,15 @@ export default function MediaLibrary() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setEditItem(null)} />
           <div className="relative bg-white rounded-lg w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-jost text-lg text-[#1a1a2e]">Edit Media</h2>
-              <button onClick={() => setEditItem(null)} className="p-1 hover:bg-gray-100 rounded-md cursor-pointer">
-                <X size={18} className="text-gray-400" />
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0]">
+              <h2 className="font-jost text-lg text-[#1a1a1a]">Edit Media</h2>
+              <button onClick={() => setEditItem(null)} className="p-1 hover:bg-[#f7f8fa] rounded-md cursor-pointer">
+                <X size={18} className="text-[#9ca3af]" />
               </button>
             </div>
             <form onSubmit={handleUpdate} className="p-6 space-y-4">
               <div className="flex gap-4">
-                <div className="w-24 h-24 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                <div className="w-24 h-24 rounded-lg bg-[#f7f8fa] flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {editItem.file_type === 'image' ? (
                     <img src={editItem.file_url} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -890,41 +890,41 @@ export default function MediaLibrary() {
                 </div>
                 <div className="flex-1 space-y-3">
                   <div>
-                    <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">File Name</label>
+                    <label className="block text-xs font-roboto text-[#9ca3af] uppercase tracking-wider mb-1.5">File Name</label>
                     <input
                       type="text"
                       value={editItem.file_name}
                       onChange={(e) => setEditItem({ ...editItem, file_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Folder</label>
+                    <label className="block text-xs font-roboto text-[#9ca3af] uppercase tracking-wider mb-1.5">Folder</label>
                     <input
                       type="text"
                       value={editItem.folder || ''}
                       onChange={(e) => setEditItem({ ...editItem, folder: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
                     />
                   </div>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Alt Text</label>
+                <label className="block text-xs font-roboto text-[#9ca3af] uppercase tracking-wider mb-1.5">Alt Text</label>
                 <input
                   type="text"
                   value={editItem.alt_text || ''}
                   onChange={(e) => setEditItem({ ...editItem, alt_text: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
                   placeholder="Describe the image for accessibility"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Caption</label>
+                <label className="block text-xs font-roboto text-[#9ca3af] uppercase tracking-wider mb-1.5">Caption</label>
                 <textarea
                   value={editItem.caption || ''}
                   onChange={(e) => setEditItem({ ...editItem, caption: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary min-h-[60px] resize-none"
+                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary min-h-[60px] resize-none"
                   placeholder="Optional caption"
                   maxLength={500}
                 />
@@ -933,7 +933,7 @@ export default function MediaLibrary() {
                 <button
                   type="button"
                   onClick={() => setEditItem(null)}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto text-gray-600 hover:bg-gray-50 cursor-pointer"
+                  className="flex-1 px-4 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto text-[#636363] hover:bg-[#f7f8fa] cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -954,15 +954,15 @@ export default function MediaLibrary() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setAttachModal(null)} />
           <div className="relative bg-white rounded-lg w-full max-w-lg shadow-xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h2 className="font-jost text-lg text-[#1a1a2e]">Attach to Listing</h2>
-              <button onClick={() => setAttachModal(null)} className="p-1 hover:bg-gray-100 rounded-md cursor-pointer">
-                <X size={18} className="text-gray-400" />
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#f0f0f0]">
+              <h2 className="font-jost text-lg text-[#1a1a1a]">Attach to Listing</h2>
+              <button onClick={() => setAttachModal(null)} className="p-1 hover:bg-[#f7f8fa] rounded-md cursor-pointer">
+                <X size={18} className="text-[#9ca3af]" />
               </button>
             </div>
             <div className="p-6">
               <div className="flex items-start gap-3 mb-4">
-                <div className="w-16 h-16 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden">
+                <div className="w-16 h-16 rounded-lg bg-[#f7f8fa] flex items-center justify-center overflow-hidden">
                   {attachModal.file_type === 'image' ? (
                     <img src={attachModal.file_url} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -970,37 +970,37 @@ export default function MediaLibrary() {
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-roboto text-[#1a1a2e]">{attachModal.file_name}</p>
-                  <p className="text-xs text-gray-400 font-roboto">{formatFileSize(attachModal.file_size)}</p>
+                  <p className="text-sm font-roboto text-[#1a1a1a]">{attachModal.file_name}</p>
+                  <p className="text-xs text-[#9ca3af] font-roboto">{formatFileSize(attachModal.file_size)}</p>
                 </div>
               </div>
 
               <div className="relative mb-4">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
                 <input
                   type="text"
                   placeholder="Search listings..."
                   value={attachSearch}
                   onChange={(e) => setAttachSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full pl-9 pr-4 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
                 />
               </div>
 
-              <div className="max-h-60 overflow-y-auto border border-gray-100 rounded-md">
+              <div className="max-h-60 overflow-y-auto border border-[#f0f0f0] rounded-md">
                 {filteredListings.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-gray-400 font-roboto">No listings found</div>
+                  <div className="p-4 text-center text-sm text-[#9ca3af] font-roboto">No listings found</div>
                 ) : (
                   filteredListings.map((listing) => (
                     <button
                       key={listing.id}
                       onClick={() => handleAttachToListing(listing.id)}
-                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors cursor-pointer border-b border-gray-50 last:border-0"
+                      className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#f7f8fa] transition-colors cursor-pointer border-b border-gray-50 last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-roboto text-[#1a1a2e]">{listing.title}</p>
-                        <p className="text-xs text-gray-400 font-roboto">/{listing.slug}</p>
+                        <p className="text-sm font-roboto text-[#1a1a1a]">{listing.title}</p>
+                        <p className="text-xs text-[#9ca3af] font-roboto">/{listing.slug}</p>
                       </div>
-                      <Link size={14} className="text-gray-400" />
+                      <Link size={14} className="text-[#9ca3af]" />
                     </button>
                   ))
                 )}
@@ -1016,20 +1016,20 @@ export default function MediaLibrary() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setDeleteConfirm(null)} />
           <div className="relative bg-white rounded-lg w-full max-w-sm shadow-xl p-6 text-center">
             <AlertCircle size={28} className="mx-auto text-red-500 mb-3" />
-            <h3 className="font-jost text-lg text-[#1a1a2e] mb-1">Delete this item?</h3>
-            <p className="text-sm text-gray-500 font-roboto mb-6">
+            <h3 className="font-jost text-lg text-[#1a1a1a] mb-1">Delete this item?</h3>
+            <p className="text-sm text-[#9ca3af] font-roboto mb-6">
               This will remove the file from the library and storage. This action cannot be undone.
             </p>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto text-gray-600 hover:bg-gray-50 cursor-pointer"
+                className="flex-1 px-4 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto text-[#636363] hover:bg-[#f7f8fa] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-roboto cursor-pointer"
+                className="flex-1 px-4 py-2.5 bg-[#dc2626] hover:bg-red-700 text-white rounded-md text-sm font-roboto cursor-pointer"
               >
                 Delete
               </button>
@@ -1044,20 +1044,20 @@ export default function MediaLibrary() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setBulkDeleteConfirm(false)} />
           <div className="relative bg-white rounded-lg w-full max-w-sm shadow-xl p-6 text-center">
             <AlertCircle size={28} className="mx-auto text-red-500 mb-3" />
-            <h3 className="font-jost text-lg text-[#1a1a2e] mb-1">Delete {selectedIds.size} items?</h3>
-            <p className="text-sm text-gray-500 font-roboto mb-6">
+            <h3 className="font-jost text-lg text-[#1a1a1a] mb-1">Delete {selectedIds.size} items?</h3>
+            <p className="text-sm text-[#9ca3af] font-roboto mb-6">
               This will remove all selected files from the library. This action cannot be undone.
             </p>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setBulkDeleteConfirm(false)}
-                className="flex-1 px-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto text-gray-600 hover:bg-gray-50 cursor-pointer"
+                className="flex-1 px-4 py-2.5 border border-[#e5e7eb] rounded-md text-sm font-roboto text-[#636363] hover:bg-[#f7f8fa] cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkDelete}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-md text-sm font-roboto cursor-pointer"
+                className="flex-1 px-4 py-2.5 bg-[#dc2626] hover:bg-red-700 text-white rounded-md text-sm font-roboto cursor-pointer"
               >
                 Delete All
               </button>
