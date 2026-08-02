@@ -6,6 +6,8 @@ interface Props {
   setAgentId: (v: string) => void;
   isFeatured: boolean;
   setIsFeatured: (v: boolean) => void;
+  featuredNewDevelopment: boolean;
+  setFeaturedNewDevelopment: (v: boolean) => void;
   onPublish: () => void;
   title: string;
   propertyType: string;
@@ -91,6 +93,7 @@ const Toggle = ({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
 
 export default function SettingsStep({
   agents, agentId, setAgentId, isFeatured, setIsFeatured,
+  featuredNewDevelopment, setFeaturedNewDevelopment,
   title, propertyType, neighbourhood, price, currency,
   bedrooms, bathrooms, amenities, images, purpose,
 }: Props) {
@@ -125,6 +128,33 @@ export default function SettingsStep({
         </select>
         <p className={hintClass}>The assigned agent will be shown on the property detail page</p>
       </Card>
+
+      {/* Mark as New Development */}
+      <SectionHeader
+        icon="ri-building-line"
+        title="New Development"
+        subtitle="Only checked properties appear on the New Developments page"
+      />
+      <div className="border border-[#e8ecf0] bg-white overflow-hidden rounded-xl">
+        <div className="flex items-center justify-between gap-4 px-6 py-5 hover:bg-[#fafbfc] transition-colors">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-9 h-9 flex items-center justify-center shrink-0 rounded-lg border border-[#e8ecf0] bg-[#f4f6f8]">
+              <i className="ri-building-line text-sm text-[#5a6a7a]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-[#1a1e24]">
+                {featuredNewDevelopment ? 'Marked as New Development' : 'Mark as New Development'}
+              </p>
+              <p className="text-[13px] text-[#7a8a99] mt-0.5 leading-relaxed">
+                {featuredNewDevelopment
+                  ? 'This property will appear on the New Developments listing page'
+                  : 'Toggle on to make this property visible on the /new-developments page'}
+              </p>
+            </div>
+          </div>
+          <Toggle enabled={featuredNewDevelopment} onChange={setFeaturedNewDevelopment} />
+        </div>
+      </div>
 
       {/* Featured Property */}
       <SectionHeader
@@ -200,6 +230,12 @@ export default function SettingsStep({
             }`}>
               <i className="ri-star-line" />
               {isFeatured ? 'Featured' : 'Not Featured'}
+            </span>
+            <span className={`inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-md ${
+              featuredNewDevelopment ? 'bg-[#d3bb6e]/10 text-[#d3bb6e]' : 'bg-white/10 text-white/40'
+            }`}>
+              <i className="ri-building-line" />
+              {featuredNewDevelopment ? 'New Dev' : 'Not New Dev'}
             </span>
             <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3 py-1.5 rounded-md bg-white/10 text-white/70">
               <i className="ri-price-tag-3-line" />

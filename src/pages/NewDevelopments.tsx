@@ -43,6 +43,13 @@ function formatCompactPrice(n: number): string {
   return String(n);
 }
 
+function getCompletionStatus(completionDate: string): { label: string; color: string } {
+  const cd = completionDate.toLowerCase().trim();
+  if (!cd || cd === 'completed' || cd === 'ready') return { label: 'Completed', color: 'bg-emerald-600' };
+  if (cd.includes('2026') || cd.includes('q1') || cd.includes('q2') || cd.includes('q3') || cd.includes('q4')) return { label: 'Under Construction', color: 'bg-amber-500' };
+  return { label: 'Off-Plan', color: 'bg-accent' };
+}
+
 function getDevLabel(dev: DevelopmentGroup): string {
   if (dev.unitOptions.length <= 1) {
     const pt = dev.propertyType.toLowerCase();
@@ -286,9 +293,9 @@ export default function NewDevelopments() {
     const compareFull = compareIds.length >= 3 && !isComparing;
 
     return (
-      <div key={dev.id} className={`group relative bg-white overflow-hidden border transition-all duration-300 hover:-translate-y-1 flex flex-col ${compareMode && isComparing ? 'ring-2 ring-golden' : ''}`} style={{ borderColor: '#f0f0f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
+      <Link key={dev.id} to={`/property/${dev.slug}`} className={`group relative bg-white overflow-hidden border transition-all duration-300 hover:-translate-y-1 flex flex-col cursor-pointer ${compareMode && isComparing ? 'ring-2 ring-golden' : ''}`} style={{ borderColor: '#f0f0f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
         {/* Image */}
-        <Link to={`/property/${dev.slug}`} className="block relative overflow-hidden flex-shrink-0 h-48 sm:h-52 md:h-56">
+        <div className="block relative overflow-hidden flex-shrink-0 h-48 sm:h-52 md:h-56">
           {dev.image ? (
             <img alt={dev.name} className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" src={dev.image} />
           ) : (
@@ -297,11 +304,16 @@ export default function NewDevelopments() {
             </div>
           )}
           {/* Status badge - top right */}
-          <div className="absolute top-3 right-3 z-10">
-            <span className={`text-white text-[10px] font-roboto font-semibold uppercase tracking-[0.15em] px-2.5 py-1 ${isCompleted ? 'bg-emerald-600' : 'bg-accent'}`}>
-              {isCompleted ? 'Completed' : 'Off-Plan'}
-            </span>
-          </div>
+          {(() => {
+            const status = getCompletionStatus(dev.completionDate);
+            return (
+              <div className="absolute top-3 right-3 z-10">
+                <span className={`text-white text-[10px] font-roboto font-semibold uppercase tracking-[0.15em] px-2.5 py-1 ${status.color}`}>
+                  {status.label}
+                </span>
+              </div>
+            );
+          })()}
           {/* Compare checkbox overlay */}
           {compareMode && (
             <button
@@ -323,16 +335,14 @@ export default function NewDevelopments() {
               <i className="ri-notification-3-line text-xs"></i>
             </button>
           )}
-        </Link>
+        </div>
 
         {/* Card body */}
         <div className="flex flex-col flex-1 p-4 md:p-5">
           {/* Developer logo + Name + Location */}
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="min-w-0">
-              <Link to={`/property/${dev.slug}`}>
                 <h2 className="text-[15px] md:text-base font-prata text-primary leading-snug mb-0.5 group-hover:text-golden transition-colors line-clamp-1">{dev.name}</h2>
-              </Link>
               <p className="text-xs font-roboto text-stone-400 line-clamp-1">{dev.location}</p>
             </div>
             {dev.developer && (
@@ -401,7 +411,7 @@ export default function NewDevelopments() {
         >
           <i className={`${isSaved ? 'ri-heart-fill' : 'ri-heart-line'} text-xs`}></i>
         </button>
-      </div>
+      </Link>
     );
   };
 
@@ -501,12 +511,13 @@ export default function NewDevelopments() {
             </div>
             <div className="space-y-6 md:space-y-10">
               {featuredListings.map((dev: NewDevListing, idx: number) => (
-                <div key={dev.id} className="grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-hidden border transition-all duration-300 hover:-translate-y-1" style={{ borderColor: '#f3f4f6', boxShadow: '0 12px 48px rgba(0,23,49,0.1)' }}>
-                  <div className={`relative h-60 sm:h-72 md:h-80 lg:h-auto ${idx % 2 === 1 ? 'lg:order-2' : ''} group`}>
+                <Link key={dev.id} to={`/property/${dev.slug}`} className="block cursor-pointer">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 overflow-hidden border transition-all duration-300 hover:-translate-y-1" style={{ borderColor: '#f3f4f6', boxShadow: '0 12px 48px rgba(0,23,49,0.1)' }}>
+                  <div className={`relative h-80 ${idx % 2 === 1 ? 'lg:order-2' : ''} group`}>
                     {dev.image ? (
-                      <img alt={dev.title} className="w-full h-full object-cover object-top lg:absolute lg:inset-0" src={dev.image} />
+                      <img alt={dev.title} className="w-full h-full object-cover" src={dev.image} />
                     ) : (
-                      <div className="w-full h-full bg-stone-100 flex items-center justify-center lg:absolute lg:inset-0">
+                      <div className="w-full h-full bg-stone-100 flex items-center justify-center">
                         <i className="ri-building-line text-4xl text-stone-300"></i>
                       </div>
                     )}
@@ -516,7 +527,12 @@ export default function NewDevelopments() {
                       </span>
                     </div>
                     <div className="absolute top-3 right-3 md:top-4 md:right-4">
-                      <span className="bg-accent text-white font-roboto text-[11px] md:text-xs px-2.5 md:px-3 py-1 md:py-1.5 uppercase tracking-wider">New Development</span>
+                      {(() => {
+                        const status = getCompletionStatus(dev.completionDate);
+                        return (
+                          <span className={`${status.color} text-white font-roboto text-[11px] md:text-xs px-2.5 md:px-3 py-1 md:py-1.5 uppercase tracking-wider`}>{status.label}</span>
+                        );
+                      })()}
                     </div>
                     <button
                       onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickViewProperty(dev); }}
@@ -527,53 +543,50 @@ export default function NewDevelopments() {
                       </span>
                     </button>
                   </div>
-                  <div className={`p-5 md:p-8 lg:p-10 flex flex-col justify-center bg-white ${idx % 2 === 1 ? 'lg:order-1' : ''}`}>
-                    <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-2">New Development</p>
-                    <h3 className="text-primary font-prata text-xl md:text-2xl mb-2 md:mb-3">{dev.title}</h3>
-                    <p className="text-stone-400 font-roboto text-sm flex items-center gap-1.5 mb-3 md:mb-4">
+                  <div className={`p-3 md:p-4 lg:p-5 flex flex-col justify-start bg-white h-80 ${idx % 2 === 1 ? 'lg:order-1' : ''}`}>
+                    <p className="text-golden text-[10px] md:text-[11px] font-roboto font-semibold tracking-widest uppercase mb-1">New Development</p>
+                    <h3 className="text-primary font-prata text-lg md:text-xl mb-1 leading-tight">{dev.title}</h3>
+                    <p className="text-stone-400 font-roboto text-xs flex items-center gap-1 mb-2">
                       <i className="ri-map-pin-2-line text-golden"></i>{dev.location}
                     </p>
-                    <div className="flex flex-wrap gap-3 md:gap-4 mb-4 md:mb-6">
+                    <div className="flex flex-wrap gap-2 md:gap-3 mb-2">
                       {dev.beds > 0 && (
-                        <div className="flex items-center gap-2 text-xs md:text-sm font-roboto text-stone-500">
-                          <i className="ri-hotel-bed-line text-primary"></i>{dev.beds} {dev.beds === 1 ? 'Bedroom' : 'Bedrooms'}
+                        <div className="flex items-center gap-1.5 text-xs font-roboto text-stone-500">
+                          <i className="ri-hotel-bed-line text-primary"></i>{dev.beds} {dev.beds === 1 ? 'Bed' : 'Beds'}
                         </div>
                       )}
                       {dev.baths > 0 && (
-                        <div className="flex items-center gap-2 text-xs md:text-sm font-roboto text-stone-500">
-                          <i className="fa-solid fa-bath text-primary"></i>{dev.baths} {dev.baths === 1 ? 'Bathroom' : 'Bathrooms'}
+                        <div className="flex items-center gap-1.5 text-xs font-roboto text-stone-500">
+                          <i className="fa-solid fa-bath text-primary"></i>{dev.baths} {dev.baths === 1 ? 'Bath' : 'Baths'}
                         </div>
                       )}
                       {dev.parking > 0 && (
-                        <div className="flex items-center gap-2 text-xs md:text-sm font-roboto text-stone-500">
-                          <i className="ri-car-line text-primary"></i>{dev.parking} Parking
+                        <div className="flex items-center gap-1.5 text-xs font-roboto text-stone-500">
+                          <i className="ri-car-line text-primary"></i>{dev.parking} Park
                         </div>
                       )}
                     </div>
-                    <Link to={`/property/${dev.slug}`} className="inline-flex items-center gap-1.5 text-primary font-roboto text-xs md:text-sm font-semibold mb-3 cursor-pointer hover:text-primary/70 transition-colors whitespace-nowrap">
-                      See more of this development <i className="ri-arrow-right-line text-xs"></i>
-                    </Link>
-                    <ul className="space-y-1.5 mb-4 md:mb-6">
+<ul className="space-y-0.5 mb-2 flex-1">
                       {(() => {
                         const feat = (dev.featureList && dev.featureList.length > 0) ? dev.featureList : ['3 & 4 bedroom properties', 'Garden', 'Extended warranties'];
-                        return feat.map((f: string, i: number) => (
+                        return feat.slice(0, 5).map((f: string, i: number) => (
                           <li key={i} className="flex items-center gap-2 text-xs md:text-sm font-roboto text-primary">
                             <i className="ri-checkbox-circle-fill text-primary text-xs"></i>{f}
                           </li>
                         ));
                       })()}
                     </ul>
-                    <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3 mt-auto">
-                      <Link to={`/property/${dev.slug}`} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 bg-primary text-white font-roboto text-[11px] md:text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-1.5 md:gap-2">
+                      <Link to={`/property/${dev.slug}`} className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 bg-primary text-white font-roboto text-[10px] md:text-[11px] tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
                         <i className="ri-eye-line"></i>View Development
                       </Link>
-                      <Link to="/contact" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 border border-primary text-primary font-roboto text-[11px] md:text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white transition-colors">
+                      <Link to="/contact" className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 border border-primary text-primary font-roboto text-[10px] md:text-[11px] tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white transition-colors">
                         <i className="ri-book-open-line"></i>Request Brochure
                       </Link>
                       {dev.floorPlans && dev.floorPlans.length > 0 && (
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpandedFloorPlanId(expandedFloorPlanId === dev.id ? null : dev.id); }}
-                          className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 md:py-3 border font-roboto text-[11px] md:text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors ${expandedFloorPlanId === dev.id ? 'bg-golden text-white border-golden' : 'border-stone-300 text-stone-500 hover:border-golden hover:text-golden'}`}
+                          className={`w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 border font-roboto text-[10px] md:text-[11px] tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors ${expandedFloorPlanId === dev.id ? 'bg-golden text-white border-golden' : 'border-stone-300 text-stone-500 hover:border-golden hover:text-golden'}`}
                         >
                           <i className={`${expandedFloorPlanId === dev.id ? 'ri-close-line' : 'ri-layout-line'}`}></i>
                           {expandedFloorPlanId === dev.id ? 'Hide Plans' : 'Floor Plans'}
@@ -608,6 +621,7 @@ export default function NewDevelopments() {
                     )}
                   </div>
                 </div>
+                </Link>
               ))}
             </div>
           </div>

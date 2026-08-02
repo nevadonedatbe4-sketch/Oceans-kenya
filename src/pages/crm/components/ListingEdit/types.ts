@@ -31,6 +31,7 @@ export interface ListingFormState {
   location: string;
   neighbourhood: string;
   propertyType: string;
+  propertyCategory: string;
   subType: string;
   purpose: 'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented';
   price: string;
@@ -241,9 +242,30 @@ export const fetchNeighborhoods = async () => {
 
 export const EXCHANGE_RATE = 130; // 1 USD = 130 KES
 
-export const PROPERTY_TYPES = [
-  'Apartment',
+export const COMMERCIAL_PROPERTY_TYPES = [
+  'Office',
+  'Serviced Office',
+  'Retail / Shop',
+  'Warehouse',
+  'Distribution Warehouse',
+  'Industrial Park',
+  'Light Industrial',
+  'Heavy Industrial',
+  'Factory',
+  'Storage',
+  'Hotel',
+  'Pub',
+  'Restaurant',
+  'Cafe',
+  'Guest House',
+];
+
+export const RESIDENTIAL_PROPERTY_TYPES = [
   'House',
+  'Flat / Apartment',
+  'Bungalow',
+  'Studio',
+  'Maisonette',
   'Villa',
   'Townhouse',
   'Penthouse',
@@ -251,10 +273,11 @@ export const PROPERTY_TYPES = [
   'Detached',
   'Semi-detached',
   'Terraced',
-  'Flat',
-  'Bungalow',
-  'Commercial',
-  'Office',
+];
+
+export const PROPERTY_TYPES = [
+  ...RESIDENTIAL_PROPERTY_TYPES,
+  ...COMMERCIAL_PROPERTY_TYPES,
   'Land',
   'Farms / Land',
   'Park Home',

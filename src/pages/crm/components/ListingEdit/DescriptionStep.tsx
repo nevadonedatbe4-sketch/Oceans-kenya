@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { PROPERTY_TYPES, PURPOSE_OPTIONS } from './types';
+import { PROPERTY_TYPES, PURPOSE_OPTIONS, COMMERCIAL_PROPERTY_TYPES, RESIDENTIAL_PROPERTY_TYPES } from './types';
 
 interface Props {
   title: string;
@@ -8,6 +8,8 @@ interface Props {
   setDescription: (v: string) => void;
   propertyType: string;
   setPropertyType: (v: string) => void;
+  propertyCategory: string;
+  setPropertyCategory: (v: string) => void;
   purpose: string;
   setPurpose: (v: string) => void;
   isEdit: boolean;
@@ -93,7 +95,8 @@ const descPlaceholder = 'Welcome to this stunning property nestled in the heart 
 
 export default function DescriptionStep({
   title, setTitle, description, setDescription,
-  propertyType, setPropertyType, purpose, setPurpose,
+  propertyType, setPropertyType, propertyCategory, setPropertyCategory,
+  purpose, setPurpose,
 }: Props) {
   const descRef = useRef<HTMLDivElement>(null);
   const [fontFamily, setFontFamily] = useState('Inter');
@@ -256,9 +259,52 @@ export default function DescriptionStep({
   const toolbarSelect =
     'text-[13px] border border-[#e8ecf0] px-2.5 py-1.5 bg-white cursor-pointer text-[#1a1e24] rounded-md outline-none focus:border-[#0d5959] transition-colors';
 
+  /* ── Derive the selectable property types based on category ── */
+  const filteredPropertyTypes = propertyCategory === 'commercial'
+    ? COMMERCIAL_PROPERTY_TYPES
+    : propertyCategory === 'residential'
+    ? RESIDENTIAL_PROPERTY_TYPES
+    : PROPERTY_TYPES;
+
+  const handleCategoryChange = (cat: string) => {
+    setPropertyCategory(cat);
+    // Reset property type when switching categories
+    setPropertyType('');
+  };
+
   return (
     <div className="w-full space-y-5">
-      {/* Property Title */}
+      {/* ─── FULL-WIDTH PROPERTY CATEGORY ─── */}
+      <SectionHeader
+        icon="ri-building-4-line"
+        title="Property Category"
+        subtitle="Choose whether this is a commercial or residential property"
+      />
+      <Card>
+        <div>
+          <label className={labelClass}>
+            Category <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={propertyCategory}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            className={selectClass}
+          >
+            <option value="">Select property category</option>
+            <option value="commercial">Commercial Property — Offices, retail, industrial, hospitality, warehouses, land</option>
+            <option value="residential">Residential Property — Houses, apartments, bungalows, villas, townhouses, flats</option>
+          </select>
+          <p className={hintClass}>
+            {propertyCategory === 'commercial'
+              ? 'Showing 15 commercial property sub-types below'
+              : propertyCategory === 'residential'
+              ? 'Showing 12 residential property sub-types below'
+              : 'Select a category to unlock relevant property types in the next section'}
+          </p>
+        </div>
+      </Card>
+
+      {/* ─── Property Title ─── */}
       <SectionHeader
         icon="ri-file-text-line"
         title="Property Title"
@@ -281,11 +327,11 @@ export default function DescriptionStep({
         </div>
       </Card>
 
-      {/* Listing Type */}
+      {/* ─── Listing Type ─── */}
       <SectionHeader
         icon="ri-folder-line"
         title="Listing Type"
-        subtitle="Define the type and purpose of this property"
+        subtitle={`Define the type and purpose of this ${propertyCategory ? propertyCategory : ''} property`}
       />
       <Card>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -297,10 +343,11 @@ export default function DescriptionStep({
               value={propertyType}
               onChange={(e) => setPropertyType(e.target.value)}
               className={selectClass}
+              disabled={!propertyCategory}
             >
-              <option value="">Select type</option>
-              {PROPERTY_TYPES.map((t) => (
-                <option key={t} value={t.toLowerCase().replace(/\s/g, '_')}>{t}</option>
+              <option value="">{propertyCategory ? 'Select type' : 'Select category first'}</option>
+              {filteredPropertyTypes.map((t) => (
+                <option key={t} value={t.toLowerCase().replace(/[\s/]+/g, '_')}>{t}</option>
               ))}
             </select>
           </div>
@@ -321,7 +368,7 @@ export default function DescriptionStep({
         </div>
       </Card>
 
-      {/* Description */}
+      {/* ─── Description ─── */}
       <SectionHeader
         icon="ri-article-line"
         title="Description"

@@ -73,6 +73,7 @@ export function useNewDevelopments() {
         .select('*')
         .eq('is_published', true)
         .eq('purpose', 'sale')
+        .eq('featured_new_development', true)
         .neq('property_type', 'land')
         .neq('title', '')
         .gt('price', 0)
@@ -103,7 +104,7 @@ export function useNewDevelopments() {
           propertyType: String(row.property_type || ''),
           image: img,
           tag: 'For Sale',
-          featured: Boolean(row.is_featured || row.featured_new_development),
+          featured: Boolean(row.is_featured),
           completionDate: String(row.completion_date || ''),
           developer,
           developerLogo: '',

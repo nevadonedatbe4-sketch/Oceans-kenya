@@ -451,7 +451,7 @@ function PropertyCard({ property, aspectClass, shadowClass, hoverClass, showBadg
               </span>
               {property.priceUnit && (
                 <span className="inline-flex items-baseline gap-1 text-[#002349] text-base md:text-lg lg:text-xl font-medium">
-                  <span>{property.priceUnit}</span>
+                  <span>PM</span>
                   <span className="relative inline-flex items-center cursor-help group text-base text-[#002349] opacity-60">
                     <i className="ri-information-line"></i>
                     <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 bg-stone-800 text-white text-[11px] whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none font-normal">

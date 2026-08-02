@@ -43,6 +43,8 @@ import Testimonials from "../pages/crm/Testimonials";
 import SyncActions from "../pages/crm/SyncActions";
 import JointVenturesCRM from "../pages/crm/JointVentures";
 import ProtectedRoute from "../components/feature/ProtectedRoute";
+import CommercialProperty from "../pages/CommercialProperty";
+import CommercialAdvertising from "../pages/CommercialAdvertising";
 import CommuteTime from "../pages/CommuteTime";
 import Schools from "../pages/Schools";
 import NavLinks from "../pages/crm/NavLinks";
@@ -749,6 +751,14 @@ const routes: RouteObject[] = [
         element: <ContactSectionsAdmin />,
       },
     ],
+  },
+  {
+    path: "/commercial-property",
+    element: <CommercialProperty />,
+  },
+  {
+    path: "/c/commercial-advertising",
+    element: <CommercialAdvertising />,
   },
   {
     path: "/commute-time",

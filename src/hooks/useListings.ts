@@ -101,6 +101,11 @@ export interface ListingFilters {
   centerLat?: number | null;
   centerLng?: number | null;
   radiusMeters?: number | null;
+  // Category filter (e.g. 'commercial')
+  propertyCategory?: string | null;
+  // Size filters (sqft in DB, but filter by sqm)
+  sqmMin?: number;
+  sqmMax?: number;
 }
 
 export interface UseListingsReturn {
@@ -337,10 +342,34 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
           'Penthouse': 'penthouse',
           'Villa': 'villa',
           'Studio': 'studio',
+          'Flat / Apartment': 'flat_/_apartment',
+          'Bungalow': 'bungalow',
+          'Maisonette': 'maisonette',
+          'Detached': 'detached',
+          'Semi-detached': 'semi-detached',
+          'Terraced': 'terraced',
           'Land': 'land',
+          'Office': 'office',
+          'Retail / Shop': 'retail_/_shop',
+          'Warehouse': 'warehouse',
+          'Industrial': 'industrial',
+          'Serviced Office': 'serviced_office',
         };
         const dbType = typeMap[filters.propertyType] || filters.propertyType.toLowerCase();
         query = query.eq('property_type', dbType);
+      }
+
+      // Property category (e.g. 'commercial')
+      if (filters.propertyCategory) {
+        query = query.eq('property_category', filters.propertyCategory);
+      }
+
+      // Size (sqft in DB, convert from sqm)
+      if (filters.sqmMin !== undefined && filters.sqmMin > 0) {
+        query = query.gte('sqft', filters.sqmMin * 10.764);
+      }
+      if (filters.sqmMax !== undefined && filters.sqmMax > 0) {
+        query = query.lte('sqft', filters.sqmMax * 10.764);
       }
 
       // Added since
@@ -413,6 +442,11 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
             const dbType = filters.propertyType.toLowerCase();
             fallbackQuery = fallbackQuery.eq('property_type', dbType);
           }
+          if (filters.propertyCategory) {
+            fallbackQuery = fallbackQuery.eq('property_category', filters.propertyCategory);
+          }
+          if (filters.sqmMin && filters.sqmMin > 0) fallbackQuery = fallbackQuery.gte('sqft', filters.sqmMin * 10.764);
+          if (filters.sqmMax && filters.sqmMax > 0) fallbackQuery = fallbackQuery.lte('sqft', filters.sqmMax * 10.764);
           fallbackQuery = fallbackQuery.in('status', ['available', 'under_contract']);
           fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
           if (!isDistanceFilter) {
@@ -463,7 +497,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, page, filters.centerLat, filters.centerLng, filters.radiusMeters]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters]);
 
   useEffect(() => {
     fetchListings();

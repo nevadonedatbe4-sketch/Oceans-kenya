@@ -50,7 +50,7 @@ function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): 
   return `${sym} ${val.toLocaleString()}`;
 }
 const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const propTypeOptions = ['Any type', 'Apartment', 'House', 'Townhouse', 'Penthouse', 'Villa', 'Studio', 'Land'];
+const propTypeOptions = ['Any type', 'House', 'Flat / Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
 const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
 const sortOptions = ['Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];

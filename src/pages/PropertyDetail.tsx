@@ -138,7 +138,7 @@ export default function PropertyDetail() {
 
         const isLand = String(row.property_type || '') === 'land';
 
-        // Fetch listing images
+        // Fetch listing images — try listing_images table first, fall back to images array
         let galleryImages: ListingImage[] = [];
         try {
           const { data: imgData, error: imgError } = await supabase
@@ -147,11 +147,20 @@ export default function PropertyDetail() {
             .eq('listing_id', row.id)
             .order('sort_order', { ascending: true })
             .limit(20);
-          if (!imgError && imgData) {
+          if (!imgError && imgData && imgData.length > 0) {
             galleryImages = imgData as ListingImage[];
           }
         } catch {
           // non-critical
+        }
+
+        // Fallback: if listing_images returned nothing, use the images array from listings
+        if (galleryImages.length === 0 && row.images && Array.isArray(row.images)) {
+          galleryImages = (row.images as string[]).map((url: string, idx: number) => ({
+            id: `fallback-${idx}`,
+            url,
+            sort_order: idx,
+          }));
         }
 
         // Fetch agent if assigned

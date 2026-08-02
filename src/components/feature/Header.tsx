@@ -77,6 +77,8 @@ export default function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
   const companyRef = useRef<HTMLDivElement>(null);
+  const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
+  const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const location = useLocation();
 
   useEffect(() => {
@@ -90,6 +92,12 @@ export default function Header() {
       if (companyRef.current && !companyRef.current.contains(e.target as Node)) {
         setCompanyOpen(false);
       }
+      // Close any open dynamic dropdowns when clicking outside
+      Object.entries(dropdownRefs.current).forEach(([id, ref]) => {
+        if (ref && !ref.contains(e.target as Node)) {
+          setOpenDropdowns((prev) => ({ ...prev, [id]: false }));
+        }
+      });
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -114,10 +122,15 @@ export default function Header() {
   const navBgClass = useTransparent ? 'bg-transparent' : 'bg-primary';
   const topBarClass = useTransparent ? 'bg-black/40 border-white/5' : 'bg-black border-white/10';
 
-  // Split nav links: group "About Us" and "Contact" into a dropdown
+  // Split nav links: group "About Us" and "Contact" into "Connect" dropdown
   const companyLabels = ['about us', 'about', 'contact', 'contact us'];
   const companyLinks = navLinks.filter((l) => companyLabels.includes(l.label.toLowerCase().trim()));
-  const mainLinks = navLinks.filter((l) => !companyLabels.includes(l.label.toLowerCase().trim()));
+  // Filter out Residential Property from nav
+  const filteredNavLinks = navLinks.filter((l) => !['residential property', 'commercial property'].includes(l.label.toLowerCase().trim()));
+  // Links with children become their own dropdowns
+  const dropdownLinks = filteredNavLinks.filter((l) => l.children && l.children.length > 0 && !companyLabels.includes(l.label.toLowerCase().trim()));
+  // Flat links (no children, not in company group)
+  const mainLinks = filteredNavLinks.filter((l) => !companyLabels.includes(l.label.toLowerCase().trim()) && (!l.children || l.children.length === 0));
 
   return (
     <div className={`top-0 left-0 right-0 z-50 ${stickyNavbar ? 'fixed' : 'relative'}`}>
@@ -192,12 +205,41 @@ export default function Header() {
               <>
                 {mainLinks.map((link) => (
                   <Link
-                    key={link.href}
+                    key={link.id}
                     to={link.href}
                     className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
                   >
                     {link.label}
                   </Link>
+                ))}
+                {dropdownLinks.map((link) => (
+                  <div
+                    key={link.id}
+                    className="relative"
+                    ref={(el) => { dropdownRefs.current[link.id] = el; }}
+                  >
+                    <button
+                      onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
+                      className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] flex items-center gap-2"
+                    >
+                      {link.label}
+                      <span className={`text-base ml-0.5 text-golden transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}>&#9662;</span>
+                    </button>
+                    {openDropdowns[link.id] && (
+                      <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[220px] py-1 z-50">
+                        {link.children.map((child) => (
+                          <Link
+                            key={child.id}
+                            to={child.href}
+                            className="block px-4 py-2.5 text-sm font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+                            onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: false }))}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 ))}
                 {companyLinks.length > 0 && (
                   <div className="relative" ref={companyRef}>
@@ -212,7 +254,7 @@ export default function Header() {
                       <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[160px] py-1 z-50">
                         {companyLinks.map((link) => (
                           <Link
-                            key={link.href}
+                            key={link.id}
                             to={link.href}
                             className="block px-4 py-2.5 text-sm font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
                             onClick={() => setCompanyOpen(false)}
@@ -272,7 +314,7 @@ export default function Header() {
             <nav className="flex flex-col gap-1">
               {mainLinks.map((link) => (
                 <Link
-                  key={link.href}
+                  key={link.id}
                   to={link.href}
                   className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] border-b border-white/5"
                   onClick={() => setMobileMenuOpen(false)}
@@ -280,13 +322,38 @@ export default function Header() {
                   {link.label}
                 </Link>
               ))}
+              {dropdownLinks.map((link) => (
+                <div key={link.id} className="border-b border-white/5">
+                  <button
+                    onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
+                    className="w-full px-4 py-3 flex items-center justify-between cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
+                  >
+                    {link.label}
+                    <span className={`text-base text-golden transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}>&#9662;</span>
+                  </button>
+                  {openDropdowns[link.id] && (
+                    <div className="pb-2 pl-6 flex flex-col gap-1">
+                      {link.children.map((child) => (
+                        <Link
+                          key={child.id}
+                          to={child.href}
+                          className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/70 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
+                          onClick={() => { setMobileMenuOpen(false); setOpenDropdowns((prev) => ({ ...prev, [link.id]: false })); }}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
               {companyLinks.length > 0 && (
                 <div className="px-4 py-3 border-b border-white/5">
                   <p className="text-white/60 text-xs font-medium capitalize tracking-[0.05em] mb-2">Connect</p>
                   <div className="flex flex-col gap-1">
                     {companyLinks.map((link) => (
                       <Link
-                        key={link.href}
+                        key={link.id}
                         to={link.href}
                         className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
                         onClick={() => setMobileMenuOpen(false)}

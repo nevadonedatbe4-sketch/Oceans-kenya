@@ -90,6 +90,7 @@ export default function ListingEdit() {
   const [location, setLocation] = useState('');
   const [neighbourhood, setNeighbourhood] = useState('');
   const [propertyType, setPropertyType] = useState('house');
+  const [propertyCategory, setPropertyCategory] = useState('');
   const [purpose, setPurpose] = useState<'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented'>('sale');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState('KES');
@@ -307,6 +308,7 @@ export default function ListingEdit() {
     setLocation(data.location || '');
     setNeighbourhood(data.neighbourhood || '');
     setPropertyType(data.property_type || 'house');
+    setPropertyCategory(data.property_category || '');
     const rawPurpose = data.purpose || 'sale';
     setPurpose(rawPurpose as typeof purpose);
     setPrice(data.price ? String(data.price) : '');
@@ -444,6 +446,7 @@ export default function ListingEdit() {
       location,
       neighbourhood,
       property_type: propertyType,
+      property_category: propertyCategory || null,
       purpose,
       status: 'available',
       price: Number(price) || 0,
@@ -610,7 +613,7 @@ export default function ListingEdit() {
       }
     }, 3000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [title, description, location, price, bedrooms, bathrooms, amenities, images, address, seoTitle, seoDescription, agentId, isFeatured, isHomepage, isPending, priceUgx, autoExchange, customFields, customFeatures, documents, stateRegion, zipCode, ownerContact, leadAssignment, privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood, featuredNewDevelopment, priorityRanking, autoSEO, openGraphImage, interiorFinish, flooringType, ceilingHeight, waterSupply, constructionType, completionDate, frequency, negotiable, pricePlaceholder, showSecondPrice, backupPower, gatedCommunity, staffQuarters, swimmingPool, gym, proximityAmenities, backupPowerDesc, staffQuartersRooms, uniqueFeatures, balconySize, plotDimensions, floors, floorNumber, renovatedYear, propertyCondition, availableDate, furnishedStatus, includedItems, featureCheckboxes, utilityCheckboxes, roadAccess, parkingType, wheelchairAccessible, terraceSize, plotLength, plotWidth, leasePeriod, leaseExpiryDate, plotShape, topography, selectedTags]);
+  }, [title, description, location, price, bedrooms, bathrooms, amenities, images, address, seoTitle, seoDescription, agentId, isFeatured, isHomepage, isPending, priceUgx, autoExchange, customFields, customFeatures, documents, stateRegion, zipCode, ownerContact, leadAssignment, privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood, featuredNewDevelopment, priorityRanking, autoSEO, openGraphImage, interiorFinish, flooringType, ceilingHeight, waterSupply, constructionType, completionDate, frequency, negotiable, pricePlaceholder, showSecondPrice, backupPower, gatedCommunity, staffQuarters, swimmingPool, gym, proximityAmenities, backupPowerDesc, staffQuartersRooms, uniqueFeatures, balconySize, plotDimensions, floors, floorNumber, renovatedYear, propertyCondition, availableDate, furnishedStatus, includedItems, featureCheckboxes, utilityCheckboxes, roadAccess, parkingType, wheelchairAccessible, terraceSize, plotLength, plotWidth, leasePeriod, leaseExpiryDate, plotShape, topography, selectedTags, propertyCategory]);
 
   const getStatusLabel = () => {
     if (isPublished) return 'Published';
@@ -641,7 +644,7 @@ export default function ListingEdit() {
   const isStepComplete = (stepId: string): boolean => {
     switch (stepId) {
       case 'basic-info':
-        return title.trim().length > 0 && propertyType.trim().length > 0;
+        return title.trim().length > 0 && propertyType.trim().length > 0 && propertyCategory.trim().length > 0;
       case 'price':
         return price.trim().length > 0;
       case 'details':
@@ -844,6 +847,8 @@ export default function ListingEdit() {
                 setDescription={setDescription}
                 propertyType={propertyType}
                 setPropertyType={setPropertyType}
+                propertyCategory={propertyCategory}
+                setPropertyCategory={setPropertyCategory}
                 purpose={purpose}
                 setPurpose={setPurpose}
                 isEdit={isEdit}
@@ -953,6 +958,8 @@ export default function ListingEdit() {
                 setAgentId={setAgentId}
                 isFeatured={isFeatured}
                 setIsFeatured={setIsFeatured}
+                featuredNewDevelopment={featuredNewDevelopment}
+                setFeaturedNewDevelopment={setFeaturedNewDevelopment}
                 onPublish={() => handleSave(true)}
                 title={title}
                 propertyType={propertyType}

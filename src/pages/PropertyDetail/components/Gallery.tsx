@@ -21,6 +21,7 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
   const hasExtras = allImages.length > 5;
   const displayImages = allImages.slice(0, 5);
   const extraCount = allImages.length - 5;
+  const hasMultipleImages = allImages.length > 1;
 
   const openLightboxAt = useCallback((idx: number) => {
     setLbIndex(idx);
@@ -35,39 +36,47 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
     <>
       {/* Desktop Gallery */}
       <div className="hidden md:flex gap-2 h-[460px]">
-        {/* Main image (60%) */}
-        <div className="w-[60%] relative overflow-hidden rounded-[2px] cursor-pointer group" onClick={() => openLightboxAt(0)}>
-          <img src={displayImages[0] || mainImage} alt={title} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]" />
-          <div className="absolute top-4 left-4">
-            <span className="px-3 py-1.5 bg-primary/90 text-white text-[10px] font-roboto font-semibold uppercase tracking-widest">
-              {statusLabel}
-            </span>
+        {/* Single image — full width when no extras */}
+        {!hasMultipleImages ? (
+          <div className="w-full relative overflow-hidden rounded-[2px] cursor-pointer group" onClick={() => openLightboxAt(0)}>
+            <img src={displayImages[0] || mainImage} alt={title} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]" />
+            <div className="absolute top-4 left-4">
+              <span className="px-3 py-1.5 bg-primary/90 text-white text-[10px] font-roboto font-semibold uppercase tracking-widest">
+                {statusLabel}
+              </span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Main image (60%) */}
+            <div className="w-[60%] relative overflow-hidden rounded-[2px] cursor-pointer group" onClick={() => openLightboxAt(0)}>
+              <img src={displayImages[0] || mainImage} alt={title} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.02]" />
+              <div className="absolute top-4 left-4">
+                <span className="px-3 py-1.5 bg-primary/90 text-white text-[10px] font-roboto font-semibold uppercase tracking-widest">
+                  {statusLabel}
+                </span>
+              </div>
+            </div>
 
-        {/* Right grid (40%) */}
-        <div className="w-[40%] grid grid-cols-2 grid-rows-2 gap-2">
-          {displayImages.slice(1, 5).map((url, idx) => (
-            <div
-              key={idx + 1}
-              className={`relative overflow-hidden rounded-[2px] cursor-pointer group ${idx === 3 && hasExtras ? '' : ''}`}
-              onClick={() => openLightboxAt(idx + 1)}
-            >
-              <img src={url} alt={`${title} ${idx + 2}`} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.05]" />
-              {idx === 3 && hasExtras && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <span className="text-white font-roboto text-sm font-semibold">+{extraCount} more</span>
+            {/* Right grid (40%) — only actual images, no placeholders */}
+            <div className="w-[40%] grid grid-cols-2 grid-rows-2 gap-2">
+              {displayImages.slice(1, 5).map((url, idx) => (
+                <div
+                  key={idx + 1}
+                  className="relative overflow-hidden rounded-[2px] cursor-pointer group"
+                  onClick={() => openLightboxAt(idx + 1)}
+                >
+                  <img src={url} alt={`${title} ${idx + 2}`} className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.05]" />
+                  {idx === 3 && hasExtras && (
+                    <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                      <span className="text-white font-roboto text-sm font-semibold">+{extraCount} more</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-          {/* Fill empty slots if fewer than 4 extra images */}
-          {Array.from({ length: Math.max(0, 4 - displayImages.slice(1, 5).length) }).map((_, idx) => (
-            <div key={`empty-${idx}`} className="relative overflow-hidden rounded-[2px] bg-stone-100 flex items-center justify-center">
-              <i className="ri-image-line text-stone-300 text-2xl"></i>
-            </div>
-          ))}
-        </div>
+          </>
+        )}
 
         {/* Floating "Show all photos" button */}
         {allImages.length > 1 && (
@@ -91,9 +100,9 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
             {statusLabel}
           </span>
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
-        {allImages.length > 1 && (
+        {hasMultipleImages && (
           <>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
             <button
               onClick={() => openLightboxAt(0)}
               className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-black/40 text-white rounded-[2px] cursor-pointer"
