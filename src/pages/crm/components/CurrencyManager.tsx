@@ -313,7 +313,7 @@ export default function CurrencyManager() {
             'Quick View Modals',
             'Comparison Tool',
             'New Developments',
-            'Joint Ventures',
+            'Land & Joint Ventures',
             'Prev/Next Navigation',
           ].map((item) => (
             <div key={item} className="flex items-center gap-2 py-1.5">

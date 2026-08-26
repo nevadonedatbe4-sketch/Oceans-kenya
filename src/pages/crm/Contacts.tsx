@@ -16,14 +16,12 @@ interface Contact {
 }
 
 const CONTACT_TYPES = [
+  { value: 'client', label: 'Client', icon: 'ri-user-line', color: '#6b7280' },
   { value: 'landlord', label: 'Landlord', icon: 'ri-home-2-line', color: '#0d5959' },
-  { value: 'investor', label: 'Investor', icon: 'ri-funds-line', color: '#f58300' },
   { value: 'buyer', label: 'Buyer', icon: 'ri-shopping-bag-3-line', color: '#088135' },
-  { value: 'renter', label: 'Renter', icon: 'ri-key-2-line', color: '#6366f1' },
-  { value: 'agent', label: 'Agent', icon: 'ri-user-star-line', color: '#0ea5e9' },
-  { value: 'manager', label: 'Property Manager', icon: 'ri-building-2-line', color: '#8b5cf6' },
-  { value: 'developer', label: 'Developer', icon: 'ri-tools-line', color: '#ec4899' },
-  { value: 'other', label: 'Other', icon: 'ri-user-line', color: '#6b7280' },
+  { value: 'seller', label: 'Seller', icon: 'ri-funds-line', color: '#f58300' },
+  { value: 'partner', label: 'Partner / Investor', icon: 'ri-user-star-line', color: '#0ea5e9' },
+  { value: 'vendor', label: 'Vendor / Developer', icon: 'ri-tools-line', color: '#ec4899' },
 ];
 
 export default function Contacts() {

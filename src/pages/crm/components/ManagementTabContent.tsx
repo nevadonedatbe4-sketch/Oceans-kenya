@@ -148,7 +148,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
     switch (platform) {
       case 'facebook': return 'ri-facebook-fill';
       case 'instagram': return 'ri-instagram-line';
-      case 'tiktok': return 'ri-tiktok-fill';
+      case 'tiktok': return 'ri-linkedin-fill';
       case 'linkedin': return 'ri-linkedin-fill';
       case 'youtube': return 'ri-youtube-fill';
       case 'twitter': return 'ri-twitter-x-fill';
@@ -1209,9 +1209,9 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
             <div className="space-y-1 text-sm font-roboto text-[#1a1a2e]">
               <p className="font-semibold">{getSite('site_name') || 'Oceans Kenya'}</p>
               <p className="text-gray-500 text-xs">{getSite('address') || 'Riverside Drive, Westlands, Nairobi'}</p>
-              <p className="text-gray-500 text-xs">{getSite('contact_phone') || '+254 712 345 678'}</p>
-              <p className="text-gray-500 text-xs">{getSite('contact_email') || 'info@oceans.co.ke'}</p>
-              <p className="text-gray-500 text-xs">WhatsApp: {getSite('whatsapp_number') || '+254 712 345 678'}</p>
+              <p className="text-gray-500 text-xs">{getSite('contact_phone') || '+254 703712984'}</p>
+              <p className="text-gray-500 text-xs">{getSite('contact_email') || 'ask@oceanske.com'}</p>
+              <p className="text-gray-500 text-xs">WhatsApp: {getSite('whatsapp_number') || '+254 703712984'}</p>
             </div>
           </SectionCard>
 

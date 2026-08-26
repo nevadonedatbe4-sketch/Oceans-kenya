@@ -37,7 +37,7 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
       {/* Modal */}
       <div className="relative bg-white w-full max-w-5xl max-h-[90vh] mx-4 rounded-xl overflow-hidden shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-primary/12 shrink-0">
           <div>
             <h2 className="font-roboto font-bold text-lg text-primary">Compare Properties</h2>
             <p className="text-xs font-roboto text-gray-400 mt-0.5">
@@ -61,7 +61,7 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
                 <div key={p.id} className="text-center relative">
                   <button
                     onClick={() => onRemove(p.id)}
-                    className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center bg-white border border-gray-200 rounded-full text-gray-400 hover:text-red-500 hover:border-red-200 cursor-pointer transition-colors shadow-sm z-10"
+                    className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center bg-white border border-primary/12 rounded-full text-gray-400 hover:text-red-500 hover:border-red-200 cursor-pointer transition-colors shadow-sm z-10"
                   >
                     <i className="ri-close-line text-xs"></i>
                   </button>
@@ -69,7 +69,7 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
                     <img
                       src={p.image}
                       alt={p.title}
-                      className="w-full h-full object-cover object-top"
+                      className="w-full h-full object-cover object-center"
                     />
                   </div>
                   <Link
@@ -85,7 +85,7 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
                     </span>
                     {p.location}
                   </p>
-                  <p className="text-base font-roboto font-bold text-[#002349]">
+                  <p className="text-base font-roboto font-bold text-primary">
                     {format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
                   </p>
                   <span className="inline-block mt-1.5 px-2 py-0.5 bg-gray-100 text-[10px] font-roboto font-semibold uppercase tracking-wider text-gray-500 rounded-full">
@@ -96,10 +96,10 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
             </div>
 
             {/* Comparison table */}
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto rounded-lg border border-primary/12">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
+                  <tr className="border-b border-primary/12">
                     <th className="py-3 px-4 text-left font-roboto text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50/50 whitespace-nowrap">
                       Feature
                     </th>
@@ -125,7 +125,7 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-primary/12 bg-gray-50/50 shrink-0">
           <p className="text-xs font-roboto text-gray-400">
             Click a property name to view full details
           </p>

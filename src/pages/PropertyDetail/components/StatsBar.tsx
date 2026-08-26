@@ -20,14 +20,14 @@ export default function PropertyStatsBar({ title, location, price, propertyType,
   ];
 
   return (
-    <div className="bg-white border border-stone-200 rounded-[2px] p-3 md:p-5 lg:p-6">
+    <div className="bg-white border border-primary/12 rounded-[2px] p-3 md:p-5 lg:p-6">
       {/* Top row: title/location + price */}
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 md:gap-4 mb-3 md:mb-5">
         <div className="flex-1 min-w-0">
           <h1 className="font-roboto font-medium text-[#011328] leading-tight mb-1 md:mb-2" style={{ fontSize: 'clamp(18px, 5vw, 26px)', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
             {title}
           </h1>
-          <p className="flex items-center gap-1.5 text-xs md:text-sm text-stone-500 font-roboto">
+          <p className="flex items-center gap-1.5 text-xs md:text-sm text-primary/70 font-roboto">
             <span className="w-4 h-4 flex items-center justify-center">
               <i className="ri-map-pin-2-line text-golden text-xs md:text-sm"></i>
             </span>
@@ -35,25 +35,25 @@ export default function PropertyStatsBar({ title, location, price, propertyType,
           </p>
         </div>
         <div className="md:text-right shrink-0">
-          <p className="font-roboto font-medium text-[#002349]" style={{ fontSize: 'clamp(18px, 5vw, 26px)', whiteSpace: 'nowrap' }}>
+          <p className="font-roboto font-bold text-primary" style={{ fontSize: 'clamp(24px, 4vw, 38px)', whiteSpace: 'nowrap' }}>
             {price}
           </p>
           {purpose === 'rent' && (
-            <p className="text-stone-400 text-[10px] md:text-xs font-roboto mt-0.5">per calendar month</p>
+            <p className="text-primary/50 text-[10px] md:text-xs font-roboto mt-0.5">per calendar month</p>
           )}
         </div>
       </div>
 
       {/* 5-column stat strip */}
-      <div className="border border-stone-200 rounded-[2px]">
+      <div className="border border-primary/12 rounded-[2px]">
         <div className="grid grid-cols-5 divide-x divide-stone-200">
           {stats.map((stat, idx) => (
             <div key={idx} className="flex flex-col items-center justify-center py-2 md:py-3 lg:py-4 px-1.5 md:px-2 text-center">
-              <span className="w-4 h-4 md:w-5 md:h-5 flex items-center justify-center text-stone-400 mb-0.5 md:mb-1.5">
+              <span className="w-4 h-4 md:w-5 md:h-5 flex items-center justify-center text-primary/50 mb-0.5 md:mb-1.5">
                 <i className={`${stat.icon} text-xs md:text-sm`}></i>
               </span>
               <p className="text-primary font-roboto text-xs md:text-sm font-semibold">{stat.value}</p>
-              <p className="text-stone-400 font-roboto text-[9px] uppercase tracking-wider">{stat.label}</p>
+              <p className="text-primary/50 font-roboto text-[9px] uppercase tracking-wider">{stat.label}</p>
             </div>
           ))}
         </div>

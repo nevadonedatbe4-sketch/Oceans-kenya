@@ -4,6 +4,7 @@ import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
+import PageLoader from '@/components/feature/PageLoader';
 
 const services = [
   { icon: 'ri-building-2-line', title: 'Commercial Sales', desc: 'We market your commercial property to qualified investors and businesses across Kenya and East Africa.' },
@@ -94,12 +95,12 @@ ${message}`;
         <img
           src="https://readdy.ai/api/search-image?query=Modern%20glass%20commercial%20office%20tower%20with%20reflective%20facade%20standing%20tall%20against%20dramatic%20twilight%20sky%2C%20Nairobi%20city%20skyline%20silhouette%20in%20background%20with%20warm%20amber%20lights%2C%20professional%20architectural%20photography%2C%20luxury%20corporate%20aesthetic%2C%20high%20contrast%2C%20cinematic%20atmosphere&width=1600&height=800&seq=comm-adv-hero-01&orientation=landscape"
           alt="Commercial property advertising"
-          className="absolute inset-0 w-full h-full object-cover object-top"
+          className="absolute inset-0 w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/80 to-primary/50"></div>
         <div className="relative z-10 w-full max-w-6xl mx-auto px-6">
           <div className="max-w-2xl">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-4">Commercial Property Advertising</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-4">Commercial Property Advertising</p>
             <h1 className="font-roboto font-bold text-white text-3xl md:text-5xl mb-6 leading-tight">
               Advertise Your<br />Commercial Property<br />With Us
             </h1>
@@ -145,10 +146,10 @@ ${message}`;
       </div>
 
       {/* Priority section */}
-      <section className="py-16 px-6 border-b-2 border-gray-200">
+      <section className="py-16 px-6 border-b-2 border-primary/12">
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div>
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Commitment</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Our Commitment</p>
             <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Your Commercial Property Is Our Business</h2>
             <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-5">
               At Oceans Kenya, we understand commercial real estate. From prime office space in Westlands to retail units in Kilimani and industrial warehouses on Mombasa Road — our dedicated commercial team knows the market inside out.
@@ -161,11 +162,11 @@ ${message}`;
             <div className="w-full h-72 overflow-hidden">
               <img
                 alt="Commercial property in Nairobi"
-                className="w-full h-full object-cover object-top"
-                src="https://readdy.ai/api/search-image?query=Professional%20business%20meeting%20in%20modern%20glass%20office%20lobby%20with%20elegant%20interior%20design%2C%20warm%20natural%20lighting%20through%20floor%20to%20ceiling%20windows%2C%20Nairobi%20corporate%20atmosphere%2C%20two%20professionals%20reviewing%20documents%20at%20marble%20table%2C%20high%20end%20commercial%20real%20estate%2C%20architectural%20photography%20style&width=800&height=600&seq=comm-adv-section-01&orientation=landscape"
+                className="w-full h-full object-cover object-center"
+                src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/6024823c-febc-44de-97fd-a3b18207d1e3_compressed_1.webp"
               />
             </div>
-            <div className="absolute -bottom-5 -left-5 px-6 py-4 bg-golden hidden md:block">
+            <div className="absolute -bottom-5 -left-5 px-6 py-4 bg-accent hidden md:block">
               <p className="text-white font-roboto font-bold text-xl">95%</p>
               <p className="text-white/80 font-roboto text-xs">Occupancy Rate</p>
             </div>
@@ -177,15 +178,15 @@ ${message}`;
       <section className="py-20 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Services</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Our Services</p>
             <h2 className="text-3xl md:text-4xl font-roboto font-bold text-primary mb-4">Commercial Property Services</h2>
             <p className="text-stone-500 font-roboto text-sm max-w-xl mx-auto leading-relaxed">Comprehensive solutions for commercial property owners and investors.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {services.map((s) => (
-              <div key={s.title} className="group p-7 border-2 border-gray-200 rounded-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
-                  <i className={`${s.icon} text-xl text-primary`}></i>
+              <div key={s.title} className="group p-7 border-2 border-primary/12 rounded-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary">
+                  <i className={`${s.icon} text-xl text-white`}></i>
                 </div>
                 <h3 className="font-roboto font-bold text-primary text-base mb-2">{s.title}</h3>
                 <p className="text-stone-500 font-roboto text-sm leading-relaxed">{s.desc}</p>
@@ -199,16 +200,16 @@ ${message}`;
       <section className="py-20 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Service Options</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Service Options</p>
             <h2 className="text-3xl font-roboto font-bold text-primary mb-4">Choose How You Want to Advertise</h2>
             <p className="text-stone-500 font-roboto text-sm max-w-lg mx-auto leading-relaxed">Whether selling or letting, we have a package tailored to your commercial property goals.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Let Only */}
             <div className="bg-white border-2 border-primary overflow-hidden rounded-sm hover:shadow-lg transition-all duration-300">
-              <div className="px-8 py-7 border-b-2 border-gray-200">
-                <div className="w-10 h-10 flex items-center justify-center rounded-full mb-4 bg-primary/5">
-                  <i className="ri-key-2-line text-lg text-primary"></i>
+              <div className="px-8 py-7 border-b-2 border-primary/12">
+                <div className="w-10 h-10 flex items-center justify-center rounded-full mb-4 bg-primary">
+                  <i className="ri-key-2-line text-lg text-white"></i>
                 </div>
                 <h3 className="font-roboto font-bold text-2xl text-primary mb-1">Let Only</h3>
                 <p className="text-stone-500 font-roboto text-sm">Ideal for landlords who prefer to manage their commercial property after tenant placement.</p>
@@ -224,7 +225,7 @@ ${message}`;
                     </li>
                   ))}
                 </ul>
-                <a href="#advertising-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/85 transition-all">
+                <a href="#advertising-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white border-2 border-primary font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-all">
                   <i className="ri-arrow-right-line"></i>Enquire About Let Only
                 </a>
               </div>
@@ -266,7 +267,7 @@ ${message}`;
       <section className="py-20 px-6 bg-white border-t border-gray-50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">How It Works</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">How It Works</p>
             <h2 className="text-3xl font-roboto font-bold text-primary">How It Works</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -279,7 +280,7 @@ ${message}`;
                   <div className="w-16 h-16 flex items-center justify-center rounded-full bg-primary mx-auto">
                     <i className={`${step.icon} text-white text-xl`}></i>
                   </div>
-                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center rounded-full bg-golden text-white font-roboto text-xs font-bold">{step.step}</span>
+                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center rounded-full bg-[#002349] text-white font-roboto text-xs font-bold">{step.step}</span>
                 </div>
                 <h3 className="font-roboto font-bold text-primary text-base mb-2">{step.title}</h3>
                 <p className="text-stone-500 font-roboto text-xs leading-relaxed">{step.desc}</p>
@@ -293,14 +294,14 @@ ${message}`;
       <section className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Why Us</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Why Us</p>
             <h2 className="text-3xl font-roboto font-bold text-primary">Why Choose Us for Commercial Property</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {whyUs.map((item) => (
-              <div key={item.title} className="p-7 border-2 border-gray-200 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
-                  <i className={`${item.icon} text-xl text-primary`}></i>
+              <div key={item.title} className="p-7 border-2 border-primary/12 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary">
+                  <i className={`${item.icon} text-xl text-white`}></i>
                 </div>
                 <h3 className="font-roboto font-bold text-primary text-base mb-2">{item.title}</h3>
                 <p className="text-stone-500 font-roboto text-sm leading-relaxed">{item.desc}</p>
@@ -314,12 +315,12 @@ ${message}`;
       <section className="py-20 px-6">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Common Questions</p>
+            <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Common Questions</p>
             <h2 className="text-3xl font-roboto font-bold text-primary">Frequently Asked Questions</h2>
           </div>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
-              <div key={i} className="border-2 border-gray-200 overflow-hidden rounded-sm">
+              <div key={i} className="border-2 border-primary/12 overflow-hidden rounded-sm">
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="w-full flex items-center justify-between px-6 py-5 text-left cursor-pointer group hover:bg-gray-50/80 transition-colors"
@@ -346,7 +347,7 @@ ${message}`;
           {guarantees.map((g) => (
             <div key={g.title} className="flex flex-col items-center">
               <div className="w-14 h-14 flex items-center justify-center bg-white/10 rounded-full mb-4">
-                <i className={`${g.icon} text-2xl text-golden`}></i>
+                <i className={`${g.icon} text-2xl text-white`}></i>
               </div>
               <h3 className="text-white font-roboto font-bold text-lg mb-2">{g.title}</h3>
               <p className="text-white/60 font-roboto text-sm leading-relaxed">{g.desc}</p>
@@ -356,16 +357,16 @@ ${message}`;
       </section>
 
       {/* Browse listings CTA */}
-      <section className="py-12 px-6 bg-white text-center border-b-2 border-gray-200">
+      <section className="py-12 px-6 bg-white text-center border-b-2 border-primary/12">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-roboto font-bold text-primary mb-3">Looking for Commercial Property?</h2>
           <p className="text-stone-500 font-roboto text-sm mb-6 max-w-lg mx-auto">Browse our current commercial property listings — offices, retail spaces, warehouses, and more.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/commercial-property" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
+            <Link to="/commercial-property" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
               <i className="ri-building-2-line"></i>
               Commercial To Rent
             </Link>
-            <Link to="/commercial-property?buy=true" className="inline-flex items-center gap-2 px-6 py-3 border-2 border-primary text-primary font-roboto text-sm font-semibold rounded-lg hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
+            <Link to="/commercial-property?buy=true" className="inline-flex items-center gap-2 px-6 py-3 border-2 border-primary text-primary font-roboto text-sm font-semibold rounded-lg hover:bg-golden/10 transition-colors cursor-pointer whitespace-nowrap">
               <i className="ri-hand-coin-line"></i>
               Commercial For Sale
             </Link>
@@ -382,25 +383,25 @@ ${message}`;
               <div className="w-full aspect-square overflow-hidden mb-8">
                 <img
                   alt="Oceans Kenya commercial property team"
-                  className="w-full h-full object-cover object-top"
-                  src="https://readdy.ai/api/search-image?query=Professional%20real%20estate%20agent%20in%20modern%20office%20lobby%20with%20elegant%20interior%20design%2C%20warm%20lighting%2C%20wearing%20business%20attire%2C%20shaking%20hands%20with%20client%2C%20Nairobi%20commercial%20real%20estate%2C%20corporate%20atmosphere%2C%20high%20end%20photography%2C%20natural%20expressions&width=800&height=800&seq=comm-adv-form-01&orientation=squarish"
+                  className="w-full h-full object-cover object-center"
+                  src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/8adf385b-e2fd-423a-8a89-0bf4d0141b31_compressed_5.webp"
                 />
               </div>
-              <p className="text-golden text-xs font-roboto tracking-widest uppercase mb-3">Get Started</p>
+              <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Get Started</p>
               <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Let&apos;s Talk About Your Commercial Property</h2>
               <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-10">
                 Fill in the short form and one of our commercial property specialists will be in touch within 24 hours to discuss how we can help you let or sell your property.
               </p>
               <div className="space-y-6">
                 {[
-                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254712345678' },
-                  { icon: 'ri-mail-line', label: 'Email Us', value: 'commercial@oceans.co.ke' },
-                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Riverside Drive, Westlands, Nairobi' },
+                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254703712984' },
+                  { icon: 'ri-mail-line', label: 'Email Us', value: 'sales@oceanske.com' },
+                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Plot 9, Riverside Drive, Westlands, Nairobi' },
                   { icon: 'ri-time-line', label: 'Office Hours', value: 'Mon – Fri: 8:30am – 5:30pm' },
                 ].map((item) => (
                   <div key={item.label} className="flex gap-4">
-                    <div className="w-10 h-10 flex items-center justify-center bg-primary/8 rounded-full flex-shrink-0">
-                      <i className={`${item.icon} text-primary`}></i>
+                    <div className="w-10 h-10 flex items-center justify-center bg-primary rounded-full flex-shrink-0">
+                      <i className={`${item.icon} text-white`}></i>
                     </div>
                     <div>
                       <p className="text-primary font-roboto text-xs font-semibold uppercase tracking-wider mb-0.5">{item.label}</p>
@@ -412,7 +413,7 @@ ${message}`;
             </div>
 
             {/* Form */}
-            <div className="lg:col-span-3 bg-white border-2 border-stone-200 p-8 md:p-10">
+            <div className="lg:col-span-3 bg-white border-2 border-primary/20 p-8 md:p-10">
               <form
                 data-readdy-form="true"
                 id="commercial-advertising-form"
@@ -422,16 +423,16 @@ ${message}`;
                 className="space-y-6"
               >
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-stone-200">About Your Property</p>
+                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-primary/20">About Your Property</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Address <span className="text-red-400">*</span></label>
-                      <input required name="property_address" placeholder="e.g. 14 Riverside Drive, Westlands" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                      <input required name="property_address" placeholder="e.g. 14 Riverside Drive, Westlands" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Type</label>
-                        <select name="property_type" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="property_type" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option>Office</option>
                           <option>Retail Shop</option>
                           <option>Warehouse</option>
@@ -444,7 +445,7 @@ ${message}`;
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Size (sqft)</label>
-                        <select name="property_size" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="property_size" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option>Under 500</option>
                           <option>500 – 1,000</option>
                           <option>1,000 – 2,500</option>
@@ -457,7 +458,7 @@ ${message}`;
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">I Want To</label>
-                        <select name="purpose" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="purpose" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option value="let">Let the Property</option>
                           <option value="sell">Sell the Property</option>
                           <option value="both">Let or Sell</option>
@@ -466,7 +467,7 @@ ${message}`;
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Current Status</label>
-                        <select name="current_status" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="current_status" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option value="vacant">Currently Vacant</option>
                           <option value="occupied">Currently Tenanted</option>
                           <option value="owner_occupied">Owner Occupied</option>
@@ -478,25 +479,25 @@ ${message}`;
                   </div>
                 </div>
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-stone-200">Your Details</p>
+                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-primary/20">Your Details</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full Name <span className="text-red-400">*</span></label>
-                      <input required name="full_name" placeholder="Your full name" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                      <input required name="full_name" placeholder="Your full name" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email <span className="text-red-400">*</span></label>
-                        <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                        <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone <span className="text-red-400">*</span></label>
-                        <input required type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                        <input required type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Message / Additional Details</label>
-                      <textarea name="message" rows={3} maxLength={500} placeholder="Tell us anything else about your commercial property or requirements..." className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                      <textarea name="message" rows={3} maxLength={500} placeholder="Tell us anything else about your commercial property or requirements..." className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
                     </div>
                   </div>
                 </div>
@@ -507,11 +508,11 @@ ${message}`;
                 <button
                   type="submit"
                   disabled={formStatus === 'submitting'}
-                  className="w-full py-3.5 bg-primary hover:bg-golden text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full px-5 py-2.5 bg-primary hover:bg-golden text-white border-2 border-primary font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {formStatus === 'submitting' ? (
                     <>
-                      <i className="ri-loader-4-line animate-spin"></i>
+                      <PageLoader size={20} />
                       Submitting...
                     </>
                   ) : formStatus === 'success' ? (

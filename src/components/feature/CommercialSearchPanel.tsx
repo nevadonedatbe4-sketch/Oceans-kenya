@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import PageLoader from '@/components/feature/PageLoader';
 
 const COMMERCIAL_TYPES = [
   { key: 'any', label: 'Any sector', icon: 'ri-global-line' },
@@ -6,6 +7,7 @@ const COMMERCIAL_TYPES = [
   { key: 'serviced_office', label: 'Serviced Office', icon: 'ri-building-line' },
   { key: 'retail', label: 'Retail / Shop', icon: 'ri-store-2-line' },
   { key: 'leisure', label: 'Leisure / Hospitality', icon: 'ri-hotel-line' },
+  { key: 'guest_house', label: 'Guest House', icon: 'ri-hotel-bed-line' },
   { key: 'warehouse', label: 'Warehouse', icon: 'ri-archive-line' },
   { key: 'industrial', label: 'Industrial', icon: 'ri-building-4-line' },
   { key: 'land', label: 'Land / Development', icon: 'ri-landscape-line' },
@@ -47,6 +49,7 @@ export interface CommercialSearchPanelProps {
   priceOptions: string[];
   selectedPrice: string;
   onPriceChange: (val: string) => void;
+  placeholderCycle?: string[];
 }
 
 export default function CommercialSearchPanel({
@@ -70,7 +73,51 @@ export default function CommercialSearchPanel({
   priceOptions,
   selectedPrice,
   onPriceChange,
+  placeholderCycle,
 }: CommercialSearchPanelProps) {
+  // ── Animated placeholder cycling (typewriter effect) ──────────────
+  const animPhrases = placeholderCycle && placeholderCycle.length > 0
+    ? placeholderCycle
+    : [
+        "Looking for prime office space...",
+        "Looking for retail space to lease...",
+        "Looking for warehouse & industrial units...",
+      ];
+  const [animText, setAnimText] = useState('');
+  const [animPhase, setAnimPhase] = useState<'typing' | 'pausing' | 'deleting'>('typing');
+  const [animIdx, setAnimIdx] = useState(0);
+  const animTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldAnimate = searchQuery.trim() === '';
+
+  // Typewriter animation effect
+  useEffect(() => {
+    if (!shouldAnimate) {
+      setAnimText('');
+      return;
+    }
+    const phrase = animPhrases[animIdx];
+    const cleanup = () => {
+      if (animTimerRef.current) { clearTimeout(animTimerRef.current); animTimerRef.current = null; }
+    };
+    if (animPhase === 'typing') {
+      if (animText.length < phrase.length) {
+        animTimerRef.current = setTimeout(() => setAnimText(phrase.slice(0, animText.length + 1)), 70 + Math.random() * 50);
+      } else {
+        animTimerRef.current = setTimeout(() => setAnimPhase('pausing'), 2500);
+      }
+    } else if (animPhase === 'pausing') {
+      animTimerRef.current = setTimeout(() => setAnimPhase('deleting'), 500);
+    } else if (animPhase === 'deleting') {
+      if (animText.length > 0) {
+        animTimerRef.current = setTimeout(() => setAnimText(animText.slice(0, -1)), 35 + Math.random() * 25);
+      } else {
+        animTimerRef.current = setTimeout(() => { setAnimIdx((prev) => (prev + 1) % animPhrases.length); setAnimPhase('typing'); }, 350);
+      }
+    }
+    return cleanup;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [animText, animPhase, animIdx, shouldAnimate]);
+
   const [showSize, setShowSize] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -84,11 +131,11 @@ export default function CommercialSearchPanel({
     <div ref={panelRef} className="w-full bg-[#0f1629] rounded-2xl border border-[#1e2a4a] overflow-hidden shadow-2xl">
       {/* Rent / Sale Toggle */}
       <div className="px-5 md:px-8 pt-5 pb-4 flex items-center justify-center border-b border-[#1e2a4a]">
-        <div className="inline-flex bg-[#1a2545] rounded-full p-1.5" role="group" aria-label="Rent or Buy toggle">
+        <div className="inline-flex gap-1" role="group" aria-label="Rent or Buy toggle">
           <button
             type="button"
             onClick={() => onTogglePurpose(false)}
-            className={`px-8 py-3 text-sm font-roboto font-bold rounded-full transition-all cursor-pointer whitespace-nowrap tracking-wide ${!isBuy ? 'bg-[#D4A853] text-[#0f1629] shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-10 py-3 text-sm font-bold rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap tracking-[0.12em] ${!isBuy ? 'bg-accent text-white shadow-[0_4px_20px_rgba(13,89,89,0.35)]' : 'border border-white/30 text-gray-400 hover:text-white hover:border-white/60'}`}
             aria-pressed={!isBuy}
           >
             RENT
@@ -96,7 +143,7 @@ export default function CommercialSearchPanel({
           <button
             type="button"
             onClick={() => onTogglePurpose(true)}
-            className={`px-8 py-3 text-sm font-roboto font-bold rounded-full transition-all cursor-pointer whitespace-nowrap tracking-wide ${isBuy ? 'bg-[#D4A853] text-[#0f1629] shadow-md' : 'text-gray-400 hover:text-gray-200'}`}
+            className={`px-10 py-3 text-sm font-bold rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap tracking-[0.12em] ${isBuy ? 'bg-accent text-white shadow-[0_4px_20px_rgba(13,89,89,0.35)]' : 'border border-white/30 text-gray-400 hover:text-white hover:border-white/60'}`}
             aria-pressed={isBuy}
           >
             BUY
@@ -113,9 +160,9 @@ export default function CommercialSearchPanel({
               role="option"
               aria-selected={selectedType === type.key}
               onClick={() => onTypeChange(type.key)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${selectedType === type.key ? 'border-[#D4A853] bg-[#D4A853]/15 text-[#D4A853]' : 'border-[#1e2a4a] text-gray-300 hover:border-[#2a3a5a] hover:bg-[#1a2545]'}`}
+              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${selectedType === type.key ? 'border-accent bg-accent/20 text-accent' : 'border-[#1e2a4a] text-gray-300 hover:border-[#2a3a5a] hover:bg-[#1a2545]'}`}
             >
-              <span className={`w-5 h-5 flex items-center justify-center ${selectedType === type.key ? 'text-[#D4A853]' : 'text-gray-400'}`}>
+              <span className={`w-5 h-5 flex items-center justify-center ${selectedType === type.key ? 'text-accent' : 'text-gray-400'}`}>
                 <i className={`${type.icon} text-base`}></i>
               </span>
               <span className="hidden sm:inline">{type.label}</span>
@@ -132,7 +179,7 @@ export default function CommercialSearchPanel({
             <select
               value={selectedPrice}
               onChange={(e) => onPriceChange(e.target.value)}
-              className="appearance-none h-12 px-5 pr-10 text-sm font-roboto font-bold text-gray-200 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-[#D4A853] focus:ring-1 focus:ring-[#D4A853]/20 cursor-pointer min-w-[200px]"
+              className="appearance-none h-12 px-5 pr-10 text-sm font-roboto font-bold text-gray-200 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-golden focus:ring-1 focus:ring-golden/20 cursor-pointer min-w-[200px]"
               aria-label="Price range"
             >
               {priceOptions.map((o) => <option key={o}>{o}</option>)}
@@ -152,7 +199,7 @@ export default function CommercialSearchPanel({
                   onMaxSizeChange('');
                 }
               }}
-              className={`flex items-center gap-2 px-4 h-12 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${showSize ? 'border-[#D4A853] bg-[#D4A853]/15 text-[#D4A853]' : 'border-[#2a3a5a] bg-[#1a2545] text-gray-300 hover:border-[#3a4a6a]'}`}
+              className={`flex items-center gap-2 px-4 h-12 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${showSize ? 'border-golden bg-golden/15 text-golden' : 'border-[#2a3a5a] bg-[#1a2545] text-gray-300 hover:border-[#3a4a6a]'}`}
             >
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className={`${showSize ? 'ri-checkbox-fill' : 'ri-checkbox-blank-line'} text-sm`}></i>
@@ -168,7 +215,7 @@ export default function CommercialSearchPanel({
                   onChange={(e) => onMinSizeChange(e.target.value)}
                   placeholder="Min"
                   min="0"
-                  className="w-24 h-12 px-3 text-sm font-roboto font-bold text-gray-200 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-[#D4A853] placeholder:text-gray-500"
+                  className="w-24 h-12 px-3 text-sm font-roboto font-bold text-gray-200 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-golden placeholder:text-gray-500"
                 />
                 <span className="text-sm text-gray-500 font-roboto font-bold">to</span>
                 <input
@@ -177,7 +224,7 @@ export default function CommercialSearchPanel({
                   onChange={(e) => onMaxSizeChange(e.target.value)}
                   placeholder="Max"
                   min="0"
-                  className="w-24 h-12 px-3 text-sm font-roboto font-bold text-gray-200 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-[#D4A853] placeholder:text-gray-500"
+                  className="w-24 h-12 px-3 text-sm font-roboto font-bold text-gray-200 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-golden placeholder:text-gray-500"
                 />
               </div>
             )}
@@ -186,7 +233,7 @@ export default function CommercialSearchPanel({
           {/* Save Search */}
           <button
             onClick={onToggleSave}
-            className={`ml-auto flex items-center gap-2 px-4 h-12 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${savedSearch ? 'border-[#D4A853] bg-[#D4A853]/15 text-[#D4A853]' : 'border-[#2a3a5a] bg-[#1a2545] text-gray-300 hover:border-[#3a4a6a]'}`}
+            className={`ml-auto flex items-center gap-2 px-4 h-12 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${savedSearch ? 'border-golden bg-golden/15 text-golden' : 'border-[#2a3a5a] bg-[#1a2545] text-gray-300 hover:border-[#3a4a6a]'}`}
           >
             <span className="w-4 h-4 flex items-center justify-center">
               <i className={`${savedSearch ? 'ri-heart-fill' : 'ri-heart-line'} text-sm`}></i>
@@ -201,16 +248,28 @@ export default function CommercialSearchPanel({
         <div className="flex flex-col sm:flex-row items-stretch gap-3">
           {/* Location Input */}
           <div className="relative flex-1 min-w-0">
-            <div className="relative flex items-center gap-3 px-4 h-12 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus-within:border-[#D4A853] focus-within:ring-1 focus-within:ring-[#D4A853]/20 transition-colors">
+            <div className="relative flex items-center gap-3 px-4 h-12 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus-within:border-golden focus-within:ring-1 focus-within:ring-golden/20 transition-colors">
               <span className="w-5 h-5 flex items-center justify-center shrink-0">
                 <i className="ri-search-line text-gray-400 text-base"></i>
               </span>
+
+              {/* Animated placeholder overlay */}
+              {shouldAnimate && animText && (
+                <div className="absolute inset-0 flex items-center px-4 pointer-events-none z-[1]">
+                  <span className="w-5 h-5 flex items-center justify-center shrink-0" />
+                  <span className="flex-1 min-w-0 text-base font-roboto font-bold text-gray-500 truncate ml-3">
+                    {animText}
+                    <span className="inline-block w-[2px] h-[1.1em] bg-gray-500/60 ml-0.5 align-middle animate-[cursor-blink_1s_step-end_infinite]" />
+                  </span>
+                </div>
+              )}
+
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="e.g. Nairobi, Westlands, or office space"
+                placeholder={shouldAnimate ? '' : "Looking for"}
                 maxLength={100}
                 className="flex-1 min-w-0 text-base font-roboto font-bold text-gray-100 placeholder:text-gray-500 focus:outline-none bg-transparent"
                 aria-label="Search by location"
@@ -232,7 +291,7 @@ export default function CommercialSearchPanel({
             <select
               value={selectedRadius}
               onChange={(e) => onRadiusChange(e.target.value)}
-              className="appearance-none h-12 px-5 pr-10 text-sm font-roboto font-bold text-gray-300 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-[#D4A853] cursor-pointer min-w-[170px]"
+              className="appearance-none h-12 px-5 pr-10 text-sm font-roboto font-bold text-gray-300 bg-[#1a2545] border border-[#2a3a5a] rounded-lg focus:outline-none focus:border-golden cursor-pointer min-w-[170px]"
               aria-label="Area selection"
             >
               {RADIUS_OPTIONS.map((o) => <option key={o}>{o}</option>)}
@@ -246,13 +305,11 @@ export default function CommercialSearchPanel({
           <button
             onClick={onSearch}
             disabled={loading}
-            className="flex items-center justify-center gap-2.5 h-12 px-8 bg-[#D4A853] text-[#0f1629] text-base font-roboto font-bold rounded-lg hover:bg-[#c99a48] transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 shadow-lg shadow-[#D4A853]/20"
+            className="flex items-center justify-center gap-2.5 h-12 px-8 bg-accent text-white text-base font-roboto font-bold rounded-lg hover:bg-[#0a4646] transition-colors cursor-pointer whitespace-nowrap shrink-0 disabled:opacity-60 shadow-[0_4px_20px_rgba(13,89,89,0.30)]"
           >
             {loading ? (
               <>
-                <span className="w-5 h-5 flex items-center justify-center">
-                  <i className="ri-loader-4-line text-base animate-spin"></i>
-                </span>
+                <PageLoader size={20} />
                 Searching...
               </>
             ) : (

@@ -200,7 +200,7 @@ export default function SiteSettings() {
                     value={getSetting('contact_email')}
                     onChange={(e) => setSetting('contact_email', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="info@oceans.co.ke"
+                    placeholder="ask@oceanske.com"
                   />
                 </div>
               </div>

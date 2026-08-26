@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { useSyncSettings } from '@/hooks/useSyncSettings';
 import { CRMToastContainer } from './components/CRMToast';
 import NotificationsDropdown from './components/NotificationsDropdown';
+import { useCrmCounters } from '@/hooks/useCrmCounters';
 import {
   LayoutDashboard, Building2, Users, Handshake, Mail, Menu, X, LogOut,
   ChevronRight, UserRound, Image, BarChart3, History, MapPin, FileText,
@@ -57,7 +58,6 @@ const NAV_GROUPS = [
       { name: 'deals', label: 'Deals', icon: 'Handshake', path: '/crm/deals' },
       { name: 'leads', label: 'Leads', icon: 'Users', path: '/crm/leads' },
       { name: 'contacts', label: 'Inquiries', icon: 'MessageSquare', path: '/crm/contacts' },
-      { name: 'enquiries', label: 'Enquiries', icon: 'Inbox', path: '/crm/enquiries' },
     ],
   },
   {
@@ -98,7 +98,6 @@ export default function DashboardLayout() {
   const [menuLoading, setMenuLoading] = useState(true);
   const [mgmtExpanded, setMgmtExpanded] = useState(false);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const navRef = useRef<HTMLElement>(null);
   const { user, signOut } = useAuth();
@@ -113,19 +112,7 @@ export default function DashboardLayout() {
   const isSuperAdmin = user?.role === 'super_admin';
   const isAgentDashboard = location.pathname === '/agent-dashboard';
 
-  const fetchUnreadCount = useCallback(async () => {
-    let q = supabase.from('leads').select('*', { count: 'exact', head: true }).eq('is_read', false);
-    if (isAgent && agentId) q = q.eq('agent_id', agentId);
-    const { count } = await q;
-    setUnreadCount(count ?? 0);
-  }, [isAgent, agentId]);
-
-  // Fetch unread enquiries count for inbox badge
-  useEffect(() => {
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  const { counters } = useCrmCounters();
 
   // Persisted "preview as agent" mode for super admins. Persisting it (instead of
   // tying it only to the /agent-dashboard path) means the ENTIRE sidebar switches
@@ -232,6 +219,12 @@ export default function DashboardLayout() {
     return <Icon size={18} />;
   };
 
+  const getNavBadge = (name: string): number => {
+    if (name === 'inbox') return counters.inboxUnread;
+    if (name === 'leads') return counters.leadsUnread;
+    return 0;
+  };
+
   const today = new Date();
   const dateString = today.toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -307,8 +300,13 @@ export default function DashboardLayout() {
                         <span className={isActive ? 'text-golden' : 'text-white/70'}>
                           {renderIcon(item.icon)}
                         </span>
-                        <span>{(item.name === 'listings' ? item.label : menuItem?.label) || item.label}</span>
-                        {isActive && <ChevronRight size={14} className="ml-auto text-golden" />}
+                        <span className="flex-1">{(item.name === 'listings' ? item.label : menuItem?.label) || item.label}</span>
+                        {getNavBadge(item.name) > 0 && (
+                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#dc2626] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                            {getNavBadge(item.name) > 99 ? '99+' : getNavBadge(item.name)}
+                          </span>
+                        )}
+                        {isActive && <ChevronRight size={14} className="text-golden" />}
                       </Link>
                     );
                   })}
@@ -521,11 +519,7 @@ export default function DashboardLayout() {
             {isSuperAdmin && (
               <Link
                 to={isPreviewingAgent ? '/admin-dashboard' : '/agent-dashboard'}
-                className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all whitespace-nowrap cursor-pointer ${
-                  isPreviewingAgent
-                    ? 'bg-[#f58300]/8 text-[#f58300] border-[#f58300]/20 hover:bg-[#f58300]/15'
-                    : 'bg-[#0d5959]/8 text-[#0d5959] border-[#0d5959]/20 hover:bg-[#0d5959]/15'
-                }`}
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold border transition-all whitespace-nowrap cursor-pointer bg-white/10 text-[#e5e7eb] border-white/25 hover:bg-white/15 hover:border-white/40"
               >
                 <i className={`${isPreviewingAgent ? 'ri-admin-line' : 'ri-eye-line'} text-base`} />
                 {isPreviewingAgent ? 'Back to Admin' : 'Preview as Agent'}
@@ -533,27 +527,31 @@ export default function DashboardLayout() {
             )}
             <NotificationsDropdown />
             <button
-              onClick={() => navigate('/crm/enquiries')}
-              className="p-2 rounded-md cursor-pointer relative hover:bg-white/5 text-gray-400 font-semibold"
-              title="Enquiries"
+              onClick={() => navigate('/crm/inbox')}
+              className="p-2 rounded-md cursor-pointer relative hover:bg-white/10 text-[#e5e7eb] font-bold"
+              title="Inbox"
             >
               <Inbox size={20} />
-              {unreadCount > 0 && (
+              {counters.inboxUnread > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[#dc2626] text-white text-[10px] font-bold rounded-full px-1">
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {counters.inboxUnread > 99 ? '99+' : counters.inboxUnread}
                 </span>
               )}
             </button>
             <div className="hidden sm:flex items-center gap-3 ml-2">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 overflow-hidden">
+              <Link
+                to="/crm/profile"
+                title={user?.name ? `Profile — ${user.name}` : 'My Profile'}
+                className="w-9 h-9 rounded-full flex items-center justify-center bg-white/10 overflow-hidden hover:bg-white/20 ring-2 ring-[#e5e7eb]/60 hover:ring-[#e5e7eb] transition-all cursor-pointer"
+              >
                 {user?.avatar ? (
                   <img src={user.avatar} alt={user.name || 'User'} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-white text-sm font-semibold">
+                  <span className="text-white text-sm font-bold">
                     {user?.name?.charAt(0).toUpperCase() || 'A'}
                   </span>
                 )}
-              </div>
+              </Link>
             </div>
           </div>
         </header>

@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { getPropertySpecs } from '@/lib/propertySpecs';
+import { useCurrency } from '@/hooks/useCurrency';
+import { formatLocation, formatAreaName, smartTitleCase } from '@/lib/location';
 
 interface SimilarProperty {
   id: string;
   slug: string;
   title: string;
   location: string;
+  area: string;
   price: string;
   image: string;
   beds: number;
   baths: number;
   parking: number;
+  sqft: number;
   purpose: string;
   propertyType: string;
 }
@@ -22,16 +27,10 @@ interface SimilarPropertiesProps {
   purpose: string;
 }
 
-function formatPrice(row: Record<string, unknown>): string {
-  const priceNum = Number(row.price || 0);
-  const currency = String(row.currency || 'KES');
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : '€';
-  return `${symbol} ${priceNum.toLocaleString()}`;
-}
-
 export default function SimilarProperties({ currentId, propertyType, purpose }: SimilarPropertiesProps) {
   const [properties, setProperties] = useState<SimilarProperty[]>([]);
   const [loading, setLoading] = useState(true);
+  const { format } = useCurrency();
 
   useEffect(() => {
     async function fetchSimilar() {
@@ -39,7 +38,7 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
       try {
         let query = supabase
           .from('listings')
-          .select('id,slug,title,location,price,currency,main_image,images,bedrooms,bathrooms,parking,purpose,property_type')
+          .select('id,slug,title,location,address,neighbourhood,city,state_region,price,currency,main_image,images,bedrooms,bathrooms,parking,sqft,purpose,property_type')
           .eq('is_published', true)
           .neq('id', currentId)
           .neq('title', '')
@@ -48,11 +47,15 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
           .order('created_at', { ascending: false })
           .limit(4);
 
-        if (propertyType && propertyType !== 'land') {
-          query = query.eq('property_type', propertyType);
-        }
-        if (purpose) {
-          query = query.eq('purpose', purpose);
+        if (propertyType === 'land') {
+          query = query.eq('property_category', 'land');
+        } else {
+          if (propertyType) {
+            query = query.eq('property_type', propertyType);
+          }
+          if (purpose) {
+            query = query.eq('purpose', purpose);
+          }
         }
 
         const { data, error } = await query;
@@ -65,13 +68,26 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
           return {
             id: String(row.id),
             slug: String(row.slug || row.id),
-            title: String(row.title || 'Untitled'),
-            location: String(row.location || ''),
-            price: formatPrice(row),
+            title: smartTitleCase(String(row.title || 'Untitled')),
+            location: formatLocation({
+              address: row.address as string | null,
+              neighbourhood: row.neighbourhood as string | null,
+              location: String(row.location || ''),
+              city: row.city as string | null,
+              state_region: row.state_region as string | null,
+            }),
+            area: formatAreaName({
+              address: row.address as string | null,
+              neighbourhood: row.neighbourhood as string | null,
+              location: String(row.location || ''),
+              city: row.city as string | null,
+            }),
+            price: format(Number(row.price || 0), String(row.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR'),
             image: mainImg || (images.length > 0 ? images[0] : fallback),
             beds: Number(row.bedrooms ?? 0),
             baths: Number(row.bathrooms ?? 0),
             parking: Number(row.parking ?? 0),
+            sqft: Number(row.sqft ?? 0),
             purpose: String(row.purpose || 'sale'),
             propertyType: String(row.property_type || ''),
           };
@@ -84,12 +100,12 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
       }
     }
     fetchSimilar();
-  }, [currentId, propertyType, purpose]);
+  }, [currentId, propertyType, purpose, format]);
 
   if (loading) {
     return (
-      <div className="bg-white border border-stone-200 rounded-[2px] p-5 md:p-6">
-        <div className="flex items-center justify-between pb-3 mb-4 border-b border-stone-200">
+      <div className="bg-white border border-primary/12 rounded-[2px] p-5 md:p-6">
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-primary/12">
           <h2 className="font-roboto text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Similar Properties</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -108,10 +124,10 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
   if (properties.length === 0) return null;
 
   return (
-    <div className="bg-white border border-stone-200 rounded-[2px] p-5 md:p-6">
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-stone-200">
+    <div className="bg-white border border-primary/12 rounded-[2px] p-5 md:p-6">
+      <div className="flex items-center justify-between pb-3 mb-4 border-b border-primary/12">
         <h2 className="font-roboto text-[11px] font-bold uppercase tracking-[0.15em] text-primary">Similar Properties</h2>
-        <Link to="/all-properties" className="text-primary font-roboto text-xs font-semibold flex items-center gap-1 hover:text-golden transition-colors cursor-pointer">
+        <Link to="/all-properties" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-roboto font-medium text-primary border border-primary/20 rounded-sm hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
           View All <i className="ri-arrow-right-line"></i>
         </Link>
       </div>
@@ -122,32 +138,24 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
               <img
                 src={p.image}
                 alt={p.title}
-                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
               />
-              <span className="absolute top-2 right-2 px-2 py-0.5 bg-green-600 text-white text-[9px] font-roboto font-semibold uppercase tracking-wider rounded-[2px]">
-                Featured
-              </span>
             </div>
             <p className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-[#1f1f1f] mb-1">{p.propertyType}</p>
-            <p className="text-base font-roboto font-medium text-[#002349] mb-1">{p.price}</p>
-            <h3 className="text-sm font-roboto font-medium text-[#011328] leading-snug line-clamp-2 mb-1 group-hover:text-primary transition-colors">{p.title}</h3>
-            <p className="text-xs font-roboto text-[#636363] mb-2">{p.location}</p>
-            <div className="flex items-center gap-3 text-xs font-roboto text-[#363535]">
-              {p.beds > 0 && (
-                <span className="flex items-center gap-1">
-                  <i className="ri-hotel-bed-line text-[#636363] text-xs"></i>{p.beds}
+            <p className="text-base font-roboto font-medium text-primary mb-1">{p.price}</p>
+            <h3 className="text-sm font-roboto font-semibold text-[#011328] leading-snug line-clamp-2 mb-1 group-hover:text-primary transition-colors">{p.title}</h3>
+            <p className="text-xs font-roboto text-[#636363] mb-2">{p.area}</p>
+            <div className="flex items-center gap-3 flex-wrap text-xs font-roboto text-[#363535]">
+              {getPropertySpecs(p.propertyType, {
+                beds: p.beds,
+                baths: p.baths,
+                parking: p.parking,
+                sqft: p.sqft,
+              }).map((spec) => (
+                <span key={spec.key} className="flex items-center gap-1">
+                  <i className={`${spec.icon} text-[#636363] text-xs`}></i>{spec.label}
                 </span>
-              )}
-              {p.baths > 0 && (
-                <span className="flex items-center gap-1">
-                  <i className="fa-solid fa-bath text-[#636363] text-xs"></i>{p.baths}
-                </span>
-              )}
-              {p.parking > 0 && (
-                <span className="flex items-center gap-1">
-                  <i className="ri-car-line text-[#636363] text-xs"></i>{p.parking}
-                </span>
-              )}
+              ))}
             </div>
           </Link>
         ))}

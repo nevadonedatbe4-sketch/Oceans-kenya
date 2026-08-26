@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
@@ -8,6 +8,31 @@ import ContactAgentModal from '@/components/feature/ContactAgentModal';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import { supabase } from '@/lib/supabase';
 import { useCurrency } from '@/hooks/useCurrency';
+import { smartTitleCase } from '@/lib/location';
+import PageLoader from '@/components/feature/PageLoader';
+
+// ── Types ──────────────────────────────────────────────
+
+interface ListingRow {
+  id: string;
+  title: string;
+  location: string;
+  address: string | null;
+  neighbourhood: string | null;
+  city: string | null;
+  price: number;
+  property_type: string;
+  bedrooms: number;
+  bathrooms: number;
+  parking: number;
+  slug: string;
+  main_image: string;
+  images: string[] | null;
+  purpose: string;
+  currency: string;
+  latitude: number | null;
+  longitude: number | null;
+}
 
 interface CommuteProperty {
   id: string;
@@ -19,112 +44,160 @@ interface CommuteProperty {
   beds: number;
   baths: number;
   parking: number;
-  receptions: number;
   priceRaw: number;
   currency: string;
   priceUnit?: string;
   image: string;
-  commuteTime: number;
-  commuteMode: string;
-  distance: number;
+  distanceKm: number | null;
+  commuteTimeMin: number | null;
+  commuteTimeText: string | null;
+  commuteAvailable: boolean;
+  _lat: number | null;
+  _lng: number | null;
 }
 
-const transportModes = ['Driving', 'Public transit', 'Walking', 'Cycling'];
-const timeRanges = ['Under 15 min', 'Under 30 min', 'Under 45 min', 'Under 1 hour', 'Any'];
-const destinations = [
-  'Nairobi CBD',
-  'Westlands Business District',
-  'Jomo Kenyatta International Airport',
-  'Karen Hub',
-  'Kilimani Mall',
-  'Lavington Curve',
-  'Gigiri (UN Complex)',
-  'Upper Hill',
-  'Eastleigh',
-  'Thika Road Mall',
+// ── Constants ──────────────────────────────────────────
+
+interface Destination {
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+const DESTINATIONS: Destination[] = [
+  { name: 'Nairobi CBD', lat: -1.286389, lng: 36.817223 },
+  { name: 'Westlands Business District', lat: -1.2673, lng: 36.8023 },
+  { name: 'Jomo Kenyatta International Airport', lat: -1.3191, lng: 36.9278 },
+  { name: 'Karen Hub', lat: -1.3758, lng: 36.7066 },
+  { name: 'Kilimani Mall', lat: -1.2921, lng: 36.7885 },
+  { name: 'Lavington Curve', lat: -1.2809, lng: 36.7706 },
+  { name: 'Gigiri (UN Complex)', lat: -1.2359, lng: 36.8100 },
+  { name: 'Upper Hill', lat: -1.3009, lng: 36.8130 },
+  { name: 'Eastleigh', lat: -1.2675, lng: 36.8499 },
+  { name: 'Thika Road Mall', lat: -1.2189, lng: 36.8950 },
 ];
 
+const TRANSPORT_MODES = ['Driving', 'Public transit', 'Walking', 'Cycling'] as const;
+
+const TIME_RANGES: { label: string; minutes: number }[] = [
+  { label: 'Under 15 min', minutes: 15 },
+  { label: 'Under 30 min', minutes: 30 },
+  { label: 'Under 45 min', minutes: 45 },
+  { label: 'Under 1 hour', minutes: 60 },
+  { label: 'Any', minutes: 999 },
+];
+
+const FALLBACK_IMAGE = 'https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20with%20clean%20white%20walls%20and%20large%20windows%20in%20bright%20daylight%2C%20architectural%20photography%2C%20minimalist%20design%2C%20tropical%20landscaping%2C%20blue%20sky%20background&width=800&height=600&seq=ct-fallback-2026&orientation=landscape';
+
+// ── Helpers ────────────────────────────────────────────
+
 function toCategoryLabel(cat: string): string {
-  return cat.toLowerCase().split(/[_\s]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return cat
+    .toLowerCase()
+    .split(/[_\s]+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
 }
 
 function buildSlug(id: string, title: string): string {
   if (!title) return id;
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 80);
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 80);
 }
 
-function formatPrice(price: number, currency: string): string {
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : '€';
-  if (price >= 1_000_000) return `${symbol} ${(price / 1_000_000).toFixed(price % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (price >= 1_000) return `${symbol} ${(price / 1_000).toFixed(0)}K`;
-  return `${symbol} ${price.toLocaleString()}`;
+function formatListingLocation(row: ListingRow): string {
+  const address = (row.address || '').trim();
+  const neighbourhood = (row.neighbourhood || '').trim();
+  const location = (row.location || '').trim();
+  const city = (row.city || '').trim();
+
+  if (address) return smartTitleCase(address);
+  if (neighbourhood) return smartTitleCase(neighbourhood);
+  if (location && location.toLowerCase() !== 'nairobi') return smartTitleCase(location);
+  if (city) return smartTitleCase(city);
+  return smartTitleCase(location) || '—';
 }
+
+function mapListingToProperty(row: ListingRow): CommuteProperty {
+  const purpose = String(row.purpose || 'sale');
+  const mainImg = String(row.main_image || '');
+  const images = row.images || [];
+  const image = mainImg || (images.length > 0 ? images[0] : FALLBACK_IMAGE);
+
+  return {
+    id: row.id,
+    slug: String(row.slug || buildSlug(row.id, row.title)),
+    title: smartTitleCase(row.title || 'Untitled Property'),
+    location: formatListingLocation(row),
+    type: purpose === 'rent' ? 'rent' : 'sale',
+    category: toCategoryLabel(String(row.property_type || 'house')),
+    beds: Number(row.bedrooms ?? 0),
+    baths: Number(row.bathrooms ?? 0),
+    parking: Number(row.parking ?? 0),
+    priceRaw: Number(row.price || 0),
+    currency: String(row.currency || 'KES'),
+    priceUnit: purpose === 'rent' ? 'pcm' : undefined,
+    image,
+    distanceKm: null,
+    commuteTimeMin: null,
+    commuteTimeText: null,
+    commuteAvailable: false,
+    _lat: row.latitude ?? null,
+    _lng: row.longitude ?? null,
+  };
+}
+
+// ── Component ──────────────────────────────────────────
 
 export default function CommuteTime() {
   const { format } = useCurrency();
-  const [destination, setDestination] = useState('Nairobi CBD');
-  const [transportMode, setTransportMode] = useState('Driving');
-  const [maxTime, setMaxTime] = useState('Under 30 min');
-  const [showFilters, setShowFilters] = useState(false);
-  const [commuteProperties, setCommuteProperties] = useState<CommuteProperty[]>([]);
+
+  // Search state
+  const [selectedDest, setSelectedDest] = useState(0);
+  const [transportMode, setTransportMode] = useState<string>('Driving');
+  const [timeRangeIndex, setTimeRangeIndex] = useState(1); // "Under 30 min"
+
+  // Data state
+  const [allProperties, setAllProperties] = useState<CommuteProperty[]>([]);
+  const [enrichedProperties, setEnrichedProperties] = useState<CommuteProperty[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commuteLoading, setCommuteLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [commuteError, setCommuteError] = useState('');
+
+  // Modals
   const [contactModalProp, setContactModalProp] = useState<CommuteProperty | null>(null);
   const [quickViewProperty, setQuickViewProperty] = useState<CommuteProperty | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
+  const destination = DESTINATIONS[selectedDest];
+  const maxMinutes = TIME_RANGES[timeRangeIndex].minutes;
+
+  // ── Step 1: Fetch listings from DB ────────────────────
   useEffect(() => {
     let cancelled = false;
-    async function fetchProperties() {
+    async function fetchListings() {
       setLoading(true);
       setError('');
       try {
         const { data, error: dbError } = await supabase
           .from('listings')
-          .select('id,title,location,price,property_type,bedrooms,bathrooms,parking,slug,main_image,images,purpose,currency')
+          .select('id,title,location,address,neighbourhood,city,price,property_type,bedrooms,bathrooms,parking,slug,main_image,images,purpose,currency,latitude,longitude')
           .eq('is_published', true)
           .neq('title', '')
           .gt('price', 0)
           .in('status', ['available', 'under_contract'])
           .order('created_at', { ascending: false })
-          .limit(20);
+          .limit(30);
 
         if (dbError) throw dbError;
         if (cancelled) return;
 
-        const rows = (data || []) as Record<string, unknown>[];
-        const mapped = rows.map((row, i) => {
-          const title = String(row.title || 'Untitled Property');
-          const purpose = String(row.purpose || 'sale');
-          const mainImg = String(row.main_image || '');
-          const images = (row.images as string[] | null) || [];
-          const fallbackImg = 'https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20clean%20white%20walls%20large%20windows%20bright%20daylight%20architectural%20photography&width=800&height=600&seq=ct-fallback&orientation=landscape';
-
-          const commuteTimes = [12, 18, 25, 8, 22, 35, 15, 28, 10, 30, 20, 14, 27, 33, 17, 9, 24, 19, 31, 16];
-          const distances = [3.2, 5.1, 7.8, 2.4, 6.5, 12.0, 4.3, 9.2, 2.8, 11.5, 6.0, 4.8, 8.1, 10.3, 5.7, 3.0, 7.2, 5.9, 9.8, 4.5];
-
-          return {
-            id: String(row.id),
-            slug: String(row.slug || buildSlug(String(row.id), title)),
-            title,
-            location: String(row.location || 'Nairobi'),
-            type: purpose === 'rent' ? 'rent' : 'sale',
-            category: toCategoryLabel(String(row.property_type || 'house')),
-            beds: Number(row.bedrooms ?? 0),
-            baths: Number(row.bathrooms ?? 0),
-            parking: Number(row.parking ?? 0),
-            receptions: Math.max(1, Math.floor(Number(row.bedrooms ?? 1) / 2)),
-            price: formatPrice(Number(row.price || 0), String(row.currency || 'KES')),
-            priceRaw: Number(row.price || 0),
-            currency: String(row.currency || 'KES'),
-            priceUnit: purpose === 'rent' ? 'pcm' : undefined,
-            image: mainImg || (images.length > 0 ? images[0] : fallbackImg),
-            commuteTime: commuteTimes[i % commuteTimes.length],
-            commuteMode: i % 3 === 0 ? 'Driving' : i % 3 === 1 ? 'Public transit' : 'Walking',
-            distance: distances[i % distances.length],
-          };
-        });
-
-        setCommuteProperties(mapped);
+        const rows = (data || []) as ListingRow[];
+        const mapped = rows.map(mapListingToProperty);
+        setAllProperties(mapped);
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load properties');
@@ -133,77 +206,186 @@ export default function CommuteTime() {
         if (!cancelled) setLoading(false);
       }
     }
-    fetchProperties();
+    fetchListings();
     return () => { cancelled = true; };
   }, []);
 
-  const filtered = commuteProperties.filter((p) => {
-    const maxMinutes = maxTime === 'Under 15 min' ? 15 : maxTime === 'Under 30 min' ? 30 : maxTime === 'Under 45 min' ? 45 : maxTime === 'Under 1 hour' ? 60 : 999;
-    return p.commuteTime <= maxMinutes;
-  });
+  // ── Step 2: Call Edge Function for real distances ─────
+  const fetchCommuteData = useCallback(async () => {
+    if (allProperties.length === 0) return;
+    setCommuteLoading(true);
+    setCommuteError('');
 
-  const avgTime = filtered.length > 0 ? Math.round(filtered.reduce((sum, p) => sum + p.commuteTime, 0) / filtered.length) : 0;
+    const listingsWithCoords = allProperties.filter(
+      (p) => typeof p._lat === 'number' && typeof p._lng === 'number'
+    ).map((p) => ({ id: p.id, lat: p._lat as number, lng: p._lng as number }));
 
+    if (listingsWithCoords.length === 0) {
+      // No coordinates available — keep distance as null
+      setEnrichedProperties(allProperties.map((p) => ({ ...p, distanceKm: null, commuteTimeMin: null, commuteTimeText: null, commuteAvailable: false })));
+      setCommuteLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_PUBLIC_SUPABASE_URL}/functions/v1/commute-search`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            destinationLat: destination.lat,
+            destinationLng: destination.lng,
+            transportMode,
+            listings: listingsWithCoords.map((p) => ({ id: p.id, lat: p._lat, lng: p._lng })),
+          }),
+        }
+      );
+
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+      const data = await res.json();
+      const resultMap = new Map<string, { distanceKm: number; commuteTimeMin: number | null; commuteTimeText: string | null; commuteAvailable: boolean }>();
+      (data.results || []).forEach((r: { id: string; distance_km: number; commute_time_min: number | null; commute_time_text: string | null; commute_available: boolean }) => {
+        resultMap.set(r.id, {
+          distanceKm: r.distance_km,
+          commuteTimeMin: r.commute_time_min,
+          commuteTimeText: r.commute_time_text,
+          commuteAvailable: r.commute_available,
+        });
+      });
+
+      setEnrichedProperties(
+        allProperties.map((p) => {
+          const commute = resultMap.get(p.id);
+          if (commute) {
+            return { ...p, ...commute };
+          }
+          return { ...p, distanceKm: null, commuteTimeMin: null, commuteTimeText: null, commuteAvailable: false };
+        })
+      );
+    } catch (err: unknown) {
+      setCommuteError(err instanceof Error ? err.message : 'Failed to calculate distances');
+      // Fallback: keep existing properties with null commute data
+      setEnrichedProperties(allProperties.map((p) => ({ ...p, distanceKm: null, commuteTimeMin: null, commuteTimeText: null, commuteAvailable: false })));
+    } finally {
+      setCommuteLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allProperties, destination.lat, destination.lng, transportMode]);
+
+  useEffect(() => {
+    fetchCommuteData();
+  }, [fetchCommuteData]);
+
+  // ── Filtering ─────────────────────────────────────────
+  const filtered = useMemo(() => {
+    return enrichedProperties.filter((p) => {
+      // If no commute time available, include based on distance (under ~20km radius if "Any")
+      if (!p.commuteAvailable && p.distanceKm === null) {
+        return maxMinutes === 999; // only show in "Any" mode
+      }
+      if (p.commuteAvailable && p.commuteTimeMin !== null) {
+        return p.commuteTimeMin <= maxMinutes;
+      }
+      // Straight-line distance fallback: rough estimate ~1 min per km at city speeds
+      if (p.distanceKm !== null) {
+        const estimatedMinutes = p.distanceKm * 2.5; // rough city traffic estimate
+        return estimatedMinutes <= maxMinutes;
+      }
+      return false;
+    });
+  }, [enrichedProperties, maxMinutes]);
+
+  const avgDistance = useMemo(() => {
+    const withDistance = filtered.filter((p) => p.distanceKm !== null);
+    if (withDistance.length === 0) return null;
+    const sum = withDistance.reduce((acc, p) => acc + (p.distanceKm || 0), 0);
+    return Math.round((sum / withDistance.length) * 10) / 10;
+  }, [filtered]);
+
+  const avgCommute = useMemo(() => {
+    const withTime = filtered.filter((p) => p.commuteAvailable && p.commuteTimeMin !== null);
+    if (withTime.length === 0) return null;
+    const sum = withTime.reduce((acc, p) => acc + (p.commuteTimeMin || 0), 0);
+    return Math.round(sum / withTime.length);
+  }, [filtered]);
+
+  const anyCommuteAvailable = useMemo(() => {
+    return enrichedProperties.some((p) => p.commuteAvailable);
+  }, [enrichedProperties]);
+
+  // ── Map URL ───────────────────────────────────────────
+  const mapUrl = useMemo(() => {
+    return `https://www.google.com/maps?q=${destination.lat},${destination.lng}&z=13&output=embed`;
+  }, [destination.lat, destination.lng]);
+
+  // ── Render ────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[92px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[120px]">
       <Header />
 
       {/* Hero / Search */}
-      <div className="bg-[#f8f7f4] border-b border-gray-200">
+      <div className="bg-background-100 border-b border-background-200">
         <div className="px-4 md:px-6 lg:px-10 py-8 max-w-[1400px] mx-auto">
           <div className="max-w-2xl">
-            <h1 className="text-2xl md:text-3xl font-roboto font-bold text-primary mb-2">Commute Time Search</h1>
-            <p className="text-sm font-roboto text-gray-500 mb-6">
-              Find properties based on how long it takes to get to your workplace or daily destination.
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground-950 mb-2">Commute Time Search</h1>
+            <p className="text-sm font-body text-foreground-600 mb-6">
+              Find properties near your workplace or daily destination. {anyCommuteAvailable ? 'Times are calculated using live traffic data.' : 'Distances are straight-line from listing coordinates.'}
             </p>
           </div>
 
           {/* Search bar */}
           <div className="flex flex-col md:flex-row items-stretch gap-3 max-w-4xl">
+            {/* Destination */}
             <div className="relative flex-1 min-w-0">
-              <div className="flex items-center gap-2.5 px-4 h-12 bg-white border border-gray-300 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+              <div className="flex items-center gap-2.5 px-4 h-12 bg-background-50 border border-background-300 rounded-lg focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-400/30">
                 <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                  <i className="ri-map-pin-line text-gray-400 text-base"></i>
+                  <i className="ri-map-pin-line text-foreground-400 text-base"></i>
                 </span>
                 <select
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
-                  className="flex-1 min-w-0 text-sm font-roboto font-medium text-gray-800 bg-transparent focus:outline-none appearance-none cursor-pointer"
+                  value={selectedDest}
+                  onChange={(e) => setSelectedDest(Number(e.target.value))}
+                  className="flex-1 min-w-0 text-sm font-body font-medium text-foreground-900 bg-transparent focus:outline-none appearance-none cursor-pointer"
                 >
-                  {destinations.map((d) => (
-                    <option key={d}>{d}</option>
+                  {DESTINATIONS.map((d, i) => (
+                    <option key={d.name} value={i}>{d.name}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div className="relative min-w-[140px]">
-              <div className="flex items-center gap-2.5 px-4 h-12 bg-white border border-gray-300 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+
+            {/* Transport mode */}
+            <div className="relative min-w-[150px]">
+              <div className="flex items-center gap-2.5 px-4 h-12 bg-background-50 border border-background-300 rounded-lg focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-400/30">
                 <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                  <i className="ri-bus-line text-gray-400 text-base"></i>
+                  <i className="ri-bus-line text-foreground-400 text-base"></i>
                 </span>
                 <select
                   value={transportMode}
                   onChange={(e) => setTransportMode(e.target.value)}
-                  className="flex-1 min-w-0 text-sm font-roboto font-medium text-gray-800 bg-transparent focus:outline-none appearance-none cursor-pointer"
+                  className="flex-1 min-w-0 text-sm font-body font-medium text-foreground-900 bg-transparent focus:outline-none appearance-none cursor-pointer"
                 >
-                  {transportModes.map((m) => (
+                  {TRANSPORT_MODES.map((m) => (
                     <option key={m}>{m}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div className="relative min-w-[140px]">
-              <div className="flex items-center gap-2.5 px-4 h-12 bg-white border border-gray-300 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+
+            {/* Time range */}
+            <div className="relative min-w-[160px]">
+              <div className="flex items-center gap-2.5 px-4 h-12 bg-background-50 border border-background-300 rounded-lg focus-within:border-primary-500 focus-within:ring-1 focus-within:ring-primary-400/30">
                 <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                  <i className="ri-time-line text-gray-400 text-base"></i>
+                  <i className="ri-time-line text-foreground-400 text-base"></i>
                 </span>
                 <select
-                  value={maxTime}
-                  onChange={(e) => setMaxTime(e.target.value)}
-                  className="flex-1 min-w-0 text-sm font-roboto font-medium text-gray-800 bg-transparent focus:outline-none appearance-none cursor-pointer"
+                  value={timeRangeIndex}
+                  onChange={(e) => setTimeRangeIndex(Number(e.target.value))}
+                  className="flex-1 min-w-0 text-sm font-body font-medium text-foreground-900 bg-transparent focus:outline-none appearance-none cursor-pointer"
                 >
-                  {timeRanges.map((t) => (
-                    <option key={t}>{t}</option>
+                  {TIME_RANGES.map((t, i) => (
+                    <option key={t.label} value={i}>{t.label}</option>
                   ))}
                 </select>
               </div>
@@ -211,18 +393,29 @@ export default function CommuteTime() {
           </div>
 
           {/* Stats bar */}
-          <div className="flex items-center gap-6 mt-4 text-xs font-roboto text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 mt-4 text-xs font-body text-foreground-500">
             <span>
-              {loading ? (
-                <span className="inline-block w-5 h-3 bg-stone-200 rounded animate-pulse align-middle"></span>
+              {(loading || commuteLoading) ? (
+                <span className="inline-block w-16 h-3 bg-background-200 rounded animate-pulse align-middle"></span>
+              ) : commuteError ? (
+                <span className="text-accent-500">Could not calculate distances</span>
               ) : (
-                <><span className="text-primary font-semibold">{filtered.length}</span> properties within {maxTime.toLowerCase()} to {destination}</>
+                <><span className="text-primary-500 font-semibold">{filtered.length}</span> properties within {TIME_RANGES[timeRangeIndex].label.toLowerCase()} of {destination.name}</>
               )}
             </span>
-            {!loading && filtered.length > 0 && (
-              <span>
-                Average commute: <span className="text-primary font-semibold">{avgTime} min</span> ({transportMode.toLowerCase()})
-              </span>
+            {!loading && !commuteLoading && !commuteError && filtered.length > 0 && (
+              <>
+                {avgDistance !== null && (
+                  <span>
+                    Avg distance: <span className="text-primary-500 font-semibold">{avgDistance} km</span>
+                  </span>
+                )}
+                {avgCommute !== null && (
+                  <span>
+                    Avg commute: <span className="text-primary-500 font-semibold">{avgCommute} min</span> ({transportMode.toLowerCase()})
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -234,40 +427,39 @@ export default function CommuteTime() {
           {/* Results */}
           <div className="lg:w-[60%] xl:w-[65%]">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-roboto font-semibold text-primary">
-                Properties within {maxTime.toLowerCase()} to {destination}
+              <h2 className="text-sm font-heading font-semibold text-foreground-950">
+                {commuteLoading ? 'Calculating distances...' : `Results for ${destination.name}`}
               </h2>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-roboto text-gray-700 cursor-pointer"
-              >
-                <i className="ri-equalizer-line text-xs"></i>
-                Filters
-              </button>
             </div>
 
+            {/* DB Error */}
             {error && (
-              <div className="text-center py-10">
-                <p className="text-sm text-stone-500 mb-4">{error}</p>
-                <button onClick={() => window.location.reload()} className="inline-flex items-center gap-2 px-5 py-2 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
+              <div className="text-center py-16">
+                <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-background-100 rounded-full">
+                  <i className="ri-error-warning-line text-foreground-400 text-xl"></i>
+                </div>
+                <p className="font-body font-semibold text-foreground-950 text-lg mb-2">Could not load properties</p>
+                <p className="text-sm font-body text-foreground-500 mb-4">{error}</p>
+                <button onClick={() => window.location.reload()} className="inline-flex items-center gap-2 px-5 py-2 bg-primary-500 text-background-50 text-xs font-label tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary-600 transition-colors">
                   <i className="ri-refresh-line"></i>Try Again
                 </button>
               </div>
             )}
 
+            {/* Loading skeleton */}
             {loading && !error && (
               <div className="space-y-4">
                 {[1, 2, 3].map((n) => (
-                  <div key={n} className="flex flex-col sm:flex-row bg-white border-2 border-gray-200 rounded-lg overflow-hidden sm:h-[220px] animate-pulse">
-                    <div className="sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full bg-stone-200 flex-shrink-0"></div>
+                  <div key={n} className="flex flex-col sm:flex-row bg-background-50 border border-background-200 rounded-lg overflow-hidden sm:h-[220px] animate-pulse">
+                    <div className="sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full bg-background-200 flex-shrink-0"></div>
                     <div className="flex-1 p-4 sm:p-5 space-y-3">
-                      <div className="h-5 bg-stone-200 rounded w-28"></div>
-                      <div className="h-4 bg-stone-200 rounded w-3/4"></div>
-                      <div className="h-3 bg-stone-200 rounded w-1/2"></div>
+                      <div className="h-5 bg-background-200 rounded w-28"></div>
+                      <div className="h-4 bg-background-200 rounded w-3/4"></div>
+                      <div className="h-3 bg-background-200 rounded w-1/2"></div>
                       <div className="flex gap-3">
-                        <div className="h-3 bg-stone-200 rounded w-16"></div>
-                        <div className="h-3 bg-stone-200 rounded w-16"></div>
-                        <div className="h-3 bg-stone-200 rounded w-16"></div>
+                        <div className="h-3 bg-background-200 rounded w-16"></div>
+                        <div className="h-3 bg-background-200 rounded w-16"></div>
+                        <div className="h-3 bg-background-200 rounded w-16"></div>
                       </div>
                     </div>
                   </div>
@@ -275,38 +467,55 @@ export default function CommuteTime() {
               </div>
             )}
 
+            {/* Results */}
             {!loading && !error && (
               <div className="space-y-4">
+                {commuteLoading && filtered.length === 0 && enrichedProperties.length === 0 && (
+                  <div className="text-center py-16">
+                    <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4">
+                      <PageLoader size={32} />
+                    </div>
+                    <p className="text-sm font-body text-foreground-500">Calculating distances to {destination.name}...</p>
+                  </div>
+                )}
+
                 {filtered.map((p) => (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white border-2 border-gray-200 rounded-lg overflow-hidden sm:h-[220px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                    className="flex flex-col sm:flex-row bg-background-50 border border-background-200 rounded-lg overflow-hidden sm:h-[220px] hover:border-background-300 transition-colors duration-200 group"
                   >
                     {/* Image */}
-                    <div className="relative sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full flex-shrink-0 overflow-hidden group">
+                    <div className="relative sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full flex-shrink-0 overflow-hidden">
                       <Link to={`/property/${p.slug}`} className="block w-full h-full">
                         <img
                           src={p.image}
                           alt={p.title}
                           className="w-full h-full object-cover object-top"
+                          loading="lazy"
                         />
                       </Link>
-                      <div className="absolute top-2 left-2">
-                        <span className="bg-primary text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">
-                          {p.commuteTime} min
-                        </span>
-                      </div>
 
-                      {/* Preview badge */}
+                      {/* Distance badge */}
+                      {p.distanceKm !== null && (
+                        <div className="absolute top-2 left-2">
+                          <span className="bg-foreground-950/75 text-background-50 text-[10px] font-label font-semibold px-2 py-0.5 rounded whitespace-nowrap">
+                            {p.commuteAvailable && p.commuteTimeMin !== null
+                              ? `${p.commuteTimeMin} min`
+                              : `${p.distanceKm} km`}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Quick view */}
                       <button
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           setQuickViewProperty(p);
                         }}
-                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
                       >
-                        <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm cursor-pointer hover:bg-black/80 transition-colors">
+                        <span className="flex items-center gap-1 text-background-50 text-[10px] font-label font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-foreground-950/60 rounded-sm hover:bg-foreground-950/80 transition-colors">
                           <span className="w-3.5 h-3.5 flex items-center justify-center">
                             <i className="ri-expand-diagonal-line text-xs"></i>
                           </span>
@@ -318,49 +527,78 @@ export default function CommuteTime() {
                     {/* Content */}
                     <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
                       <div>
-                        <span className="font-roboto font-bold text-lg md:text-xl text-primary font-semibold">{format(p.priceRaw, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
-                        {p.priceUnit && <span className="text-sm text-gray-500 font-roboto ml-1">{p.priceUnit}</span>}
+                        <span className="font-heading font-bold text-lg md:text-xl text-foreground-950">
+                          {format(p.priceRaw, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+                        </span>
+                        {p.priceUnit && <span className="text-sm text-foreground-500 font-body ml-1">{p.priceUnit}</span>}
+
                         <Link to={`/property/${p.slug}`} className="block hover:underline mt-1">
-                          <h3 className="font-roboto font-bold text-sm md:text-base text-primary leading-snug mb-1">{p.title}</h3>
+                          <h3 className="font-heading font-bold text-sm md:text-base text-foreground-950 leading-snug mb-1">{p.title}</h3>
                         </Link>
-                        <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500 mb-2">
-                          <span className="w-4 h-4 flex items-center justify-center">
-                            <i className="ri-map-pin-line text-primary text-sm"></i>
+
+                        <p className="flex items-center gap-1.5 text-sm font-body text-foreground-500 mb-2">
+                          <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                            <i className="ri-map-pin-line text-primary-500 text-sm"></i>
                           </span>
-                          {p.location}, Nairobi
+                          {p.location}
                         </p>
+
                         <div className="flex items-center gap-3 mb-2">
-                          <span className="text-xs font-roboto text-gray-700">{p.category}</span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-hotel-bed-line text-primary text-sm"></i>
-                            {p.beds}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-showers-line text-primary text-sm"></i>
-                            {p.baths}
-                          </span>
-                          <span className="flex items-center gap-1 text-xs font-roboto text-gray-700">
-                            <i className="ri-car-line text-primary text-sm"></i>
-                            {p.parking}
-                          </span>
+                          <span className="text-xs font-body text-foreground-600">{p.category}</span>
+                          {p.beds > 0 && (
+                            <span className="flex items-center gap-1 text-xs font-body text-foreground-600">
+                              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                                <i className="ri-hotel-bed-line text-primary-500 text-sm"></i>
+                              </span>
+                              {p.beds}
+                            </span>
+                          )}
+                          {p.baths > 0 && (
+                            <span className="flex items-center gap-1 text-xs font-body text-foreground-600">
+                              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                                <i className="ri-showers-line text-primary-500 text-sm"></i>
+                              </span>
+                              {p.baths}
+                            </span>
+                          )}
+                          {p.parking > 0 && (
+                            <span className="flex items-center gap-1 text-xs font-body text-foreground-600">
+                              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                                <i className="ri-car-line text-primary-500 text-sm"></i>
+                              </span>
+                              {p.parking}
+                            </span>
+                          )}
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-roboto text-gray-500">
-                          <span className="w-4 h-4 flex items-center justify-center">
-                            <i className="ri-route-line text-primary text-sm"></i>
+
+                        {/* Commute detail */}
+                        <div className="flex items-center gap-2 text-xs font-body">
+                          <span className="w-4 h-4 flex items-center justify-center shrink-0">
+                            <i className="ri-route-line text-primary-500 text-sm"></i>
                           </span>
-                          {p.distance} km to {destination} &middot; {p.commuteTime} min {transportMode.toLowerCase()}
+                          {p.distanceKm !== null ? (
+                            <span className="text-foreground-500">
+                              {p.distanceKm} km to {destination.name}
+                              {p.commuteAvailable && p.commuteTimeMin !== null && (
+                                <span className="text-foreground-700 font-medium"> &middot; {p.commuteTimeMin} min {transportMode.toLowerCase()}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-foreground-400">Distance unavailable</span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-end justify-between gap-3 pt-3 border-t-2 border-gray-200 mt-2">
-                        <span className="text-xs font-roboto text-gray-500">{p.type === 'rent' ? 'To rent' : 'For sale'}</span>
+
+                      <div className="flex items-end justify-between gap-3 pt-3 border-t border-background-200 mt-2">
+                        <span className="text-xs font-body text-foreground-400">{p.type === 'rent' ? 'To rent' : 'For sale'}</span>
                         <div className="flex items-center gap-3 shrink-0">
-                          <a href="tel:+254712345678" className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
+                          <a href="tel:+254703712984" className="flex items-center gap-1.5 text-sm font-body text-foreground-600 hover:text-primary-500 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-4 h-4 flex items-center justify-center">
                               <i className="ri-phone-line text-sm"></i>
                             </span>
                             <span className="underline underline-offset-2">Call</span>
                           </a>
-                          <button onClick={() => setContactModalProp(p)} className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-2 py-1 -mx-2 transition-all duration-200 cursor-pointer whitespace-nowrap">
+                          <button onClick={() => setContactModalProp(p)} className="flex items-center gap-1.5 text-sm font-body text-foreground-600 hover:text-primary-500 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-4 h-4 flex items-center justify-center">
                               <i className="ri-mail-line text-sm"></i>
                             </span>
@@ -371,16 +609,17 @@ export default function CommuteTime() {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
 
-            {!loading && !error && filtered.length === 0 && (
-              <div className="text-center py-16">
-                <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-full">
-                  <i className="ri-route-line text-gray-400 text-xl"></i>
-                </div>
-                <p className="font-roboto font-bold text-primary text-lg mb-2">No properties in this range</p>
-                <p className="text-sm font-roboto text-stone-400">Try extending your time range or changing destinations</p>
+                {/* Empty state */}
+                {!commuteLoading && filtered.length === 0 && (
+                  <div className="text-center py-16">
+                    <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-background-100 rounded-full">
+                      <i className="ri-route-line text-foreground-400 text-xl"></i>
+                    </div>
+                    <p className="font-heading font-bold text-foreground-950 text-lg mb-2">No properties found</p>
+                    <p className="text-sm font-body text-foreground-500">Try extending your time range or choosing a different destination</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -388,61 +627,84 @@ export default function CommuteTime() {
           {/* Sidebar */}
           <div className="hidden lg:block lg:w-[40%] xl:w-[35%]">
             <div className="sticky top-[140px] space-y-4">
-              {/* Map */}
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-sm font-roboto font-semibold text-primary">Commute Map</h3>
+              {/* Dynamic Map */}
+              <div className="bg-background-50 border border-background-200 rounded-lg overflow-hidden">
+                <div className="px-4 py-3 border-b border-background-200">
+                  <h3 className="text-sm font-heading font-semibold text-foreground-950">
+                    Map &mdash; {destination.name}
+                  </h3>
                 </div>
                 <div className="h-[300px]">
                   <iframe
-                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d255281.1989180463!2d36.68258773125!3d-1.302861050000005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f1172d84d49a7%3A0xf7cf0254b297924c!2sNairobi%2C%20Kenya!5e0!3m2!1sen!2sus!4v1717000000000!5m2!1sen!2sus"
+                    src={mapUrl}
                     width="100%"
                     height="100%"
                     style={{ border: 0 }}
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title="Commute map - Nairobi"
+                    title={`Commute map — ${destination.name}`}
                   ></iframe>
                 </div>
+                {!anyCommuteAvailable && (
+                  <div className="px-4 py-2 bg-background-100 border-t border-background-200">
+                    <p className="text-[11px] font-body text-foreground-500">
+                      Straight-line distances shown. Add a Google Maps API key for real driving times.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Popular destinations */}
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-sm font-roboto font-semibold text-primary">Popular Destinations</h3>
+              <div className="bg-background-50 border border-background-200 rounded-lg overflow-hidden">
+                <div className="px-4 py-3 border-b border-background-200">
+                  <h3 className="text-sm font-heading font-semibold text-foreground-950">Popular Destinations</h3>
                 </div>
-                <div className="px-4 py-3 space-y-2">
-                  {destinations.slice(0, 6).map((d) => (
+                <div className="px-4 py-3 space-y-1">
+                  {DESTINATIONS.slice(0, 6).map((d, i) => (
                     <button
-                      key={d}
-                      onClick={() => setDestination(d)}
-                      className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer transition-colors ${destination === d ? 'bg-primary/5 text-primary font-semibold' : 'text-gray-600 hover:bg-gray-50'}`}
+                      key={d.name}
+                      onClick={() => setSelectedDest(i)}
+                      className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-body cursor-pointer transition-colors ${
+                        selectedDest === i
+                          ? 'bg-primary-100/70 text-primary-700 font-semibold'
+                          : 'text-foreground-600 hover:bg-background-100'
+                      }`}
                     >
                       <span className="flex items-center gap-2">
-                        <i className="ri-map-pin-2-line text-xs"></i>
-                        {d}
+                        <span className="w-3.5 h-3.5 flex items-center justify-center">
+                          <i className="ri-map-pin-2-line text-xs"></i>
+                        </span>
+                        {d.name}
                       </span>
-                      <i className="ri-arrow-right-s-line text-xs"></i>
+                      <span className="w-3.5 h-3.5 flex items-center justify-center">
+                        <i className="ri-arrow-right-s-line text-xs"></i>
+                      </span>
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Tips */}
-              <div className="bg-[#f8f7f4] rounded-lg p-4">
-                <h3 className="text-sm font-roboto font-semibold text-primary mb-2">Commute Tips</h3>
-                <ul className="space-y-2 text-xs font-roboto text-gray-600">
+              <div className="bg-background-100 rounded-lg p-4">
+                <h3 className="text-sm font-heading font-semibold text-foreground-950 mb-2">Commute Tips</h3>
+                <ul className="space-y-2 text-xs font-body text-foreground-600">
                   <li className="flex items-start gap-2">
-                    <i className="ri-time-line text-primary text-xs mt-0.5"></i>
-                    Morning peak hours in Nairobi are 7:00 - 9:00 AM
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                      <i className="ri-time-line text-primary-500 text-xs"></i>
+                    </span>
+                    Morning peak hours in Nairobi are 7:00 &mdash; 9:00 AM
                   </li>
                   <li className="flex items-start gap-2">
-                    <i className="ri-road-map-line text-primary text-xs mt-0.5"></i>
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                      <i className="ri-road-map-line text-primary-500 text-xs"></i>
+                    </span>
                     Mombasa Road and Thika Road experience the heaviest traffic
                   </li>
                   <li className="flex items-start gap-2">
-                    <i className="ri-bus-line text-primary text-xs mt-0.5"></i>
+                    <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                      <i className="ri-bus-line text-primary-500 text-xs"></i>
+                    </span>
                     Matatus are the fastest public transport option on most routes
                   </li>
                 </ul>
@@ -455,6 +717,7 @@ export default function CommuteTime() {
       <PageContactSection />
       <Footer />
       <BackToTop />
+
       {contactModalProp && (
         <ContactAgentModal
           isOpen={true}
@@ -466,6 +729,7 @@ export default function CommuteTime() {
           propertyLocation={contactModalProp.location}
         />
       )}
+
       <QuickViewModal
         isOpen={quickViewProperty !== null}
         onClose={() => setQuickViewProperty(null)}
@@ -482,7 +746,7 @@ export default function CommuteTime() {
           beds: quickViewProperty.beds,
           baths: quickViewProperty.baths,
           parking: quickViewProperty.parking,
-          receptions: quickViewProperty.receptions,
+          receptions: 1,
           description: '',
           images: [quickViewProperty.image],
           type: quickViewProperty.type,

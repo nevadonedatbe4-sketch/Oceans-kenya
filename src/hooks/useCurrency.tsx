@@ -173,23 +173,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const format = useCallback((amount: number, fromCurrency: CurrencyCode = 'KES'): string => {
     const converted = convert(amount, fromCurrency);
     const sym = CURRENCY_SYMBOLS[currency];
-    
-    // KES, UGX typically display without decimals as whole numbers
-    const decimals = ['KES', 'UGX'].includes(currency) ? 0 : 0;
-    
-    if (converted >= 1_000_000) {
-      // Show abbreviated for large numbers (e.g., "KES 15.2M")
-      const millions = converted / 1_000_000;
-      if (millions >= 100) {
-        return `${sym} ${Math.round(millions).toLocaleString()}M`;
-      }
-      return `${sym} ${millions.toFixed(1)}M`;
-    }
-    if (converted >= 1_000) {
-      // Use commas for thousands (e.g., "KES 5,500")
-      return `${sym} ${converted.toLocaleString('en-US', { maximumFractionDigits: decimals })}`;
-    }
-    return `${sym} ${converted.toLocaleString('en-US', { maximumFractionDigits: decimals })}`;
+    return `${sym} ${converted.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   }, [convert, currency]);
 
   const symbol = CURRENCY_SYMBOLS[currency];

@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { broadcastSync } from '@/lib/syncEngine';
+import JVProjects from '@/pages/crm/JVProjects';
+import JVFaqs from '@/pages/crm/JVFaqs';
 
 interface LandListing {
   id: string;
@@ -44,7 +46,7 @@ interface JVSubmission {
   full_name: string;
   phone: string;
   email: string;
-  submission_type: 'landowner' | 'investor';
+  submission_type: 'landowner' | 'jv_proposal' | 'investor';
   land_location: string | null;
   land_size: string | null;
   title_status: string | null;
@@ -58,7 +60,7 @@ interface JVSubmission {
   created_at: string;
 }
 
-type ActiveTab = 'listings' | 'submissions';
+type ActiveTab = 'listings' | 'submissions' | 'projects' | 'faqs';
 
 const STATUS_OPTIONS = ['new', 'reviewed', 'contacted', 'archived'] as const;
 
@@ -77,8 +79,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const SUBMISSION_TYPE_LABELS: Record<string, string> = {
-  landowner: 'Landowner',
-  investor: 'Investor',
+  landowner: 'Land Listing',
+  jv_proposal: 'JV Submission',
+  investor: 'Capital Venture',
 };
 
 const TITLE_STATUS_LABELS: Record<string, string> = {
@@ -122,10 +125,14 @@ const TIMELINE_LABELS: Record<string, string> = {
 
 export default function JointVenturesCRM() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<ActiveTab>('listings');
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
+    const tab = searchParams.get('tab');
+    return tab === 'submissions' || tab === 'projects' || tab === 'faqs' ? tab : 'listings';
+  });
 
   // Land listings state
   const [listings, setListings] = useState<LandListing[]>([]);
@@ -150,7 +157,7 @@ export default function JointVenturesCRM() {
   const [subPage, setSubPage] = useState(1);
   const [subPageSize] = useState(10);
   const [subTotal, setSubTotal] = useState(0);
-  const [subStats, setSubStats] = useState({ total: 0, newCount: 0, landowner: 0, investor: 0 });
+  const [subStats, setSubStats] = useState({ total: 0, newCount: 0, landowner: 0, jvProposal: 0, investor: 0 });
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -274,6 +281,7 @@ export default function JointVenturesCRM() {
         total: subs.length,
         newCount: subs.filter((s) => s.status === 'new').length,
         landowner: subs.filter((s) => s.submission_type === 'landowner').length,
+        jvProposal: subs.filter((s) => s.submission_type === 'jv_proposal').length,
         investor: subs.filter((s) => s.submission_type === 'investor').length,
       });
     } catch (err: unknown) {
@@ -396,8 +404,9 @@ export default function JointVenturesCRM() {
   const subStatCards = [
     { label: 'Total Briefs', value: subStats.total, icon: 'ri-file-list-3-line', color: 'text-[#9ca3af]', bg: 'bg-[#f7f8fa]' },
     { label: 'New', value: subStats.newCount, icon: 'ri-mail-unread-line', color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Landowners', value: subStats.landowner, icon: 'ri-user-2-line', color: 'text-amber-600', bg: 'bg-amber-50' },
-    { label: 'Investors', value: subStats.investor, icon: 'ri-briefcase-line', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Land Listings', value: subStats.landowner, icon: 'ri-landscape-line', color: 'text-amber-600', bg: 'bg-amber-50' },
+    { label: 'JV Submissions', value: subStats.jvProposal, icon: 'ri-building-2-line', color: 'text-cyan-600', bg: 'bg-cyan-50' },
+    { label: 'Capital Ventures', value: subStats.investor, icon: 'ri-funds-line', color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
   return (
@@ -408,7 +417,14 @@ export default function JointVenturesCRM() {
           <h1 className="font-jost text-xl font-semibold text-[#001731]">Joint Ventures Desk</h1>
           <p className="text-sm font-roboto text-[#636363] mt-0.5">Manage land listings, JV opportunities, and submissions from landowners &amp; investors</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => navigate('/crm/joint-ventures/new')}
+            className="inline-flex items-center gap-2 bg-[#001731] hover:bg-[#001731]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto transition-all whitespace-nowrap cursor-pointer"
+          >
+            <i className="ri-file-add-line" />
+            Add Submission
+          </button>
           <button
             onClick={() => navigate('/crm/listings/new')}
             className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto transition-all whitespace-nowrap cursor-pointer"
@@ -427,7 +443,18 @@ export default function JointVenturesCRM() {
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex items-center gap-1 bg-[#e8edf2] rounded-full px-1 py-1 w-fit">
+      <div className="flex items-center gap-1 bg-[#e8edf2] rounded-full px-1 py-1 w-fit flex-wrap">
+        <button
+          onClick={() => setActiveTab('projects')}
+          className={`px-5 py-2 rounded-full text-sm font-roboto whitespace-nowrap cursor-pointer transition-all ${
+            activeTab === 'projects'
+              ? 'bg-white text-[#001731] font-semibold shadow-sm'
+              : 'text-[#636363] hover:text-[#001731]'
+          }`}
+        >
+          <i className="ri-building-2-line mr-1.5 text-xs" />
+          Projects Seeking Partners
+        </button>
         <button
           onClick={() => setActiveTab('listings')}
           className={`px-5 py-2 rounded-full text-sm font-roboto whitespace-nowrap cursor-pointer transition-all ${
@@ -454,6 +481,17 @@ export default function JointVenturesCRM() {
               {subStats.newCount}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveTab('faqs')}
+          className={`px-5 py-2 rounded-full text-sm font-roboto whitespace-nowrap cursor-pointer transition-all ${
+            activeTab === 'faqs'
+              ? 'bg-white text-[#001731] font-semibold shadow-sm'
+              : 'text-[#636363] hover:text-[#001731]'
+          }`}
+        >
+          <i className="ri-question-answer-line mr-1.5 text-xs" />
+          FAQs
         </button>
       </div>
 
@@ -669,7 +707,7 @@ export default function JointVenturesCRM() {
       {activeTab === 'submissions' && (
         <>
           {/* Sub-Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {subStatCards.map((stat) => (
               <div key={stat.label} className={`rounded-lg p-4 flex items-center gap-3 ${stat.bg}`}>
                 <div className="w-10 h-10 rounded-lg bg-white border border-[#f0f0f0] flex items-center justify-center">
@@ -703,8 +741,9 @@ export default function JointVenturesCRM() {
                   className="px-3 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]"
                 >
                   <option value="all">All Types</option>
-                  <option value="landowner">Landowner Briefs</option>
-                  <option value="investor">Investor Briefs</option>
+                  <option value="landowner">Land Listings</option>
+                  <option value="jv_proposal">JV Submissions</option>
+                  <option value="investor">Capital Ventures</option>
                 </select>
                 <select
                   value={subFilterStatus}
@@ -769,7 +808,7 @@ export default function JointVenturesCRM() {
                 </div>
                 <p className="text-sm font-roboto text-[#636363]">
                   {subTotal === 0
-                    ? 'No JV submissions yet. They\'ll appear here once landowners and investors submit briefs from the public Joint Ventures page.'
+                    ? 'No submissions yet. They\'ll appear here once land, JV and capital briefs come in — or add one manually.'
                     : 'No submissions match your filters.'}
                 </p>
               </div>
@@ -783,6 +822,7 @@ export default function JointVenturesCRM() {
                 {submissions.map((sub) => {
                   const isExpanded = expandedId === sub.id;
                   const isLandowner = sub.submission_type === 'landowner';
+                  const isJV = sub.submission_type === 'jv_proposal';
                   return (
                     <div key={sub.id} className="hover:bg-[#f7f8fa]/50 transition-colors">
                       {/* Row header — always visible */}
@@ -792,16 +832,16 @@ export default function JointVenturesCRM() {
                       >
                         {/* Avatar */}
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          isLandowner ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                          isLandowner ? 'bg-amber-100 text-amber-600' : isJV ? 'bg-cyan-100 text-cyan-600' : 'bg-emerald-100 text-emerald-600'
                         }`}>
-                          <i className={isLandowner ? 'ri-user-2-line text-lg' : 'ri-briefcase-line text-lg'} />
+                          <i className={isLandowner ? 'ri-landscape-line text-lg' : isJV ? 'ri-building-2-line text-lg' : 'ri-funds-line text-lg'} />
                         </div>
 
                         {/* Main info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-jost text-sm font-semibold text-[#001731]">{sub.full_name || 'Unnamed'}</h4>
-                            <span className={`text-[10px] font-roboto px-2 py-0.5 rounded-full ${isLandowner ? 'bg-[#fff5e6] text-[#f58300]' : 'bg-[#e6f4ea] text-[#088135]'}`}>
+                            <span className={`text-[10px] font-roboto px-2 py-0.5 rounded-full ${isLandowner ? 'bg-[#fff5e6] text-[#f58300]' : isJV ? 'bg-[#e6f7fb] text-[#0e7490]' : 'bg-[#e6f4ea] text-[#088135]'}`}>
                               {SUBMISSION_TYPE_LABELS[sub.submission_type]}
                             </span>
                             <span className={`text-[10px] font-roboto px-2 py-0.5 rounded-full ${STATUS_COLORS[sub.status]}`}>
@@ -816,13 +856,21 @@ export default function JointVenturesCRM() {
                           {/* Quick details */}
                           {!isExpanded && (
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              {isLandowner ? (
+                              {isLandowner && (
                                 <>
                                   {sub.land_location && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded"><i className="ri-map-pin-line mr-0.5" />{sub.land_location}</span>}
                                   {sub.land_size && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded"><i className="ri-ruler-line mr-0.5" />{sub.land_size}</span>}
                                   {sub.title_status && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded">{TITLE_STATUS_LABELS[sub.title_status] || sub.title_status}</span>}
                                 </>
-                              ) : (
+                              )}
+                              {isJV && (
+                                <>
+                                  {sub.land_location && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded"><i className="ri-map-pin-line mr-0.5" />{sub.land_location}</span>}
+                                  {sub.budget_range && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded"><i className="ri-money-dollar-circle-line mr-0.5" />{BUDGET_LABELS[sub.budget_range] || sub.budget_range}</span>}
+                                  {sub.preferred_use && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded">{sub.preferred_use}</span>}
+                                </>
+                              )}
+                              {!isLandowner && !isJV && (
                                 <>
                                   {sub.budget_range && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded"><i className="ri-money-dollar-circle-line mr-0.5" />{BUDGET_LABELS[sub.budget_range] || sub.budget_range}</span>}
                                   {sub.preferred_use && <span className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded">{USE_LABELS[sub.preferred_use] || sub.preferred_use}</span>}
@@ -864,6 +912,33 @@ export default function JointVenturesCRM() {
                                   <p className="text-[#001731] font-roboto text-sm">{STRUCTURE_LABELS[sub.preferred_structure || ''] || sub.preferred_structure || '—'}</p>
                                 </div>
                               </div>
+                            ) : isJV ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                                <div>
+                                  <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-0.5">Project Location</p>
+                                  <p className="text-[#001731] font-roboto text-sm">{sub.land_location || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-0.5">Project Size</p>
+                                  <p className="text-[#001731] font-roboto text-sm">{sub.land_size || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-0.5">Capital Required</p>
+                                  <p className="text-[#001731] font-roboto text-sm">{BUDGET_LABELS[sub.budget_range || ''] || sub.budget_range || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-0.5">Project Type</p>
+                                  <p className="text-[#001731] font-roboto text-sm">{sub.preferred_use || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-0.5">JV Structure</p>
+                                  <p className="text-[#001731] font-roboto text-sm">{STRUCTURE_LABELS[sub.preferred_structure || ''] || sub.preferred_structure || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-0.5">Timeline</p>
+                                  <p className="text-[#001731] font-roboto text-sm">{TIMELINE_LABELS[sub.timeline || ''] || sub.timeline || '—'}</p>
+                                </div>
+                              </div>
                             ) : (
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                                 <div>
@@ -889,7 +964,7 @@ export default function JointVenturesCRM() {
                             {sub.message && (
                               <div>
                                 <p className="text-[10px] text-[#636363] font-roboto uppercase tracking-wider mb-1">
-                                  {isLandowner ? 'About the Land' : 'What They\'re Looking For'}
+                                  {isLandowner ? 'About the Land' : isJV ? 'Project Description' : 'What They\'re Looking For'}
                                 </p>
                                 <p className="text-[#001731] font-roboto text-sm leading-relaxed whitespace-pre-wrap">{sub.message}</p>
                               </div>
@@ -937,6 +1012,12 @@ export default function JointVenturesCRM() {
           )}
         </>
       )}
+
+      {/* ==================== PROJECTS SEEKING PARTNERS TAB ==================== */}
+      {activeTab === 'projects' && <JVProjects />}
+
+      {/* ==================== FAQS TAB ==================== */}
+      {activeTab === 'faqs' && <JVFaqs />}
     </div>
   );
 }

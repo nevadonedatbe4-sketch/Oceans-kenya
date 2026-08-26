@@ -25,7 +25,7 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
         <img
           src={hero.bgImage}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover object-top"
+          className="absolute inset-0 w-full h-full object-cover object-center"
         />
       ) : (
         <div className="absolute inset-0 w-full h-full bg-[#1a1a2e]" />

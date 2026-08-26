@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import { isLandType } from './types';
 
 interface Props {
   images: string[];
@@ -19,6 +20,7 @@ interface Props {
   id?: string;
   uploadImageViaEdgeFunction: (file: File, path: string, bucket?: string) => Promise<{ url: string; path: string }>;
   propertyType?: string;
+  isPhotosRequired?: boolean;
 }
 
 const SectionHeader = ({
@@ -53,6 +55,7 @@ export default function MediaStep({
   images, setImages, mainImage, setMainImage, coverImage, setCoverImage,
   floorPlans, setFloorPlans, videoUrl, setVideoUrl, virtualTourUrl, setVirtualTourUrl,
   uploading, setUploading, id, uploadImageViaEdgeFunction, propertyType,
+  isPhotosRequired,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const floorPlanInputRef = useRef<HTMLInputElement>(null);
@@ -318,7 +321,7 @@ export default function MediaStep({
         </div>
 
         {/* Floor Plans */}
-        {propertyType !== 'land' && (
+        {!isLandType(propertyType || '') && (
           <div className="pt-4 border-t border-[#d1d5db]">
             <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
               <i className="ri-layout-2-line text-[#0d5959]" />

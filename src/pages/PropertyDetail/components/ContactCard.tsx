@@ -125,7 +125,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
 
   if (formStatus === 'success') {
     return (
-      <div className="bg-white border border-gray-200 rounded-md overflow-hidden lg:sticky lg:top-[100px]">
+      <div className="bg-white border border-primary/12 rounded-md overflow-hidden lg:sticky lg:top-[100px]">
         <div className="text-center py-10 px-5">
           <div className="w-14 h-14 flex items-center justify-center bg-green-50 rounded-full mx-auto mb-4">
             <i className="ri-check-line text-green-500 text-2xl"></i>
@@ -141,16 +141,16 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
 
   return (
     <div className="lg:sticky lg:top-[100px] w-full">
-      <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+      <div className="bg-white border border-primary/12 rounded-md overflow-hidden">
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-primary/12">
           <button
             type="button"
             onClick={() => setActiveTab('info')}
             className="flex-1 py-3.5 text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap border-b-2"
             style={{
               color: '#002349',
-              background: activeTab === 'info' ? '#FFFFFF' : '#F8F8F8',
+              background: '#FFFFFF',
               borderBottomColor: activeTab === 'info' ? '#002349' : 'transparent',
             }}
           >
@@ -162,7 +162,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
             className="flex-1 py-3.5 text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap border-b-2"
             style={{
               color: '#002349',
-              background: activeTab === 'tour' ? '#FFFFFF' : '#F8F8F8',
+              background: '#FFFFFF',
               borderBottomColor: activeTab === 'tour' ? '#002349' : 'transparent',
             }}
           >
@@ -188,7 +188,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
           {activeTab === 'info' && agent?.phone && (
             <a
               href={`tel:${agent.phone}`}
-              className="flex items-center gap-1.5 text-xs font-roboto font-semibold text-[#002349] hover:opacity-70 transition-opacity cursor-pointer whitespace-nowrap shrink-0"
+              className="flex items-center gap-1.5 text-xs font-roboto font-semibold text-primary hover:opacity-70 transition-opacity cursor-pointer whitespace-nowrap shrink-0"
             >
               <i className="ri-phone-line text-sm"></i>
               Call Agent
@@ -225,7 +225,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                       type="button"
                       disabled={weekOffset === 0}
                       onClick={() => setWeekOffset(Math.max(0, weekOffset - 1))}
-                      className="w-7 h-7 flex items-center justify-center border border-gray-200 rounded text-gray-400 hover:text-gray-900 hover:border-gray-400 disabled:opacity-30 cursor-pointer shrink-0 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center border border-primary/12 rounded text-gray-400 hover:text-gray-900 hover:border-gray-400 disabled:opacity-30 cursor-pointer shrink-0 transition-colors"
                     >
                       <i className="ri-arrow-left-s-line text-sm"></i>
                     </button>
@@ -264,7 +264,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                     <button
                       type="button"
                       onClick={() => setWeekOffset(weekOffset + 1)}
-                      className="w-7 h-7 flex items-center justify-center border border-gray-200 rounded text-gray-400 hover:text-gray-900 hover:border-gray-400 disabled:opacity-30 cursor-pointer shrink-0 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center border border-primary/12 rounded text-gray-400 hover:text-gray-900 hover:border-gray-400 disabled:opacity-30 cursor-pointer shrink-0 transition-colors"
                     >
                       <i className="ri-arrow-right-s-line text-sm"></i>
                     </button>
@@ -274,7 +274,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                 {/* Tour type */}
                 <div>
                   <p className="text-sm font-roboto font-bold text-gray-900 mb-3">Tour Type</p>
-                  <div className="grid grid-cols-2 gap-0 border border-gray-200 rounded overflow-hidden">
+                  <div className="grid grid-cols-2 gap-0 border border-primary/12 rounded overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setTourType('in_person')}
@@ -307,7 +307,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                     name="tour_time"
                     value={selectedTime}
                     onChange={(e) => setSelectedTime(e.target.value)}
-                    className="w-full border border-gray-200 rounded px-3 py-3 text-sm font-roboto text-gray-900 focus:outline-none focus:border-gray-400 bg-white cursor-pointer"
+                    className="w-full border border-primary/12 rounded px-3 py-3 text-sm font-roboto text-gray-900 focus:outline-none focus:border-gray-400 bg-white cursor-pointer"
                   >
                     {timeSlots.map((slot) => (
                       <option key={slot} value={slot}>{slot}</option>
@@ -325,7 +325,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
               <input
                 placeholder="Name"
                 required
-                className="w-full border border-gray-200 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors"
+                className="w-full border border-primary/12 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -335,7 +335,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                 <select
                   value={countryCode}
                   onChange={(e) => setCountryCode(e.target.value)}
-                  className="w-[72px] shrink-0 border border-gray-200 rounded px-2 py-3 text-sm font-roboto font-medium text-gray-700 focus:outline-none focus:border-gray-400 bg-white cursor-pointer"
+                  className="w-[72px] shrink-0 border border-primary/12 rounded px-2 py-3 text-sm font-roboto font-medium text-gray-700 focus:outline-none focus:border-gray-400 bg-white cursor-pointer"
                 >
                   {countryCodes.map((c) => (
                     <option key={c.code} value={c.code}>{c.code}</option>
@@ -343,7 +343,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                 </select>
                 <input
                   placeholder="Phone number (optional)"
-                  className="w-full border border-gray-200 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors flex-1"
+                  className="w-full border border-primary/12 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors flex-1"
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -353,7 +353,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
               <input
                 placeholder="Email"
                 required
-                className="w-full border border-gray-200 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors"
+                className="w-full border border-primary/12 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -366,7 +366,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                 maxLength={500}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="w-full border border-gray-200 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors resize-none"
+                className="w-full border border-primary/12 rounded px-3.5 py-3 text-sm font-roboto text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-100 bg-white transition-colors resize-none"
               />
               <p className="text-[10px] text-right -mt-1 font-medium text-gray-400">{message.length}/500</p>
             </div>
@@ -386,7 +386,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
             <button
               type="submit"
               disabled={formStatus === 'submitting'}
-              className="w-full py-3 text-sm font-roboto font-bold tracking-wide transition-opacity hover:opacity-90 cursor-pointer whitespace-nowrap disabled:opacity-50 rounded"
+              className="w-full px-5 py-2.5 text-base font-roboto font-semibold tracking-wide transition-opacity hover:opacity-90 cursor-pointer whitespace-nowrap disabled:opacity-50 rounded"
               style={{ background: '#002349', color: '#FFFFFF' }}
             >
               {formStatus === 'submitting'

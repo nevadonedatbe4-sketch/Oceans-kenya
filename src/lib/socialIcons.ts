@@ -8,7 +8,7 @@ export function socialIcon(platform: string): string {
     case 'instagram':
       return 'ri-instagram-line';
     case 'tiktok':
-      return 'ri-tiktok-fill';
+      return 'ri-linkedin-fill';
     case 'linkedin':
       return 'ri-linkedin-fill';
     case 'youtube':

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -56,7 +56,7 @@ const activeStages = ['prospect', 'negotiation', 'offer', 'due_diligence'];
 
 export default function Deals() {
   const { user } = useAuth();
-  const { agentId } = useAgentProfile();
+  const { agentId, loading: agentLoading } = useAgentProfile();
   const isAgent = user?.role === 'agent';
   const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,8 +75,6 @@ export default function Deals() {
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [selectedDealIds, setSelectedDealIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
-  const [clearAllConfirm, setClearAllConfirm] = useState(false);
-  const [clearingAll, setClearingAll] = useState(false);
   const [dealStats, setDealStats] = useState<DealStats>({
     total: 0, active: 0, won: 0, lost: 0,
     totalValue: 0, activeValue: 0, wonValue: 0, lostValue: 0,
@@ -97,7 +95,8 @@ export default function Deals() {
     };
     const { data, error } = await supabase.from('deals').insert(payload).select().single();
     if (error) {
-      addToast('Failed to add deal', 'error');
+      console.error('Add deal failed:', error);
+      addToast(error.message || 'Unable to create deal. Please check the required fields and try again.', 'error');
     } else {
       setDeals((prev) => [data, ...prev]);
       setTotal((prev) => prev + 1);
@@ -113,6 +112,7 @@ export default function Deals() {
   };
 
   const fetchDealStats = useCallback(async () => {
+    if (isAgent && agentLoading) return;
     let query = supabase.from('deals').select('status, price');
     if (isAgent && agentId) query = query.eq('agent_id', agentId);
     const { data } = await query;
@@ -130,10 +130,11 @@ export default function Deals() {
       wonValue: won.reduce((s, d) => s + (Number(d.price) || 0), 0),
       lostValue: lost.reduce((s, d) => s + (Number(d.price) || 0), 0),
     });
-  }, [isAgent, agentId]);
+  }, [isAgent, agentId, agentLoading]);
 
   const fetchDeals = useCallback(async () => {
     setLoading(true);
+    if (isAgent && agentLoading) return;
 
     let countQuery = supabase.from('deals').select('*', { count: 'exact', head: true });
     let dataQuery = supabase
@@ -171,9 +172,9 @@ export default function Deals() {
       setTotal(count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, stageFilter, search, isAgent, agentId]);
+  }, [page, pageSize, stageFilter, search, isAgent, agentId, agentLoading]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     fetchDeals();
     fetchDealStats();
   }, [fetchDeals, fetchDealStats]);
@@ -225,53 +226,12 @@ export default function Deals() {
     setBulkDeleteConfirm(false);
   };
 
-  const handleClearAllTestData = async () => {
-    setClearingAll(true);
-    let errors = 0;
-    let totalDeleted = 0;
-
-    try {
-      const { error: leadsErr, count: leadsCount } = await supabase.from('leads').delete({ count: 'exact' }).neq('id', '00000000-0000-0000-0000-000000000000');
-      if (leadsErr) errors++;
-      else totalDeleted += leadsCount ?? 0;
-    } catch {
-      errors++;
-    }
-
-    try {
-      const { error: dealsErr, count: dealsCount } = await supabase.from('deals').delete({ count: 'exact' }).neq('id', '00000000-0000-0000-0000-000000000000');
-      if (dealsErr) errors++;
-      else totalDeleted += dealsCount ?? 0;
-    } catch {
-      errors++;
-    }
-
-    try {
-      const { error: contactsErr, count: contactsCount } = await supabase.from('contacts').delete({ count: 'exact' }).neq('id', '00000000-0000-0000-0000-000000000000');
-      if (contactsErr) errors++;
-      else totalDeleted += contactsCount ?? 0;
-    } catch {
-      errors++;
-    }
-
-    setClearingAll(false);
-    setClearAllConfirm(false);
-
-    if (errors > 0) {
-      addToast(`Cleared ${totalDeleted} records with ${errors} error(s)`, 'error');
-    } else {
-      addToast(`All test data cleared: ${totalDeleted} records removed`, 'success');
-    }
-
-    fetchDeals();
-    fetchDealStats();
-  };
-
   const handleStageChange = async (id: string, newStage: string) => {
     setUpdatingId(id);
     const { error } = await supabase.from('deals').update({ status: newStage }).eq('id', id);
     if (error) {
-      addToast('Failed to update stage', 'error');
+      console.error('Update deal stage failed:', error);
+      addToast(error.message || 'Unable to update stage. Please try again.', 'error');
     } else {
       setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStage } : d)));
       addToast(`Deal moved to ${stageLabels[newStage]}`, 'success');
@@ -432,14 +392,6 @@ export default function Deals() {
             />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setClearAllConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 border border-red-200 lg:border-red-300 rounded-lg text-xs sm:text-sm font-inter font-medium text-red-500 hover:bg-red-50 transition-all cursor-pointer whitespace-nowrap"
-              title="Delete all leads, deals, and contacts"
-            >
-              <i className="ri-eraser-line text-sm" />
-              Clear All Test Data
-            </button>
             <Link
               to="/crm/pipeline"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-inter font-medium text-[#5eead4] lg:text-[#084545] hover:text-[#5eead4] lg:hover:text-[#001731] transition-colors whitespace-nowrap cursor-pointer"
@@ -828,58 +780,6 @@ export default function Deals() {
         onConfirm={handleBulkDeleteDeals}
         onCancel={() => setBulkDeleteConfirm(false)}
       />
-
-      {/* Clear All Test Data Modal */}
-      {clearAllConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setClearAllConfirm(false)} />
-          <div className="relative bg-white rounded-xl w-full max-w-md shadow-xl p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <i className="ri-alert-line text-red-600 text-lg" />
-              </div>
-              <h3 className="font-prata text-lg text-stone-900">Clear All Test Data?</h3>
-            </div>
-            <p className="text-sm font-inter text-[#636363] mb-1">
-              This will <strong className="text-red-600">permanently delete every record</strong> across all three tables:
-            </p>
-            <ul className="text-sm font-inter text-[#636363] list-disc list-inside mb-4 space-y-0.5">
-              <li>All <strong>Leads</strong></li>
-              <li>All <strong>Deals</strong></li>
-              <li>All <strong>Contacts</strong></li>
-            </ul>
-            <p className="text-xs font-inter text-red-500 bg-red-50 rounded-lg px-3 py-2 mb-5">
-              <i className="ri-error-warning-line mr-1" />
-              This nukes everything. Only use this to wipe mock/test data. Real data will be lost too if you keep it mixed in.
-            </p>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setClearAllConfirm(false)}
-                className="flex-1 px-4 py-2.5 border border-stone-200 rounded-lg text-sm text-stone-600 hover:bg-stone-50 transition-all cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleClearAllTestData}
-                disabled={clearingAll}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-inter font-semibold transition-all cursor-pointer disabled:opacity-60 flex items-center justify-center gap-2"
-              >
-                {clearingAll ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Wiping...
-                  </>
-                ) : (
-                  <>
-                    <i className="ri-delete-bin-6-line" />
-                    Delete Everything
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Deal Modal */}
       {addModal && (

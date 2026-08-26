@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isLandType, LAND_TYPES } from './types';
 import type { CustomField } from './types';
 
 /* ── Luxury shared styling ── */
@@ -229,6 +230,8 @@ interface Props {
   setAcreage: (v: string) => void;
   landTitle: string;
   setLandTitle: (v: string) => void;
+  landType: string;
+  setLandType: (v: string) => void;
   sqft: string;
   setSqft: (v: string) => void;
   parking: number;
@@ -321,7 +324,7 @@ interface Props {
 export default function DetailsStep(props: Props) {
   const {
     size, setSize, landSize, setLandSize,
-    acreage, setAcreage, landTitle, setLandTitle,
+    acreage, setAcreage, landTitle, setLandTitle, landType, setLandType,
     sqft, setSqft, parking, setParking, bedrooms, setBedrooms, bathrooms, setBathrooms,
     sizeUnit, setSizeUnit, landUnit, setLandUnit, garages, setGarages,
     garageSize, setGarageSize, yearBuilt, setYearBuilt, rooms, setRooms,
@@ -346,7 +349,7 @@ export default function DetailsStep(props: Props) {
     availabilityStatus, setAvailabilityStatus,
   } = props;
 
-  const isLand = propertyType === 'land';
+  const isLand = isLandType(propertyType || '');
 
   const landTypes = ['house', 'villa', 'townhouse', 'bungalow', 'detached', 'semi-detached', 'terraced', 'commercial'];
   const showsLandInfo = !isLand && landTypes.includes((propertyType || '').toLowerCase());
@@ -389,6 +392,17 @@ export default function DetailsStep(props: Props) {
 
         <CollapsibleCard icon="ri-ruler-line" title="Size &amp; Measurements" defaultOpen={true}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3">
+            <div className="sm:col-span-2">
+              <label className={labelClass}>Land Type</label>
+              <select
+                value={landType}
+                onChange={(e) => setLandType(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">Select land use classification</option>
+                {LAND_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
             <div>
               <label className={labelClass}>Land Size</label>
               <div className="grid grid-cols-[1fr_auto] gap-2">

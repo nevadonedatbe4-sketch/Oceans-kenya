@@ -6,6 +6,7 @@ import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
+import PageLoader from '@/components/feature/PageLoader';
 
 interface BlogPost {
   id: string;
@@ -100,16 +101,7 @@ export default function BlogDetail() {
         <Header />
         <main className="pt-32 pb-20 px-4 md:px-6">
           <div className="max-w-3xl mx-auto">
-            <div className="animate-pulse space-y-6">
-              <div className="h-8 bg-stone-100 rounded w-3/4"></div>
-              <div className="h-4 bg-stone-100 rounded w-1/3"></div>
-              <div className="h-64 bg-stone-100 rounded-lg"></div>
-              <div className="space-y-3">
-                <div className="h-4 bg-stone-100 rounded w-full"></div>
-                <div className="h-4 bg-stone-100 rounded w-5/6"></div>
-                <div className="h-4 bg-stone-100 rounded w-4/6"></div>
-              </div>
-            </div>
+            <PageLoader size={56} text="Loading article..." />
           </div>
         </main>
         <Footer />
@@ -130,7 +122,7 @@ export default function BlogDetail() {
             </p>
             <Link
               to="/neighbourhoods"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               Back to Neighbourhoods &amp; Guides
               <i className="ri-arrow-right-line text-xs"></i>
@@ -230,14 +222,14 @@ export default function BlogDetail() {
           {/* Body Content */}
           <Reveal delay={100}>
             <div
-              className="font-roboto text-stone-700 text-sm leading-relaxed space-y-5 [&_h3]:font-roboto font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:leading-relaxed [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:leading-relaxed [&_strong]:text-stone-800 [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:p-2 [&_th]:bg-stone-50 [&_th]:font-roboto [&_th]:font-medium [&_th]:text-stone-600 [&_td]:p-2 [&_td]:border-t [&_td]:border-stone-100 [&_em]:text-stone-500"
+              className="font-roboto text-stone-700 text-sm leading-relaxed space-y-5 [&_h3]:font-roboto font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:leading-relaxed [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:leading-relaxed [&_strong]:text-stone-800 [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:p-2 [&_th]:bg-stone-50 [&_th]:font-roboto [&_th]:font-medium [&_th]:text-stone-600 [&_td]:p-2 [&_td]:border-t [&_td]:border-primary/12 [&_em]:text-stone-500"
               dangerouslySetInnerHTML={{ __html: post.body }}
             />
           </Reveal>
 
           {/* Related Neighbourhood Guides */}
           {relatedGuides.length > 0 && (
-            <div className="mt-12 md:mt-16 pt-8 border-t border-stone-100">
+            <div className="mt-12 md:mt-16 pt-8">
               <Reveal>
                 <h3 className="font-roboto font-bold text-lg text-primary mb-4">Related Area Guides</h3>
               </Reveal>
@@ -246,7 +238,7 @@ export default function BlogDetail() {
                   <Reveal key={guide.slug} delay={i * 100}>
                     <Link
                       to={`/neighbourhood/${guide.slug}`}
-                      className="group cursor-pointer block bg-stone-50 rounded-lg overflow-hidden border border-stone-100 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                      className="group cursor-pointer block bg-stone-50 rounded-lg overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500"
                     >
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <img
@@ -276,7 +268,7 @@ export default function BlogDetail() {
           )}
 
           {/* Back Link */}
-          <div className="mt-8 md:mt-10 pt-6 border-t border-stone-100">
+          <div className="mt-8 md:mt-10 pt-6">
             <Link
               to="/neighbourhoods"
               className="inline-flex items-center gap-1.5 text-sm font-roboto font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
@@ -300,7 +292,7 @@ export default function BlogDetail() {
             </p>
             <Link
               to="/contact"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               Talk to an Agent
               <i className="ri-arrow-right-line text-xs"></i>

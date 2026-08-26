@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useNeighbourhoods } from '@/hooks/useNeighbourhoods';
 import type { DBNeighbourhood } from '@/hooks/useNeighbourhoods';
@@ -8,6 +8,76 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import { supabase } from '@/lib/supabase';
+
+// Plascon "Land + Sea" inspired earthy & coastal badge palette
+const TAG_COLOR_HEX: Record<string, string> = {
+  gold: '#A9842A', // muted gold — affluence
+  chocolate: '#6B4423', // African-mud chocolate
+  rust: '#9C4A2E', // warm rust / terracotta
+  olive: '#5F6E2E', // olive green
+  moss: '#2F6E5A', // frog-pond moss
+  teal: '#1F7A6E', // sea teal
+  lime: '#7A8A1F', // sparkling lemon-lime
+  red: '#B04A3A', // brick red
+  steel: '#3E6B8A', // weathered steel blue
+  navy: '#34495E', // deep evening blue
+  blue: '#4A7BA6', // bashful blue
+};
+
+// Semantic tag -> Land + Sea palette background colour (all pills use white text)
+interface TagColorOverrides {
+  green: string;
+  luxury: string;
+  wealthy: string;
+  family: string;
+  young: string;
+  gated: string;
+  modern: string;
+  default: string;
+}
+
+const DEFAULT_TAG_COLORS: TagColorOverrides = {
+  green: '#2C5E1A',
+  luxury: '#E55B13',
+  wealthy: '#F6A21E',
+  family: '#1F7A6E',
+  young: '#7A871E',
+  gated: '#3E6B8A',
+  modern: '#32CD30',
+  default: '#6B4423',
+};
+
+function getTagColorHex(tag: string, colors: TagColorOverrides = DEFAULT_TAG_COLORS): string {
+  const t = tag.toLowerCase();
+  // Green / nature / views -> forest green
+  if (/(green|leafy|park|garden|arboretum|plant|nature|tree|view|scenic|panoramic|hill|ridge)/.test(t)) return colors.green;
+  // Luxury / exclusive / prestige / historic -> red-orange terracotta
+  if (/(luxury|prestigious|premium|ultra|exclusive|private|elite|historic|heritage|established|old|colonial)/.test(t)) return colors.luxury;
+  // Wealthy / investment / nightlife / social -> vibrant orange
+  if (/(wealthy|upscale|investment|affluent|prime|nightlife|entertainment|bar|club|social)/.test(t)) return colors.wealthy;
+  // Family / schools / diplomatic / international -> sea teal
+  if (/(family|school|kid|child|nursery|education|diplomatic|international|expat|embassy|\bun\b|consulate)/.test(t)) return colors.family;
+  // Young professionals / value / emerging -> olive lime
+  if (/(young|professional|starter|value|emerging|affordable|budget)/.test(t)) return colors.young;
+  // Gated / secure / corporate / urban / hospitals -> weathered steel blue
+  if (/(gated|secure|safety|safe|compound|corporate|business|bank|executive|office|commercial|central|urban|city|downtown|cbd|metro|northern|suburban|residential|quiet|peaceful|hospital|medical|health|clinic)/.test(t)) return colors.gated;
+  // Modern / new / development -> bright lime
+  if (/(modern|contemporary|new|development)/.test(t)) return colors.modern;
+  // Default -> chocolate
+  return colors.default;
+}
+
+const BLOG_CATEGORY_SLOTS: Record<string, keyof TagColorOverrides> = {
+  'Area Guides': 'wealthy',
+  'Market Trends': 'gated',
+  'Schools & Family': 'family',
+  'Lifestyle & Dining': 'default',
+};
+
+function getBlogCategoryColorHex(category: string | null, colors: TagColorOverrides): string {
+  if (category && BLOG_CATEGORY_SLOTS[category]) return colors[BLOG_CATEGORY_SLOTS[category]];
+  return getTagColorHex(category || '', colors);
+}
 
 interface NeighbourhoodComparison {
   slug: string;
@@ -44,8 +114,8 @@ function RatingBar({ rating, max = 5 }: { rating: number; max?: number }) {
       {Array.from({ length: max }).map((_, i) => (
         <div
           key={i}
-          className={`w-5 h-1.5 rounded-full transition-colors ${
-            i < rating ? 'bg-primary' : 'bg-stone-200'
+          className={`w-5 h-1.5 rounded-sm transition-colors ${
+            i < rating ? 'bg-primary' : 'bg-[#1a1a1a]/10'
           }`}
         />
       ))}
@@ -63,24 +133,24 @@ function ComparisonCard({
   winnerLabel?: string;
 }) {
   return (
-    <div className={`flex-1 min-w-0 ${isWinner ? 'ring-2 ring-primary/30 rounded-lg' : ''}`}>
+    <div className={`flex-1 min-w-0 ${isWinner ? 'ring-1 ring-[#0D5959]/40' : ''}`}>
       {isWinner && winnerLabel && (
-        <div className="bg-primary/10 text-primary text-sm font-roboto font-semibold uppercase tracking-wider text-center py-1.5 rounded-t-lg">
+        <div className="bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.1em] text-center py-2">
           {winnerLabel}
         </div>
       )}
-      <div className="bg-white border-2 border-stone-200 rounded-lg p-4 md:p-5 h-full">
+      <div className="bg-white border-2 border-[#1a1a1a]/10 p-5 md:p-6 h-full">
         <div className="mb-4">
-          <h3 className="text-lg font-roboto font-medium text-primary mb-0.5">{data.name}</h3>
-          <p className="font-roboto text-stone-400 text-base leading-relaxed">{data.tagline}</p>
+          <h3 className="font-prata font-semibold text-primary text-[23px] mb-0.5">{data.name}</h3>
+          <p className="font-roboto text-[15px] text-[#636363] leading-relaxed">{data.tagline}</p>
         </div>
 
         {/* Price */}
-        <div className="mb-4 pb-4 border-b border-stone-100">
-          <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-1">Price Range</p>
-          <p className="font-roboto text-sm font-semibold text-primary">{data.priceRange}</p>
-          <p className="font-roboto text-sm text-stone-500 mt-0.5">Rent: {data.rentalRange}</p>
-          <p className="font-roboto text-sm text-stone-400">1BR: {data.typicalRent1BR}</p>
+        <div className="mb-4 pb-4 border-b-2 border-[#1a1a1a]/10">
+          <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-1">Price Range</p>
+          <p className="font-roboto text-sm font-semibold text-[#1a1a1a]">{data.priceRange}</p>
+          <p className="font-roboto text-sm text-[#636363] mt-0.5">Rent: {data.rentalRange}</p>
+          <p className="font-roboto text-sm text-[#636363]">1BR: {data.typicalRent1BR}</p>
         </div>
 
         {/* Dimensions */}
@@ -102,12 +172,12 @@ function ComparisonCard({
             return (
               <div key={key}>
                 <div className="flex items-center justify-between mb-0.5">
-                  <p className="font-roboto text-sm font-medium text-stone-600">{label}</p>
+                  <p className="font-roboto text-sm font-medium text-[#1a1a1a]">{label}</p>
                   <RatingBar rating={dim.rating} />
                 </div>
-                <p className="font-roboto text-sm text-stone-400 leading-relaxed">{dim.description}</p>
+                <p className="font-roboto text-sm text-[#636363] leading-relaxed">{dim.description}</p>
                 {dim.note && (
-                  <p className="font-roboto text-sm text-primary/80 font-medium mt-0.5">{dim.note}</p>
+                  <p className="font-roboto text-sm text-[#1a1a1a] font-medium mt-0.5">{dim.note}</p>
                 )}
               </div>
             );
@@ -115,11 +185,11 @@ function ComparisonCard({
         </div>
 
         {/* Best For */}
-        <div className="mt-4 pt-4 border-t border-stone-100">
-          <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-1.5">Best For</p>
+        <div className="mt-4 pt-4 border-t-2 border-[#1a1a1a]/10">
+          <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-1.5">Best For</p>
           <div className="flex flex-wrap gap-1">
             {data.bestFor.slice(0, 5).map((b) => (
-              <span key={b} className="px-2 py-0.5 bg-stone-50 text-sm font-roboto text-stone-500 rounded-full border-2 border-stone-200">
+              <span key={b} className="px-2 py-0.5 bg-[#F5F5F5] text-[11px] font-jost text-[#1a1a1a] uppercase tracking-[0.08em] border-2 border-[#1a1a1a]/10">
                 {b}
               </span>
             ))}
@@ -127,25 +197,25 @@ function ComparisonCard({
         </div>
 
         {/* Pros & Cons */}
-        <div className="mt-4 pt-4 border-t border-stone-100">
+        <div className="mt-4 pt-4 border-t-2 border-[#1a1a1a]/10">
           <div className="mb-3">
-            <p className="font-roboto text-emerald-600 text-sm uppercase tracking-wider mb-1 font-medium">Pros</p>
+            <p className="font-jost text-[#088135] text-xs uppercase tracking-[0.1em] mb-1 font-semibold">Pros</p>
             <ul className="space-y-0.5">
               {data.pros.map((p) => (
                 <li key={p} className="flex items-start gap-1.5">
-                  <i className="ri-check-line text-emerald-500 text-xs mt-0.5 shrink-0"></i>
-                  <span className="font-roboto text-sm text-stone-500 leading-relaxed">{p}</span>
+                  <i className="ri-check-line text-[#088135] text-xs mt-0.5 shrink-0"></i>
+                  <span className="font-roboto text-sm text-[#636363] leading-relaxed">{p}</span>
                 </li>
               ))}
             </ul>
           </div>
           <div>
-            <p className="font-roboto text-rose-500 text-sm uppercase tracking-wider mb-1 font-medium">Cons</p>
+            <p className="font-jost text-rose-500 text-xs uppercase tracking-[0.1em] mb-1 font-semibold">Cons</p>
             <ul className="space-y-0.5">
               {data.cons.map((c) => (
                 <li key={c} className="flex items-start gap-1.5">
                   <i className="ri-close-line text-rose-400 text-xs mt-0.5 shrink-0"></i>
-                  <span className="font-roboto text-sm text-stone-500 leading-relaxed">{c}</span>
+                  <span className="font-roboto text-sm text-[#636363] leading-relaxed">{c}</span>
                 </li>
               ))}
             </ul>
@@ -153,9 +223,9 @@ function ComparisonCard({
         </div>
 
         {/* Verdict */}
-        <div className="mt-4 pt-4 border-t border-stone-100">
-          <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-1">Verdict</p>
-          <p className="font-roboto text-sm text-stone-500 leading-relaxed">{data.verdict}</p>
+        <div className="mt-4 pt-4 border-t-2 border-[#1a1a1a]/10">
+          <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-1">Verdict</p>
+          <p className="font-roboto text-sm text-[#636363] leading-relaxed">{data.verdict}</p>
         </div>
       </div>
     </div>
@@ -192,6 +262,27 @@ export default function Neighbourhoods() {
   const [compareA, setCompareA] = useState<string>('');
   const [compareB, setCompareB] = useState<string>('');
   const [comparisonData, setComparisonData] = useState<NeighbourhoodComparison[]>([]);
+  const [guideExpanded, setGuideExpanded] = useState(false);
+  const [tagColors, setTagColors] = useState<TagColorOverrides>(DEFAULT_TAG_COLORS);
+
+  useEffect(() => {
+    supabase
+      .from('site_settings')
+      .select('key, value')
+      .like('key', 'page_neighbourhoods_tag_%')
+      .then(({ data }) => {
+        if (data && data.length) {
+          setTagColors((prev) => {
+            const overrides = { ...prev };
+            (data as any[]).forEach((r) => {
+              const field = r.key.replace('page_neighbourhoods_tag_', '');
+              if (field in overrides && r.value) (overrides as any)[field] = r.value;
+            });
+            return overrides;
+          });
+        }
+      });
+  }, []);
 
   useEffect(() => {
     supabase
@@ -276,51 +367,70 @@ export default function Neighbourhoods() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Hero */}
-      <section className="relative pt-36 md:pt-44 pb-20 md:pb-28">
-        <div className="absolute inset-0">
-          <img
-            alt="Nairobi skyline"
-            className="w-full h-full object-cover object-top"
-            src="https://readdy.ai/api/search-image?query=Aerial%20panoramic%20view%20of%20Nairobi%20Kenya%20skyline%20at%20golden%20hour%20with%20modern%20high-rise%20buildings%20green%20urban%20canopy%20and%20Ngong%20Hills%20in%20the%20distance%20warm%20sunset%20lighting%20professional%20cityscape%20photography&width=1920&height=600&seq=177800101&orientation=landscape"
-          />
-          <div className="absolute inset-0 bg-primary/80"></div>
+      {/* Masthead */}
+      <div className="mt-24 md:mt-36 lg:mt-40 bg-primary border-t-2 border-white/20 border-b-2 border-white/10">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between">
+          <div>
+            <span className="font-prata font-bold text-golden text-[31px] md:text-[33px] uppercase tracking-[0.04em]">
+              THE LOCAL
+            </span>
+            <span className="block font-roboto text-white/60 text-xs uppercase tracking-[0.12em] mt-0.5">
+              Oceans Kenya&apos;s Guide to the City
+            </span>
+          </div>
+          <span className="font-roboto text-white/60 text-xs uppercase tracking-[0.12em] hidden sm:block">
+            ISSUE — NAIROBI 2026
+          </span>
         </div>
-        <div className="relative max-w-6xl mx-auto px-4 md:px-6 text-center">
-          <p className="text-golden text-sm md:text-base font-roboto font-semibold uppercase tracking-[0.35em] mb-3">
-            Explore the City
-          </p>
-          <h1 className="font-roboto font-bold text-4xl md:text-6xl text-white mb-4 leading-tight">
-            Neighbourhoods &amp; Guides
-          </h1>
-          <p className="font-roboto text-white/80 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
-            Discover Nairobi&apos;s most desirable residential enclaves. From the diplomatic grandeur
-            of Runda to the urban energy of Kilimani, each neighbourhood offers a distinct lifestyle
-            and investment opportunity.
-          </p>
+      </div>
+
+      {/* Hero — editorial magazine block on solid dark blue */}
+      <section className="bg-primary pb-20 md:pb-28">
+        <div className="max-w-6xl mx-auto px-4 md:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pt-10 md:pt-14">
+            <div className="lg:col-span-8">
+              <p className="font-jost text-golden text-xs uppercase tracking-[0.18em] mb-4">
+                Explore the City
+              </p>
+              <h1 className="font-prata font-bold text-white text-[47px] md:text-[61px] leading-[1.05] mb-6">
+                Neighbourhoods &amp; Guides
+              </h1>
+              <p className="font-roboto text-white/85 text-[17px] leading-[1.7] max-w-[60ch]">
+                Discover Nairobi&apos;s most desirable residential enclaves. From the diplomatic grandeur
+                of Runda to the urban energy of Kilimani, each neighbourhood offers a distinct lifestyle
+                and investment opportunity.
+              </p>
+            </div>
+            <div className="lg:col-span-4 flex items-end">
+              <p className="font-roboto text-white/60 text-[15px] leading-relaxed border-l-4 border-golden pl-4">
+                A curated field guide to Nairobi&apos;s residential enclaves — safety, lifestyle,
+                schools, and value, area by area.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Stats Bar */}
+      {/* Stats Strip */}
       <Reveal>
-        <section className="border-b border-stone-100 bg-white">
-          <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 md:py-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-              <div className="text-center border-r border-stone-200/70 even:border-r-0 md:even:border-r md:last:border-r-0">
-                <p className="font-roboto font-bold text-2xl md:text-3xl text-foreground-950">{supabaseStats.totalNeighbourhoods}</p>
-                <p className="font-roboto text-foreground-950 text-sm md:text-sm uppercase tracking-wider">Neighbourhoods</p>
+        <section className="bg-white border-y-2 border-[#1a1a1a]/10">
+          <div className="max-w-6xl mx-auto px-4 md:px-6">
+            <div className="grid grid-cols-2 md:grid-cols-4">
+              <div className="px-4 py-4 md:py-5 text-center border-r-2 border-b-2 md:border-b-0 border-[#1a1a1a]/10">
+                <p className="font-prata text-primary text-[36px] md:text-[40px] leading-none">{supabaseStats.totalNeighbourhoods}</p>
+                <p className="font-jost text-golden text-xs font-bold uppercase tracking-[0.14em] mt-2">Neighbourhoods</p>
               </div>
-              <div className="text-center border-r border-stone-200/70 even:border-r-0 md:even:border-r md:last:border-r-0">
-                <p className="font-roboto font-bold text-2xl md:text-3xl text-foreground-950">{supabaseStats.totalListings}</p>
-                <p className="font-roboto text-foreground-950 text-sm md:text-sm uppercase tracking-wider">Active Listings</p>
+              <div className="px-4 py-4 md:py-5 text-center border-b-2 md:border-b-0 md:border-r-2 border-[#1a1a1a]/10">
+                <p className="font-prata text-primary text-[36px] md:text-[40px] leading-none">{supabaseStats.totalListings}</p>
+                <p className="font-jost text-golden text-xs font-bold uppercase tracking-[0.14em] mt-2">Active Listings</p>
               </div>
-              <div className="text-center border-r border-stone-200/70 even:border-r-0 md:even:border-r md:last:border-r-0">
-                <p className="font-roboto font-bold text-2xl md:text-3xl text-foreground-950">{supabaseStats.forSale}</p>
-                <p className="font-roboto text-foreground-950 text-sm md:text-sm uppercase tracking-wider">For Sale</p>
+              <div className="px-4 py-4 md:py-5 text-center border-r-2 border-[#1a1a1a]/10">
+                <p className="font-prata text-primary text-[36px] md:text-[40px] leading-none">{supabaseStats.forSale}</p>
+                <p className="font-jost text-golden text-xs font-bold uppercase tracking-[0.14em] mt-2">For Sale</p>
               </div>
-              <div className="text-center border-r border-stone-200/70 even:border-r-0 md:even:border-r md:last:border-r-0">
-                <p className="font-roboto font-bold text-2xl md:text-3xl text-foreground-950">{supabaseStats.forRent}</p>
-                <p className="font-roboto text-foreground-950 text-sm md:text-sm uppercase tracking-wider">To Let</p>
+              <div className="px-4 py-4 md:py-5 text-center">
+                <p className="font-prata text-primary text-[36px] md:text-[40px] leading-none">{supabaseStats.forRent}</p>
+                <p className="font-jost text-golden text-xs font-bold uppercase tracking-[0.14em] mt-2">To Let</p>
               </div>
             </div>
           </div>
@@ -330,20 +440,20 @@ export default function Neighbourhoods() {
       <main className="py-10 md:py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8">
           {/* Breadcrumb */}
-          <nav className="mb-6 md:mb-8">
-            <ol className="flex items-center gap-2 text-sm font-roboto text-stone-400">
+          <nav className="mb-8 md:mb-10">
+            <ol className="flex items-center gap-2 font-roboto text-[#636363] text-sm">
               <li>
                 <Link to="/" className="hover:text-primary transition-colors">Home</Link>
               </li>
               <li>
-                <i className="ri-arrow-right-s-line text-stone-300"></i>
+                <i className="ri-arrow-right-s-line text-[#636363]/40"></i>
               </li>
-              <li className="text-primary font-medium">Neighbourhoods</li>
+              <li className="text-[#1a1a1a] font-medium">Neighbourhoods</li>
             </ol>
           </nav>
 
           {/* Tabs */}
-          <div className="flex items-center gap-1 border-b border-stone-100 mb-6 md:mb-8 overflow-x-auto">
+          <div className="flex items-center gap-0 border-b-2 border-[#1a1a1a]/10 mb-8 md:mb-10 overflow-x-auto no-scrollbar -mx-4 px-4 md:mx-0 md:px-0">
             {[
               { key: 'neighbourhoods' as TabKey, label: 'Neighbourhoods', icon: 'ri-map-pin-2-line' },
               { key: 'guides' as TabKey, label: 'Area Guides', icon: 'ri-book-open-line' },
@@ -353,13 +463,13 @@ export default function Neighbourhoods() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-4 py-3 text-sm md:text-base font-roboto transition-all cursor-pointer whitespace-nowrap border-b-2 ${
+                className={`flex items-center gap-2 px-4 md:px-5 py-3 md:py-4 font-jost text-[18px] font-semibold uppercase tracking-[0.06em] transition-all cursor-pointer whitespace-nowrap border-b-2 ${
                   activeTab === tab.key
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-stone-400 hover:text-stone-600'
+                    ? 'border-golden text-primary'
+                    : 'border-transparent text-primary/60 hover:text-primary'
                 }`}
               >
-                <i className={tab.icon}></i>
+                <i className={`${tab.icon} text-lg`}></i>
                 {tab.label}
               </button>
             ))}
@@ -369,18 +479,18 @@ export default function Neighbourhoods() {
           {activeTab === 'neighbourhoods' && (
             <div className="space-y-6 md:space-y-8">
               {/* Search & Filters */}
-              <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+              <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
                 <div className="relative flex-1 max-w-md">
-                  <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 text-base"></i>
+                  <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#636363] text-base"></i>
                   <input
                     type="text"
-                    placeholder="Search neighbourhoods..."
+                    placeholder="Looking for"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 border border-stone-200 rounded-lg text-base font-roboto focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 bg-white"
+                    className="w-full pl-9 pr-4 py-3 border-[3px] border-[#1a1a1a]/30 rounded-sm text-[15px] font-roboto text-[#1a1a1a] placeholder:text-[#636363] focus:outline-none focus:border-[#1a1a1a] focus:ring-1 focus:ring-[#1a1a1a]/15 bg-white"
                   />
                 </div>
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                   {[
                     { key: 'all' as FilterKey, label: 'All Areas' },
                     { key: 'sale' as FilterKey, label: 'For Sale' },
@@ -391,10 +501,10 @@ export default function Neighbourhoods() {
                     <button
                       key={f.key}
                       onClick={() => setActiveFilter(f.key)}
-                      className={`px-3 py-1.5 rounded-full text-sm font-roboto font-medium transition-all cursor-pointer whitespace-nowrap ${
+                      className={`px-4 py-2 rounded-full text-[13px] font-jost font-semibold uppercase tracking-[0.08em] transition-all cursor-pointer whitespace-nowrap border ${
                         activeFilter === f.key
-                          ? 'bg-primary text-white'
-                          : 'bg-stone-50 text-stone-500 hover:bg-stone-100 border border-stone-200'
+                          ? 'bg-primary text-white border-primary'
+                          : 'border-primary text-primary hover:bg-primary hover:text-white'
                       }`}
                     >
                       {f.label}
@@ -403,93 +513,134 @@ export default function Neighbourhoods() {
                 </div>
               </div>
 
-              {/* Quick Decision Guide */}
-              <Reveal>
-                <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-5 md:p-6">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full shrink-0">
-                      <i className="ri-guide-line text-primary"></i>
+              {/* Quick Decision Guide — Collapsible */}
+              <div className="bg-primary border-2 border-white/10 -mx-4 md:-mx-6 lg:-mx-8">
+                {!guideExpanded && (
+                  <button
+                    onClick={() => setGuideExpanded(true)}
+                    className="w-full flex items-center justify-between px-4 md:px-6 lg:px-8 py-3.5 cursor-pointer group text-left"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <i className="ri-compass-3-line text-golden text-base"></i>
+                      <span className="font-jost text-white text-[13px] uppercase tracking-[0.12em] font-semibold">
+                        Quick Decision Guide
+                      </span>
+                      <span className="font-roboto text-white/60 text-[13px] hidden sm:inline">
+                        — Not sure where to start?
+                      </span>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-roboto font-medium text-primary mb-1">Quick Decision Guide</h3>
-                        {guideFilter.length > 0 && (
-                          <button
-                            onClick={() => setGuideFilter([])}
-                            className="text-sm font-roboto text-stone-500 hover:text-primary transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1"
-                          >
-                            <i className="ri-close-line"></i>
-                            Clear Filter
-                          </button>
-                        )}
+                    <i className="ri-arrow-down-s-line text-white/60 text-lg group-hover:text-white transition-colors"></i>
+                  </button>
+                )}
+                {guideExpanded && (
+                  <div className="px-4 md:px-6 lg:px-8 py-5 md:py-6">
+                    <div className="flex items-start justify-between mb-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 flex items-center justify-center bg-white/10 shrink-0">
+                          <i className="ri-guide-line text-golden"></i>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-jost text-white text-[12px] uppercase tracking-[0.15em] font-semibold">
+                              Quick Decision Guide
+                            </span>
+                            {guideFilter.length > 0 && (
+                              <button
+                                onClick={() => setGuideFilter([])}
+                                className="text-[12px] font-jost text-white/60 hover:text-white transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1"
+                              >
+                                <i className="ri-close-line"></i>
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                          <p className="font-roboto text-[14px] text-white/60 mt-0.5">
+                            {guideFilter.length > 0
+                              ? `Showing: ${guideFilter.join(', ')}`
+                              : 'Click a profile to filter neighbourhoods below'}
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-roboto text-stone-500 text-sm">
-                        {guideFilter.length > 0
-                          ? `Showing: ${guideFilter.join(', ')}`
-                          : 'Not sure where to start? Click a card to filter below.'}
+                      <button
+                        onClick={() => setGuideExpanded(false)}
+                        className="text-white/60 hover:text-white transition-colors cursor-pointer shrink-0"
+                      >
+                        <i className="ri-arrow-up-s-line text-xl"></i>
+                      </button>
+                    </div>
+                    <div className="divide-y divide-white/10">
+                      {[
+                        { who: 'First-Time Visitors', pick: 'Westlands or Kilimani', icon: 'ri-plane-line', matches: ['Westlands', 'Kilimani'] },
+                        { who: 'Nightlife & Social', pick: 'Westlands', icon: 'ri-moon-line', matches: ['Westlands'] },
+                        { who: 'Families & Nature', pick: 'Karen or Lavington', icon: 'ri-leaf-line', matches: ['Karen', 'Lavington'] },
+                        { who: 'Business & Work', pick: 'Westlands, Upper Hill, or Kilimani', icon: 'ri-briefcase-line', matches: ['Westlands', 'Kilimani'] },
+                        { who: 'Diplomats & Expats', pick: 'Gigiri, Runda, or Muthaiga', icon: 'ri-global-line', matches: ['Gigiri', 'Runda', 'Muthaiga'] },
+                        { who: 'Ultimate Privacy', pick: 'Rosslyn or Spring Valley', icon: 'ri-eye-off-line', matches: ['Rosslyn', 'Spring Valley'] },
+                        { who: 'Budget-Conscious', pick: 'Parklands or Kileleshwa', icon: 'ri-money-dollar-circle-line', matches: ['Parklands', 'Kileleshwa'] },
+                        { who: 'Best Value & Space', pick: 'Lower Kabete', icon: 'ri-home-smile-line', matches: ['Lower Kabete'] },
+                        { who: 'Young Professionals', pick: 'Kilimani or Kileleshwa', icon: 'ri-user-star-line', matches: ['Kilimani', 'Kileleshwa'] },
+                        { who: 'Maximum Security', pick: 'Runda or Gigiri', icon: 'ri-shield-check-line', matches: ['Runda', 'Gigiri'] },
+                        { who: 'Green & Exclusive', pick: 'Riverside', icon: 'ri-plant-line', matches: ['Riverside'] },
+                      ].map((item, idx) => {
+                        const num = String(idx + 1).padStart(2, '0');
+                        const isActive = guideFilter.length > 0 && item.matches.every((m) => guideFilter.includes(m)) && guideFilter.every((g) => item.matches.includes(g));
+                        return (
+                          <Reveal key={item.who} delay={idx * 60}>
+                            <button
+                              onClick={() => {
+                                if (isActive) {
+                                  setGuideFilter([]);
+                                } else {
+                                  setGuideFilter(item.matches);
+                                  setSearchQuery('');
+                                }
+                              }}
+                              className="w-full text-left py-4 flex items-start gap-4 group cursor-pointer"
+                            >
+                              <span className="font-prata text-golden text-[34px] leading-none shrink-0 w-10">{num}</span>
+                              <div className="flex-1">
+                                <p className={`font-prata text-lg mb-1 ${isActive ? 'text-golden' : 'text-white'}`}>{item.who}</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {item.matches.map((m) => (
+                                    <span
+                                      key={m}
+                                      className={`px-2 py-0.5 text-[11px] font-jost font-semibold uppercase tracking-[0.08em] ${
+                                        isActive
+                                          ? 'bg-golden/20 text-golden'
+                                          : 'bg-white/10 text-white/70'
+                                      }`}
+                                    >
+                                      {m}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            </button>
+                          </Reveal>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-5 bg-white/5 border-l-4 border-golden p-4 flex items-start gap-3">
+                      <i className="ri-information-line text-golden text-lg shrink-0"></i>
+                      <p className="font-roboto text-[15px] text-white/85 leading-relaxed">
+                        Safety tip: Stick to well-known areas, use Uber/Bolt (reliable), gated compounds/hotels, and avoid walking alone at night in unfamiliar spots. Most tourist zones feel secure during the day.
                       </p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { who: 'First-Time Visitors', pick: 'Westlands or Kilimani', icon: 'ri-plane-line', matches: ['Westlands', 'Kilimani'] },
-                      { who: 'Nightlife & Social', pick: 'Westlands', icon: 'ri-moon-line', matches: ['Westlands'] },
-                      { who: 'Families & Nature', pick: 'Karen or Lavington', icon: 'ri-leaf-line', matches: ['Karen', 'Lavington'] },
-                      { who: 'Business & Work', pick: 'Westlands, Upper Hill, or Kilimani', icon: 'ri-briefcase-line', matches: ['Westlands', 'Kilimani'] },
-                      { who: 'Diplomats & Expats', pick: 'Gigiri, Runda, or Muthaiga', icon: 'ri-global-line', matches: ['Gigiri', 'Runda', 'Muthaiga'] },
-                      { who: 'Ultimate Privacy', pick: 'Rosslyn or Spring Valley', icon: 'ri-eye-off-line', matches: ['Rosslyn', 'Spring Valley'] },
-                      { who: 'Budget-Conscious', pick: 'Parklands or Kileleshwa', icon: 'ri-money-dollar-circle-line', matches: ['Parklands', 'Kileleshwa'] },
-                      { who: 'Best Value & Space', pick: 'Lower Kabete', icon: 'ri-home-smile-line', matches: ['Lower Kabete'] },
-                      { who: 'Young Professionals', pick: 'Kilimani or Kileleshwa', icon: 'ri-user-star-line', matches: ['Kilimani', 'Kileleshwa'] },
-                      { who: 'Maximum Security', pick: 'Runda or Gigiri', icon: 'ri-shield-check-line', matches: ['Runda', 'Gigiri'] },
-                      { who: 'Green & Exclusive', pick: 'Riverside', icon: 'ri-plant-line', matches: ['Riverside'] },
-                    ].map((item, idx) => {
-                      const isActive = guideFilter.length > 0 && item.matches.every((m) => guideFilter.includes(m)) && guideFilter.every((g) => item.matches.includes(g));
-                      return (
-                        <Reveal key={item.who} delay={idx * 60}>
-                          <button
-                            onClick={() => {
-                              if (isActive) {
-                                setGuideFilter([]);
-                              } else {
-                                setGuideFilter(item.matches);
-                                setSearchQuery('');
-                              }
-                            }}
-                            className={`text-left p-3 rounded-md border transition-all cursor-pointer w-full h-full ${
-                              isActive
-                                ? 'bg-primary/5 border-primary/30 ring-1 ring-primary/20'
-                                : 'bg-white border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <i className={`${item.icon} ${isActive ? 'text-primary' : 'text-primary/70'} text-sm`}></i>
-                              <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider">{item.who}</p>
-                            </div>
-                            <p className={`font-roboto text-sm font-semibold ${isActive ? 'text-primary' : 'text-primary/80'}`}>{item.pick}</p>
-                          </button>
-                        </Reveal>
-                      );
-                    })}
-                  </div>
-                  <p className="font-roboto text-stone-400 text-sm mt-3">
-                    <i className="ri-information-line text-stone-400 mr-1"></i>
-                    Safety tip: Stick to well-known areas, use Uber/Bolt (reliable), gated compounds/hotels, and avoid walking alone at night in unfamiliar spots. Most tourist zones feel secure during the day.
-                  </p>
-                </div>
-              </Reveal>
+                )}
+              </div>
 
               {/* Error State */}
               {error && !loading && (
-                <div className="text-center py-12 bg-red-50 rounded-lg border border-red-100">
-                  <div className="w-12 h-12 flex items-center justify-center bg-red-100 rounded-full mx-auto mb-3">
-                    <i className="ri-error-warning-line text-red-400 text-xl"></i>
+                <div className="text-center py-12 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                  <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                    <i className="ri-error-warning-line text-white text-xl"></i>
                   </div>
-                  <p className="font-roboto font-bold text-lg text-red-700 mb-1">Something went wrong</p>
-                  <p className="font-roboto text-red-500 text-sm mb-4">{error}</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Something went wrong</p>
+                  <p className="font-roboto text-[15px] text-[#636363] mb-4">{error}</p>
                   <button
                     onClick={refetch}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-roboto font-medium rounded-lg hover:bg-red-700 transition-colors cursor-pointer whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] hover:bg-[#002349] transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-refresh-line"></i>
                     Try Again
@@ -499,66 +650,62 @@ export default function Neighbourhoods() {
 
               {/* Cards Grid */}
               {!error && (
-                <div className="flex flex-col lg:flex-row gap-5 lg:gap-6">
+                <div>
                   <div className="flex-1 min-w-0">
                     {loading ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {Array.from({ length: 6 }).map((_, i) => (
-                          <div key={i} className="bg-stone-50 rounded-lg aspect-[4/3] animate-pulse" />
+                          <div key={i} className="bg-[#F5F5F5] aspect-[4/5] animate-pulse" />
                         ))}
                       </div>
                     ) : filteredHoods.length === 0 ? (
-                      <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
-                        <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
-                          <i className="ri-map-pin-line text-stone-400 text-xl"></i>
+                      <div className="text-center py-16 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                        <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                          <i className="ri-map-pin-line text-white text-xl"></i>
                         </div>
-                        <p className="font-roboto font-bold text-lg text-primary mb-1">No Neighbourhoods Found</p>
-                        <p className="font-roboto text-stone-400 text-sm">Try adjusting your search or filters.</p>
+                        <p className="font-prata font-semibold text-primary text-[23px] mb-1">No Neighbourhoods Found</p>
+                        <p className="font-roboto text-[15px] text-[#636363]">Try adjusting your search or filters.</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filteredHoods.map((n, i) => (
                           <Reveal key={n.id} delay={i * 80}>
                             <Link
                               to={`/neighbourhood/${n.slug}`}
-                              className="group cursor-pointer block bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                              className="group cursor-pointer block bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-shadow duration-300"
                             >
-                              <div className="relative aspect-[16/10] overflow-hidden">
+                              <div className="relative aspect-[4/5] overflow-hidden">
                                 <img
                                   alt={n.name}
                                   className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-110"
                                   src={n.hero_image || ''}
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                                <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
+                                <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/30 to-transparent"></div>
+                                <div className="absolute top-3 left-3 flex flex-wrap gap-2">
                                   {n.tags &&
                                     n.tags.slice(0, 3).map((tag) => (
                                       <span
                                         key={tag}
-                                        className="px-2 py-0.5 bg-white/90 backdrop-blur-sm text-sm font-roboto font-medium text-stone-600 rounded-full"
+                                        className="px-2 py-0.5 text-white text-[11px] font-jost font-semibold uppercase tracking-[0.06em]"
+                                        style={{ backgroundColor: getTagColorHex(tag, tagColors) }}
                                       >
                                         {tag}
                                       </span>
                                     ))}
                                 </div>
                                 <div className="absolute bottom-3 left-3 right-3">
-                                  <p className="text-white/80 text-sm font-roboto font-medium tracking-wide">
-                                    {n.propertyCount} Properties
-                                  </p>
-                                  <h3 className="text-xl font-roboto font-medium text-white leading-tight drop-shadow-sm mt-0.5">
-                                    {n.name}
-                                  </h3>
+                                  <h3 className="font-prata font-semibold text-white text-[25px] leading-tight">{n.name}</h3>
                                 </div>
                               </div>
                               <div className="p-4">
-                                <p className="font-roboto text-stone-500 text-base leading-relaxed line-clamp-2">
+                                <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2">
                                   {n.summary || n.description || ''}
                                 </p>
-                                <div className="flex items-center justify-between mt-3 pt-3 border-t border-stone-100">
-                                  <span className="font-roboto text-sm text-stone-400 uppercase tracking-wider">
-                                    {n.city}, {n.country}
+                                <div className="flex items-center justify-between mt-3 pt-3 border-t-2 border-[#1a1a1a]/10">
+                                  <span className="font-jost text-golden text-[13px] font-semibold uppercase tracking-[0.08em]">
+                                    {n.propertyCount} Properties
                                   </span>
-                                  <span className="flex items-center gap-1 text-sm font-roboto font-medium text-primary group-hover:text-primary/80 transition-colors">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-[12px] font-jost font-semibold uppercase tracking-[0.08em] whitespace-nowrap transition-colors hover:bg-[#002349]">
                                     Explore
                                     <i className="ri-arrow-right-line"></i>
                                   </span>
@@ -570,83 +717,81 @@ export default function Neighbourhoods() {
                       </div>
                     )}
                   </div>
-
-                  {/* Other Notable Areas Sidebar */}
-                  {!loading && (
-                    <Reveal delay={200}>
-                      <aside className="w-full lg:w-72 shrink-0">
-                        <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-5 sticky top-28">
-                          <div className="flex items-center gap-2 mb-4">
-                            <div className="w-7 h-7 flex items-center justify-center bg-accent-100 rounded-full shrink-0">
-                              <i className="ri-compass-3-line text-accent-600 text-sm"></i>
-                            </div>
-                            <h3 className="font-roboto font-bold text-base text-primary">Other Notable Areas</h3>
-                          </div>
-                          <p className="font-roboto text-stone-400 text-base leading-relaxed mb-4">
-                            Beyond the main areas, Nairobi has several other neighbourhoods worth knowing — each with its own character and value proposition.
-                          </p>
-                          <div className="space-y-3">
-                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
-                              <h4 className="font-roboto font-bold text-sm text-primary mb-1">South B &amp; South C</h4>
-                              <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
-                                More local, affordable, and close to Nairobi National Park — ideal for experienced residents and budget-conscious travellers who want space without the Karen price tag. Strong community feel with markets, local eateries, and easy access to the CBD.
-                              </p>
-                              <Link
-                                to="/all-properties"
-                                className="inline-flex items-center gap-1 text-sm font-roboto font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-                              >
-                                Browse Properties
-                                <i className="ri-arrow-right-line text-xs"></i>
-                              </Link>
-                            </div>
-                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
-                              <h4 className="font-roboto font-bold text-sm text-primary mb-1">City Centre &amp; Upper Hill</h4>
-                              <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
-                                Busy, central, and all business — ideal for short stays and professionals who need to be in the thick of it. Upper Hill hosts major corporate HQs and hotels. The CBD offers unmatched convenience but can be hectic.
-                              </p>
-                              <Link
-                                to="/all-properties"
-                                className="inline-flex items-center gap-1 text-sm font-roboto font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-                              >
-                                Browse Properties
-                                <i className="ri-arrow-right-line text-xs"></i>
-                              </Link>
-                            </div>
-                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
-                              <h4 className="font-roboto font-bold text-sm text-primary mb-1">Langata</h4>
-                              <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
-                                Nature-focused living on a budget — bordering Nairobi National Park and close to the Giraffe Centre and Elephant Orphanage. More affordable than neighbouring Karen while sharing the same green, relaxed atmosphere. Popular with families seeking space.
-                              </p>
-                              <Link
-                                to="/all-properties"
-                                className="inline-flex items-center gap-1 text-sm font-roboto font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-                              >
-                                Browse Properties
-                                <i className="ri-arrow-right-line text-xs"></i>
-                              </Link>
-                            </div>
-                            <div className="bg-white p-3 rounded-md border-2 border-stone-200">
-                              <h4 className="font-roboto font-bold text-sm text-primary mb-1">Ruaka</h4>
-                              <p className="font-roboto text-stone-500 text-base leading-relaxed mb-2">
-                                A fast-growing satellite suburb north of the city — significantly cheaper rents than Gigiri or Runda but only 15–20 minutes from the UN and diplomatic quarter. Popular with young professionals and families priced out of the core northern suburbs.
-                              </p>
-                              <Link
-                                to="/all-properties"
-                                className="inline-flex items-center gap-1 text-sm font-roboto font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-                              >
-                                Browse Properties
-                                <i className="ri-arrow-right-line text-xs"></i>
-                              </Link>
-                            </div>
-                          </div>
-                          <p className="font-roboto text-stone-400 text-sm mt-4 pt-3 border-t border-stone-200 leading-relaxed">
-                            These areas are not yet covered by full Area Guides but have active property listings. Our agents can provide detailed local knowledge on any of them.
-                          </p>
-                        </div>
-                      </aside>
-                    </Reveal>
-                  )}
                 </div>
+              )}
+
+              {/* Other Notable Areas */}
+              {!loading && (
+                <Reveal delay={200}>
+                  <div className="mt-12 md:mt-16 bg-[#FAFAF8] border-y-2 border-[#1a1a1a]/10 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-8 md:py-10">
+                    <div className="mb-8">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="w-2 h-5 bg-golden"></div>
+                        <span className="font-jost text-golden text-[12px] uppercase tracking-[0.15em] font-semibold">
+                          Also Worth Knowing
+                        </span>
+                      </div>
+                      <h3 className="font-prata font-bold text-primary text-[31px] md:text-[35px]">Other Notable Areas</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 md:gap-x-6 gap-y-0">
+                      <div className="py-6 border-b-2 border-[#1a1a1a]/10">
+                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">South B &amp; South C</h4>
+                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
+                          More local, affordable, and close to Nairobi National Park — ideal for experienced residents and budget-conscious travellers who want space without the Karen price tag. Strong community feel with markets, local eateries, and easy access to the CBD.
+                        </p>
+                        <Link
+                          to="/all-properties"
+                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
+                        >
+                          Browse Properties
+                          <i className="ri-arrow-right-line"></i>
+                        </Link>
+                      </div>
+                      <div className="py-6 border-b-2 border-[#1a1a1a]/10 md:pl-8">
+                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">City Centre &amp; Upper Hill</h4>
+                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
+                          Busy, central, and all business — ideal for short stays and professionals who need to be in the thick of it. Upper Hill hosts major corporate HQs and hotels. The CBD offers unmatched convenience but can be hectic.
+                        </p>
+                        <Link
+                          to="/all-properties"
+                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
+                        >
+                          Browse Properties
+                          <i className="ri-arrow-right-line"></i>
+                        </Link>
+                      </div>
+                      <div className="py-6 border-b-2 border-[#1a1a1a]/10">
+                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">Langata</h4>
+                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
+                          Nature-focused living on a budget — bordering Nairobi National Park and close to the Giraffe Centre and Elephant Orphanage. More affordable than neighbouring Karen while sharing the same green, relaxed atmosphere. Popular with families seeking space.
+                        </p>
+                        <Link
+                          to="/all-properties"
+                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
+                        >
+                          Browse Properties
+                          <i className="ri-arrow-right-line"></i>
+                        </Link>
+                      </div>
+                      <div className="py-6 border-b-2 border-[#1a1a1a]/10 md:pl-8">
+                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">Ruaka</h4>
+                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
+                          A fast-growing satellite suburb north of the city — significantly cheaper rents than Gigiri or Runda but only 15–20 minutes from the UN and diplomatic quarter. Popular with young professionals and families priced out of the core northern suburbs.
+                        </p>
+                        <Link
+                          to="/all-properties"
+                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
+                        >
+                          Browse Properties
+                          <i className="ri-arrow-right-line"></i>
+                        </Link>
+                      </div>
+                    </div>
+                    <p className="font-roboto text-[15px] text-[#636363] mt-6 pt-4 border-t-2 border-[#1a1a1a]/10 leading-relaxed">
+                      These areas are not yet covered by full Area Guides but have active property listings. Our agents can provide detailed local knowledge on any of them.
+                    </p>
+                  </div>
+                </Reveal>
               )}
             </div>
           )}
@@ -655,78 +800,79 @@ export default function Neighbourhoods() {
           {activeTab === 'guides' && (
             <div className="space-y-6">
               {error && !loading ? (
-                <div className="text-center py-12 bg-red-50 rounded-lg border border-red-100">
-                  <div className="w-12 h-12 flex items-center justify-center bg-red-100 rounded-full mx-auto mb-3">
-                    <i className="ri-error-warning-line text-red-400 text-xl"></i>
+                <div className="text-center py-12 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                  <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                    <i className="ri-error-warning-line text-white text-xl"></i>
                   </div>
-                  <p className="font-roboto font-bold text-lg text-red-700 mb-1">Something went wrong</p>
-                  <p className="font-roboto text-red-500 text-sm mb-4">{error}</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Something went wrong</p>
+                  <p className="font-roboto text-[15px] text-[#636363] mb-4">{error}</p>
                   <button
                     onClick={refetch}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-roboto font-medium rounded-lg hover:bg-red-700 transition-colors cursor-pointer whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] hover:bg-[#002349] transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-refresh-line"></i>
                     Try Again
                   </button>
                 </div>
               ) : loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="bg-stone-50 rounded-lg h-48 animate-pulse" />
+                    <div key={i} className="bg-[#F5F5F5] h-48 animate-pulse" />
                   ))}
                 </div>
               ) : guideHoods.length === 0 ? (
-                <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
-                  <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
-                    <i className="ri-book-open-line text-stone-400 text-xl"></i>
+                <div className="text-center py-16 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                  <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                    <i className="ri-book-open-line text-white text-xl"></i>
                   </div>
-                  <p className="font-roboto font-bold text-lg text-primary mb-1">No Guides Yet</p>
-                  <p className="font-roboto text-stone-400 text-sm">Area guides are coming soon.</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">No Guides Yet</p>
+                  <p className="font-roboto text-[15px] text-[#636363]">Area guides are coming soon.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {guideHoods.map((h, i) => (
                     <Reveal key={h.id} delay={i * 100}>
                       <Link
                         to={`/neighbourhood/${h.slug}`}
-                        className="group cursor-pointer flex flex-col sm:flex-row bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                        className="group flex flex-col sm:flex-row bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-shadow duration-300"
                       >
-                        <div className="sm:w-48 h-40 sm:h-auto shrink-0 relative overflow-hidden bg-stone-100">
+                        <div className="sm:w-44 md:w-52 h-40 sm:h-auto shrink-0 relative overflow-hidden bg-[#F5F5F5]">
                           {h.hero_image ? (
                             <img
                               alt={h.name}
-                              className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-110"
+                              className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-105"
                               src={h.hero_image}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <i className="ri-image-line text-stone-300 text-2xl" />
+                              <i className="ri-image-line text-[#636363] text-2xl" />
                             </div>
                           )}
                         </div>
-                        <div className="p-4 flex flex-col justify-between flex-1">
+                        <div className="p-5 flex flex-col justify-between flex-1">
                           <div>
-                            <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="flex items-center gap-1.5 mb-2">
                               {h.tags &&
                                 h.tags.slice(0, 2).map((tag) => (
                                   <span
                                     key={tag}
-                                    className="px-2 py-0.5 bg-stone-50 text-sm font-roboto font-medium text-stone-500 rounded-full"
+                                    className="px-2 py-0.5 text-white text-[11px] font-jost font-semibold uppercase tracking-[0.08em]"
+                                    style={{ backgroundColor: getTagColorHex(tag, tagColors) }}
                                   >
                                     {tag}
                                   </span>
                                 ))}
                             </div>
-                            <h3 className="text-lg font-roboto font-medium text-primary mb-1">{h.name} Guide</h3>
-                            <p className="font-roboto text-stone-500 text-base leading-relaxed line-clamp-3">
+                            <h3 className="font-prata font-semibold text-primary text-[23px] mb-1">{h.name} Guide</h3>
+                            <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3">
                               {h.summary || h.description || ''}
                             </p>
                           </div>
-                          <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between">
-                            <span className="font-roboto text-sm text-stone-400 uppercase tracking-wider">
-                              {h.city}
+                          <div className="mt-4 pt-3 border-t-2 border-[#1a1a1a]/10 flex items-center justify-between">
+                            <span className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em]">
+                              {h.name}, {h.city}
                             </span>
-                            <span className="flex items-center gap-1 text-sm font-roboto font-medium text-primary group-hover:text-primary/80 transition-colors">
+                            <span className="flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-[#1a1a1a] group-hover:text-[#0D5959] transition-colors">
                               Read Guide
                               <i className="ri-arrow-right-line"></i>
                             </span>
@@ -744,15 +890,15 @@ export default function Neighbourhoods() {
           {activeTab === 'blog' && (
             <div className="space-y-6">
               {/* Blog Category Filters */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                 {blogCategories.map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setBlogCategory(cat)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-roboto font-medium transition-all cursor-pointer whitespace-nowrap ${
+                    className={`px-4 py-2 rounded-full text-[13px] font-jost font-semibold uppercase tracking-[0.08em] transition-all cursor-pointer whitespace-nowrap border ${
                       blogCategory === cat
-                        ? 'bg-primary text-white'
-                        : 'bg-stone-50 text-stone-500 hover:bg-stone-100 border border-stone-200'
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-primary text-primary hover:bg-primary hover:text-white'
                     }`}
                   >
                     {cat === 'all' ? 'All Posts' : cat}
@@ -760,41 +906,41 @@ export default function Neighbourhoods() {
                 ))}
               </div>
               {error && !loading ? (
-                <div className="text-center py-12 bg-red-50 rounded-lg border border-red-100">
-                  <div className="w-12 h-12 flex items-center justify-center bg-red-100 rounded-full mx-auto mb-3">
-                    <i className="ri-error-warning-line text-red-400 text-xl"></i>
+                <div className="text-center py-12 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                  <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                    <i className="ri-error-warning-line text-white text-xl"></i>
                   </div>
-                  <p className="font-roboto font-bold text-lg text-red-700 mb-1">Something went wrong</p>
-                  <p className="font-roboto text-red-500 text-sm mb-4">{error}</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Something went wrong</p>
+                  <p className="font-roboto text-[15px] text-[#636363] mb-4">{error}</p>
                   <button
                     onClick={refetch}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-red-600 text-white text-sm font-roboto font-medium rounded-lg hover:bg-red-700 transition-colors cursor-pointer whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] hover:bg-[#002349] transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-refresh-line"></i>
                     Try Again
                   </button>
                 </div>
               ) : loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="bg-stone-50 rounded-lg h-56 animate-pulse" />
+                    <div key={i} className="bg-[#F5F5F5] h-56 animate-pulse" />
                   ))}
                 </div>
               ) : filteredBlogPosts.length === 0 ? (
-                <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
-                  <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
-                    <i className="ri-article-line text-stone-400 text-xl"></i>
+                <div className="text-center py-16 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                  <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                    <i className="ri-article-line text-white text-xl"></i>
                   </div>
-                  <p className="font-roboto font-bold text-lg text-primary mb-1">No Blog Posts Yet</p>
-                  <p className="font-roboto text-stone-400 text-sm">Check back soon for neighbourhood insights.</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">No Blog Posts Yet</p>
+                  <p className="font-roboto text-[15px] text-[#636363]">Check back soon for neighbourhood insights.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredBlogPosts.map((post, i) => (
                     <Reveal key={post.id} delay={i * 90}>
                       <Link
                         to={`/blog/${post.slug}`}
-                        className="group cursor-pointer block bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                        className="group block bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-shadow duration-300"
                       >
                         <div className="relative aspect-[16/10] overflow-hidden">
                           <img
@@ -804,20 +950,23 @@ export default function Neighbourhoods() {
                           />
                           {post.category && (
                             <div className="absolute top-3 left-3">
-                              <span className="px-2 py-0.5 bg-primary/90 text-white text-sm font-roboto font-medium rounded-full">
-                                {post.categoryTag || post.category}
+                              <span
+                                className="px-2 py-0.5 text-white text-[12px] font-jost font-medium uppercase tracking-[0.06em]"
+                                style={{ backgroundColor: getBlogCategoryColorHex(post.category, tagColors) }}
+                              >
+                                {post.category}
                               </span>
                             </div>
                           )}
                         </div>
-                        <div className="p-4">
-                          <h3 className="font-roboto font-bold text-base text-primary leading-snug mb-2 line-clamp-2 group-hover:text-primary/80 transition-colors">
+                        <div className="p-5">
+                          <h3 className="font-prata font-semibold text-primary text-[21px] leading-snug mb-2 line-clamp-2 group-hover:text-[#0D5959] transition-colors">
                             {post.title}
                           </h3>
-                          <p className="font-roboto text-stone-500 text-base leading-relaxed line-clamp-2 mb-3">
+                          <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2 mb-3">
                             {post.excerpt || ''}
                           </p>
-                          <div className="flex items-center gap-2 text-sm font-roboto text-stone-400">
+                          <div className="flex items-center gap-2 font-jost text-[#636363] text-xs uppercase tracking-[0.1em]">
                             {post.author && <span>{post.author}</span>}
                             {post.author && post.published_at && <span>&middot;</span>}
                             {post.readTime && <span>{post.readTime}</span>}
@@ -836,26 +985,26 @@ export default function Neighbourhoods() {
             <div className="space-y-6 md:space-y-8">
               {/* Selector Panel */}
               <Reveal>
-                <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-5 md:p-6">
-                  <div className="flex items-start gap-3 mb-5">
-                    <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full shrink-0">
-                      <i className="ri-scales-line text-primary"></i>
+                <div className="bg-white border-2 border-[#1a1a1a]/10 p-6 md:p-8">
+                  <div className="flex items-start gap-3 mb-6">
+                    <div className="w-8 h-8 flex items-center justify-center bg-primary text-white shrink-0">
+                      <i className="ri-scales-line text-white"></i>
                     </div>
                     <div>
-                      <h3 className="text-lg font-roboto font-medium text-primary mb-1">Compare Neighbourhoods</h3>
-                      <p className="font-roboto text-stone-500 text-sm">
+                      <h3 className="font-prata font-semibold text-primary text-[25px] mb-1">Compare Neighbourhoods</h3>
+                      <p className="font-roboto text-[15px] text-[#636363] leading-relaxed">
                         Pick two neighbourhoods to see how they stack up across safety, lifestyle, schools, value, and more.
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4 items-center">
                     <div className="flex-1 w-full">
-                      <label className="font-roboto text-sm text-stone-400 uppercase tracking-wider block mb-1.5">First Neighbourhood</label>
+                      <label className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] block mb-1.5">First Neighbourhood</label>
                       <div className="relative">
                         <select
                           value={compareA}
                           onChange={(e) => setCompareA(e.target.value)}
-                          className="w-full appearance-none pl-3 pr-8 py-2.5 border border-stone-200 rounded-lg text-base font-roboto text-primary bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 cursor-pointer"
+                          className="w-full appearance-none pl-3 pr-8 py-2.5 border-[3px] border-[#1a1a1a]/20 rounded-sm text-[15px] font-roboto text-[#1a1a1a] bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 cursor-pointer"
                         >
                           <option value="">Select a neighbourhood...</option>
                           {comparisonData.map((c) => (
@@ -864,19 +1013,19 @@ export default function Neighbourhoods() {
                             </option>
                           ))}
                         </select>
-                        <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 text-base pointer-events-none"></i>
+                        <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-[#636363] text-base pointer-events-none"></i>
                       </div>
                     </div>
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-stone-200 shrink-0 mt-5 sm:mt-0">
-                      <span className="font-roboto font-bold text-stone-400 text-sm">vs</span>
+                    <div className="flex items-center justify-center w-10 h-10 bg-primary border border-primary shrink-0">
+                      <span className="font-jost font-bold text-white text-sm">vs</span>
                     </div>
                     <div className="flex-1 w-full">
-                      <label className="font-roboto text-sm text-stone-400 uppercase tracking-wider block mb-1.5">Second Neighbourhood</label>
+                      <label className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] block mb-1.5">Second Neighbourhood</label>
                       <div className="relative">
                         <select
                           value={compareB}
                           onChange={(e) => setCompareB(e.target.value)}
-                          className="w-full appearance-none pl-3 pr-8 py-2.5 border border-stone-200 rounded-lg text-base font-roboto text-primary bg-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 cursor-pointer"
+                          className="w-full appearance-none pl-3 pr-8 py-2.5 border-[3px] border-[#1a1a1a]/20 rounded-sm text-[15px] font-roboto text-[#1a1a1a] bg-white focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 cursor-pointer"
                         >
                           <option value="">Select a neighbourhood...</option>
                           {comparisonData.map((c) => (
@@ -885,13 +1034,13 @@ export default function Neighbourhoods() {
                             </option>
                           ))}
                         </select>
-                        <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 text-sm pointer-events-none"></i>
+                        <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-[#636363] text-sm pointer-events-none"></i>
                       </div>
                     </div>
                   </div>
                   {/* Quick suggestions */}
-                  <div className="mt-4 pt-4 border-t border-stone-200">
-                    <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Popular Comparisons</p>
+                  <div className="mt-6 pt-6 border-t-2 border-[#1a1a1a]/10">
+                    <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-3">Popular Comparisons</p>
                     <div className="flex flex-wrap gap-2">
                       {[
                         { a: 'karen', b: 'westlands', label: 'Karen vs Westlands' },
@@ -907,13 +1056,15 @@ export default function Neighbourhoods() {
                         <button
                           key={pair.label}
                           onClick={() => { setCompareA(pair.a); setCompareB(pair.b); }}
-                          className={`px-3 py-1.5 rounded-full text-sm font-roboto font-medium transition-all cursor-pointer whitespace-nowrap ${
+                          className={`px-3 py-1.5 text-[13px] font-jost uppercase tracking-[0.08em] transition-all cursor-pointer whitespace-nowrap border ${
                             compareA === pair.a && compareB === pair.b
-                              ? 'bg-primary text-white'
-                              : 'bg-white text-stone-500 border border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                              ? 'border-primary text-primary bg-primary/5'
+                              : 'border-primary/30 text-primary hover:bg-primary/5'
                           }`}
                         >
-                          {pair.label}
+                          <span className="font-semibold">{pair.label.split(' vs ')[0]}</span>
+                          <span className="text-golden font-semibold mx-1">vs</span>
+                          <span className="font-semibold">{pair.label.split(' vs ')[1]}</span>
                         </button>
                       ))}
                     </div>
@@ -952,29 +1103,29 @@ export default function Neighbourhoods() {
                     <div className="space-y-6">
                       {/* Scoreboard */}
                       <Reveal>
-                        <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4 md:p-5">
+                        <div className="bg-white border-2 border-[#1a1a1a]/10 p-4 md:p-5">
                           <div className="grid grid-cols-3 gap-4 items-center">
                             <div className="text-center">
-                              <p className="text-lg font-roboto font-medium text-primary">{dataA.name}</p>
-                              <p className="font-roboto text-sm text-stone-400 mt-0.5">Wins {aWins.length} of 8 categories</p>
+                              <p className="font-prata font-semibold text-primary text-[25px]">{dataA.name}</p>
+                              <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mt-1">Wins {aWins.length} of 8</p>
                             </div>
                             <div className="text-center">
-                              <p className="font-roboto font-bold text-stone-400 text-sm">HEAD-TO-HEAD</p>
+                              <p className="font-jost font-bold text-[#636363] text-xs uppercase tracking-[0.1em]">HEAD-TO-HEAD</p>
                               <div className="flex items-center justify-center gap-3 mt-2">
                                 {winnerA && (
-                                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-sm font-roboto font-semibold rounded-full">Winner</span>
+                                  <span className="px-2 py-0.5 bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.08em]">Winner</span>
                                 )}
                                 {!winnerA && !winnerB && (
-                                  <span className="px-2 py-0.5 bg-stone-100 text-stone-500 text-sm font-roboto font-medium rounded-full">Tie</span>
+                                  <span className="px-2 py-0.5 bg-[#F5F5F5] text-[#636363] text-xs font-jost font-medium uppercase tracking-[0.08em]">Tie</span>
                                 )}
                                 {winnerB && (
-                                  <span className="px-2 py-0.5 bg-primary/10 text-primary text-sm font-roboto font-semibold rounded-full">Winner</span>
+                                  <span className="px-2 py-0.5 bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.08em]">Winner</span>
                                 )}
                               </div>
                             </div>
                             <div className="text-center">
-                              <p className="text-lg font-roboto font-medium text-primary">{dataB.name}</p>
-                              <p className="font-roboto text-sm text-stone-400 mt-0.5">Wins {bWins.length} of 8 categories</p>
+                              <p className="font-prata font-semibold text-primary text-[25px]">{dataB.name}</p>
+                              <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mt-1">Wins {bWins.length} of 8</p>
                             </div>
                           </div>
                         </div>
@@ -983,38 +1134,38 @@ export default function Neighbourhoods() {
                       {/* Top-line comparison: Safety, Price, Best For, Vibe */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
                         <Reveal delay={80}>
-                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
-                            <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Safety</p>
+                          <div className="bg-white border-2 border-[#1a1a1a]/10 p-4">
+                            <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-2">Safety</p>
                             <div className="flex items-center gap-3">
                               <div className="flex-1">
-                                <p className="font-roboto text-sm font-medium text-stone-600 mb-1">{dataA.name}</p>
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a] mb-1">{dataA.name}</p>
                                 <RatingBar rating={dataA.safety.rating} />
                               </div>
-                              <span className="text-sm font-roboto text-stone-400">vs</span>
+                              <span className="text-sm font-roboto text-[#636363]">vs</span>
                               <div className="flex-1">
-                                <p className="font-roboto text-sm font-medium text-stone-600 mb-1">{dataB.name}</p>
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a] mb-1">{dataB.name}</p>
                                 <RatingBar rating={dataB.safety.rating} />
                               </div>
                             </div>
-                            <div className="mt-3 pt-3 border-t border-stone-200 space-y-1.5">
-                              <p className="font-roboto text-sm text-stone-500 leading-relaxed"><span className="font-medium">{dataA.name}:</span> {dataA.safety.description}</p>
-                              <p className="font-roboto text-sm text-stone-500 leading-relaxed"><span className="font-medium">{dataB.name}:</span> {dataB.safety.description}</p>
+                            <div className="mt-3 pt-3 border-t-2 border-[#1a1a1a]/10 space-y-1.5">
+                              <p className="font-roboto text-sm text-[#636363] leading-relaxed"><span className="font-medium">{dataA.name}:</span> {dataA.safety.description}</p>
+                              <p className="font-roboto text-sm text-[#636363] leading-relaxed"><span className="font-medium">{dataB.name}:</span> {dataB.safety.description}</p>
                             </div>
                           </div>
                         </Reveal>
                         <Reveal delay={160}>
-                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
-                            <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Price &amp; Value</p>
+                          <div className="bg-white border-2 border-[#1a1a1a]/10 p-4">
+                            <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-2">Price &amp; Value</p>
                             <div className="space-y-2">
                               <div>
-                                <p className="font-roboto text-sm font-medium text-stone-600">{dataA.name}</p>
-                                <p className="font-roboto text-sm font-semibold text-primary">{dataA.priceRange}</p>
-                                <p className="font-roboto text-sm text-stone-400">1BR Rent: {dataA.typicalRent1BR}</p>
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a]">{dataA.name}</p>
+                                <p className="font-roboto text-sm font-semibold text-[#1a1a1a]">{dataA.priceRange}</p>
+                                <p className="font-roboto text-sm text-[#636363]">1BR Rent: {dataA.typicalRent1BR}</p>
                               </div>
-                              <div className="border-t border-stone-200 pt-2">
-                                <p className="font-roboto text-sm font-medium text-stone-600">{dataB.name}</p>
-                                <p className="font-roboto text-sm font-semibold text-primary">{dataB.priceRange}</p>
-                                <p className="font-roboto text-sm text-stone-400">1BR Rent: {dataB.typicalRent1BR}</p>
+                              <div className="border-t-2 border-[#1a1a1a]/10 pt-2">
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a]">{dataB.name}</p>
+                                <p className="font-roboto text-sm font-semibold text-[#1a1a1a]">{dataB.priceRange}</p>
+                                <p className="font-roboto text-sm text-[#636363]">1BR Rent: {dataB.typicalRent1BR}</p>
                               </div>
                             </div>
                           </div>
@@ -1024,37 +1175,37 @@ export default function Neighbourhoods() {
                       {/* Vibe & Best For */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
                         <Reveal delay={80}>
-                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
-                            <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Vibe</p>
+                          <div className="bg-white border-2 border-[#1a1a1a]/10 p-4">
+                            <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-2">Vibe</p>
                             <div className="space-y-3">
                               <div>
-                                <p className="font-roboto text-sm font-medium text-stone-600 mb-0.5">{dataA.name}</p>
-                                <p className="font-roboto text-sm text-stone-500 leading-relaxed">{dataA.vibe}</p>
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a] mb-0.5">{dataA.name}</p>
+                                <p className="font-roboto text-sm text-[#636363] leading-relaxed">{dataA.vibe}</p>
                               </div>
-                              <div className="border-t border-stone-200 pt-3">
-                                <p className="font-roboto text-sm font-medium text-stone-600 mb-0.5">{dataB.name}</p>
-                                <p className="font-roboto text-sm text-stone-500 leading-relaxed">{dataB.vibe}</p>
+                              <div className="border-t-2 border-[#1a1a1a]/10 pt-3">
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a] mb-0.5">{dataB.name}</p>
+                                <p className="font-roboto text-sm text-[#636363] leading-relaxed">{dataB.vibe}</p>
                               </div>
                             </div>
                           </div>
                         </Reveal>
                         <Reveal delay={160}>
-                          <div className="bg-stone-50 border-2 border-stone-200 rounded-lg p-4">
-                            <p className="font-roboto text-stone-400 text-sm uppercase tracking-wider mb-2">Best For</p>
+                          <div className="bg-white border-2 border-[#1a1a1a]/10 p-4">
+                            <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-2">Best For</p>
                             <div className="space-y-3">
                               <div>
-                                <p className="font-roboto text-sm font-medium text-stone-600 mb-1">{dataA.name}</p>
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a] mb-1">{dataA.name}</p>
                                 <div className="flex flex-wrap gap-1">
                                   {dataA.bestFor.slice(0, 4).map((b) => (
-                                    <span key={b} className="px-2 py-0.5 bg-white text-sm font-roboto text-stone-500 rounded-full border-2 border-stone-200">{b}</span>
+                                    <span key={b} className="px-2 py-0.5 bg-[#F5F5F5] text-[11px] font-jost text-[#1a1a1a] uppercase tracking-[0.08em] border-2 border-[#1a1a1a]/10">{b}</span>
                                   ))}
                                 </div>
                               </div>
-                              <div className="border-t border-stone-200 pt-3">
-                                <p className="font-roboto text-sm font-medium text-stone-600 mb-1">{dataB.name}</p>
+                              <div className="border-t-2 border-[#1a1a1a]/10 pt-3">
+                                <p className="font-roboto text-sm font-medium text-[#1a1a1a] mb-1">{dataB.name}</p>
                                 <div className="flex flex-wrap gap-1">
                                   {dataB.bestFor.slice(0, 4).map((b) => (
-                                    <span key={b} className="px-2 py-0.5 bg-white text-sm font-roboto text-stone-500 rounded-full border-2 border-stone-200">{b}</span>
+                                    <span key={b} className="px-2 py-0.5 bg-[#F5F5F5] text-[11px] font-jost text-[#1a1a1a] uppercase tracking-[0.08em] border-2 border-[#1a1a1a]/10">{b}</span>
                                   ))}
                                 </div>
                               </div>
@@ -1075,14 +1226,14 @@ export default function Neighbourhoods() {
 
                       {/* Dimension-by-dimension comparison table */}
                       <Reveal>
-                        <div className="overflow-x-auto bg-white border-2 border-stone-200 rounded-lg">
+                        <div className="overflow-x-auto bg-white border-2 border-[#1a1a1a]/10">
                           <table className="w-full text-left">
                             <thead>
-                              <tr className="border-b border-stone-100">
-                                <th className="py-3 px-4 font-roboto text-sm text-stone-400 uppercase tracking-wider">Dimension</th>
-                                <th className="py-3 px-4 font-roboto text-sm text-primary font-medium text-center">{dataA.name}</th>
-                                <th className="py-3 px-4 font-roboto text-sm text-primary font-medium text-center">{dataB.name}</th>
-                                <th className="py-3 px-4 font-roboto text-sm text-stone-400 uppercase tracking-wider text-center">Edge</th>
+                              <tr className="border-b-2 border-[#1a1a1a]/10">
+                                <th className="py-3 px-4 font-jost text-xs text-[#636363] uppercase tracking-[0.1em]">Dimension</th>
+                                <th className="py-3 px-4 font-prata text-sm text-primary font-medium text-center">{dataA.name}</th>
+                                <th className="py-3 px-4 font-prata text-sm text-primary font-medium text-center">{dataB.name}</th>
+                                <th className="py-3 px-4 font-jost text-xs text-[#636363] uppercase tracking-[0.1em] text-center">Edge</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1091,8 +1242,8 @@ export default function Neighbourhoods() {
                                 const rB = dataB[dim.key].rating;
                                 const edge = rA > rB ? dataA.name : rB > rA ? dataB.name : 'Tie';
                                 return (
-                                  <tr key={dim.key} className={`border-b border-stone-50 ${idx % 2 === 0 ? 'bg-stone-50/50' : ''}`}>
-                                    <td className="py-2.5 px-4 font-roboto text-sm font-medium text-stone-600">{dim.label}</td>
+                                  <tr key={dim.key} className={`border-b border-[#1a1a1a]/5 ${idx % 2 === 0 ? 'bg-[#F5F5F5]/50' : ''}`}>
+                                    <td className="py-2.5 px-4 font-roboto text-sm font-medium text-[#1a1a1a]">{dim.label}</td>
                                     <td className="py-2.5 px-4">
                                       <div className="flex justify-center">
                                         <RatingBar rating={rA} />
@@ -1105,7 +1256,7 @@ export default function Neighbourhoods() {
                                     </td>
                                     <td className="py-2.5 px-4 text-center">
                                       <span className={`text-sm font-roboto font-medium ${
-                                        edge === dataA.name ? 'text-primary' : edge === dataB.name ? 'text-primary' : 'text-stone-400'
+                                        edge === dataA.name ? 'text-primary' : edge === dataB.name ? 'text-primary' : 'text-[#636363]'
                                       }`}>
                                         {edge}
                                       </span>
@@ -1121,12 +1272,12 @@ export default function Neighbourhoods() {
                   );
                 })()
               ) : (
-                <div className="text-center py-16 bg-stone-50 rounded-lg border-2 border-stone-200">
-                  <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
-                    <i className="ri-scales-line text-stone-400 text-xl"></i>
+                <div className="text-center py-16 bg-[#F5F5F5] border-2 border-[#1a1a1a]/10">
+                  <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
+                    <i className="ri-scales-line text-white text-xl"></i>
                   </div>
-                  <p className="font-roboto font-bold text-lg text-primary mb-1">Select Two Neighbourhoods</p>
-                  <p className="font-roboto text-stone-400 text-sm max-w-sm mx-auto">
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Select Two Neighbourhoods</p>
+                  <p className="font-roboto text-[15px] text-[#636363] max-w-sm mx-auto">
                     Pick any two neighbourhoods from the dropdowns above to see a detailed side-by-side comparison across safety, lifestyle, schools, value, and more.
                   </p>
                 </div>
@@ -1136,41 +1287,54 @@ export default function Neighbourhoods() {
 
           {/* Area Guides & Insights Section */}
           {activeTab === 'neighbourhoods' && !loading && filteredHoods.length > 0 && (
-            <div className="mt-16 md:mt-24">
+            <div className="mt-16 md:mt-24 bg-[#F7F9F9]">
               <Reveal>
-                <div className="text-center mb-8 md:mb-10">
-                  <p className="text-golden text-sm font-roboto font-semibold uppercase tracking-[0.35em] mb-2">
-                    Insights
-                  </p>
-                  <h2 className="font-roboto font-bold text-3xl md:text-4xl text-primary mb-3">
+                <div className="mb-8 md:mb-10 px-4 md:px-6 lg:px-8 pt-8 md:pt-10">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-2 h-5 bg-[#0D5959]"></div>
+                    <span className="font-jost text-[#0D5959] text-[12px] uppercase tracking-[0.15em] font-semibold">
+                      Featured This Issue
+                    </span>
+                  </div>
+                  <h2 className="font-prata font-bold text-primary text-[31px] md:text-[35px]">
                     Area Guides &amp; Insights
                   </h2>
-                  <p className="font-roboto text-stone-500 text-base max-w-2xl mx-auto">
+                  <p className="font-roboto text-[15px] text-[#636363] max-w-2xl mt-2 leading-relaxed">
                     In-depth guides to help you understand each neighbourhood&apos;s unique character, property market, and lifestyle.
                   </p>
                 </div>
               </Reveal>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 md:px-6 lg:px-8 pb-8 md:pb-10 -mx-4 md:-mx-6 lg:-mx-8">
                 {filteredHoods.slice(0, 3).map((n, i) => (
                   <Reveal key={n.id} delay={i * 100}>
                     <Link
                       to={`/neighbourhood/${n.slug}`}
-                      className="group cursor-pointer bg-stone-50 rounded-lg p-5 md:p-6 border-2 border-stone-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:border-stone-200/60 transition-all duration-500"
+                      className="group flex gap-4 cursor-pointer"
                     >
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 flex items-center justify-center bg-primary/10 rounded-full shrink-0">
-                          <i className="ri-map-pin-2-line text-primary text-lg"></i>
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-roboto font-medium text-primary mb-1">{n.name} Guide</h4>
-                          <p className="font-roboto text-stone-500 text-base leading-relaxed line-clamp-2">
-                            {n.summary || n.description || ''}
-                          </p>
-                          <span className="flex items-center gap-1 text-sm font-roboto font-medium text-primary mt-2 group-hover:text-primary/80 transition-colors">
-                            Read more
-                            <i className="ri-arrow-right-line"></i>
-                          </span>
-                        </div>
+                      <div className="w-20 h-20 shrink-0 overflow-hidden bg-[#F5F5F5]">
+                        {n.hero_image ? (
+                          <img
+                            alt={n.name}
+                            className="w-full h-full object-cover object-top"
+                            src={n.hero_image}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <i className="ri-image-line text-[#636363]"></i>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-prata font-semibold text-primary text-[21px] mb-1 group-hover:text-[#0D5959] transition-colors">
+                          {n.name} Guide
+                        </h4>
+                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2">
+                          {n.summary || n.description || ''}
+                        </p>
+                        <span className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-[#0D5959] mt-2 group-hover:text-[#084242] transition-colors">
+                          Read more
+                          <i className="ri-arrow-right-line"></i>
+                        </span>
                       </div>
                     </Link>
                   </Reveal>
@@ -1181,20 +1345,11 @@ export default function Neighbourhoods() {
 
           {/* CTA */}
           <Reveal>
-            <div className="mt-16 md:mt-24 text-center bg-stone-50 py-12 md:py-16 px-4 md:px-6 rounded-lg mx-3 md:mx-6 max-w-6xl mx-auto">
-              <h3 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">
-                Let Our Agents Guide You
-              </h3>
-              <p className="font-roboto text-stone-500 text-base max-w-xl mx-auto mb-6">
+            <div className="mt-16 md:mt-24 bg-primary py-14 md:py-20 px-4 md:px-6 text-center -mx-4 md:-mx-6 lg:-mx-8">
+              <h3 className="font-prata font-semibold text-white text-[33px] mb-4">Let Our Agents Guide You</h3>
+              <p className="font-roboto text-white/80 text-[17px] max-w-xl mx-auto leading-relaxed">
                 Not sure which neighbourhood fits your lifestyle and budget? Our experienced agents have deep local knowledge of every Nairobi enclave. Tell us your priorities and we will match you with the perfect area.
               </p>
-              <Link
-                to="/contact"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-base font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
-              >
-                Speak to an Agent
-                <i className="ri-arrow-right-line text-xs"></i>
-              </Link>
             </div>
           </Reveal>
         </div>

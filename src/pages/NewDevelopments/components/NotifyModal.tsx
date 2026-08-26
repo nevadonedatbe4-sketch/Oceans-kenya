@@ -112,18 +112,18 @@ export default function NotifyModal({ isOpen, onClose, dev }: NotifyModalProps) 
             <p className="text-stone-400 font-roboto text-xs mb-4">You will be notified when {dev.name} nears completion.</p>
             <button
               onClick={handleClose}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto font-medium text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
             >
               <i className="ri-check-line"></i>Got it
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <p className="font-roboto text-sm text-primary mb-3">
+            <div className="mb-5">
+              <p className="font-roboto text-base text-primary mb-3">
                 Subscribe to updates for <span className="font-semibold">{dev.name}</span>
               </p>
-              <label htmlFor="notify-email" className="block text-stone-400 font-roboto text-xs uppercase tracking-wider mb-1.5">
+              <label htmlFor="notify-email" className="block text-sm font-roboto font-semibold text-primary mb-2">
                 Email Address
               </label>
               <input
@@ -132,7 +132,7 @@ export default function NotifyModal({ isOpen, onClose, dev }: NotifyModalProps) 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full border border-stone-200 rounded-sm px-3 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-golden"
+                className="w-full border-2 border-primary/40 rounded-sm px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary"
                 required
               />
               {status === 'error' && errorMsg && (
@@ -145,14 +145,14 @@ export default function NotifyModal({ isOpen, onClose, dev }: NotifyModalProps) 
             <div className="flex items-center gap-3">
               <button
                 type="submit"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-3 bg-primary hover:bg-accent text-white font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors"
               >
                 <i className="ri-notification-3-line"></i>Subscribe
               </button>
               <button
                 type="button"
                 onClick={handleClose}
-                className="inline-flex items-center gap-2 px-5 py-2.5 border border-stone-200 text-primary font-roboto text-xs tracking-wider uppercase cursor-pointer whitespace-nowrap hover:bg-stone-50 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 border border-primary/20 text-primary font-roboto text-xs tracking-wider uppercase cursor-pointer whitespace-nowrap hover:bg-stone-50 transition-colors"
               >
                 Cancel
               </button>

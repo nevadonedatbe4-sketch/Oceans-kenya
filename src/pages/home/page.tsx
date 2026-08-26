@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
@@ -9,17 +10,26 @@ import PageContactSection from '@/components/feature/PageContactSection';
 import ContactCTA from '@/components/feature/ContactCTA';
 
 export default function Home() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+
+  const handleSearch = (query: string) => {
+    if (!query.trim()) return;
+    setSearchQuery(query);
+    setSearchParams({ search: query });
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
       <main>
-        <HeroSection />
+        <HeroSection onSearch={handleSearch} initialQuery={searchQuery} />
         <NeighborhoodsSection />
-        <PropertiesSection />
+        <PropertiesSection searchQuery={searchQuery} />
         <PageContactSection />
       </main>
       {/* CTA Banner */}
-      <section className="relative py-10 md:py-14 px-6 overflow-hidden">
+      <section className="relative py-8 md:py-14 px-4 md:px-6 overflow-hidden">
         <img
           src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/6a1b17c5-e791-4dd2-9b34-43d128d1a75c_edit.jpg?v=e8606cdcb818d22b0b8d00a0bd0717d5"
           alt="CTA background"
@@ -35,7 +45,7 @@ export default function Home() {
           </p>
           <Link
             to="/landlords"
-            className="inline-block bg-primary hover:bg-white hover:text-primary border border-white/20 text-white px-10 py-3 text-sm font-roboto tracking-wider uppercase transition-all duration-300 cursor-pointer whitespace-nowrap"
+            className="inline-block bg-white text-primary border-2 border-white hover:bg-primary hover:text-white hover:border-primary px-10 py-3 text-base font-roboto font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer whitespace-nowrap"
           >
             Request Evaluation
           </Link>

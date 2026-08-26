@@ -86,8 +86,13 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           <img
             src={images[imgIdx]}
             alt={property.title}
-            className="w-full h-full object-cover object-top"
+            className="w-full h-full object-cover object-center"
           />
+
+          {/* Watermark — iStock-style protection (expanded view only) */}
+          <span className="absolute bottom-3 right-3 z-20 select-none pointer-events-none text-white/30 font-roboto font-semibold text-sm tracking-[0.2em] uppercase">
+            Oceans
+          </span>
 
           {/* Image counter */}
           {totalImages > 1 && (
@@ -130,7 +135,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           {/* Type badge */}
           {property.type && (
             <div className="absolute top-3 left-3">
-              <span className={`text-[10px] font-roboto font-semibold px-2.5 py-1 rounded text-white uppercase tracking-wider ${property.type === 'rent' ? 'bg-[#0D5959]' : 'bg-[#002349]'}`}>
+              <span className={`text-[10px] font-roboto font-semibold px-2.5 py-1 rounded text-white uppercase tracking-wider ${property.type === 'rent' ? 'bg-accent' : 'bg-[#002349]'}`}>
                 For {property.type === 'rent' ? 'Rent' : 'Sale'}
               </span>
             </div>
@@ -142,7 +147,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl md:text-3xl font-roboto font-medium text-[#002349]">{property.rawPrice ? format(property.rawPrice, (property.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR') : property.price}</span>
+                <span className="text-2xl md:text-3xl font-roboto font-medium text-primary">{property.rawPrice ? format(property.rawPrice, (property.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR') : property.price}</span>
               </div>
               <h2 className="text-lg md:text-xl font-roboto font-bold text-primary leading-snug mb-2">{property.title}</h2>
               <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500">
@@ -200,7 +205,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
 
           {/* Category */}
           {property.category && (
-            <p className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-[#1f1f1f] mb-3">
+            <p className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-[#636363] mb-3">
               {property.category}
             </p>
           )}
@@ -213,7 +218,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           {/* Call / Email */}
           <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
             <a
-              href={`tel:${property.agentPhone || '+254712345678'}`}
+              href={`tel:${property.agentPhone || '+2547111393806'}`}
               className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-3 py-1.5 -mx-3 transition-all duration-200 cursor-pointer whitespace-nowrap"
             >
               <span className="w-4 h-4 flex items-center justify-center">

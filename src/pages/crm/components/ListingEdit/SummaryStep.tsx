@@ -1,4 +1,4 @@
-import { PURPOSE_LABELS, generateSlug } from './types';
+import { PURPOSE_LABELS, generateSlug, isLandType } from './types';
 
 interface Props {
   title: string;
@@ -61,6 +61,10 @@ interface Props {
   landUnit?: string;
   tags?: string[];
   onPreview?: () => void;
+  requiredFieldMap?: Record<string, boolean>;
+  validationErrors?: string[];
+  description?: string;
+  agentId?: string;
 }
 
 const SectionHeader = ({
@@ -107,8 +111,9 @@ export default function SummaryStep({
   privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood,
   isHomepage, stateRegion, city, country, address, zipCode,
   videoUrl, virtualTourUrl, propertyId, customFields, landSize, landUnit, tags, onPreview,
+  requiredFieldMap = {}, validationErrors = [], description = '', agentId = '',
 }: Props) {
-  const isLand = propertyType === 'land';
+  const isLand = isLandType(propertyType);
 
   const getStatusLabel = () => {
     if (isPublished) return 'Published';
@@ -406,6 +411,30 @@ export default function SummaryStep({
         </div>
       </section>
 
+      {/* Validation Errors */}
+      {validationErrors.length > 0 && (
+        <section className="pb-2">
+          <div className="border-2 border-red-300 bg-red-50 p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-red-500 rounded-full">
+                <i className="ri-error-warning-line text-white text-sm"></i>
+              </div>
+              <p className="font-jost text-sm font-bold text-red-700 uppercase tracking-[0.5px]">
+                Cannot Publish — {validationErrors.length} Required Field{validationErrors.length > 1 ? 's' : ''} Missing
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {validationErrors.map((err, i) => (
+                <li key={i} className="flex items-center gap-2 text-sm text-red-700 font-roboto">
+                  <i className="ri-close-circle-fill text-red-500 text-sm shrink-0"></i>
+                  {err}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
       {/* Action Buttons */}
       <section className="pb-2">
         <SectionHeader
@@ -437,7 +466,7 @@ export default function SummaryStep({
             className="w-full flex items-center justify-center gap-2 px-5 py-3 text-white text-sm font-bold bg-[#0d1f2d] hover:bg-[#1a2f45] transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
           >
             {saving ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-send-plane-line" />}
-            {isPublished ? 'Update &amp; Publish' : 'Publish Property'}
+            {isPublished ? 'Update & Publish' : 'Publish Property'}
           </button>
         </div>
       </section>

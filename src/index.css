@@ -14,7 +14,7 @@
 :root {
   /* Public site brand */
   --color-primary: 0 23 49;      /* #001731 — navy */
-  --color-golden: 201 168 76;    /* #C9A84C — brand golden accent */
+  --color-golden: 176 141 42;    /* #B08D2A — brand golden accent */
   --color-accent: 13 89 89;      /* #0D5959 — teal accent */
   /* CRM admin brand (green) */
   --color-crm: 0 23 49;          /* #001731 — brand primary */
@@ -25,7 +25,12 @@
 }
 
 @layer base {
+  html,
   body {
+    overflow-x: clip;
+  }
+  body {
+    color: #2D303D;
     font-family: 'Roboto', sans-serif;
     font-weight: 400;
     font-size: 16px;
@@ -103,7 +108,8 @@
 
 /* Anti-spam honeypot fields — visually removed, not connected to obvious names */
 .footer-hp-field,
-.contact-hp-field {
+.contact-hp-field,
+.hp-wrap {
   position: absolute !important;
   left: -9999px !important;
   top: auto !important;
@@ -112,6 +118,27 @@
   overflow: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* ============================================================
+   GLOBAL BUTTON BORDER — Dark navy #002349 border on all
+   solid primary buttons site-wide (outside CRM dashboard)
+   ============================================================ */
+/* Solid bg-primary buttons — add border-2 border-primary automatically.
+   Only applied outside .crm-dashboard so CRM buttons are unaffected. */
+:not(.crm-dashboard) a.btn-primary,
+:not(.crm-dashboard) button.btn-primary {
+  border: 2px solid rgb(var(--color-primary));
+}
+
+/* ============================================================
+   GLOBAL BUTTON HOVER — Solid dark-blue (primary) buttons
+   site-wide (outside CRM dashboard) hover to #002349
+   (rgb 0 35 73) instead of a translucent lighten.
+   ============================================================ */
+:not(.crm-dashboard) a.bg-primary:hover,
+:not(.crm-dashboard) button.bg-primary:hover {
+  background-color: rgb(0 35 73);
 }
 
 @keyframes dropdown-enter {
@@ -126,6 +153,11 @@
 @keyframes slideDown {
   from { opacity: 0; max-height: 0; transform: translateY(-8px); }
   to { opacity: 1; max-height: 300px; transform: translateY(0); }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* ============================================================
@@ -253,4 +285,34 @@
 /* --- Form label baseline --- */
 .crm-dashboard label {
   font-size: 0.9375rem; /* 15px */
+}
+
+/* ============================================================
+   PUBLIC SITE TYPOGRAPHY BASELINE
+   Body copy never drops below 14px on the public storefront.
+   Badges / micro-labels (text-[10px], text-[11px]) stay compact.
+   ============================================================ */
+body .text-xs {
+  font-size: 0.875rem; /* 14px */
+  line-height: 1.25rem;
+}
+
+/* Public site button text baseline — 13px */
+:where(:not(.crm-dashboard) button),
+:where(:not(.crm-dashboard) a.btn-primary),
+:where(:not(.crm-dashboard) a.btn-secondary) {
+  font-size: 13px;
+}
+
+/* ============================================================
+   GLOBAL BODY COPY COLOUR — #2D303D
+   Muted body text on light backgrounds site-wide uses a single
+   readable slate instead of translucent navy. Headings keep the
+   brand navy; this targets copy / secondary text only.
+   ============================================================ */
+:where(:not(.crm-dashboard)) .text-primary\/70,
+:where(:not(.crm-dashboard)) .text-primary\/60,
+:where(:not(.crm-dashboard)) .text-primary\/50,
+:where(:not(.crm-dashboard)) .text-primary\/40 {
+  color: #2D303D;
 }

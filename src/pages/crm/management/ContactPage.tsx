@@ -25,11 +25,11 @@ interface Content {
 const DEFAULTS: Content = {
   hero_title: 'Contact Us', hero_subtitle: 'We\'d love to hear from you', hero_image: '',
   address_line1: 'Riverside Drive, Westlands', address_line2: 'Nairobi, Kenya',
-  phone: '+254 712 345 678', email: 'info@oceans.co.ke', whatsapp: '+254 712 345 678',
+  phone: '+254 703712984', email: 'ask@oceanske.com', whatsapp: '+254 703712984',
   office_hours_weekday: 'Mon — Fri: 9:00 AM — 6:00 PM', office_hours_saturday: 'Saturday: 10:00 AM — 2:00 PM', office_hours_sunday: 'Sunday: Closed',
   map_embed_url: '', map_lat: '-1.2921', map_lng: '36.8219',
   form_heading: 'Send Us a Message', form_subheading: 'Fill in the form and our team will get back to you within 24 hours.',
-  cta_title: 'Prefer a Call?', cta_subtitle: 'Speak directly with one of our agents.', cta_button_text: 'Call Now', cta_button_link: 'tel:+254712345678',
+  cta_title: 'Prefer a Call?', cta_subtitle: 'Speak directly with one of our agents.', cta_button_text: 'Call Now', cta_button_link: 'tel:+254703712984',
   section_order: 'hero,info,form,map,cta', hero_height: '350', accent_color: '#1B4332',
   meta_title: 'Contact Us — Oceans', meta_description: 'Get in touch with our team. Visit our office in Westlands, Nairobi or send us a message online.', meta_keywords: 'contact, get in touch, real estate contact',
   is_published: true, published_at: null,

@@ -2,48 +2,38 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { Bell, CheckCheck, Building2, Users, Handshake, UserPlus, FileText, Star } from 'lucide-react';
+import { Bell, CheckCheck } from 'lucide-react';
 
-interface ActivityLog {
+interface CrmNotification {
   id: string;
-  user_id: string;
-  user_name: string;
-  action: string;
-  module: string;
-  record_id: string;
-  record_title: string;
-  before_value: any;
-  after_value: any;
-  metadata: any;
+  recipient_id: string | null;
+  type: string | null;
+  title: string | null;
+  body: string | null;
+  lead_id: string | null;
+  enquiry_id: string | null;
+  contact_id: string | null;
+  deal_id: string | null;
+  link: string | null;
+  is_read: boolean;
   created_at: string;
 }
 
-const MODULE_ICONS: Record<string, any> = {
-  deals: Handshake,
-  leads: Users,
-  contacts: UserPlus,
-  listings: Building2,
-  blog: FileText,
-  testimonials: Star,
-};
-
-const MODULE_COLORS: Record<string, string> = {
-  deals: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',
-  leads: 'bg-blue-500/15 text-blue-400 border-blue-500/20',
-  contacts: 'bg-violet-500/15 text-violet-400 border-violet-500/20',
-  listings: 'bg-amber-500/15 text-amber-400 border-amber-500/20',
-  blog: 'bg-rose-500/15 text-rose-400 border-rose-500/20',
-  testimonials: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20',
+const TYPE_META: Record<string, { icon: string; color: string }> = {
+  new_enquiry: { icon: 'ri-mail-add-line', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' },
+  lead_created: { icon: 'ri-user-add-line', color: 'bg-blue-500/15 text-blue-400 border-blue-500/20' },
+  lead_assigned: { icon: 'ri-user-received-line', color: 'bg-violet-500/15 text-violet-400 border-violet-500/20' },
+  message: { icon: 'ri-chat-3-line', color: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/20' },
+  follow_up: { icon: 'ri-calendar-line', color: 'bg-amber-500/15 text-amber-400 border-amber-500/20' },
+  deal_updated: { icon: 'ri-briefcase-3-line', color: 'bg-rose-500/15 text-rose-400 border-rose-500/20' },
 };
 
 function timeAgo(dateStr: string): string {
-  const now = Date.now();
   const then = new Date(dateStr).getTime();
-  const diff = now - then;
+  const diff = Date.now() - then;
   const mins = Math.floor(diff / 60000);
   const hrs = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
-
   if (mins < 1) return 'Just now';
   if (mins < 60) return `${mins}m ago`;
   if (hrs < 24) return `${hrs}h ago`;
@@ -51,116 +41,72 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
-function formatAction(log: ActivityLog): { icon: string; title: string; detail: string } {
-  const title = log.record_title || 'Untitled';
-  const name = log.user_name || 'Someone';
-
-  switch (log.module) {
-    case 'deals':
-      if (log.action === 'created') return { icon: 'ri-add-circle-line', title: 'New deal created', detail: `${name} created "${title}"` };
-      if (log.action === 'status_changed') {
-        const newStatus = log.after_value?.status || log.metadata?.new_status || 'updated';
-        return { icon: 'ri-arrow-left-right-line', title: 'Deal stage changed', detail: `"${title}" moved to ${newStatus}` };
-      }
-      return { icon: 'ri-edit-line', title: 'Deal updated', detail: `${name} updated "${title}"` };
-
-    case 'leads':
-      if (log.action === 'created') return { icon: 'ri-user-add-line', title: 'New lead received', detail: `${name} submitted an enquiry` };
-      if (log.action === 'assigned') return { icon: 'ri-user-received-line', title: 'Lead assigned', detail: `${name} assigned "${title}"` };
-      if (log.action === 'status_changed') return { icon: 'ri-arrow-left-right-line', title: 'Lead status changed', detail: `"${title}" marked as ${log.after_value?.status || 'updated'}` };
-      return { icon: 'ri-user-line', title: 'Lead updated', detail: `${name} updated "${title}"` };
-
-    case 'contacts':
-      if (log.action === 'created') return { icon: 'ri-contacts-line', title: 'Contact added', detail: `${name} added "${title}"` };
-      return { icon: 'ri-contacts-line', title: 'Contact updated', detail: `${name} updated "${title}"` };
-
-    case 'listings':
-      if (log.action === 'created') return { icon: 'ri-building-2-line', title: 'Property listed', detail: `${name} added "${title}"` };
-      if (log.action === 'updated') return { icon: 'ri-building-line', title: 'Property updated', detail: `${name} updated "${title}"` };
-      return { icon: 'ri-building-line', title: 'Property change', detail: `${name} modified "${title}"` };
-
-    case 'blog':
-      if (log.action === 'created') return { icon: 'ri-article-line', title: 'Article published', detail: `${name} published "${title}"` };
-      return { icon: 'ri-article-line', title: 'Article updated', detail: `${name} updated "${title}"` };
-
-    case 'testimonials':
-      if (log.action === 'created') return { icon: 'ri-star-line', title: 'Testimonial added', detail: `${name} added a testimonial` };
-      return { icon: 'ri-star-line', title: 'Testimonial updated', detail: `${name} updated "${title}"` };
-
-    default:
-      return { icon: 'ri-notification-line', title: 'Activity', detail: `${name}: ${log.action} ${title}` };
-  }
-}
-
 export default function NotificationsDropdown() {
   const [open, setOpen] = useState(false);
-  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [notifs, setNotifs] = useState<CrmNotification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [unread, setUnread] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const isAgent = user?.role === 'agent';
 
-  const LAST_SEEN_KEY = 'crm_notifications_last_seen';
+  const buildQuery = useCallback(() => {
+    let q = supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (isAgent && user?.id) {
+      q = q.eq('recipient_id', user.id);
+    }
+    return q;
+  }, [isAgent, user?.id]);
 
-  const getLastSeen = useCallback((): string => {
-    return localStorage.getItem(LAST_SEEN_KEY) || new Date(0).toISOString();
-  }, []);
-
-  const markAllRead = useCallback(() => {
-    localStorage.setItem(LAST_SEEN_KEY, new Date().toISOString());
-    setUnreadCount(0);
-  }, []);
-
-  const fetchLogs = useCallback(async () => {
-    // Don't attempt fetch if user isn't authenticated yet
+  const fetchNotifs = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
     }
-
     try {
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
+      const { data, error } = await buildQuery();
       if (error) {
-        setLogs([]);
-        setUsingFallback(false);
+        setNotifs([]);
         return;
       }
-
-      if (data && data.length > 0) {
-        setLogs(data as ActivityLog[]);
-        setUsingFallback(false);
-
-        if (!open) {
-          const lastSeen = getLastSeen();
-          const newCount = data.filter(
-            (log) => new Date(log.created_at).getTime() > new Date(lastSeen).getTime()
-          ).length;
-          setUnreadCount(newCount);
-        }
-      } else {
-        setLogs([]);
-        setUsingFallback(false);
-      }
-    } catch (_err) {
-      setLogs([]);
-      setUsingFallback(false);
+      setNotifs((data || []) as CrmNotification[]);
+    } catch {
+      setNotifs([]);
     } finally {
       setLoading(false);
     }
-  }, [open, getLastSeen, user]);
+  }, [buildQuery, user]);
+
+  const fetchUnread = useCallback(async () => {
+    if (!user) {
+      setUnread(0);
+      return;
+    }
+    let q = supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_read', false);
+    if (isAgent && user.id) {
+      q = q.eq('recipient_id', user.id);
+    }
+    const { count } = await q;
+    setUnread(count ?? 0);
+  }, [isAgent, user]);
 
   useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 30000);
+    fetchNotifs();
+    fetchUnread();
+    const interval = setInterval(() => {
+      fetchNotifs();
+      fetchUnread();
+    }, 20000);
     return () => clearInterval(interval);
-  }, [fetchLogs]);
+  }, [fetchNotifs, fetchUnread]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -174,67 +120,48 @@ export default function NotificationsDropdown() {
     }
   }, [open]);
 
-  useEffect(() => {
-    if (open) {
-      markAllRead();
-      fetchLogs();
+  const markAllRead = async () => {
+    let q = supabase.from('notifications').update({ is_read: true }).eq('is_read', false);
+    if (isAgent && user?.id) {
+      q = q.eq('recipient_id', user.id);
     }
-  }, [open, markAllRead, fetchLogs]);
-
-  const handleOpen = () => {
-    setOpen(!open);
+    await q;
+    setUnread(0);
+    setNotifs((prev) => prev.map((n) => ({ ...n, is_read: true })));
   };
 
-  const handleItemClick = (log: ActivityLog) => {
+  const handleItemClick = async (n: CrmNotification) => {
     setOpen(false);
-
-    switch (log.module) {
-      case 'deals':
-        navigate('/crm/deals');
-        break;
-      case 'leads':
-        navigate('/crm/leads');
-        break;
-      case 'contacts':
-        navigate('/crm/contacts');
-        break;
-      case 'listings':
-        if (log.record_id) {
-          navigate(`/crm/listings/edit/${log.record_id}`);
-        } else {
-          navigate('/crm/listings');
-        }
-        break;
-      case 'blog':
-        navigate('/crm/blog');
-        break;
-      case 'testimonials':
-        navigate('/crm/testimonials');
-        break;
-      default:
-        break;
+    if (!n.is_read) {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', n.id);
+      setUnread((prev) => Math.max(0, prev - 1));
+      setNotifs((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
     }
+    const link =
+      n.link ||
+      (n.enquiry_id ? '/crm/inbox' : n.lead_id ? '/crm/leads' : n.contact_id ? '/crm/contacts' : n.deal_id ? '/crm/deals' : null);
+    if (link) navigate(link);
   };
 
   return (
     <div ref={dropdownRef} className="relative">
       <button
-        onClick={handleOpen}
-        className={`p-2 rounded-md cursor-pointer relative transition-all font-semibold ${
-          open ? 'bg-white/10 text-white' : 'hover:bg-white/5 text-gray-400'
+        onClick={() => setOpen((o) => !o)}
+        className={`p-2 rounded-md cursor-pointer relative transition-all font-bold ${
+          open ? 'bg-white/15 text-white' : 'hover:bg-white/10 text-[#e5e7eb]'
         }`}
+        aria-label="Notifications"
       >
         <Bell size={20} />
-        {unreadCount > 0 && (
+        {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-[#dc2626] text-white text-[10px] font-bold rounded-full px-1">
-            {unreadCount > 99 ? '99+' : unreadCount}
+            {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>
 
       {open && (
         <div className="absolute right-0 top-full mt-2 w-80 bg-[#012144] border border-[#1c3a5e] rounded-xl shadow-2xl z-50 overflow-hidden">
-          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#1c3a5e]">
             <h3 className="text-white font-inter font-semibold text-sm">Notifications</h3>
             <button
@@ -246,42 +173,43 @@ export default function NotificationsDropdown() {
             </button>
           </div>
 
-          {/* List */}
           <div className="max-h-[380px] overflow-y-auto custom-scroll">
             {loading ? (
               <div className="flex items-center justify-center py-10">
                 <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
               </div>
-            ) : logs.length === 0 ? (
+            ) : notifs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 px-4">
                 <Bell size={32} className="text-[#374151] mb-3" />
                 <p className="text-[#6b7280] text-sm font-inter">No notifications yet</p>
-                <p className="text-[#4b5563] text-xs font-inter mt-1">Activity will appear here</p>
+                <p className="text-[#4b5563] text-xs font-inter mt-1">New enquiries and activity will appear here</p>
               </div>
             ) : (
-              logs.map((log) => {
-                const formatted = formatAction(log);
-                const ModuleIcon = MODULE_ICONS[log.module];
-
+              notifs.map((n) => {
+                const meta = TYPE_META[n.type || ''] || {
+                  icon: 'ri-notification-3-line',
+                  color: 'bg-white/10 text-white/60 border-white/10',
+                };
                 return (
                   <button
-                    key={log.id}
-                    onClick={() => handleItemClick(log)}
-                    className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.04] transition-colors cursor-pointer text-left border-b border-[#1c3a5e]/50 last:border-b-0"
+                    key={n.id}
+                    onClick={() => handleItemClick(n)}
+                    className={`w-full flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer text-left border-b border-[#1c3a5e]/50 last:border-b-0 ${
+                      !n.is_read ? 'bg-white/[0.04]' : 'hover:bg-white/[0.04]'
+                    }`}
                   >
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${
-                        MODULE_COLORS[log.module] || 'bg-white/10 text-white/60 border-white/10'
-                      }`}
-                    >
-                      {ModuleIcon ? <ModuleIcon size={16} /> : <i className={`${formatted.icon} text-base`} />}
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border ${meta.color}`}>
+                      <i className={`${meta.icon} text-base`} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-white text-sm font-inter font-medium truncate">{formatted.title}</p>
-                        <span className="text-[10px] text-[#4b5563] font-inter flex-shrink-0">{timeAgo(log.created_at)}</span>
+                        <p className={`text-sm font-inter truncate ${!n.is_read ? 'text-white font-semibold' : 'text-[#cbd5e1] font-medium'}`}>
+                          {n.title || 'Notification'}
+                        </p>
+                        <span className="text-[10px] text-[#4b5563] font-inter flex-shrink-0">{timeAgo(n.created_at)}</span>
                       </div>
-                      <p className="text-[#6b7280] text-xs font-inter mt-0.5 truncate">{formatted.detail}</p>
+                      <p className="text-[#6b7280] text-xs font-inter mt-0.5 truncate">{n.body || ''}</p>
+                      {!n.is_read && <span className="inline-block w-2 h-2 rounded-full bg-[#dc2626] mt-1.5" />}
                     </div>
                   </button>
                 );

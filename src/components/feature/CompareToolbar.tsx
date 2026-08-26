@@ -15,7 +15,7 @@ export default function CompareToolbar({ selected, onRemove, onClearAll, onCompa
   if (selected.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transition-all duration-300">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-primary/12 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] transition-all duration-300">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-10 py-3">
         <div className="flex items-center gap-4">
           {/* Counter */}
@@ -30,17 +30,17 @@ export default function CompareToolbar({ selected, onRemove, onClearAll, onCompa
             {selected.map((p) => (
               <div
                 key={p.id}
-                className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg pl-2 pr-1.5 py-1.5 shrink-0"
+                className="flex items-center gap-2 bg-gray-50 border border-primary/12 rounded-lg pl-2 pr-1.5 py-1.5 shrink-0"
               >
                 <div className="w-8 h-8 rounded overflow-hidden shrink-0 bg-gray-200">
                   <img
                     src={p.image}
                     alt={p.title}
-                    className="w-full h-full object-cover object-top"
+                    className="w-full h-full object-cover object-center"
                   />
                 </div>
                 <div className="min-w-0 max-w-[140px]">
-                  <p className="text-xs font-roboto font-semibold text-[#002349] truncate">
+                  <p className="text-xs font-roboto font-semibold text-primary truncate">
                     {format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
                   </p>
                   <p className="text-[10px] font-roboto text-gray-400 truncate">{p.title}</p>
@@ -58,7 +58,7 @@ export default function CompareToolbar({ selected, onRemove, onClearAll, onCompa
             {Array.from({ length: 3 - selected.length }).map((_, i) => (
               <div
                 key={`empty-${i}`}
-                className="flex items-center justify-center w-[120px] h-[44px] border border-dashed border-gray-300 rounded-lg shrink-0"
+                className="flex items-center justify-center w-[120px] h-[44px] border border-dashed border-primary/12 rounded-lg shrink-0"
               >
                 <span className="text-[10px] font-roboto text-gray-400">Add property</span>
               </div>

@@ -23,6 +23,7 @@ interface LeftColumnProps {
   district: string;
   area: string;
   city: string;
+  country: string;
   furnished: string;
   createdAt?: string;
 }
@@ -140,7 +141,7 @@ function getStatusLabel(status: string, purpose?: string): string {
 
 export default function PropertyLeftColumn({
   description, features, amenities, beds, baths, parking, garages, sqft,
-  propertyType, status, ref, price, location, title, latitude, longitude, district, area, city, furnished, createdAt,
+  propertyType, status, ref, price, location, title, latitude, longitude, district, area, city, country, furnished, createdAt,
 }: LeftColumnProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
@@ -160,6 +161,11 @@ export default function PropertyLeftColumn({
 
   const garageTotal = (parking || 0) + (garages || 0);
   const displayCity = city || district || area || '';
+  const locationLine = [area, city, country]
+    .map((v) => (v || '').trim())
+    .filter(Boolean)
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .join(', ');
   const displayPropertyType = propertyType ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) : 'N/A';
   const displayBeds = beds != null && beds > 0 ? String(beds) : '—';
   const displayBaths = baths != null && baths > 0 ? String(baths) : '—';
@@ -184,7 +190,7 @@ export default function PropertyLeftColumn({
     { label: 'Furnished', value: furnished || 'Unfurnished' },
     { label: 'Property Status', value: getStatusLabel(status) },
     { label: 'Date Listed', value: formattedDate },
-    { label: 'City', value: displayCity || 'N/A' },
+    { label: 'Location', value: locationLine || location || displayCity || 'N/A' },
   ];
 
   return (
@@ -193,7 +199,7 @@ export default function PropertyLeftColumn({
       <section className="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#e5e5e5]">
         <div id="section-description" className="mb-3 md:mb-5 scroll-mt-24">
           <h2
-            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-[#001731] border-[#CCCCCC]"
+            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-primary border-[#CCCCCC]"
           >
             Description
           </h2>
@@ -230,22 +236,22 @@ export default function PropertyLeftColumn({
       {/* Property Details */}
       <section className="mb-6 md:mb-8">
         <div className="flex items-center justify-between mb-3 md:mb-4">
-          <h2 id="section-details" className="font-roboto font-semibold text-sm md:text-base text-[#001731] scroll-mt-24">
+          <h2 id="section-details" className="font-roboto font-semibold text-sm md:text-base text-primary scroll-mt-24">
             Property Details
           </h2>
-          <span className="flex items-center gap-1.5 text-[11px] font-roboto text-stone-400">
+          <span className="flex items-center gap-1.5 text-[11px] font-roboto text-primary/50">
             <i className="ri-refresh-line text-xs"></i>
             Updated {timeSince(createdAt)}
           </span>
         </div>
-        <div className="bg-white border-2 border-stone-300 p-5 md:p-7 rounded-[2px]">
+        <div className="bg-white border-2 border-stone-300 p-3 md:p-5 rounded-[2px]">
           {/* Mobile: stacked */}
           <div className="md:hidden flex flex-col">
             {[...detailsLeft, ...detailsRight].map((d, idx, arr) => (
-              <div key={idx} className={`flex items-center justify-between py-3 px-1 ${idx < arr.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                <span className="text-sm font-roboto font-semibold text-stone-800">{d.label}</span>
+              <div key={idx} className={`flex items-center justify-between py-2 px-1 ${idx < arr.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                <span className="text-xs font-roboto font-semibold text-primary">{d.label}</span>
                 <span
-                  className={`text-sm font-roboto font-bold text-right ml-4 ${d.isPrice ? 'text-[#002349]' : 'text-black'}`}
+                  className={`text-xs font-roboto font-bold text-right ml-3 break-words max-w-[55%] ${d.isPrice ? 'text-primary' : 'text-black'}`}
                 >
                   {d.value}
                 </span>
@@ -257,21 +263,21 @@ export default function PropertyLeftColumn({
           <div className="hidden md:flex md:flex-row">
             <div className="flex-1 flex flex-col">
               {detailsLeft.map((d, idx) => (
-                <div key={idx} className={`flex items-center justify-between py-3 px-1 ${idx < detailsLeft.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                  <span className="text-sm font-roboto font-semibold text-stone-800">{d.label}</span>
+                <div key={idx} className={`flex items-center justify-between py-2 px-1 ${idx < detailsLeft.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                  <span className="text-sm font-roboto font-semibold text-primary">{d.label}</span>
                   <span
-                    className={`text-sm font-roboto font-bold text-right ml-4 ${d.isPrice ? 'text-[#002349]' : 'text-black'}`}
+                    className={`text-sm font-roboto font-bold text-right ml-4 ${d.isPrice ? 'text-primary' : 'text-black'}`}
                   >
                     {d.value}
                   </span>
                 </div>
               ))}
             </div>
-            <div className="mx-5 lg:mx-6 border-r border-stone-200 self-stretch"></div>
+            <div className="mx-5 lg:mx-6 border-r border-primary/12 self-stretch"></div>
             <div className="flex-1 flex flex-col">
               {detailsRight.map((d, idx) => (
-                <div key={idx} className={`flex items-center justify-between py-3 px-1 ${idx < detailsRight.length - 1 ? 'border-b border-stone-100' : ''}`}>
-                  <span className="text-sm font-roboto font-semibold text-stone-800">{d.label}</span>
+                <div key={idx} className={`flex items-center justify-between py-2 px-1 ${idx < detailsRight.length - 1 ? 'border-b border-stone-100' : ''}`}>
+                  <span className="text-sm font-roboto font-semibold text-primary">{d.label}</span>
                   <span className="text-sm font-roboto font-bold text-right ml-4 text-black">{d.value}</span>
                 </div>
               ))}
@@ -285,7 +291,7 @@ export default function PropertyLeftColumn({
         <section className="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#e5e5e5]">
           <div id="section-features" className="mb-3 md:mb-5 scroll-mt-24">
             <h2
-              className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-[#001731] border-[#CCCCCC]"
+              className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-primary border-[#CCCCCC]"
             >
               Features &amp; Amenities
             </h2>
@@ -295,12 +301,12 @@ export default function PropertyLeftColumn({
               {visibleFeatures.map((feat: string, idx: number) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 px-3.5 py-3 border border-stone-200 rounded-sm bg-white hover:border-stone-400 transition-colors cursor-default"
+                  className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3.5 py-2 sm:py-3 border border-primary/12 rounded-sm bg-white hover:border-stone-400 transition-colors cursor-default min-w-0"
                 >
-                  <div className="w-7 h-7 flex items-center justify-center shrink-0 border border-stone-200 rounded-sm bg-stone-50">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center shrink-0 border border-primary/12 rounded-sm bg-stone-50">
                     <i className={`${getFeatureIcon(feat)} text-xs text-[#888888]`}></i>
                   </div>
-                  <span className="text-sm md:text-base font-roboto font-semibold text-stone-800 capitalize leading-snug">{feat}</span>
+                  <span className="text-xs sm:text-sm md:text-base font-roboto font-semibold text-primary capitalize leading-snug break-words min-w-0">{feat}</span>
                 </div>
               ))}
             </div>
@@ -323,12 +329,12 @@ export default function PropertyLeftColumn({
       <section>
         <div id="section-location" className="mb-3 md:mb-5 scroll-mt-24">
           <h2
-            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-[#001731] border-[#CCCCCC]"
+            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-primary border-[#CCCCCC]"
           >
             Location
           </h2>
         </div>
-        <div className="aspect-[16/9] overflow-hidden rounded-[2px] border border-stone-200">
+        <div className="aspect-[16/9] overflow-hidden rounded-[2px] border border-primary/12">
           <iframe
             src={mapSrc}
             className="w-full h-full"
@@ -337,7 +343,7 @@ export default function PropertyLeftColumn({
             allowFullScreen
           ></iframe>
         </div>
-        <p className="text-stone-400 font-roboto text-xs mt-3 flex items-center gap-1.5">
+        <p className="text-primary/50 font-roboto text-xs mt-3 flex items-center gap-1.5">
           <i className="ri-map-pin-2-line text-golden"></i>
           {location}
         </p>

@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { formatAreaName } from '@/lib/location';
 
 export interface NewDevListing {
   id: string;
   slug: string;
   title: string;
   location: string;
+  area: string;
   price: number;
   currency: string;
   beds: number;
@@ -17,6 +19,7 @@ export interface NewDevListing {
   tag: string;
   featured: boolean;
   completionDate: string;
+  developmentStage: string;
   developer: string;
   developerLogo: string;
   featureList?: string[];
@@ -33,11 +36,13 @@ export interface DevelopmentGroup {
   id: string;
   name: string;
   location: string;
+  area: string;
   developer: string;
   developerLogo: string;
   image: string;
   featured: boolean;
   completionDate: string;
+  developmentStage: string;
   propertyType: string;
   unitOptions: DevUnitOption[];
   slug: string;
@@ -57,6 +62,7 @@ export function useNewDevelopments() {
   const [featuredListings, setFeaturedListings] = useState<NewDevListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [locations, setLocations] = useState<string[]>(['All Areas']);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchListings = useCallback(async () => {
@@ -68,17 +74,24 @@ export function useNewDevelopments() {
     setError(null);
 
     try {
-      const { data, error: dbError } = await supabase
-        .from('listings')
-        .select('*')
-        .eq('is_published', true)
-        .eq('purpose', 'sale')
-        .eq('featured_new_development', true)
-        .neq('property_type', 'land')
-        .neq('title', '')
-        .gt('price', 0)
-        .order('created_at', { ascending: false });
+      const [listingsResult, neighbourhoodsResult] = await Promise.all([
+        supabase
+          .from('listings')
+          .select('*')
+          .eq('is_published', true)
+          .eq('is_new_development', true)
+          .neq('property_type', 'land')
+          .neq('title', '')
+          .gt('price', 0)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('neighbourhoods')
+          .select('name')
+          .eq('is_published', true)
+          .order('name'),
+      ]);
 
+      const { data, error: dbError } = listingsResult;
       if (dbError) throw dbError;
 
       const rows = (data || []) as Record<string, unknown>[];
@@ -90,11 +103,18 @@ export function useNewDevelopments() {
         const title = String(row.title || '');
         const rowSlug = row.slug ? String(row.slug) : '';
         const developer = String(row.owner_name || row.developer || '').trim();
+        const area = formatAreaName({
+          address: String(row.address || ''),
+          neighbourhood: String(row.neighbourhood || ''),
+          location: String(row.location || ''),
+          city: String(row.city || ''),
+        });
         return {
           id: String(row.id),
           slug: rowSlug || generateSlug(String(row.id), title),
           title,
-          location: String(row.location || ''),
+          location: String(row.location || row.neighbourhood || ''),
+          area,
           price: priceVal,
           currency,
           beds: Number(row.bedrooms) || 0,
@@ -104,8 +124,9 @@ export function useNewDevelopments() {
           propertyType: String(row.property_type || ''),
           image: img,
           tag: 'For Sale',
-          featured: Boolean(row.is_featured),
+          featured: Boolean(row.is_featured || row.featured_new_development),
           completionDate: String(row.completion_date || ''),
+          developmentStage: String(row.development_stage || ''),
           developer,
           developerLogo: '',
           featureList: Array.isArray(row.amenities) ? row.amenities as string[] : [],
@@ -123,8 +144,22 @@ export function useNewDevelopments() {
       }
 
       const featured = validListings.filter((l) => l.featured);
-      setFeaturedListings(featured.length > 0 ? featured.slice(0, 3) : validListings.slice(0, 3));
+      const nonFeatured = validListings.filter((l) => !l.featured);
+      setFeaturedListings([...featured, ...nonFeatured].slice(0, 12));
       setAllListings(validListings);
+
+      // Process neighbourhoods from database
+      const neighbourhoodNames = (neighbourhoodsResult.data || [])
+        .map((n: Record<string, unknown>) => String(n.name || ''))
+        .filter(Boolean);
+
+      const sortedNeighbourhoods = neighbourhoodNames.sort((a, b) => {
+        if (a.toLowerCase() === 'westlands') return -1;
+        if (b.toLowerCase() === 'westlands') return 1;
+        return a.localeCompare(b);
+      });
+
+      setLocations(['All Areas', ...sortedNeighbourhoods]);
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
       setAllListings([]);
@@ -142,16 +177,7 @@ export function useNewDevelopments() {
     };
   }, [fetchListings]);
 
-  // Derive unique locations from live data (or mocks as fallback)
-  const locations = useMemo(() => {
-    const source = allListings.length > 0 ? allListings : [];
-    const raw = source
-      .map((l) => l.location)
-      .filter((loc): loc is string => Boolean(loc))
-      .map((loc) => loc.split(',')[0].trim());
-    const unique = [...new Set(raw)].sort();
-    return ['All Areas', ...unique];
-  }, [allListings]);
+  // Locations are populated from the database neighbourhoods table
 
   /**
    * Group individual listings into Zoopla-style development cards.
@@ -182,11 +208,13 @@ export function useNewDevelopments() {
           id: l.id,
           name: l.title,
           location: l.location,
+          area: l.area,
           developer: l.developer,
           developerLogo: l.developerLogo,
           image: l.image,
           featured: l.featured,
           completionDate: l.completionDate,
+          developmentStage: l.developmentStage,
           propertyType: l.propertyType,
           slug: l.slug,
           unitOptions: [{ beds: l.beds, fromPrice: l.price, currency: l.currency }],
@@ -198,11 +226,13 @@ export function useNewDevelopments() {
           id: primary.id,
           name,
           location: primary.location,
+          area: primary.area,
           developer: primary.developer,
           developerLogo: primary.developerLogo,
           image: primary.image,
           featured: primary.featured || listings.some((l) => l.featured),
           completionDate: primary.completionDate,
+          developmentStage: primary.developmentStage,
           propertyType: primary.propertyType,
           slug: primary.slug,
           unitOptions: sorted.map((l) => ({ beds: l.beds, fromPrice: l.price, currency: l.currency })),

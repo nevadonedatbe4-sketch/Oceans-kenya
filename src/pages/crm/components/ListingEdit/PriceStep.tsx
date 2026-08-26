@@ -47,6 +47,7 @@ interface Props {
   frequency: string;
   setFrequency: (v: string) => void;
   purpose: string;
+  isPriceRequired?: boolean;
 }
 
 /* ── Design tokens — identical to DetailsStep ── */
@@ -147,6 +148,7 @@ export default function PriceStep({
   serviceCharge, setServiceCharge, availabilityStatus, setAvailabilityStatus,
   negotiable, setNegotiable, pricePlaceholder, setPricePlaceholder,
   showSecondPrice, setShowSecondPrice, frequency, setFrequency, purpose,
+  isPriceRequired,
 }: Props) {
   useEffect(() => {
     if (!pricePrefix && purpose === 'sale') {
@@ -205,7 +207,7 @@ export default function PriceStep({
           </div>
           <div>
             <label className={`${labelClass} ${pricePlaceholder ? 'text-[#9ba5b1]' : ''}`}>
-              {pricePlaceholder ? 'Price (locked)' : 'Price *'}
+              {pricePlaceholder ? 'Price (locked)' : isPriceRequired !== false ? 'Price *' : 'Price'}
             </label>
             <input
               type="number"
@@ -213,7 +215,7 @@ export default function PriceStep({
               onChange={(e) => setPrice(e.target.value)}
               disabled={pricePlaceholder}
               className={`${inputBase} ${pricePlaceholder ? 'opacity-40 cursor-not-allowed' : ''}`}
-              placeholder={pricePlaceholder ? 'Price on request' : 'e.g. 15,000,000'}
+              placeholder={pricePlaceholder ? 'Price on request' : isPriceRequired ? 'e.g. 15,000,000' : 'e.g. 15,000,000 (optional)'}
             />
           </div>
         </div>

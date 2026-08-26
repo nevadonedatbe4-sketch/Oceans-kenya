@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase, uploadImageViaEdgeFunction } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
-import { STEPS, COLORS, PURPOSES, PURPOSE_LABELS, Agent, DocumentFile, CustomField, generateSlug, getSteps, LAND_TITLE_TYPES } from './components/ListingEdit/types';
+import { STEPS, COLORS, PURPOSES, PURPOSE_LABELS, Agent, DocumentFile, CustomField, generateSlug, getSteps, LAND_TITLE_TYPES, LEGACY_PROPERTY_TYPE_MAP, inferCategoryFromType } from './components/ListingEdit/types';
 import LabelsTagsStep from './components/ListingEdit/LabelsTagsStep';
 
 // Maps form_layout module IDs to step definitions
@@ -90,7 +90,12 @@ export default function ListingEdit() {
   const [location, setLocation] = useState('');
   const [neighbourhood, setNeighbourhood] = useState('');
   const [propertyType, setPropertyType] = useState('house');
-  const [propertyCategory, setPropertyCategory] = useState('');
+  const [propertyCategory, setPropertyCategory] = useState('residential');
+  // Normalize legacy property_type values to current dropdown format
+  const normalizePropertyType = (type: string): string => {
+    if (!type) return 'house';
+    return LEGACY_PROPERTY_TYPE_MAP[type] || type;
+  };
   const [purpose, setPurpose] = useState<'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented'>('sale');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState('KES');
@@ -101,6 +106,7 @@ export default function ListingEdit() {
   const [landSize, setLandSize] = useState('');
   const [acreage, setAcreage] = useState('');
   const [landTitle, setLandTitle] = useState('');
+  const [landType, setLandType] = useState('');
   const [sqft, setSqft] = useState('');
   const [amenities, setAmenities] = useState<string[]>([]);
   const [features, setFeatures] = useState('');
@@ -123,9 +129,25 @@ export default function ListingEdit() {
   const [isPending, setIsPending] = useState(false);
   const [isFeatured, setIsFeatured] = useState(false);
   const [isHomepage, setIsHomepage] = useState(false);
+  const [propertyOfTheWeek, setPropertyOfTheWeek] = useState(false);
+  const [newHome, setNewHome] = useState(false);
+  const [refurbished, setRefurbished] = useState(false);
+  const [reducedPrice, setReducedPrice] = useState(false);
+  const [backOnMarket, setBackOnMarket] = useState(false);
+  const [commissionApplicable, setCommissionApplicable] = useState(false);
+  const [publishSuccess, setPublishSuccess] = useState<{ title: string; slug: string; id?: string } | null>(null);
   const [ownerName, setOwnerName] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
+  const [ownerRole, setOwnerRole] = useState('landlord');
+  const [sourceName, setSourceName] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourcePoster, setSourcePoster] = useState('');
+  const [caretakerName, setCaretakerName] = useState('');
+  const [caretakerPhone, setCaretakerPhone] = useState('');
+  const [caretakerRole, setCaretakerRole] = useState('caretaker');
+  const [dateSourced, setDateSourced] = useState('');
+  const [sourceNotes, setSourceNotes] = useState('');
 
   // Extended state
   const [priceUgx, setPriceUgx] = useState('');
@@ -171,6 +193,8 @@ export default function ListingEdit() {
   const [waterSupply, setWaterSupply] = useState('');
   const [constructionType, setConstructionType] = useState('');
   const [completionDate, setCompletionDate] = useState('');
+  const [isNewDevelopment, setIsNewDevelopment] = useState(false);
+  const [developmentStage, setDevelopmentStage] = useState('');
   const [backupPower, setBackupPower] = useState(false);
   const [gatedCommunity, setGatedCommunity] = useState(false);
   const [staffQuarters, setStaffQuarters] = useState(false);
@@ -207,11 +231,20 @@ export default function ListingEdit() {
   const [dynamicSteps, setDynamicSteps] = useState<DynamicStep[]>([]);
   const [stepsLoading, setStepsLoading] = useState(true);
 
+  // Required fields configuration from DB
+  const [requiredFieldMap, setRequiredFieldMap] = useState<Record<string, boolean>>({});
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [stepErrors, setStepErrors] = useState<string[]>([]);
+
   const tabParam = searchParams.get('tab');
   useEffect(() => {
-    if (tabParam === 'media' && dynamicSteps.length > 0) {
+    if (!dynamicSteps.length) return;
+    if (tabParam === 'media') {
       const mediaIdx = dynamicSteps.findIndex((s) => s.id === 'media');
       if (mediaIdx >= 0) setActiveStep(mediaIdx);
+    } else if (tabParam === 'contact' || tabParam === 'contact-publish') {
+      const contactIdx = dynamicSteps.findIndex((s) => s.id === 'contact-publish');
+      if (contactIdx >= 0) setActiveStep(contactIdx);
     }
   }, [tabParam, dynamicSteps]);
 
@@ -292,6 +325,16 @@ export default function ListingEdit() {
     setAgents(data || []);
   }, []);
 
+  // Fetch required fields config
+  const fetchRequiredFields = useCallback(async () => {
+    const { data } = await supabase.from('required_fields').select('key, required');
+    if (data) {
+      const map: Record<string, boolean> = {};
+      data.forEach((r: any) => { map[r.key] = r.required; });
+      setRequiredFieldMap(map);
+    }
+  }, []);
+
   // Fetch listing
   const fetchListing = useCallback(async () => {
     if (!id) return;
@@ -307,8 +350,9 @@ export default function ListingEdit() {
     setDescription(data.description || '');
     setLocation(data.location || '');
     setNeighbourhood(data.neighbourhood || '');
-    setPropertyType(data.property_type || 'house');
-    setPropertyCategory(data.property_category || '');
+    setPropertyType(normalizePropertyType(data.property_type || 'house'));
+    const resolvedCategory = data.property_category || inferCategoryFromType(normalizePropertyType(data.property_type || ''));
+    setPropertyCategory(resolvedCategory);
     const rawPurpose = data.purpose || 'sale';
     setPurpose(rawPurpose as typeof purpose);
     setPrice(data.price ? String(data.price) : '');
@@ -320,6 +364,7 @@ export default function ListingEdit() {
     setLandSize(data.land_size ? String(data.land_size) : '');
     setAcreage(data.acreage ? String(data.acreage) : '');
     setLandTitle(data.land_title || '');
+    setLandType(data.land_type || '');
     setSqft(data.sqft ? String(data.sqft) : '');
     setAmenities(data.amenities || []);
     setCustomFeatures(data.custom_features || []);
@@ -343,9 +388,24 @@ export default function ListingEdit() {
     setIsPending(data.is_pending || false);
     setIsFeatured(data.is_featured || false);
     setIsHomepage(data.is_homepage || false);
+    setPropertyOfTheWeek(data.property_of_the_week || false);
+    setNewHome(data.new_home || false);
+    setRefurbished(data.refurbished || false);
+    setReducedPrice(data.reduced_price || false);
+    setBackOnMarket(data.back_on_market || false);
+    setCommissionApplicable(data.commission_applicable || false);
     setOwnerName(data.owner_name || '');
     setOwnerPhone(data.owner_phone || '');
     setOwnerEmail(data.owner_email || '');
+    setOwnerRole(data.owner_role || 'landlord');
+    setSourceName(data.source_name || '');
+    setSourceUrl(data.source_url || '');
+    setSourcePoster(data.source_poster || '');
+    setCaretakerName(data.caretaker_name || '');
+    setCaretakerPhone(data.caretaker_phone || '');
+    setCaretakerRole(data.caretaker_role || 'caretaker');
+    setDateSourced(data.date_sourced || '');
+    setSourceNotes(data.source_notes || '');
     // Extended
     setPriceUgx(data.price_ugx ? String(data.price_ugx) : '');
     setAutoExchange(data.auto_exchange || false);
@@ -388,6 +448,8 @@ export default function ListingEdit() {
     setWaterSupply(data.water_supply || '');
     setConstructionType(data.construction_type || '');
     setCompletionDate(data.completion_date || '');
+    setIsNewDevelopment(data.is_new_development || false);
+    setDevelopmentStage(data.development_stage || '');
     setBackupPower(data.backup_power || false);
     setGatedCommunity(data.gated_community || false);
     setStaffQuarters(data.staff_quarters || false);
@@ -424,9 +486,10 @@ export default function ListingEdit() {
 
   useEffect(() => {
     fetchAgents();
+    fetchRequiredFields();
     if (isEdit) fetchListing();
     else setLoading(false);
-  }, [fetchAgents, fetchListing, isEdit]);
+  }, [fetchAgents, fetchRequiredFields, fetchListing, isEdit]);
 
   // Auto-assign agent to their own listing when creating new
   useEffect(() => {
@@ -434,6 +497,70 @@ export default function ListingEdit() {
       setAgentId(currentAgentId);
     }
   }, [isEdit, user?.role, currentAgentId]);
+
+  // New Development is now an explicit listing type, not a purpose value.
+  // Keep the legacy featured_new_development flag in sync with the canonical
+  // is_new_development classification so existing sections keep working.
+  useEffect(() => {
+    setFeaturedNewDevelopment(isNewDevelopment);
+  }, [isNewDevelopment]);
+
+  // Validate fields before publishing based on required_fields config
+  const validateBeforePublish = (): string[] => {
+    const errors: string[] = [];
+    const isR = (key: string) => requiredFieldMap[key] === true;
+
+    if (isR('title') && !title.trim()) errors.push('Title is required');
+    if (isR('price') && !pricePlaceholder && !price.trim()) errors.push('Price is required');
+    if (isR('photos') && images.length === 0) errors.push('At least 1 photo is required');
+    if (isR('agent') && !agentId.trim()) errors.push('Assigned agent is required');
+    if (isR('description') && !description.trim()) errors.push('Description is required');
+    if (isR('location') && !address.trim() && !location.trim()) errors.push('Location / Address is required');
+
+    return errors;
+  };
+
+  // Validate the current step's required fields before allowing navigation away
+  const validateCurrentStep = (stepId: string): string[] => {
+    const errors: string[] = [];
+    const isR = (key: string) => requiredFieldMap[key] === true;
+
+    switch (stepId) {
+      case 'basic-info':
+        if (isR('title') && !title.trim()) errors.push('Title is required before proceeding');
+        if (isR('description') && !description.trim()) errors.push('Description is required before proceeding');
+        break;
+      case 'price':
+        if (isR('price') && !pricePlaceholder && !price.trim()) errors.push('Price is required before proceeding');
+        break;
+      case 'details':
+        break;
+      case 'media':
+        if (isR('photos') && images.length === 0) errors.push('At least 1 photo is required before proceeding');
+        break;
+      case 'features':
+        break;
+      case 'location':
+        if (isR('location') && !address.trim() && !location.trim()) errors.push('Location / Address is required before proceeding');
+        break;
+      case 'labels-tags':
+        break;
+      case 'attachments':
+        break;
+      case 'contact-publish':
+        if (isR('agent') && !agentId.trim()) errors.push('Assigned agent is required before proceeding');
+        break;
+      case 'summary':
+        break;
+      default:
+        break;
+    }
+
+    return errors;
+  };
+
+  // Check if a specific field is configured as required
+  const isFieldRequired = (key: string): boolean => requiredFieldMap[key] === true;
 
   const buildPayload = (publish = false) => {
     let parsedFeatures: unknown[] = [];
@@ -446,7 +573,7 @@ export default function ListingEdit() {
       location,
       neighbourhood,
       property_type: propertyType,
-      property_category: propertyCategory || null,
+      property_category: isNewDevelopment ? 'new_development' : (propertyCategory || null),
       purpose,
       status: 'available',
       price: Number(price) || 0,
@@ -477,6 +604,7 @@ export default function ListingEdit() {
       land_unit: landUnit,
       acreage: acreage ? Number(acreage) : null,
       land_title: landTitle || null,
+      land_type: landType || null,
       sqft: sqft ? Number(sqft) : null,
       description,
       amenities,
@@ -504,6 +632,12 @@ export default function ListingEdit() {
       is_pending: !publish && isPending,
       is_featured: isFeatured,
       is_homepage: isHomepage,
+      property_of_the_week: propertyOfTheWeek,
+      new_home: newHome,
+      refurbished,
+      reduced_price: reducedPrice,
+      back_on_market: backOnMarket,
+      commission_applicable: commissionApplicable,
       include_search: includeSearch,
       include_featured: includeFeatured,
       private_listing: privateListing,
@@ -513,10 +647,21 @@ export default function ListingEdit() {
       owner_phone: ownerPhone,
       owner_email: ownerEmail,
       owner_contact: ownerContact,
+      owner_role: ownerRole,
+      caretaker_role: caretakerRole,
+      source_name: sourceName,
+      source_url: sourceUrl,
+      source_poster: sourcePoster,
+      caretaker_name: caretakerName,
+      caretaker_phone: caretakerPhone,
+      date_sourced: dateSourced,
+      source_notes: sourceNotes,
       commission_tracking: commissionTracking ? Number(commissionTracking) : null,
       lead_assignment: leadAssignment,
       property_id: propertyId,
       featured_new_development: featuredNewDevelopment,
+      is_new_development: isNewDevelopment,
+      development_stage: developmentStage || null,
       priority_ranking: priorityRanking ? Number(priorityRanking) : null,
       auto_seo: autoSEO,
       open_graph_image: openGraphImage,
@@ -557,10 +702,23 @@ export default function ListingEdit() {
       plot_shape: plotShape,
       topography,
       tags: selectedTags,
+      contact_updated_at: new Date().toISOString(),
     };
   };
 
   const handleSave = async (publish = false) => {
+    if (publish) {
+      const errors = validateBeforePublish();
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        // Navigate to summary step to show errors
+        const summaryIdx = currentSteps.findIndex((s) => s.id === 'summary');
+        if (summaryIdx >= 0) setActiveStep(summaryIdx);
+        addToast(`Cannot publish: ${errors.length} required field(s) missing`, 'error');
+        return;
+      }
+    }
+    setValidationErrors([]);
     setSaving(true);
     try {
       const payload = buildPayload(publish);
@@ -572,17 +730,26 @@ export default function ListingEdit() {
         } else {
           addToast(publish ? 'Property published' : 'Property saved', 'success');
           broadcastSync();
-          if (publish) { setIsPublished(true); setIsPending(false); }
+          if (publish) {
+            setIsPublished(true);
+            setIsPending(false);
+            setPublishSuccess({ title, slug: slug || generateSlug(title), id });
+          }
         }
       } else {
-        const { data, error } = await supabase.from('listings').insert(payload).select('id').single();
+        const { data, error } = await supabase.from('listings').insert({ ...payload, contact_added_by: user?.name || user?.email || null }).select('id, slug').single();
         if (error) {
           console.error('Create error:', error);
           addToast(`Failed to create: ${error.message}`, 'error');
         } else {
           addToast('Property created', 'success');
           broadcastSync();
-          navigate(`/crm/listings/edit/${data.id}`, { replace: true });
+          if (publish) {
+            setIsPublished(true);
+            setPublishSuccess({ title, slug: data?.slug || generateSlug(title), id: data.id });
+          } else {
+            navigate(`/crm/listings/edit/${data.id}`, { replace: true });
+          }
         }
       }
     } catch (err: any) {
@@ -590,6 +757,14 @@ export default function ListingEdit() {
       addToast(`Error: ${err?.message || 'Something went wrong'}`, 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleKeepEditing = () => {
+    const info = publishSuccess;
+    setPublishSuccess(null);
+    if (info?.id && !isEdit) {
+      navigate(`/crm/listings/edit/${info.id}`, { replace: true });
     }
   };
 
@@ -613,7 +788,7 @@ export default function ListingEdit() {
       }
     }, 3000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
-  }, [title, description, location, price, bedrooms, bathrooms, amenities, images, address, seoTitle, seoDescription, agentId, isFeatured, isHomepage, isPending, priceUgx, autoExchange, customFields, customFeatures, documents, stateRegion, zipCode, ownerContact, leadAssignment, privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood, featuredNewDevelopment, priorityRanking, autoSEO, openGraphImage, interiorFinish, flooringType, ceilingHeight, waterSupply, constructionType, completionDate, frequency, negotiable, pricePlaceholder, showSecondPrice, backupPower, gatedCommunity, staffQuarters, swimmingPool, gym, proximityAmenities, backupPowerDesc, staffQuartersRooms, uniqueFeatures, balconySize, plotDimensions, floors, floorNumber, renovatedYear, propertyCondition, availableDate, furnishedStatus, includedItems, featureCheckboxes, utilityCheckboxes, roadAccess, parkingType, wheelchairAccessible, terraceSize, plotLength, plotWidth, leasePeriod, leaseExpiryDate, plotShape, topography, selectedTags, propertyCategory]);
+  }, [title, description, location, price, bedrooms, bathrooms, amenities, images, address, seoTitle, seoDescription, agentId, isFeatured, isHomepage, isPending, propertyOfTheWeek, newHome, refurbished, reducedPrice, backOnMarket, commissionApplicable, priceUgx, autoExchange, customFields, customFeatures, documents, stateRegion, zipCode, ownerContact, leadAssignment, privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood, featuredNewDevelopment, priorityRanking, autoSEO, openGraphImage, interiorFinish, flooringType, ceilingHeight, waterSupply, constructionType, completionDate, isNewDevelopment, developmentStage, frequency, negotiable, pricePlaceholder, showSecondPrice, backupPower, gatedCommunity, staffQuarters, swimmingPool, gym, proximityAmenities, backupPowerDesc, staffQuartersRooms, uniqueFeatures, balconySize, plotDimensions, floors, floorNumber, renovatedYear, propertyCondition, availableDate, furnishedStatus, includedItems, featureCheckboxes, utilityCheckboxes, roadAccess, parkingType, wheelchairAccessible, terraceSize, plotLength, plotWidth, leasePeriod, leaseExpiryDate, plotShape, topography, selectedTags, propertyCategory, ownerName, ownerPhone, ownerEmail, ownerRole, caretakerRole, sourceName, sourceUrl, sourcePoster, caretakerName, caretakerPhone, dateSourced, sourceNotes]);
 
   const getStatusLabel = () => {
     if (isPublished) return 'Published';
@@ -640,27 +815,36 @@ export default function ListingEdit() {
 
   console.log('[FormLayout] 🖌 rendering step sidebar order:', currentSteps.map((s, i) => `${i + 1}. ${s.id} → ${s.label}`));
 
-  // Per-step completion based on key required fields
+  // Per-step completion based on required_fields from DB
   const isStepComplete = (stepId: string): boolean => {
     switch (stepId) {
-      case 'basic-info':
-        return title.trim().length > 0 && propertyType.trim().length > 0 && propertyCategory.trim().length > 0;
+      case 'basic-info': {
+        // If title is required, check it; otherwise basic check
+        if (isFieldRequired('title')) return title.trim().length > 0 && propertyType.trim().length > 0;
+        if (isFieldRequired('description')) return description.trim().length > 0;
+        return title.trim().length > 0 || propertyType.trim().length > 0 || propertyCategory.trim().length > 0 || description.trim().length > 0;
+      }
       case 'price':
-        return price.trim().length > 0;
+        if (pricePlaceholder) return true; // price on request — no figure needed
+        if (isFieldRequired('price')) return price.trim().length > 0;
+        return true; // optional unless required
       case 'details':
         return bedrooms > 0 || bathrooms > 0 || size.trim().length > 0;
       case 'media':
-        return images.length > 0;
+        if (isFieldRequired('photos')) return images.length > 0;
+        return images.length > 0; // always mark complete if has photos
       case 'features':
         return amenities.length > 0 || customFeatures.length > 0;
       case 'location':
+        if (isFieldRequired('location')) return address.trim().length > 0 || location.trim().length > 0;
         return address.trim().length > 0 || city.trim().length > 0;
       case 'labels-tags':
         return true; // optional section
       case 'attachments':
         return true; // optional section
       case 'contact-publish':
-        return agentId.trim().length > 0;
+        if (isFieldRequired('agent')) return agentId.trim().length > 0;
+        return true; // optional unless required
       case 'summary':
         return false;
       default:
@@ -672,6 +856,33 @@ export default function ListingEdit() {
     if (index === activeStep) return 'active';
     if (index < activeStep) return 'completed';
     return 'pending';
+  };
+
+  // Shared navigation handler — validates current step before advancing
+  const handleNavigateToStep = async (targetIndex: number) => {
+    setStepErrors([]);
+
+    // Going back — always allowed
+    if (targetIndex <= activeStep) {
+      setActiveStep(targetIndex);
+      return;
+    }
+
+    // Going forward — validate current step first
+    const currentStepId = currentSteps[activeStep]?.id;
+    if (currentStepId) {
+      const errors = validateCurrentStep(currentStepId);
+      if (errors.length > 0) {
+        setStepErrors(errors);
+        addToast(`Please complete required fields: ${errors.join('; ')}`, 'error');
+        return;
+      }
+    }
+
+    // Save draft if editing
+    if (isEdit) await handleSave(false);
+
+    setActiveStep(targetIndex);
   };
 
   const purposeLabel = ((): string => {
@@ -722,7 +933,7 @@ export default function ListingEdit() {
               <button
                 key={step.id}
                 type="button"
-                onClick={() => setActiveStep(index)}
+                onClick={() => handleNavigateToStep(index)}
                 className={`w-full text-left px-7 py-4 flex items-center gap-4 transition-all relative cursor-pointer ${
                   isActive ? 'bg-[#f7fafa]' : 'hover:bg-[#fafbfc]'
                 }`}
@@ -838,6 +1049,32 @@ export default function ListingEdit() {
         {/* Step Content */}
         <div className="px-4 sm:px-10 py-4 sm:py-10">
           <div className="bg-white border border-[#d1d5db] p-4 sm:p-8">
+            {/* Step-level validation errors */}
+            {stepErrors.length > 0 && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">
+                    <i className="ri-error-warning-line text-red-500 text-lg" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-red-700 mb-1">Please fix the following before continuing:</p>
+                    <ul className="list-disc list-inside space-y-0.5">
+                      {stepErrors.map((err, i) => (
+                        <li key={i} className="text-sm text-red-600">{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStepErrors([])}
+                    className="w-6 h-6 flex items-center justify-center shrink-0 text-red-400 hover:text-red-600 cursor-pointer"
+                  >
+                    <i className="ri-close-line" />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Step Content Rendering */}
             {currentStep?.id === 'basic-info' && (
               <DescriptionStep
@@ -851,7 +1088,13 @@ export default function ListingEdit() {
                 setPropertyCategory={setPropertyCategory}
                 purpose={purpose}
                 setPurpose={setPurpose}
+                isNewDevelopment={isNewDevelopment}
+                setIsNewDevelopment={setIsNewDevelopment}
+                developmentStage={developmentStage}
+                setDevelopmentStage={setDevelopmentStage}
                 isEdit={isEdit}
+                isTitleRequired={isFieldRequired('title')}
+                isDescriptionRequired={isFieldRequired('description')}
               />
             )}
             {currentStep?.id === 'price' && (
@@ -871,12 +1114,14 @@ export default function ListingEdit() {
                 showSecondPrice={showSecondPrice} setShowSecondPrice={setShowSecondPrice}
                 frequency={frequency} setFrequency={setFrequency}
                 purpose={purpose}
+                isPriceRequired={isFieldRequired('price')}
               />
             )}
             {currentStep?.id === 'details' && (
               <DetailsStep
                 size={size} setSize={setSize} landSize={landSize} setLandSize={setLandSize}
                 acreage={acreage} setAcreage={setAcreage} landTitle={landTitle} setLandTitle={setLandTitle}
+                landType={landType} setLandType={setLandType}
                 sqft={sqft} setSqft={setSqft} parking={parking} setParking={setParking}
                 bedrooms={bedrooms} setBedrooms={setBedrooms} bathrooms={bathrooms} setBathrooms={setBathrooms}
                 sizeUnit={sizeUnit} setSizeUnit={setSizeUnit} landUnit={landUnit} setLandUnit={setLandUnit}
@@ -924,6 +1169,7 @@ export default function ListingEdit() {
                 videoUrl={videoUrl} setVideoUrl={setVideoUrl} virtualTourUrl={virtualTourUrl} setVirtualTourUrl={setVirtualTourUrl}
                 uploading={uploading} setUploading={setUploading} id={id} uploadImageViaEdgeFunction={uploadImageViaEdgeFunction}
                 propertyType={propertyType}
+                isPhotosRequired={isFieldRequired('photos')}
               />
             )}
             {currentStep?.id === 'features' && (
@@ -933,6 +1179,18 @@ export default function ListingEdit() {
               <LabelsTagsStep
                 selectedTags={selectedTags}
                 setSelectedTags={setSelectedTags}
+                propertyOfTheWeek={propertyOfTheWeek}
+                setPropertyOfTheWeek={setPropertyOfTheWeek}
+                newHome={newHome}
+                setNewHome={setNewHome}
+                refurbished={refurbished}
+                setRefurbished={setRefurbished}
+                reducedPrice={reducedPrice}
+                setReducedPrice={setReducedPrice}
+                backOnMarket={backOnMarket}
+                setBackOnMarket={setBackOnMarket}
+                commissionApplicable={commissionApplicable}
+                setCommissionApplicable={setCommissionApplicable}
               />
             )}
             {currentStep?.id === 'location' && (
@@ -940,6 +1198,9 @@ export default function ListingEdit() {
                 address={address} setAddress={setAddress} location={location} setLocation={setLocation}
                 neighbourhood={neighbourhood} setNeighbourhood={setNeighbourhood} city={city} setCity={setCity}
                 country={country} setCountry={setCountry}
+                isLocationRequired={isFieldRequired('location')}
+                propertyType={propertyType}
+                purpose={purpose}
               />
             )}
             {currentStep?.id === 'attachments' && (
@@ -958,8 +1219,6 @@ export default function ListingEdit() {
                 setAgentId={setAgentId}
                 isFeatured={isFeatured}
                 setIsFeatured={setIsFeatured}
-                featuredNewDevelopment={featuredNewDevelopment}
-                setFeaturedNewDevelopment={setFeaturedNewDevelopment}
                 onPublish={() => handleSave(true)}
                 title={title}
                 propertyType={propertyType}
@@ -972,6 +1231,19 @@ export default function ListingEdit() {
                 images={images}
                 purpose={purpose}
                 slug={slug}
+                isAgentRequired={isFieldRequired('agent')}
+                ownerName={ownerName} setOwnerName={setOwnerName}
+                ownerPhone={ownerPhone} setOwnerPhone={setOwnerPhone}
+                ownerEmail={ownerEmail} setOwnerEmail={setOwnerEmail}
+                ownerRole={ownerRole} setOwnerRole={setOwnerRole}
+                caretakerRole={caretakerRole} setCaretakerRole={setCaretakerRole}
+                sourceName={sourceName} setSourceName={setSourceName}
+                sourceUrl={sourceUrl} setSourceUrl={setSourceUrl}
+                sourcePoster={sourcePoster} setSourcePoster={setSourcePoster}
+                caretakerName={caretakerName} setCaretakerName={setCaretakerName}
+                caretakerPhone={caretakerPhone} setCaretakerPhone={setCaretakerPhone}
+                dateSourced={dateSourced} setDateSourced={setDateSourced}
+                sourceNotes={sourceNotes} setSourceNotes={setSourceNotes}
               />
             )}
             {currentStep?.id === 'summary' && (
@@ -1000,6 +1272,10 @@ export default function ListingEdit() {
                 propertyId={propertyId} customFields={customFields}
                 landSize={landSize} landUnit={landUnit}
                 tags={selectedTags}
+                requiredFieldMap={requiredFieldMap}
+                validationErrors={validationErrors}
+                description={description}
+                agentId={agentId}
               />
             )}
           </div>
@@ -1010,7 +1286,7 @@ export default function ListingEdit() {
               {activeStep > 0 && (
                 <button
                   type="button"
-                  onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
+                  onClick={() => handleNavigateToStep(Math.max(0, activeStep - 1))}
                   className="flex items-center gap-2 px-5 py-3 text-[13px] uppercase tracking-widest text-white font-bold cursor-pointer whitespace-nowrap transition-colors border-2 border-white rounded-md hover:bg-white hover:text-[#0d1f2d]"
                 >
                   <i className="ri-arrow-left-line" />
@@ -1051,10 +1327,7 @@ export default function ListingEdit() {
               ) : activeStep < currentSteps.length - 1 ? (
                 <button
                   type="button"
-                  onClick={async () => {
-                    if (isEdit) await handleSave(false);
-                    setActiveStep(Math.min(currentSteps.length - 1, activeStep + 1));
-                  }}
+                  onClick={() => handleNavigateToStep(activeStep + 1)}
                   disabled={saving}
                   className="flex items-center gap-2 px-8 py-3 text-[13px] uppercase tracking-widest bg-[#0d5959] text-white font-semibold cursor-pointer whitespace-nowrap transition-colors hover:bg-[#0e6b6b] rounded-md disabled:opacity-60"
                 >
@@ -1087,7 +1360,7 @@ export default function ListingEdit() {
           <div className="sm:hidden mt-6 flex items-center justify-between w-full">
             <button
               type="button"
-              onClick={() => setActiveStep(Math.max(0, activeStep - 1))}
+              onClick={() => handleNavigateToStep(Math.max(0, activeStep - 1))}
               disabled={activeStep === 0}
               className="flex items-center gap-1.5 px-4 py-2.5 text-xs uppercase tracking-widest border border-[#0d5959] text-[#0d5959] font-medium cursor-pointer disabled:opacity-40 whitespace-nowrap rounded-md"
             >
@@ -1111,7 +1384,7 @@ export default function ListingEdit() {
             ) : activeStep < currentSteps.length - 1 ? (
               <button
                 type="button"
-                onClick={() => setActiveStep(Math.min(currentSteps.length - 1, activeStep + 1))}
+                onClick={() => handleNavigateToStep(activeStep + 1)}
                 className="flex items-center gap-1.5 px-6 py-2.5 text-xs uppercase tracking-widest bg-[#0d5959] text-white font-medium cursor-pointer whitespace-nowrap rounded-md"
               >
                 Next
@@ -1130,6 +1403,44 @@ export default function ListingEdit() {
           </div>
         </div>
       </main>
+
+      {publishSuccess && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#0d1f2d]/60 backdrop-blur-sm" onClick={() => setPublishSuccess(null)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-5 flex items-center justify-center rounded-full bg-[#0d5959]/10">
+              <i className="ri-checkbox-circle-fill text-4xl text-[#0d5959]" />
+            </div>
+            <h2 className="text-2xl font-prata text-[#0d1f2d] mb-2">Listing Published!</h2>
+            <p className="text-sm text-[#4a5568] mb-6">
+              <span className="font-semibold text-[#0d1f2d]">{publishSuccess.title}</span> is now live.
+            </p>
+            <div className="space-y-3">
+              <Link
+                to={`/property/${publishSuccess.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full px-5 py-3 text-sm font-semibold text-white bg-[#0d5959] rounded-lg hover:bg-[#0a4545] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className="ri-eye-line" /> View Listing Live
+              </Link>
+              <Link
+                to="/crm/listings"
+                className="flex items-center justify-center gap-2 w-full px-5 py-3 text-sm font-semibold text-[#0d1f2d] border-2 border-[#0d1f2d] rounded-lg hover:bg-[#0d1f2d] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className="ri-list-check-2" /> Back to Listings
+              </Link>
+              <button
+                type="button"
+                onClick={handleKeepEditing}
+                className="flex items-center justify-center gap-2 w-full px-5 py-3 text-sm font-medium text-[#4a5568] hover:text-[#0d5959] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className="ri-edit-line" /> Keep Editing
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

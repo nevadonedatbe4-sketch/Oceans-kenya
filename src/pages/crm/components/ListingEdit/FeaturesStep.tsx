@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isLandType } from './types';
 
 interface AmenityGroup {
   label: string;
@@ -127,7 +128,7 @@ export default function FeaturesStep({
   propertyType,
 }: Props) {
   const [customInput, setCustomInput] = useState('');
-  const isLand = propertyType === 'land';
+  const isLand = isLandType(propertyType || '');
   const groups = isLand ? LAND_AMENITY_GROUPS : PROPERTY_AMENITY_GROUPS;
 
   const allGroupItems = groups.flatMap((g) => g.items);

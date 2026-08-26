@@ -1,17 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { haversineDistance } from '@/lib/distance';
+import { formatLocation, formatLocationParts, formatAreaName, smartTitleCase } from '@/lib/location';
 
 // ── Raw DB shape ──────────────────────────────────────────────
 interface ListingRow {
   id: string;
   title: string;
   location: string;
+  address?: string | null;
+  neighbourhood?: string | null;
+  city?: string | null;
+  state_region?: string | null;
   price: number;
   property_type: string;
   bedrooms: number | null;
   bathrooms: number | null;
   sqft: number | null;
+  land_size: number | null;
+  acreage: number | null;
+  land_unit: string | null;
   parking: number | null;
   slug: string | null;
   created_at: string;
@@ -33,8 +41,16 @@ interface ListingRow {
   latitude?: number | null;
   longitude?: number | null;
   sub_type?: string | null;
+  is_featured?: boolean | null;
+  country?: string | null;
   owner_phone?: string | null;
   owner_email?: string | null;
+  property_of_the_week?: boolean | null;
+  new_home?: boolean | null;
+  refurbished?: boolean | null;
+  reduced_price?: boolean | null;
+  back_on_market?: boolean | null;
+  commission_applicable?: boolean | null;
 }
 
 // ── Mapped shape used by the Buy page ──────────────────────────
@@ -43,14 +59,21 @@ export interface MappedListing {
   slug: string;
   title: string;
   location: string;
+  locationLine1?: string;
+  locationLine2?: string;
+  area?: string;
   type: 'sale' | 'rent';
   category: string;
+  propertyType: string;
   beds: number;
   baths: number;
   parking: number;
   receptions: number;
   sqft: number;
   sqm: number;
+  landSize: number;
+  acreage: number;
+  landUnit?: string;
   price: string;
   rawPrice: number;
   currency: string;
@@ -71,6 +94,10 @@ export interface MappedListing {
   floorPlan?: boolean;
   justAdded?: boolean;
   houseShare?: boolean;
+  propertyOfTheWeek?: boolean;
+  refurbished?: boolean;
+  backOnMarket?: boolean;
+  commissionApplicable?: boolean;
   agentShortName?: string;
   agentBrandColor?: string;
   // Distance info
@@ -158,8 +185,28 @@ function toDisplayType(category: string): string {
 
 // ── Map a single DB row → MappedListing ───────────────────────
 function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): MappedListing {
-  const title = row.title || 'Untitled Property';
-  const location = row.location || 'Nairobi';
+  const title = smartTitleCase(row.title || 'Untitled Property');
+  const location = formatLocation({
+    address: row.address,
+    neighbourhood: row.neighbourhood,
+    location: row.location,
+    city: row.city,
+    state_region: row.state_region,
+  });
+  const locationParts = formatLocationParts({
+    address: row.address,
+    neighbourhood: row.neighbourhood,
+    location: row.location,
+    city: row.city,
+    state_region: row.state_region,
+    country: row.country,
+  });
+  const area = formatAreaName({
+    address: row.address,
+    neighbourhood: row.neighbourhood,
+    location: row.location,
+    city: row.city,
+  });
   const slug = row.slug || buildSlug(row.id, title);
 
   const allImages: string[] = [];
@@ -182,7 +229,7 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
 
   const badges: string[] = [];
   const justAdded = listedDays <= 3;
-  const newHome = listedDays <= 14 && listedDays > 3;
+  const newHome = Boolean(row.new_home);
   if (justAdded) badges.push('Just added');
   if (newHome && !justAdded) badges.push('New home');
   if (row.video_url) badges.push('Video tour');
@@ -206,27 +253,38 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
     slug,
     title,
     location,
+    locationLine1: locationParts.line1,
+    locationLine2: locationParts.line2,
+    area,
     type: listingType,
     category: toDisplayType(row.property_type || 'house'),
+    propertyType: row.property_type || '',
     beds,
     baths,
     parking: row.parking ?? 0,
     receptions: Math.max(1, Math.floor(beds / 2)),
     sqft,
     sqm: Math.round(sqft * 0.0929),
+    landSize: Number(row.land_size ?? 0),
+    acreage: Number(row.acreage ?? 0),
+    landUnit: row.land_unit || undefined,
     price: formattedPrice,
     rawPrice: priceNum,
     currency: row.currency || 'KES',
     priceUnit: undefined,
     image: allImages[0],
-    featured: false,
+    featured: Boolean(row.is_featured),
     listedDays,
     badges,
     createdAt: row.created_at,
     description: row.description || '',
     images: allImages,
     newHome,
-    reduced: false,
+    reduced: Boolean(row.reduced_price),
+    propertyOfTheWeek: Boolean(row.property_of_the_week),
+    refurbished: Boolean(row.refurbished),
+    backOnMarket: Boolean(row.back_on_market),
+    commissionApplicable: Boolean(row.commission_applicable),
     videoTour: !!row.video_url,
     virtualTour: !!row.virtual_tour_url,
     floorPlan: !!(row.floor_plans && row.floor_plans.length > 0),
@@ -296,11 +354,12 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       // Build base query without pagination when distance filtering
       let query = supabase
         .from('listings')
-        .select('*', { count: 'exact', head: false })
+        .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable', { count: 'exact', head: false })
         .eq('purpose', filters.purpose)
         .eq('is_published', true)
         .neq('title', '')
-        .gt('price', 0);
+        .gt('price', 0)
+        .or('is_new_development.eq.false,is_new_development.is.null');
 
       // Status filter
       if (filters.statusFilter === 'available') {
@@ -333,35 +392,37 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
         query = query.lte('bedrooms', filters.bedsMax);
       }
 
-      // Property type
-      if (filters.propertyType !== 'Any type') {
-        const typeMap: Record<string, string> = {
-          'Apartment': 'apartment',
-          'House': 'house',
-          'Townhouse': 'townhouse',
-          'Penthouse': 'penthouse',
-          'Villa': 'villa',
-          'Studio': 'studio',
-          'Flat / Apartment': 'flat_/_apartment',
-          'Bungalow': 'bungalow',
-          'Maisonette': 'maisonette',
-          'Detached': 'detached',
-          'Semi-detached': 'semi-detached',
-          'Terraced': 'terraced',
-          'Land': 'land',
-          'Office': 'office',
-          'Retail / Shop': 'retail_/_shop',
-          'Warehouse': 'warehouse',
-          'Industrial': 'industrial',
-          'Serviced Office': 'serviced_office',
-        };
-        const dbType = typeMap[filters.propertyType] || filters.propertyType.toLowerCase();
+      // Property type — shared typeMap used in main & fallback paths
+      const PROP_TYPE_MAP: Record<string, string> = {
+        'Apartment': 'apartment',
+        'House': 'house',
+        'Townhouse': 'townhouse',
+        'Penthouse': 'penthouse',
+        'Villa': 'villa',
+        'Studio': 'studio_flat',
+        'Bungalow': 'bungalow',
+        'Maisonette': 'maisonette',
+        'Detached': 'detached',
+        'Semi-detached': 'semi-detached',
+        'Terraced': 'terraced',
+        'Land': 'land',
+        'Office': 'office',
+        'Retail / Shop': 'retail_shop',
+        'Warehouse': 'warehouse',
+        'Industrial': 'industrial',
+        'Serviced Office': 'serviced_office',
+      };
+      if (filters.propertyType && filters.propertyType !== 'Any type') {
+        const dbType = PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_');
         query = query.eq('property_type', dbType);
       }
 
-      // Property category (e.g. 'commercial')
-      if (filters.propertyCategory) {
-        query = query.eq('property_category', filters.propertyCategory);
+      // Property category — always enforced; Buy/Rent default to residential-only
+      // For commercial, also catch listings by property_type so nothing slips through
+      if (filters.propertyCategory === 'commercial') {
+        query = query.or('property_category.eq.commercial,property_type.in.(office,serviced_office,retail_shop,guest_house,leisure,warehouse,industrial,land,other)');
+      } else {
+        query = query.eq('property_category', filters.propertyCategory || 'residential');
       }
 
       // Size (sqft in DB, convert from sqm)
@@ -424,11 +485,12 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
         if (queryError.code === '42703' || queryError.message?.toLowerCase().includes('schema cache') || queryError.message?.toLowerCase().includes('agents')) {
           let fallbackQuery = supabase
             .from('listings')
-            .select('*', { count: 'exact', head: false })
+            .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable', { count: 'exact', head: false })
             .eq('purpose', filters.purpose)
             .eq('is_published', true)
             .neq('title', '')
-            .gt('price', 0);
+            .gt('price', 0)
+            .neq('is_new_development', true);
 
           if (filters.search) {
             const q = filters.search.trim();
@@ -438,13 +500,11 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
           if (filters.priceMax && filters.priceMax > 0) fallbackQuery = fallbackQuery.lte('price', filters.priceMax);
           if (filters.bedsMin && filters.bedsMin > 0) fallbackQuery = fallbackQuery.gte('bedrooms', filters.bedsMin);
           if (filters.bedsMax && filters.bedsMax > 0) fallbackQuery = fallbackQuery.lte('bedrooms', filters.bedsMax);
-          if (filters.propertyType !== 'Any type') {
-            const dbType = filters.propertyType.toLowerCase();
+          if (filters.propertyType && filters.propertyType !== 'Any type') {
+            const dbType = PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_');
             fallbackQuery = fallbackQuery.eq('property_type', dbType);
           }
-          if (filters.propertyCategory) {
-            fallbackQuery = fallbackQuery.eq('property_category', filters.propertyCategory);
-          }
+          fallbackQuery = fallbackQuery.eq('property_category', filters.propertyCategory || 'residential');
           if (filters.sqmMin && filters.sqmMin > 0) fallbackQuery = fallbackQuery.gte('sqft', filters.sqmMin * 10.764);
           if (filters.sqmMax && filters.sqmMax > 0) fallbackQuery = fallbackQuery.lte('sqft', filters.sqmMax * 10.764);
           fallbackQuery = fallbackQuery.in('status', ['available', 'under_contract']);

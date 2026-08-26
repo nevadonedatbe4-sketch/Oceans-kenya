@@ -20,6 +20,7 @@ interface Listing {
   neighbourhood: string;
   property_type: string;
   sub_type: string;
+  property_category: string;
   status: string;
   purpose: string;
   price: number;
@@ -65,6 +66,15 @@ const COLORS = {
   white: '#ffffff',
 };
 
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-semibold text-[#6b7280] lg:text-[#88929e]">{label}</label>
+      {children}
+    </div>
+  );
+}
+
 export default function Listings() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -78,6 +88,12 @@ export default function Listings() {
   const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all');
   const [filterPurpose, setFilterPurpose] = useState(searchParams.get('purpose') || 'all');
   const [filterType, setFilterType] = useState(searchParams.get('type') || 'all');
+  const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || 'all');
+  const [filterBedrooms, setFilterBedrooms] = useState(searchParams.get('bedrooms') || 'all');
+  const [filterBathrooms, setFilterBathrooms] = useState(searchParams.get('bathrooms') || 'all');
+  const [priceMin, setPriceMin] = useState(searchParams.get('price_min') || '');
+  const [priceMax, setPriceMax] = useState(searchParams.get('price_max') || '');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'date');
   const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
   const [pageSize] = useState(10);
@@ -98,7 +114,7 @@ export default function Listings() {
     let countQuery = supabase.from('listings').select('*', { count: 'exact', head: true });
     let dataQuery = supabase
       .from('listings')
-      .select('id, title, location, neighbourhood, property_type, sub_type, status, purpose, price, currency, bedrooms, bathrooms, is_published, is_pending, is_featured, is_homepage, created_at, main_image, cover_image, slug, agent_id, images')
+      .select('id, title, location, neighbourhood, property_type, sub_type, property_category, status, purpose, price, currency, bedrooms, bathrooms, is_published, is_pending, is_featured, is_homepage, created_at, main_image, cover_image, slug, agent_id, images')
       .range((page - 1) * pageSize, page * pageSize - 1);
 
     // Agent filter — agents only see their own listings
@@ -129,6 +145,38 @@ export default function Listings() {
     if (filterType !== 'all') {
       countQuery = countQuery.eq('property_type', filterType);
       dataQuery = dataQuery.eq('property_type', filterType);
+    }
+    if (filterCategory === 'residential') {
+      countQuery = countQuery.eq('property_category', 'residential').neq('property_type', 'land');
+      dataQuery = dataQuery.eq('property_category', 'residential').neq('property_type', 'land');
+    } else if (filterCategory === 'commercial') {
+      countQuery = countQuery.eq('property_category', 'commercial');
+      dataQuery = dataQuery.eq('property_category', 'commercial');
+    } else if (filterCategory === 'land') {
+      countQuery = countQuery.eq('property_type', 'land');
+      dataQuery = dataQuery.eq('property_type', 'land');
+    } else if (filterCategory === 'joint-ventures') {
+      countQuery = countQuery.eq('sub_type', 'joint_venture');
+      dataQuery = dataQuery.eq('sub_type', 'joint_venture');
+    } else if (filterCategory === 'new-developments') {
+      countQuery = countQuery.eq('featured_new_development', true);
+      dataQuery = dataQuery.eq('featured_new_development', true);
+    }
+    if (filterBedrooms !== 'all') {
+      countQuery = countQuery.gte('bedrooms', Number(filterBedrooms));
+      dataQuery = dataQuery.gte('bedrooms', Number(filterBedrooms));
+    }
+    if (filterBathrooms !== 'all') {
+      countQuery = countQuery.gte('bathrooms', Number(filterBathrooms));
+      dataQuery = dataQuery.gte('bathrooms', Number(filterBathrooms));
+    }
+    if (priceMin) {
+      countQuery = countQuery.gte('price', Number(priceMin));
+      dataQuery = dataQuery.gte('price', Number(priceMin));
+    }
+    if (priceMax) {
+      countQuery = countQuery.lte('price', Number(priceMax));
+      dataQuery = dataQuery.lte('price', Number(priceMax));
     }
     if (search.trim()) {
       const term = search.trim();
@@ -189,7 +237,7 @@ export default function Listings() {
     });
 
     setLoading(false);
-  }, [page, pageSize, filterStatus, filterPurpose, filterType, search, sortBy, isAgent, agentId]);
+  }, [page, pageSize, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, search, sortBy, isAgent, agentId]);
 
   useEffect(() => {
     fetchListings();
@@ -485,7 +533,7 @@ export default function Listings() {
   };
 
   const getPublishStatus = (l: Listing) => {
-    if (l.is_featured && l.is_published) return { label: 'Featured', class: 'bg-[#f58300] text-white' };
+    if (l.is_featured && l.is_published) return { label: 'Featured', class: 'bg-[#088135] text-white' };
     if (l.is_published) return { label: 'Published', class: 'bg-[#088135] text-white' };
     if (l.is_pending) return { label: 'Pending', class: 'bg-[#F5C518] text-[#001731]' };
     return { label: 'Draft', class: 'bg-[#dc2626] text-white' };
@@ -497,10 +545,15 @@ export default function Listings() {
     if (filterStatus !== 'all') params.set('status', filterStatus);
     if (filterPurpose !== 'all') params.set('purpose', filterPurpose);
     if (filterType !== 'all') params.set('type', filterType);
+    if (filterCategory !== 'all') params.set('category', filterCategory);
+    if (filterBedrooms !== 'all') params.set('bedrooms', filterBedrooms);
+    if (filterBathrooms !== 'all') params.set('bathrooms', filterBathrooms);
+    if (priceMin) params.set('price_min', priceMin);
+    if (priceMax) params.set('price_max', priceMax);
     if (sortBy !== 'date') params.set('sort', sortBy);
     if (page > 1) params.set('page', String(page));
     setSearchParams(params, { replace: true });
-  }, [search, filterStatus, filterPurpose, filterType, sortBy, page, setSearchParams]);
+  }, [search, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, sortBy, page, setSearchParams]);
 
   useEffect(() => {
     syncUrlParams();
@@ -516,18 +569,67 @@ export default function Listings() {
     return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const propertyTypes = [
-    { value: 'all', label: 'All Types' },
-    { value: 'apartment', label: 'Apartment' },
-    { value: 'house', label: 'House' },
-    { value: 'villa', label: 'Villa' },
-    { value: 'land', label: 'Land' },
-    { value: 'commercial', label: 'Commercial' },
-    { value: 'single_family_home', label: 'Single Family Home' },
-    { value: 'townhouse', label: 'Townhouse' },
-    { value: 'condo', label: 'Condo' },
-    { value: 'penthouse', label: 'Penthouse' },
-  ];
+  const CATEGORY_TYPES: Record<string, string[]> = {
+    residential: ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse'],
+    commercial: ['office', 'guest_house', 'commercial'],
+    land: ['land'],
+    'new-developments': [],
+  };
+
+  const TYPE_LABELS: Record<string, string> = {
+    apartment: 'Apartment',
+    house: 'House',
+    villa: 'Villa',
+    townhouse: 'Townhouse',
+    studio_flat: 'Studio Flat',
+    maisonette: 'Maisonette',
+    detached: 'Detached House',
+    penthouse: 'Penthouse',
+    office: 'Office',
+    guest_house: 'Guest House',
+    commercial: 'Commercial',
+    land: 'Land',
+    single_family_home: 'Single Family Home',
+    condo: 'Condo',
+  };
+
+  const selectCls = 'w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer';
+
+  const typeOptions = (() => {
+    if (filterCategory === 'land' || filterCategory === 'joint-ventures' || filterCategory === 'new-developments') return [];
+    const list = filterCategory === 'all'
+      ? ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse', 'office', 'guest_house', 'commercial', 'land', 'single_family_home', 'condo']
+      : CATEGORY_TYPES[filterCategory] || [];
+    return [{ value: 'all', label: 'All Types' }, ...list.map((t) => ({ value: t, label: TYPE_LABELS[t] || t }))];
+  })();
+
+  const activeFilterCount = [
+    filterType !== 'all',
+    filterPurpose !== 'all',
+    filterBedrooms !== 'all',
+    filterBathrooms !== 'all',
+    priceMin !== '',
+    priceMax !== '',
+    filterStatus !== 'all',
+    sortBy !== 'date',
+  ].filter(Boolean).length;
+
+  const handleCategoryChange = (val: string) => {
+    setFilterCategory(val);
+    setFilterType('all');
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setFilterType('all');
+    setFilterPurpose('all');
+    setFilterBedrooms('all');
+    setFilterBathrooms('all');
+    setPriceMin('');
+    setPriceMax('');
+    setFilterStatus('all');
+    setPage(1);
+  };
 
   const statCards = [
     { label: 'Total Properties', value: stats.total, icon: 'ri-bar-chart-line', color: 'text-[#9ca3af]', bg: 'bg-[#f7f8fa]', border: 'border-[#e5e7eb]' },
@@ -586,46 +688,120 @@ export default function Listings() {
           </div>
           <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
             <select
-              value={filterStatus}
-              onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
+              value={filterCategory}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
             >
-              <option value="all">All Statuses</option>
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-              <option value="pending">Pending Review</option>
-              <option value="featured">Featured</option>
+              <option value="all">All Categories</option>
+              <option value="residential">Residential</option>
+              <option value="commercial">Commercial</option>
+              <option value="land">Land</option>
+              <option value="joint-ventures">Joint Ventures</option>
+              <option value="new-developments">New Developments</option>
             </select>
-            <select
-              value={filterPurpose}
-              onChange={(e) => { setFilterPurpose(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
+            <button
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium cursor-pointer transition-colors whitespace-nowrap bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]"
             >
-              <option value="all">All Purposes</option>
-              <option value="sale">For Sale</option>
-              <option value="rent">For Rent</option>
-            </select>
-            <select
-              value={filterType}
-              onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
-            >
-              {propertyTypes.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-            <select
-              value={sortBy}
-              onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
-            >
-              <option value="date">Sort by Date</option>
-              <option value="price">Sort by Price</option>
-              <option value="title">Sort by Title</option>
-              <option value="featured">Sort by Featured</option>
-            </select>
+              <i className="ri-equalizer-line text-sm" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">
+                  {activeFilterCount}
+                </span>
+              )}
+              <i className={`${showAdvanced ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'} text-sm`} />
+            </button>
           </div>
         </div>
+
+        {showAdvanced && (
+          <div className="pt-3 border-t border-[#1c3a5e] lg:border-[#e5e7eb]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {typeOptions.length > 0 && (
+                <FilterField label="Property Type">
+                  <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1); }} className={selectCls}>
+                    {typeOptions.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                </FilterField>
+              )}
+              <FilterField label="Purpose">
+                <select value={filterPurpose} onChange={(e) => { setFilterPurpose(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="all">All Purposes</option>
+                  <option value="sale">For Sale</option>
+                  <option value="rent">For Rent</option>
+                </select>
+              </FilterField>
+              <FilterField label="Bedrooms">
+                <select value={filterBedrooms} onChange={(e) => { setFilterBedrooms(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="all">Any</option>
+                  <option value="1">1+</option>
+                  <option value="2">2+</option>
+                  <option value="3">3+</option>
+                  <option value="4">4+</option>
+                  <option value="5">5+</option>
+                </select>
+              </FilterField>
+              <FilterField label="Bathrooms">
+                <select value={filterBathrooms} onChange={(e) => { setFilterBathrooms(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="all">Any</option>
+                  <option value="1">1+</option>
+                  <option value="2">2+</option>
+                  <option value="3">3+</option>
+                  <option value="4">4+</option>
+                </select>
+              </FilterField>
+              <FilterField label="Price Range">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="Min"
+                    value={priceMin}
+                    onChange={(e) => { setPriceMin(e.target.value); setPage(1); }}
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+                  />
+                  <span className="text-xs text-[#6b7280] lg:text-[#88929e]">—</span>
+                  <input
+                    type="number"
+                    placeholder="Max"
+                    value={priceMax}
+                    onChange={(e) => { setPriceMax(e.target.value); setPage(1); }}
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+                  />
+                </div>
+              </FilterField>
+              <FilterField label="Status">
+                <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="all">All Statuses</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending Review</option>
+                  <option value="featured">Featured</option>
+                </select>
+              </FilterField>
+              <FilterField label="Sort">
+                <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="date">Sort by Date</option>
+                  <option value="price">Sort by Price</option>
+                  <option value="title">Sort by Title</option>
+                  <option value="featured">Sort by Featured</option>
+                </select>
+              </FilterField>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold cursor-pointer hover:underline"
+                style={{ color: COLORS.gray }}
+              >
+                <i className="ri-close-circle-line" />
+                Clear all filters
+              </button>
+            )}
+          </div>
+        )}
         <div className="flex items-center justify-between text-xs font-medium text-[#6b7280] lg:text-[#88929e]">
           <span>{total} listings</span>
           <span>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
@@ -773,8 +949,16 @@ export default function Listings() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-white leading-snug truncate">{listing.title || 'Untitled Draft'}</p>
-                      <p className="text-[11px] font-semibold text-[#6b7280] truncate">{listing.neighbourhood || '—'}</p>
+                      <p className="text-[13px] font-semibold text-white leading-snug truncate">
+                        {(() => {
+                          const words = (listing.title || 'Untitled Draft').split(/\s+/);
+                          return words.length > 6 ? words.slice(0, 6).join(' ') + '...' : listing.title || 'Untitled Draft';
+                        })()}
+                      </p>
+                      <p className="text-[11px] font-semibold text-[#6b7280] truncate flex items-center gap-1">
+                        <i className="ri-map-pin-line text-[10px]" />
+                        {listing.neighbourhood || '—'}
+                      </p>
                     </div>
                     <button
                       onClick={(e) => openActionMenu(listing.id, e)}
@@ -787,7 +971,7 @@ export default function Listings() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-white">{formatPrice(Number(listing.price), listing.currency)}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold capitalize text-white">
+                      <span className="text-xs font-bold capitalize" style={{ color: listing.purpose === 'rent' ? '#4ade80' : '#ffffff' }}>
                         {listing.purpose === 'sale' ? 'For Sale' : listing.purpose === 'rent' ? 'For Rent' : '—'}
                       </span>
                       <span className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold whitespace-nowrap ${status.class}`}>
@@ -897,23 +1081,24 @@ export default function Listings() {
                           ) : listing.images && listing.images.length > 0 ? (
                             <img src={listing.images[0]} alt="" className="w-[72px] h-[52px] rounded object-cover flex-shrink-0 mt-0.5" />
                           ) : (
-                            <div className="w-[72px] h-[52px] rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: '#e6f4ea' }}>
-                              <i className="ri-building-line text-[#088135] text-sm" />
+                            <div className="w-[72px] h-[52px] rounded flex items-center justify-center flex-shrink-0 mt-0.5" style={{ backgroundColor: 'rgba(0,23,49,0.08)' }}>
+                              <i className="ri-building-line text-[#001731] text-sm" />
                             </div>
                           )}
                           <div className="min-w-0 flex-1 flex flex-col gap-0.5">
                             <button
                               onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}`); }}
                               className="text-[13px] font-semibold block w-full text-left hover:underline cursor-pointer transition-colors leading-snug"
-                              style={{ color: '#0d5959' }}
+                              style={{ color: '#001731' }}
                             >
                               {(() => {
                                 const base = listing.title || 'Untitled Draft';
                                 const words = base.split(/\s+/);
-                                return words.length > 10 ? words.slice(0, 10).join(' ') + '...' : base;
+                                return words.length > 6 ? words.slice(0, 6).join(' ') + '...' : base;
                               })()}
                             </button>
-                            <p className="text-[11px] font-semibold truncate leading-snug" style={{ color: '#1a1a1a' }}>
+                            <p className="text-[11px] font-semibold truncate leading-snug flex items-center gap-1" style={{ color: '#1a1a1a' }}>
+                              <i className="ri-map-pin-line text-[10px]" style={{ color: '#636363' }} />
                               {listing.neighbourhood || '—'}
                             </p>
                           </div>
@@ -927,7 +1112,7 @@ export default function Listings() {
                         <p className="text-sm font-semibold" style={{ color: COLORS.navy }}>{formatPrice(Number(listing.price), listing.currency)}</p>
                       </td>
                       <td className="px-4 md:px-5 py-4">
-                        <span className="text-xs font-bold capitalize whitespace-nowrap" style={{ color: COLORS.navy }}>
+                        <span className="text-xs font-bold capitalize whitespace-nowrap" style={{ color: listing.purpose === 'rent' ? COLORS.green : COLORS.navy }}>
                           {listing.purpose === 'sale' ? 'For Sale' : listing.purpose === 'rent' ? 'For Rent' : listing.purpose || '—'}
                         </span>
                       </td>
@@ -940,7 +1125,7 @@ export default function Listings() {
                         <span className="text-xs" style={{ color: COLORS.gray }}>{formatDate(listing.created_at)}</span>
                       </td>
                       <td className="px-4 md:px-5 py-4">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-col items-start gap-1.5">
                           <button
                             onClick={(e) => openActionMenu(listing.id, e)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold border transition-colors cursor-pointer hover:bg-[#001731]/5 whitespace-nowrap"
@@ -949,6 +1134,15 @@ export default function Listings() {
                           >
                             <i className="ri-more-fill text-xs" />
                             Actions
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}?tab=contact`); }}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold cursor-pointer hover:underline whitespace-nowrap transition-colors"
+                            style={{ color: '#088135' }}
+                            title="Open Source & Contact (team only)"
+                          >
+                            <i className="ri-shield-keyhole-line text-[11px]" />
+                            Source &amp; Contact
                           </button>
                         </div>
                       </td>
@@ -1008,7 +1202,7 @@ export default function Listings() {
                       {(() => {
                         const base = listing.title || 'Untitled Draft';
                         const words = base.split(/\s+/);
-                        return words.length > 8 ? words.slice(0, 8).join(' ') + '...' : base;
+                        return words.length > 6 ? words.slice(0, 6).join(' ') + '...' : base;
                       })()}
                     </p>
                     <p className="text-[10px] text-[#6b8fa8] mt-0.5 truncate">{listing.neighbourhood || '—'}</p>

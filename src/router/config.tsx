@@ -14,6 +14,7 @@ import Contact from "../pages/Contact";
 import Valuation from "../pages/Valuation";
 import PropertyDetail from "../pages/PropertyDetail";
 import JointVentures from "../pages/JointVentures";
+import JointVentureProjectDetail from "../pages/JointVentureProjectDetail";
 import CRMLogin from "../pages/crm/Login";
 import ForgotPassword from "../pages/crm/ForgotPassword";
 import UpdatePassword from "../pages/crm/UpdatePassword";
@@ -24,7 +25,6 @@ import Listings from "../pages/crm/Listings";
 import Leads from "../pages/crm/Leads";
 import Deals from "../pages/crm/Deals";
 import Contacts from "../pages/crm/Contacts";
-import Enquiries from "../pages/crm/Enquiries";
 import Inbox from "../pages/crm/Inbox";
 import Agents from "../pages/crm/Agents";
 import MediaLibrary from "../pages/crm/MediaLibrary";
@@ -42,6 +42,8 @@ import MenuManager from "../pages/crm/MenuManager";
 import Testimonials from "../pages/crm/Testimonials";
 import SyncActions from "../pages/crm/SyncActions";
 import JointVenturesCRM from "../pages/crm/JointVentures";
+import JVSubmissionEdit from "../pages/crm/JVSubmissionEdit";
+import JVProjectEdit from "../pages/crm/JVProjectEdit";
 import ProtectedRoute from "../components/feature/ProtectedRoute";
 import CommercialProperty from "../pages/CommercialProperty";
 import CommercialAdvertising from "../pages/CommercialAdvertising";
@@ -139,6 +141,10 @@ const routes: RouteObject[] = [
   {
     path: "/joint-ventures",
     element: <JointVentures />,
+  },
+  {
+    path: "/joint-ventures/project/:slug",
+    element: <JointVentureProjectDetail />,
   },
   {
     path: "/about",
@@ -334,15 +340,9 @@ const routes: RouteObject[] = [
     path: "/crm/enquiries",
     element: (
       <ProtectedRoute>
-        <DashboardLayout />
+        <Navigate to="/crm/inbox" replace />
       </ProtectedRoute>
     ),
-    children: [
-      {
-        path: "",
-        element: <Enquiries />,
-      },
-    ],
   },
   {
     path: "/crm/media",
@@ -721,6 +721,48 @@ const routes: RouteObject[] = [
       {
         path: "",
         element: <JointVenturesCRM />,
+      },
+    ],
+  },
+  {
+    path: "/crm/joint-ventures/new",
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <JVSubmissionEdit />,
+      },
+    ],
+  },
+  {
+    path: "/crm/joint-ventures/projects/new",
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <JVProjectEdit />,
+      },
+    ],
+  },
+  {
+    path: "/crm/joint-ventures/projects/edit/:id",
+    element: (
+      <ProtectedRoute>
+        <DashboardLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        path: "",
+        element: <JVProjectEdit />,
       },
     ],
   },

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { formatLocation, smartTitleCase } from '@/lib/location';
 
 interface NavProperty {
   slug: string;
@@ -18,11 +19,8 @@ interface PrevNextProps {
 function formatPrice(row: Record<string, unknown>): string {
   const priceNum = Number(row.price || 0);
   const currency = String(row.currency || 'KES');
-  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : '€';
-  if (priceNum >= 1_000_000_000) return `${symbol} ${(priceNum / 1_000_000_000).toFixed(1)}B`;
-  if (priceNum >= 1_000_000) return `${symbol} ${(priceNum / 1_000_000).toFixed(1)}M`;
-  if (priceNum >= 1_000) return `${symbol} ${(priceNum / 1_000).toFixed(0)}K`;
-  return `${symbol} ${priceNum.toLocaleString()}`;
+  const symbol = currency === 'USD' ? '$' : currency === 'KES' ? 'KES' : currency === 'GBP' ? '£' : currency === 'EUR' ? '€' : currency === 'UGX' ? 'UGX' : currency;
+  return `${symbol} ${priceNum.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 }
 
 export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNextProps) {
@@ -36,7 +34,7 @@ export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNe
         // Previous: created_at < current, order desc, take 1
         const { data: prevData } = await supabase
           .from('listings')
-          .select('slug,title,location,price,currency,main_image')
+          .select('slug,title,location,address,neighbourhood,city,state_region,price,currency,main_image')
           .lt('created_at', currentCreatedAt)
           .eq('is_published', true)
           .neq('title', '')
@@ -49,8 +47,14 @@ export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNe
           const row = prevData as Record<string, unknown>;
           setPrevProp({
             slug: String(row.slug || ''),
-            title: String(row.title || ''),
-            location: String(row.location || ''),
+            title: smartTitleCase(String(row.title || '')),
+            location: formatLocation({
+              address: row.address as string | null,
+              neighbourhood: row.neighbourhood as string | null,
+              location: String(row.location || ''),
+              city: row.city as string | null,
+              state_region: row.state_region as string | null,
+            }),
             price: formatPrice(row),
             image: String(row.main_image || ''),
           });
@@ -59,7 +63,7 @@ export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNe
         // Next: created_at > current, order asc, take 1
         const { data: nextData } = await supabase
           .from('listings')
-          .select('slug,title,location,price,currency,main_image')
+          .select('slug,title,location,address,neighbourhood,city,state_region,price,currency,main_image')
           .gt('created_at', currentCreatedAt)
           .eq('is_published', true)
           .neq('title', '')
@@ -72,8 +76,14 @@ export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNe
           const row = nextData as Record<string, unknown>;
           setNextProp({
             slug: String(row.slug || ''),
-            title: String(row.title || ''),
-            location: String(row.location || ''),
+            title: smartTitleCase(String(row.title || '')),
+            location: formatLocation({
+              address: row.address as string | null,
+              neighbourhood: row.neighbourhood as string | null,
+              location: String(row.location || ''),
+              city: row.city as string | null,
+              state_region: row.state_region as string | null,
+            }),
             price: formatPrice(row),
             image: String(row.main_image || ''),
           });
@@ -88,31 +98,31 @@ export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNe
   if (!prevProp && !nextProp) return null;
 
   return (
-    <div className="bg-white border border-stone-200 rounded-[2px] overflow-hidden">
+    <div className="bg-white border border-primary/12 rounded-[2px] overflow-hidden">
       <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-stone-200">
         {/* Previous */}
         {prevProp ? (
           <Link to={`/property/${prevProp.slug}`} className="flex items-center gap-3 p-4 md:p-5 group hover:bg-stone-50 transition-colors cursor-pointer">
             <div className="w-16 h-12 overflow-hidden rounded-[2px] shrink-0 bg-stone-100">
               {prevProp.image ? (
-                <img src={prevProp.image} alt={prevProp.title} className="w-full h-full object-cover object-top" />
+                <img src={prevProp.image} alt={prevProp.title} className="w-full h-full object-cover object-center" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <i className="ri-building-line text-stone-300 text-lg"></i>
+                  <i className="ri-building-line text-primary/30 text-lg"></i>
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-stone-400 font-roboto text-[10px] uppercase tracking-wider mb-0.5 flex items-center gap-1">
+              <p className="text-primary/50 font-roboto text-[10px] uppercase tracking-wider mb-0.5 flex items-center gap-1">
                 <i className="ri-arrow-left-s-line"></i>Previous Property
               </p>
               <p className="text-primary font-roboto text-xs font-semibold truncate group-hover:text-golden transition-colors">{prevProp.title}</p>
-              <p className="text-stone-400 font-roboto text-[10px] truncate">{prevProp.location}</p>
+              <p className="text-primary/50 font-roboto text-[10px] truncate">{prevProp.location}</p>
               <p className="text-golden font-roboto text-xs font-semibold">{prevProp.price}</p>
             </div>
           </Link>
         ) : (
-          <div className="p-4 md:p-5 text-stone-300 font-roboto text-xs">No previous property</div>
+          <div className="p-4 md:p-5 text-primary/30 font-roboto text-xs">No previous property</div>
         )}
 
         {/* Next */}
@@ -120,24 +130,24 @@ export default function PropertyPrevNext({ currentId, currentCreatedAt }: PrevNe
           <Link to={`/property/${nextProp.slug}`} className="flex items-center gap-3 p-4 md:p-5 group hover:bg-stone-50 transition-colors cursor-pointer flex-row-reverse text-right">
             <div className="w-16 h-12 overflow-hidden rounded-[2px] shrink-0 bg-stone-100">
               {nextProp.image ? (
-                <img src={nextProp.image} alt={nextProp.title} className="w-full h-full object-cover object-top" />
+                <img src={nextProp.image} alt={nextProp.title} className="w-full h-full object-cover object-center" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <i className="ri-building-line text-stone-300 text-lg"></i>
+                  <i className="ri-building-line text-primary/30 text-lg"></i>
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-stone-400 font-roboto text-[10px] uppercase tracking-wider mb-0.5 flex items-center gap-1 justify-end">
+              <p className="text-primary/50 font-roboto text-[10px] uppercase tracking-wider mb-0.5 flex items-center gap-1 justify-end">
                 Next Property<i className="ri-arrow-right-s-line"></i>
               </p>
               <p className="text-primary font-roboto text-xs font-semibold truncate group-hover:text-golden transition-colors">{nextProp.title}</p>
-              <p className="text-stone-400 font-roboto text-[10px] truncate">{nextProp.location}</p>
+              <p className="text-primary/50 font-roboto text-[10px] truncate">{nextProp.location}</p>
               <p className="text-golden font-roboto text-xs font-semibold">{nextProp.price}</p>
             </div>
           </Link>
         ) : (
-          <div className="p-4 md:p-5 text-stone-300 font-roboto text-xs text-right">No next property</div>
+          <div className="p-4 md:p-5 text-primary/30 font-roboto text-xs text-right">No next property</div>
         )}
       </div>
     </div>

@@ -46,12 +46,12 @@ export default function ContactCTA({ pageSlug }: ContactCTAProps) {
                   </h3>
                 )}
                 {section.subtitle && (
-                  <p className="text-sm font-roboto text-stone-500 mb-3">
+                  <p className="text-sm font-roboto text-primary/70 mb-3">
                     {section.subtitle}
                   </p>
                 )}
                 {section.body_text && (
-                  <p className="text-sm font-roboto text-stone-500 mb-4 max-w-xl">
+                  <p className="text-sm font-roboto text-primary/70 mb-4 max-w-xl">
                     {section.body_text}
                   </p>
                 )}

@@ -9,13 +9,15 @@ export interface TagDef {
 
 export type TagCategory = 'status' | 'development' | 'lifestyle' | 'community' | 'investment' | 'service';
 
-export const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string; color: string; bg: string; border: string }> = {
-  status:      { label: 'Status',       icon: 'ri-flag-line',        color: '#0d9488', bg: 'bg-[#0d9488]/8',  border: 'border-[#0d9488]/30' },
-  development: { label: 'Development',  icon: 'ri-building-line',    color: '#d97706', bg: 'bg-[#d97706]/8',  border: 'border-[#d97706]/30' },
-  lifestyle:   { label: 'Lifestyle',    icon: 'ri-heart-line',       color: '#e11d48', bg: 'bg-[#e11d48]/8',  border: 'border-[#e11d48]/30' },
-  community:   { label: 'Community',    icon: 'ri-group-line',       color: '#0d5959', bg: 'bg-[#0d5959]/8',  border: 'border-[#0d5959]/30' },
-  investment:  { label: 'Investment',   icon: 'ri-line-chart-line',  color: '#ea580c', bg: 'bg-[#ea580c]/8',  border: 'border-[#ea580c]/30' },
-  service:     { label: 'Service',      icon: 'ri-service-line',     color: '#52525b', bg: 'bg-[#52525b]/8',  border: 'border-[#52525b]/30' },
+const ONE_COLOR = '#0d1f2d';
+
+export const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string }> = {
+  status:      { label: 'Status',       icon: 'ri-flag-line' },
+  development: { label: 'Development',  icon: 'ri-building-line' },
+  lifestyle:   { label: 'Lifestyle',    icon: 'ri-heart-line' },
+  community:   { label: 'Community',    icon: 'ri-group-line' },
+  investment:  { label: 'Investment',   icon: 'ri-line-chart-line' },
+  service:     { label: 'Service',      icon: 'ri-service-line' },
 };
 
 export const PREDEFINED_TAGS: TagDef[] = [
@@ -52,6 +54,18 @@ export const PREDEFINED_TAGS: TagDef[] = [
 interface Props {
   selectedTags: string[];
   setSelectedTags: React.Dispatch<React.SetStateAction<string[]>>;
+  propertyOfTheWeek: boolean;
+  setPropertyOfTheWeek: (v: boolean) => void;
+  newHome: boolean;
+  setNewHome: (v: boolean) => void;
+  refurbished: boolean;
+  setRefurbished: (v: boolean) => void;
+  reducedPrice: boolean;
+  setReducedPrice: (v: boolean) => void;
+  backOnMarket: boolean;
+  setBackOnMarket: (v: boolean) => void;
+  commissionApplicable: boolean;
+  setCommissionApplicable: (v: boolean) => void;
 }
 
 function getCategoryMeta(label: string) {
@@ -59,26 +73,65 @@ function getCategoryMeta(label: string) {
   return def ? TAG_CATEGORY_META[def.category] : TAG_CATEGORY_META.service;
 }
 
-/* ── Design tokens ── */
-const inputBase =
-  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+/* ── Shared chip style tokens ── */
+const chipBase =
+  'inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold border rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed';
+const chipStyle = `${chipBase} text-[#0d1f2d] bg-[#0d1f2d]/6 border-[#0d1f2d]/25 hover:bg-[#0d1f2d]/12`;
+
+const Toggle = ({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) => (
+  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+    <input type="checkbox" className="sr-only" checked={enabled} onChange={(e) => onChange(e.target.checked)} />
+    <div className={`w-11 h-6 rounded-full transition-colors px-0.5 flex items-center ${enabled ? 'bg-[#0d5959]' : 'bg-[#d1d5db]'}`}>
+      <div className={`w-5 h-5 rounded-full bg-white transition-transform duration-200 ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+    </div>
+  </label>
+);
+
+const QUICK_LABELS = [
+  { key: 'propertyOfTheWeek', label: 'Property of the Week', desc: 'Showcase one standout property each week', icon: 'ri-trophy-line', color: '#C9A84C' },
+  { key: 'newHome', label: 'New Home', desc: 'A newly built or recently completed home', icon: 'ri-home-heart-line', color: '#088135' },
+  { key: 'refurbished', label: 'Refurbished', desc: 'Recently renovated or upgraded', icon: 'ri-paint-brush-line', color: '#B45309' },
+  { key: 'reducedPrice', label: 'Reduced Price', desc: 'Asking price has been lowered', icon: 'ri-arrow-down-circle-line', color: '#E63946' },
+  { key: 'backOnMarket', label: 'Back on Market', desc: 'Returned to market after being off', icon: 'ri-refresh-line', color: '#0F766E' },
+];
 
 const SectionHeader = ({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) => (
-  <div className="mb-7">
-    <div className="flex items-center gap-4">
-      <div className="w-10 h-10 flex items-center justify-center shrink-0 bg-[#0d1f2d] rounded-lg">
-        <i className={`${icon} text-white text-base`} />
+  <div className="mb-5">
+    <div className="flex items-center gap-3">
+      <div className="w-9 h-9 flex items-center justify-center shrink-0 bg-[#0d1f2d] rounded-lg">
+        <i className={`${icon} text-white text-sm`} />
       </div>
       <div className="flex-1 min-w-0">
-        <h4 className="text-base font-semibold text-[#0d1f2d] tracking-wide">{title}</h4>
-        <p className="text-[13px] text-[#7a8a99] mt-0.5 leading-relaxed">{subtitle}</p>
+        <h4 className="text-sm font-semibold text-[#0d1f2d] tracking-wide">{title}</h4>
+        <p className="text-[12px] text-[#7a8a99] mt-0.5 leading-relaxed">{subtitle}</p>
       </div>
     </div>
-    <div className="h-px bg-[#e5e7eb] mt-4" />
   </div>
 );
 
-export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props) {
+export default function LabelsTagsStep({
+  selectedTags,
+  setSelectedTags,
+  propertyOfTheWeek,
+  setPropertyOfTheWeek,
+  newHome,
+  setNewHome,
+  refurbished,
+  setRefurbished,
+  reducedPrice,
+  setReducedPrice,
+  backOnMarket,
+  setBackOnMarket,
+  commissionApplicable,
+  setCommissionApplicable,
+}: Props) {
+  const quickLabelState: Record<string, { value: boolean; set: (v: boolean) => void }> = {
+    propertyOfTheWeek: { value: propertyOfTheWeek, set: setPropertyOfTheWeek },
+    newHome: { value: newHome, set: setNewHome },
+    refurbished: { value: refurbished, set: setRefurbished },
+    reducedPrice: { value: reducedPrice, set: setReducedPrice },
+    backOnMarket: { value: backOnMarket, set: setBackOnMarket },
+  };
   const [search, setSearch] = useState('');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const dragOverIdx = useRef<number | null>(null);
@@ -86,7 +139,6 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
   const MAX_TAGS = 6;
   const atMax = selectedTags.length >= MAX_TAGS;
 
-  // Featured quick-picks shown directly below the search bar
   const QUICK_PICKS = ['New Development', 'Luxury', 'Waterfront', 'Investment'];
   const quickPicks = QUICK_PICKS.filter((label) => !selectedTags.includes(label));
 
@@ -161,35 +213,81 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
   }
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-4">
       <SectionHeader
         icon="ri-price-tag-3-line"
         title="Labels & Tags"
         subtitle="Help buyers quickly identify key selling points"
       />
 
+      {/* Quick Labels */}
+      <div className="border border-[#e8ecf0] bg-white overflow-hidden rounded-xl">
+        <div className="px-5 py-4">
+          <div className="flex items-center gap-2 mb-4">
+            <i className="ri-sparkling-line text-[#0d1f2d] text-sm" />
+            <h5 className="text-[13px] font-semibold text-[#0d1f2d] tracking-wide">Quick Labels</h5>
+            <span className="text-[11px] text-[#9ba5b1]">Up to 3 show on the property card</span>
+          </div>
+          <div className="space-y-1">
+            {QUICK_LABELS.map((l) => {
+              const st = quickLabelState[l.key];
+              return (
+                <div key={l.key} className="flex items-center justify-between gap-4 px-3 py-2.5 rounded-lg hover:bg-[#f7f8fa] transition-colors">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 flex items-center justify-center rounded-lg shrink-0" style={{ backgroundColor: `${l.color}14`, color: l.color }}>
+                      <i className={`${l.icon} text-sm`} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-[#0d1f2d]">{l.label}</p>
+                      <p className="text-[12px] text-[#7a8a99]">{l.desc}</p>
+                    </div>
+                  </div>
+                  <Toggle enabled={st.value} onChange={st.set} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Commission */}
+          <div className="mt-3 pt-3 border-t border-[#e8ecf0]">
+            <div className="flex items-center justify-between gap-4 px-3 py-2.5 rounded-lg">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 flex items-center justify-center rounded-lg shrink-0 bg-[#0d1f2d]/10 text-[#0d1f2d]">
+                  <i className="ri-hand-coin-line text-sm" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[#0d1f2d]">Commission applies</p>
+                  <p className="text-[12px] text-[#7a8a99]">Shown on the property detail page</p>
+                </div>
+              </div>
+              <Toggle enabled={commissionApplicable} onChange={setCommissionApplicable} />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Main card */}
       <div className="border border-[#e8ecf0] bg-white overflow-hidden rounded-xl">
-        <div className="px-6 py-6 space-y-6">
+        <div className="px-5 py-4 space-y-4">
 
           {/* Search / create input */}
-          <div className="flex items-center border-2 border-[#e8edf2] bg-white rounded-md px-3 py-0.5 focus-within:border-[#0d5959] focus-within:ring-4 focus-within:ring-[#0d5959]/10 transition-all gap-3">
-            <i className="ri-search-line text-[#9ba5b1] text-base shrink-0" />
+          <div className="flex items-center border-2 border-[#e8edf2] bg-white rounded-md px-3 py-0 focus-within:border-[#0d1f2d] focus-within:ring-4 focus-within:ring-[#0d1f2d]/10 transition-all gap-2.5">
+            <i className="ri-search-line text-[#9ba5b1] text-sm shrink-0" />
             <input
               type="text"
               placeholder="Search or create a tag..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 text-sm font-medium text-[#0d1f2d] outline-none bg-transparent py-2.5 placeholder:text-[#b0bec5]"
+              className="flex-1 text-[13px] font-medium text-[#0d1f2d] outline-none bg-transparent py-2 placeholder:text-[#b0bec5]"
             />
             {search.trim() && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="w-6 h-6 flex items-center justify-center text-[#9ba5b1] hover:text-[#1a1e24] cursor-pointer rounded transition-colors"
+                className="w-5 h-5 flex items-center justify-center text-[#9ba5b1] hover:text-[#1a1e24] cursor-pointer rounded transition-colors"
               >
-                <i className="ri-close-line text-sm" />
+                <i className="ri-close-line text-xs" />
               </button>
             )}
           </div>
@@ -197,26 +295,22 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
           {/* Quick-pick chips (shown when not searching) */}
           {search.trim().length === 0 && quickPicks.length > 0 && (
             <div>
-              <p className="text-[13px] font-semibold tracking-wide text-[#4a5568] uppercase mb-3 leading-none">Quick Add</p>
-              <div className="flex flex-wrap gap-2.5">
-                {quickPicks.map((label) => {
-                  const meta = getCategoryMeta(label);
-                  return (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => addTag(label)}
-                      disabled={atMax}
-                      className={`inline-flex items-center gap-2.5 px-4 py-2.5 text-[14px] font-semibold border rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed ${meta.bg} ${meta.border} hover:opacity-80`}
-                      style={{ color: meta.color }}
-                    >
-                      {label}
-                      <span className="w-5 h-5 flex items-center justify-center rounded-full border" style={{ borderColor: meta.color }}>
-                        <i className="ri-add-line text-xs" />
-                      </span>
-                    </button>
-                  );
-                })}
+              <p className="text-[12px] font-semibold tracking-wide text-[#6b7280] uppercase mb-2 leading-none">Quick Add</p>
+              <div className="flex flex-wrap gap-2">
+                {quickPicks.map((label) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => addTag(label)}
+                    disabled={atMax}
+                    className={`${chipStyle} gap-1.5`}
+                  >
+                    {label}
+                    <span className="w-4 h-4 flex items-center justify-center rounded-full border border-[#0d1f2d]/40">
+                      <i className="ri-add-line text-[10px]" />
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -224,17 +318,16 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
           {/* Selected tags (drag-to-reorder) */}
           {selectedTags.length > 0 && (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[13px] font-semibold tracking-wide text-[#4a5568] uppercase leading-none">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[12px] font-semibold tracking-wide text-[#6b7280] uppercase leading-none">
                   Selected Tags
                 </p>
-                <span className="text-[13px] text-[#9ba5b1] font-medium">
+                <span className="text-[12px] text-[#9ba5b1] font-medium">
                   {selectedTags.length} / {MAX_TAGS} max
                 </span>
               </div>
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap gap-2">
                 {selectedTags.map((tag, idx) => {
-                  const meta = getCategoryMeta(tag);
                   const isPrimary = idx === 0;
                   return (
                     <span
@@ -244,17 +337,16 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
                       onDragOver={(e) => handleDragOver(e, idx)}
                       onDrop={handleDrop}
                       onDragEnd={handleDragEnd}
-                      className={`inline-flex items-center gap-2.5 px-4 py-2.5 text-[14px] font-semibold border rounded-lg transition-all cursor-grab active:cursor-grabbing select-none whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold border rounded-lg transition-all cursor-grab active:cursor-grabbing select-none whitespace-nowrap ${
                         isPrimary
                           ? 'bg-[#0d1f2d] text-white border-[#0d1f2d]'
-                          : `${meta.bg} ${meta.border}`
+                          : 'text-[#0d1f2d] bg-[#0d1f2d]/6 border-[#0d1f2d]/25'
                       }`}
-                      style={!isPrimary ? { color: meta.color } : undefined}
                     >
                       {isPrimary && (
                         <i className="ri-star-fill text-[10px] opacity-60" />
                       )}
-                      <i className="ri-draggable text-sm opacity-40" />
+                      <i className="ri-draggable text-xs opacity-40" />
                       {tag}
                       <button
                         type="button"
@@ -262,22 +354,21 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
                           e.stopPropagation();
                           removeTag(tag);
                         }}
-                        className={`w-5 h-5 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
+                        className={`w-4 h-4 flex items-center justify-center rounded-full cursor-pointer transition-colors ${
                           isPrimary
                             ? 'text-white/60 hover:text-white hover:bg-white/20'
-                            : 'opacity-50 hover:opacity-100'
+                            : 'text-[#0d1f2d]/50 hover:text-[#0d1f2d] hover:bg-[#0d1f2d]/10'
                         }`}
-                        style={!isPrimary ? { color: meta.color } : undefined}
                       >
-                        <i className="ri-close-line text-xs" />
+                        <i className="ri-close-line text-[10px]" />
                       </button>
                     </span>
                   );
                 })}
               </div>
               {selectedTags.length < 3 && (
-                <p className="text-[13px] text-amber-600 font-semibold mt-3 flex items-center gap-1.5 leading-relaxed">
-                  <i className="ri-information-line text-sm" />
+                <p className="text-[12px] text-amber-600 font-semibold mt-2 flex items-center gap-1 leading-relaxed">
+                  <i className="ri-information-line text-xs" />
                   Add at least 3 tags for best visibility in search results
                 </p>
               )}
@@ -286,41 +377,40 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
 
           {/* Divider */}
           {search.trim().length === 0 && selectedTags.length > 0 && (
-            <div className="h-px bg-[#f0f3f5]" />
+            <div className="h-px bg-[#e8ecf0]" />
           )}
 
           {/* Search results or default library */}
           {search.trim().length > 0 ? (
             <div>
-              <p className="text-[13px] font-semibold tracking-wide text-[#4a5568] uppercase mb-4 leading-none">
+              <p className="text-[12px] font-semibold tracking-wide text-[#6b7280] uppercase mb-3 leading-none">
                 {filteredSuggestions.length > 0 ? 'Matching Tags' : 'No matching tags'}
               </p>
               {filteredSuggestions.length > 0 && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {(Object.keys(TAG_CATEGORY_META) as TagCategory[]).map((cat) => {
                     const items = grouped[cat];
                     if (items.length === 0) return null;
                     const meta = TAG_CATEGORY_META[cat];
                     return (
                       <div key={cat}>
-                        <div className="flex items-center gap-2 mb-2.5">
-                          <i className={`${meta.icon} text-[13px]`} style={{ color: meta.color }} />
-                          <span className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: meta.color }}>
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <i className={`${meta.icon} text-[12px] text-[#0d1f2d]/70`} />
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-[#0d1f2d]">
                             {meta.label}
                           </span>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           {items.map((tag) => (
                             <button
                               key={tag.label}
                               type="button"
                               onClick={() => addTag(tag.label)}
                               disabled={atMax}
-                              className={`inline-flex items-center gap-2 px-4 py-2.5 text-[14px] font-semibold border rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed ${meta.bg} ${meta.border} hover:opacity-80`}
-                              style={{ color: meta.color }}
+                              className={chipStyle}
                             >
                               {tag.label}
-                              <i className="ri-add-line text-sm" />
+                              <i className="ri-add-line text-xs" />
                             </button>
                           ))}
                         </div>
@@ -334,20 +424,20 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
                   type="button"
                   onClick={() => addTag(search.trim())}
                   disabled={atMax}
-                  className="mt-3 inline-flex items-center gap-2 px-4 py-2.5 text-[14px] font-semibold border border-dashed border-[#d4d8df] text-[#7a8a99] rounded-lg hover:border-[#0d5959] hover:text-[#0d5959] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold border border-dashed border-[#0d1f2d]/30 text-[#0d1f2d] rounded-lg hover:border-[#0d1f2d] hover:bg-[#0d1f2d]/6 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                  <i className="ri-add-circle-line text-base" />
+                  <i className="ri-add-circle-line text-sm" />
                   Create &quot;{search.trim()}&quot;
                 </button>
               )}
             </div>
           ) : (
-            /* Full tag library grouped by category */
+            /* Full tag library - compact grid */
             <div>
-              <p className="text-[13px] font-semibold tracking-wide text-[#4a5568] uppercase mb-4 leading-none">
+              <p className="text-[12px] font-semibold tracking-wide text-[#6b7280] uppercase mb-3 leading-none">
                 Tag Library
               </p>
-              <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-3">
                 {(Object.keys(TAG_CATEGORY_META) as TagCategory[]).map((cat) => {
                   const items = PREDEFINED_TAGS.filter(
                     (t) => t.category === cat && !selectedTags.includes(t.label),
@@ -355,25 +445,24 @@ export default function LabelsTagsStep({ selectedTags, setSelectedTags }: Props)
                   if (items.length === 0) return null;
                   const meta = TAG_CATEGORY_META[cat];
                   return (
-                    <div key={cat} className="border border-[#f0f3f5] rounded-lg overflow-hidden">
-                      <div className="flex items-center gap-2.5 px-4 py-3 bg-[#fafbfc] border-b border-[#f0f3f5]">
-                        <i className={`${meta.icon} text-[13px]`} style={{ color: meta.color }} />
-                        <span className="text-[13px] font-semibold uppercase tracking-wide" style={{ color: meta.color }}>
+                    <div key={cat} className="border border-[#e8ecf0] rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f8f9fb] border-b border-[#e8ecf0]">
+                        <i className={`${meta.icon} text-[11px] text-[#0d1f2d]/70`} />
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#0d1f2d]">
                           {meta.label}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-2 p-4">
+                      <div className="flex flex-wrap gap-1.5 p-2.5">
                         {items.map((tag) => (
                           <button
                             key={tag.label}
                             type="button"
                             onClick={() => addTag(tag.label)}
                             disabled={atMax}
-                            className={`inline-flex items-center gap-2 px-4 py-2.5 text-[14px] font-semibold border rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed ${meta.bg} ${meta.border} hover:opacity-80`}
-                            style={{ color: meta.color }}
+                            className={chipStyle}
                           >
                             {tag.label}
-                            <i className="ri-add-line text-sm" />
+                            <i className="ri-add-line text-[10px]" />
                           </button>
                         ))}
                       </div>

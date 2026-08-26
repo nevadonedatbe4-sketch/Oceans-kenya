@@ -83,95 +83,91 @@ export default function AttachmentsStep({
 
   const getDocsByCategory = (cat: string) => documents.filter((d) => d.category === cat);
 
-  const showDocumentsSection = isAdmin || purpose === 'joint_ventures' || purpose === 'new_development' || propertyType === 'land';
-
   return (
     <div className="w-full space-y-10 md:space-y-12">
-      {showDocumentsSection && (
-        <section className="pb-2">
-          <SectionHeader
-            icon="ri-file-list-line"
-            title="Documents & Brochures"
-            subtitle="Upload categorized documents for this property"
-          />
+      <section className="pb-2">
+        <SectionHeader
+          icon="ri-file-list-line"
+          title="Documents & Brochures"
+          subtitle="Upload categorized documents for this property"
+        />
 
-          <div className="border border-[#d1d5db] bg-white p-5 md:p-6 space-y-4">
-            {ATTACHMENT_TYPES.map((type) => {
-              const typeDocs = getDocsByCategory(type.id);
-              return (
-                <div key={type.id} className="border border-[#d1d5db] p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 flex items-center justify-center shrink-0 border border-[#d1d5db] bg-white">
-                        <i className={`${type.icon} text-sm text-[#5a6a7a]`} />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-[#1a1e24]">{type.label}</h4>
-                        <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 bg-[#f4f6f8] text-[#7a8a99]">
-                          {type.accept}
-                        </span>
-                      </div>
+        <div className="border border-[#d1d5db] bg-white p-5 md:p-6 space-y-4">
+          {ATTACHMENT_TYPES.map((type) => {
+            const typeDocs = getDocsByCategory(type.id);
+            return (
+              <div key={type.id} className="border border-[#d1d5db] p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-9 h-9 flex items-center justify-center shrink-0 border border-[#d1d5db] bg-white">
+                      <i className={`${type.icon} text-sm text-[#5a6a7a]`} />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        ref={(el) => { fileInputRefs.current[type.id] = el; }}
-                        type="file"
-                        accept={type.accept}
-                        multiple
-                        className="hidden"
-                        onChange={(e) => handleUpload(type.id, e)}
-                      />
-                      <button
-                        onClick={() => fileInputRefs.current[type.id]?.click()}
-                        disabled={uploading}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 border text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer bg-white border-[#d1d5db] text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d]"
-                      >
-                        {uploading ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-upload-cloud-line" />}
-                        Upload
-                      </button>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#1a1e24]">{type.label}</h4>
+                      <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 bg-[#f4f6f8] text-[#7a8a99]">
+                        {type.accept}
+                      </span>
                     </div>
                   </div>
-                  {typeDocs.length > 0 ? (
-                    <div className="space-y-2">
-                      {typeDocs.map((doc, idx) => (
-                        <div key={idx} className="flex items-center gap-3 p-3 border border-[#d1d5db]">
-                          <div className="w-10 h-10 flex items-center justify-center shrink-0 border border-[#d1d5db] bg-white">
-                            <i className={type.icon} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate text-[#1a1e24]">{doc.name}</p>
-                            <p className="text-xs text-[#7a8a99]">{formatFileSize(doc.size)}</p>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <a
-                              href={doc.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-8 h-8 flex items-center justify-center hover:bg-[#f6f7f9] cursor-pointer transition-colors text-[#7a8a99]"
-                            >
-                              <i className="ri-download-line text-sm" />
-                            </a>
-                            <button
-                              onClick={() => handleRemoveDocument(doc.url)}
-                              className="w-8 h-8 flex items-center justify-center hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors text-[#7a8a99]"
-                            >
-                              <i className="ri-delete-bin-line text-sm" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6 border border-dashed border-[#d1d5db]">
-                      <p className="text-xs text-[#7a8a99]">No files uploaded yet</p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={(el) => { fileInputRefs.current[type.id] = el; }}
+                      type="file"
+                      accept={type.accept}
+                      multiple
+                      className="hidden"
+                      onChange={(e) => handleUpload(type.id, e)}
+                    />
+                    <button
+                      onClick={() => fileInputRefs.current[type.id]?.click()}
+                      disabled={uploading}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 border text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer bg-white border-[#d1d5db] text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d]"
+                    >
+                      {uploading ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-upload-cloud-line" />}
+                      Upload
+                    </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+                {typeDocs.length > 0 ? (
+                  <div className="space-y-2">
+                    {typeDocs.map((doc, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 border border-[#d1d5db]">
+                        <div className="w-10 h-10 flex items-center justify-center shrink-0 border border-[#d1d5db] bg-white">
+                          <i className={type.icon} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate text-[#1a1e24]">{doc.name}</p>
+                          <p className="text-xs text-[#7a8a99]">{formatFileSize(doc.size)}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={doc.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 flex items-center justify-center hover:bg-[#f6f7f9] cursor-pointer transition-colors text-[#7a8a99]"
+                          >
+                            <i className="ri-download-line text-sm" />
+                          </a>
+                          <button
+                            onClick={() => handleRemoveDocument(doc.url)}
+                            className="w-8 h-8 flex items-center justify-center hover:bg-red-50 hover:text-red-600 cursor-pointer transition-colors text-[#7a8a99]"
+                          >
+                            <i className="ri-delete-bin-line text-sm" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 border border-dashed border-[#d1d5db]">
+                    <p className="text-xs text-[#7a8a99]">No files uploaded yet</p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }

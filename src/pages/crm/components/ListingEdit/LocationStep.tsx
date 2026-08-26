@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchNeighborhoods } from './types';
+import { fetchNeighborhoods, isLandType } from './types';
 
 interface Props {
   address: string;
@@ -12,6 +12,9 @@ interface Props {
   setCity: (v: string) => void;
   country: string;
   setCountry: (v: string) => void;
+  isLocationRequired?: boolean;
+  propertyType?: string;
+  purpose?: string;
 }
 
 /* ── Design tokens ── */
@@ -47,10 +50,11 @@ const Card = ({ children }: { children: React.ReactNode }) => (
 
 export default function LocationStep({
   address, setAddress, location, setLocation, neighbourhood, setNeighbourhood,
-  city, setCity, country, setCountry,
+  city, setCity, country, setCountry, isLocationRequired, propertyType, purpose,
 }: Props) {
   const [neighborhoods, setNeighborhoods] = useState<{ id: string; name: string }[]>([]);
   const [loadingHoods, setLoadingHoods] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
 
   useEffect(() => {
     setLoadingHoods(true);
@@ -60,6 +64,15 @@ export default function LocationStep({
     });
   }, []);
 
+  // If the saved neighbourhood isn't in the preset list (common for land/JV),
+  // flip into manual entry so the existing value isn't silently shown as blank.
+  useEffect(() => {
+    if (loadingHoods || neighborhoods.length === 0) return;
+    if (neighbourhood && !neighborhoods.some((n) => n.name === neighbourhood)) {
+      setManualMode(true);
+    }
+  }, [loadingHoods, neighbourhood, neighborhoods]);
+
   useEffect(() => {
     if (!city) setCity('Nairobi');
   }, [city, setCity]);
@@ -67,6 +80,8 @@ export default function LocationStep({
   useEffect(() => {
     if (!country) setCountry('Kenya');
   }, [country, setCountry]);
+
+  const isLandish = isLandType(propertyType || '') || purpose === 'joint_ventures';
 
   return (
     <div className="w-full space-y-5">
@@ -81,7 +96,7 @@ export default function LocationStep({
           {/* Street Address */}
           <div>
             <label className={labelClass}>
-              Full Street Address <span className="text-red-500 normal-case">*</span>
+              Full Street Address {isLocationRequired !== false && <span className="text-red-500 normal-case">*</span>}
             </label>
             <input
               placeholder="e.g. Plot 24, Acacia Avenue"
@@ -95,21 +110,66 @@ export default function LocationStep({
 
           {/* Neighbourhood */}
           <div>
-            <label className={labelClass}>
-              Area / Neighbourhood <span className="text-red-500 normal-case">*</span>
-            </label>
-            <select
-              value={neighbourhood}
-              onChange={(e) => setNeighbourhood(e.target.value)}
-              disabled={loadingHoods}
-              className={`${selectClass} ${loadingHoods ? 'opacity-60' : ''}`}
-            >
-              <option value="">Select neighbourhood</option>
-              {neighborhoods.map((n) => (
-                <option key={n.id} value={n.name}>{n.name}</option>
-              ))}
-            </select>
-            <p className={hintClass}>Select the neighbourhood where the property is located</p>
+            <div className="flex items-center justify-between gap-4 mb-2.5">
+              <label className="block text-[14px] font-bold tracking-wide text-[#0d1f2d] uppercase leading-none">
+                Area / Neighbourhood {isLocationRequired !== false && <span className="text-red-500 normal-case">*</span>}
+              </label>
+              <button
+                type="button"
+                onClick={() => setManualMode((v) => !v)}
+                className="flex items-center gap-1.5 text-[13px] font-semibold text-[#0d5959] hover:text-[#0a4545] transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className={`${manualMode ? 'ri-list-check' : 'ri-edit-line'} text-sm`} />
+                {manualMode ? 'Choose from list' : 'Type manually'}
+              </button>
+            </div>
+
+            {manualMode ? (
+              <input
+                placeholder="e.g. Kiambu, Ruaka, Nanyuki, Kajiado…"
+                className={inputBase}
+                type="text"
+                value={neighbourhood}
+                onChange={(e) => setNeighbourhood(e.target.value)}
+              />
+            ) : (
+              <select
+                value={neighbourhood}
+                onChange={(e) => setNeighbourhood(e.target.value)}
+                disabled={loadingHoods}
+                className={`${selectClass} ${loadingHoods ? 'opacity-60' : ''}`}
+              >
+                <option value="">Select neighbourhood</option>
+                {neighborhoods.map((n) => (
+                  <option key={n.id} value={n.name}>{n.name}</option>
+                ))}
+              </select>
+            )}
+
+            <p className={hintClass}>
+              {manualMode
+                ? 'Type the exact area name — handy for land and joint-venture listings outside the preset areas'
+                : 'Select the neighbourhood where the property is located'}
+            </p>
+
+            {isLandish && !manualMode && (
+              <div className="mt-3 flex items-start gap-2 px-3 py-2.5 bg-[#0d5959]/5 border border-[#0d5959]/15 rounded-md">
+                <div className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                  <i className="ri-lightbulb-line text-[#0d5959] text-sm" />
+                </div>
+                <p className="text-[13px] text-[#0d5959] leading-relaxed">
+                  Land &amp; JV listings often sit outside the preset areas —{' '}
+                  <button
+                    type="button"
+                    onClick={() => setManualMode(true)}
+                    className="font-bold underline cursor-pointer"
+                  >
+                    type manually
+                  </button>{' '}
+                  if you can&apos;t find yours.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* City + Country (locked) */}

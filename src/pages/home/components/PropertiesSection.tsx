@@ -1,55 +1,44 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { normalizePropertyImages, type NormalizedImage } from '@/lib/propertyImages';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
-import { useCurrency } from '@/hooks/useCurrency';
-import { formatTimeAgo } from '@/lib/timeAgo';
-
-interface PropertyAgent {
-  name: string;
-  photo: string;
-}
-
-interface Property {
-  id: string;
-  slug: string;
-  title: string;
-  location: string;
-  type: 'sale' | 'rent';
-  category: string;
-  beds: number;
-  baths: number;
-  parking: number;
-  price: string;
-  priceRaw: number;
-  currency: string;
-  priceUnit?: string;
-  image: string;
-  featured: boolean;
-  listedDays: number;
-  createdAt: string;
-  agent?: PropertyAgent;
-  isLand: boolean;
-  isJointVenture: boolean;
-}
+import { formatLocation, formatAreaName, smartTitleCase } from '@/lib/location';
+import QuickViewModal from '@/components/feature/QuickViewModal';
+import PropertyCard, { type Property } from './PropertyCard';
+import Pagination from '@/components/feature/Pagination';
 
 interface ListingRow {
   id: string;
   title: string;
   location: string;
+  address?: string | null;
+  neighbourhood?: string | null;
+  city?: string | null;
+  state_region?: string | null;
   price: number;
   property_type: string;
   bedrooms: number | null;
   bathrooms: number | null;
   parking: number | null;
+  sqft: number | null;
+  land_size: number | null;
+  acreage: number | null;
+  land_unit: string | null;
   slug: string | null;
   created_at: string;
   main_image: string | null;
+  cover_image: string | null;
   images: string[] | null;
   purpose: string;
   is_featured: boolean;
   currency: string;
   sub_type: string | null;
+  new_home?: boolean | null;
+  refurbished?: boolean | null;
+  reduced_price?: boolean | null;
+  back_on_market?: boolean | null;
+  property_of_the_week?: boolean | null;
 }
 
 function buildSlug(id: string, title: string): string {
@@ -70,61 +59,92 @@ function toCategoryLabel(category: string): string {
 }
 
 function mapRow(row: ListingRow): Property {
-  const title = row.title || 'Untitled Property';
+  const title = smartTitleCase(row.title || 'Untitled Property');
   const slug = row.slug || buildSlug(row.id, title);
-
-  const mainImg = row.main_image || (row.images && row.images.length > 0 ? row.images[0] : null);
-  const fallbackImg = 'https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20clean%20white%20walls%20large%20windows%20bright%20daylight%20architectural%20photography%20high%20quality%20warm%20neutral%20background%20professional%20real%20estate%20photo&width=800&height=600&seq=hp-property-fallback&orientation=landscape';
-
-  const priceNum = row.price || 0;
-  const currency = row.currency || 'KES';
-
-  let priceDisplay = '';
-
-  const created = new Date(row.created_at);
-  const listedDays = Math.floor((Date.now() - created.getTime()) / 86400000);
+  const images: NormalizedImage[] = normalizePropertyImages({
+    coverImage: row.cover_image,
+    mainImage: row.main_image,
+    images: row.images,
+    title,
+  });
 
   return {
     id: row.id,
     slug,
     title,
-    location: row.location || 'Nairobi',
+    location: formatLocation({
+      address: row.address,
+      neighbourhood: row.neighbourhood,
+      location: row.location,
+      city: row.city,
+      state_region: row.state_region,
+    }),
+    area: formatAreaName({
+      address: row.address,
+      neighbourhood: row.neighbourhood,
+      location: row.location,
+      city: row.city,
+    }),
     type: row.purpose === 'rent' ? 'rent' : 'sale',
     category: toCategoryLabel(row.property_type || 'house'),
+    propertyType: row.property_type || '',
     beds: row.bedrooms ?? 0,
     baths: row.bathrooms ?? 0,
     parking: row.parking ?? 0,
-    price: priceDisplay,
-    priceRaw: priceNum,
-    currency,
+    sqft: Number(row.sqft ?? 0),
+    landSize: Number(row.land_size ?? 0),
+    acreage: Number(row.acreage ?? 0),
+    landUnit: row.land_unit || undefined,
+    priceRaw: row.price || 0,
+    currency: row.currency || 'KES',
     priceUnit: row.purpose === 'rent' ? 'pm' : undefined,
-    image: mainImg || fallbackImg,
+    images,
     featured: row.is_featured || false,
-    listedDays,
-    createdAt: row.created_at,
-    isLand: (row.property_type || '').toLowerCase() === 'land',
+    justListed: (Date.now() - new Date(row.created_at).getTime()) / 86400000 <= 3,
+    newHome: Boolean(row.new_home),
+    reduced: Boolean(row.reduced_price),
+    refurbished: Boolean(row.refurbished),
+    backOnMarket: Boolean(row.back_on_market),
+    propertyOfTheWeek: Boolean(row.property_of_the_week),
     isJointVenture: (row.sub_type || '').toLowerCase() === 'joint_venture',
+    createdAt: row.created_at,
   };
 }
 
-export default function PropertiesSection() {
-  const [currentSlide, setCurrentSlide] = useState(0);
+const TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'featured', label: 'Featured' },
+  { key: 'sale', label: 'For Sale' },
+  { key: 'rent', label: 'To Let' },
+  { key: 'commercial', label: 'Commercial' },
+] as const;
+
+type TabKey = (typeof TABS)[number]['key'];
+
+interface PropertiesSectionProps {
+  searchQuery?: string;
+}
+
+export default function PropertiesSection({ searchQuery = '' }: PropertiesSectionProps) {
+  const [tab, setTab] = useState<TabKey>('all');
+  const [page, setPage] = useState(0);
+  const [cardsPerView, setCardsPerView] = useState(3);
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [quickViewProperty, setQuickViewProperty] = useState<Property | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
   const { getCardStyle } = useSiteSettings();
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
 
-  const cardsPerView = typeof window !== 'undefined' && window.innerWidth >= 768 ? 3 : 1;
-  const totalSlides = Math.max(1, Math.ceil(properties.length / cardsPerView));
+  const totalPages = Math.max(1, Math.ceil(properties.length / cardsPerView));
+  const maxPage = Math.max(0, totalPages - 1);
 
   const cardShadow = getCardStyle('card_shadow') === 'true';
   const cardHoverLift = getCardStyle('card_hover_lift') === 'true';
   const showBadge = getCardStyle('card_show_badge') !== 'false';
-  const showAgent = getCardStyle('card_show_agent') === 'true';
   const imageRatio = getCardStyle('card_image_ratio') || '4/3';
-  const badgeColor = getCardStyle('card_badge_color') || '#1B4332';
 
   const aspectClass = {
     '4/3': 'aspect-[4/3]',
@@ -133,7 +153,7 @@ export default function PropertiesSection() {
     '1/1': 'aspect-square',
   }[imageRatio] || 'aspect-[4/3]';
 
-  const shadowClass = cardShadow ? 'shadow-md' : '';
+  const shadowClass = cardShadow ? 'shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)]' : '';
   const hoverClass = cardHoverLift ? 'hover:-translate-y-1' : '';
 
   useEffect(() => {
@@ -142,22 +162,41 @@ export default function PropertiesSection() {
       setLoading(true);
       setError('');
       try {
-        const { data, error: dbError } = await supabase
+        let query = supabase
           .from('listings')
-          .select('id,title,location,price,property_type,sub_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,is_featured,currency')
+          .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,sub_type,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,cover_image,images,purpose,is_featured,currency,new_home,refurbished,reduced_price,back_on_market,property_of_the_week')
           .eq('is_published', true)
           .neq('title', '')
           .gt('price', 0)
           .in('status', ['available', 'under_contract'])
           .order('created_at', { ascending: false })
-          .limit(12);
+          .limit(36);
+
+        if (tab === 'featured') {
+          query = query.eq('is_featured', true).eq('property_category', 'residential').neq('is_new_development', true);
+        } else if (tab === 'sale') {
+          query = query.eq('purpose', 'sale').eq('property_category', 'residential').neq('is_new_development', true);
+        } else if (tab === 'rent') {
+          query = query.eq('purpose', 'rent').eq('property_category', 'residential').neq('is_new_development', true);
+        } else if (tab === 'commercial') {
+          query = query.eq('property_category', 'commercial');
+        } else {
+          query = query.eq('property_category', 'residential').neq('is_new_development', true);
+        }
+
+        if (searchQuery.trim()) {
+          query = query.or(
+            `title.ilike.%${searchQuery.trim()}%,location.ilike.%${searchQuery.trim()}%,property_type.ilike.%${searchQuery.trim()}%`,
+          );
+        }
+
+        const { data, error: dbError } = await query;
 
         if (dbError) throw dbError;
         if (cancelled) return;
 
         const rows = (data || []) as ListingRow[];
-        const mapped = rows.map(mapRow);
-        setProperties(mapped);
+        setProperties(rows.map(mapRow));
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load properties');
@@ -167,31 +206,37 @@ export default function PropertiesSection() {
       }
     }
     fetchProperties();
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery, tab]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, tab]);
 
   useEffect(() => {
     const handleResize = () => {
-      setCurrentSlide(0);
+      const w = window.innerWidth;
+      setCardsPerView(w >= 1024 ? 3 : w >= 768 ? 2 : 1);
+      setPage(0);
     };
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % totalSlides);
-  };
+  // Auto-rotate listings every minute (pauses on hover/touch)
+  useEffect(() => {
+    if (totalPages <= 1 || isPaused) return;
+    const interval = setInterval(() => {
+      setPage((prev) => (prev >= maxPage ? 0 : prev + 1));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [totalPages, maxPage, isPaused]);
 
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
-  };
-
-  const getCardWidth = () => {
-    if (typeof window === 'undefined') return 320;
-    if (window.innerWidth >= 1024) return 360;
-    if (window.innerWidth >= 768) return 320;
-    return typeof window !== 'undefined' ? window.innerWidth - 48 : 280;
-  };
+  const nextSlide = () => setPage((prev) => Math.min(prev + 1, maxPage));
+  const prevSlide = () => setPage((prev) => Math.max(prev - 1, 0));
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -203,19 +248,24 @@ export default function PropertiesSection() {
 
   const handleTouchEnd = useCallback(() => {
     const diff = touchStartX.current - touchEndX.current;
-    const threshold = 50;
-    if (Math.abs(diff) > threshold) {
-      if (diff > 0 && currentSlide < totalSlides - 1) {
-        setCurrentSlide((prev) => prev + 1);
-      } else if (diff < 0 && currentSlide > 0) {
-        setCurrentSlide((prev) => prev - 1);
-      }
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) nextSlide();
+      else prevSlide();
     }
-  }, [currentSlide, totalSlides]);
+  }, [maxPage]);
+
+  const headingText =
+    tab === 'rent'
+      ? 'Prime Homes for Rent'
+      : tab === 'sale'
+        ? 'Prime Homes for Sale'
+        : tab === 'commercial'
+          ? 'Commercial Properties'
+          : 'Prime Residential Homes You\u2019ll Love';
 
   if (error) {
     return (
-      <section id="properties" className="relative py-16 px-6 bg-[#f7f8fa]">
+      <section id="properties" className="relative py-8 md:py-16 px-4 md:px-6 bg-[#f7f8fa]">
         <div className="max-w-6xl mx-auto text-center">
           <div className="w-14 h-14 flex items-center justify-center bg-red-50 rounded-full mx-auto mb-4">
             <i className="ri-error-warning-line text-xl text-red-400"></i>
@@ -224,7 +274,7 @@ export default function PropertiesSection() {
           <p className="text-sm text-stone-500 font-roboto mb-5">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
           >
             <i className="ri-refresh-line"></i>Try Again
           </button>
@@ -234,44 +284,47 @@ export default function PropertiesSection() {
   }
 
   return (
-    <section id="properties" className="relative py-16 px-6 bg-[#f7f8fa]">
+    <section id="properties" className="relative py-8 md:py-16 px-4 md:px-6 bg-[#f7f8fa]">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between mb-6 md:mb-10 gap-3 md:gap-4">
-          <div>
-            <p className="mb-1.5 md:mb-3 font-roboto text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-golden">
-              Exclusive
-            </p>
-            <h2 className="mb-1 md:mb-2 font-roboto font-bold text-2xl md:text-3xl text-primary whitespace-nowrap">
-              Prime Residential Homes You&apos;ll Love
+        <div className="flex items-start justify-between mb-2 md:mb-3 gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-roboto font-bold text-xl sm:text-2xl md:text-4xl text-primary leading-tight">
+              {headingText}
             </h2>
-            <p className="text-xs sm:text-sm md:text-base font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] text-golden">
-              Properties for sale and rent in Nairobi
+            <p className="mt-2 text-sm sm:text-base md:text-lg font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] text-golden">
+              {tab === 'rent'
+                ? 'Properties for rent in Nairobi'
+                : tab === 'sale'
+                  ? 'Properties for sale in Nairobi'
+                  : tab === 'commercial'
+                    ? 'Commercial spaces in Nairobi'
+                    : 'Properties for sale and rent in Nairobi'}
             </p>
           </div>
-          <div className="flex items-center gap-3 self-end md:self-auto ml-auto md:ml-0">
+          <div className="flex items-center gap-2 shrink-0 mt-1 md:mt-2">
             <button
               onClick={prevSlide}
-              disabled={currentSlide === 0}
-              className="w-10 h-10 flex items-center justify-center border transition-all duration-200 cursor-pointer whitespace-nowrap border-gray-200 text-gray-300 hover:border-primary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Previous"
+              disabled={page === 0}
+              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center border-2 border-[#002349] text-[#002349] bg-white hover:bg-[#002349] hover:text-white transition-all duration-200 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Previous properties"
             >
-              <i className="ri-arrow-left-s-line text-xl"></i>
+              <i className="ri-arrow-left-s-line text-base md:text-xl"></i>
             </button>
             <button
               onClick={nextSlide}
-              disabled={currentSlide >= totalSlides - 1}
-              className="w-10 h-10 flex items-center justify-center border transition-all duration-200 cursor-pointer whitespace-nowrap border-primary text-primary hover:bg-primary hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Next"
+              disabled={page >= maxPage}
+              className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center border-2 border-[#002349] text-[#002349] bg-white hover:bg-[#002349] hover:text-white transition-all duration-200 cursor-pointer whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label="Next properties"
             >
-              <i className="ri-arrow-right-s-line text-xl"></i>
+              <i className="ri-arrow-right-s-line text-base md:text-xl"></i>
             </button>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex gap-5 overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {[1, 2, 3].map((n) => (
-              <div key={n} className="flex-shrink-0 bg-white overflow-hidden animate-pulse" style={{ width: getCardWidth() }}>
+              <div key={n} className="bg-white overflow-hidden animate-pulse">
                 <div className={`w-full bg-stone-200 ${aspectClass}`}></div>
                 <div className="p-4 space-y-3">
                   <div className="h-3 bg-stone-200 rounded w-1/2"></div>
@@ -280,10 +333,6 @@ export default function PropertiesSection() {
                     <div className="h-3 bg-stone-200 rounded w-16"></div>
                     <div className="h-3 bg-stone-200 rounded w-16"></div>
                     <div className="h-3 bg-stone-200 rounded w-16"></div>
-                  </div>
-                  <div className="pt-3 border-t border-stone-100 flex justify-between">
-                    <div className="h-5 bg-stone-200 rounded w-24"></div>
-                    <div className="h-3 bg-stone-200 rounded w-20"></div>
                   </div>
                 </div>
               </div>
@@ -299,176 +348,87 @@ export default function PropertiesSection() {
           </div>
         ) : (
           <>
-            {/* Unified carousel — mobile + desktop */}
             <div
-              className="overflow-hidden"
+              className="overflow-hidden -mx-2.5"
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
             >
               <div
-                className="flex items-stretch gap-5 transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${currentSlide * (getCardWidth() + 20)}px)` }}
+                className="flex transition-transform duration-500 ease-in-out"
+                style={{ transform: `translateX(-${page * 100}%)` }}
               >
                 {properties.map((property) => (
-                  <div key={property.id} className="flex-shrink-0 flex flex-col" style={{ width: getCardWidth() }}>
-                    <PropertyCard property={property} aspectClass={aspectClass} shadowClass={shadowClass} hoverClass={hoverClass} showBadge={showBadge} showAgent={showAgent} badgeColor={badgeColor} />
+                  <div
+                    key={property.id}
+                    className="flex-shrink-0 px-2.5"
+                    style={{ width: `${100 / cardsPerView}%` }}
+                  >
+                    <PropertyCard
+                      property={property}
+                      aspectClass={aspectClass}
+                      shadowClass={shadowClass}
+                      hoverClass={hoverClass}
+                      showBadge={showBadge}
+                      onQuickView={setQuickViewProperty}
+                    />
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Pagination dots */}
-            <div className="flex items-center justify-center gap-2 mt-6">
-              {Array.from({ length: totalSlides }).map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentSlide(i)}
-                  className={`transition-all duration-300 cursor-pointer whitespace-nowrap rounded-full ${
-                    i === currentSlide ? 'w-6 h-2 bg-primary' : 'w-2 h-2 bg-gray-300 hover:bg-primary/40'
-                  }`}
-                  aria-label={`Go to slide ${i + 1}`}
-                ></button>
-              ))}
-            </div>
+            {/* Uniform numbered pagination */}
+            <Pagination
+              currentPage={page + 1}
+              totalPages={totalPages}
+              onPageChange={(p) => setPage(p - 1)}
+            />
           </>
         )}
 
-        <div className="mt-10 text-center">
+        <div className="mt-10">
           <Link
             to="/all-properties"
-            className="inline-flex items-center gap-2 bg-primary hover:bg-[#002349] text-white px-16 py-3.5 text-sm font-roboto transition-colors cursor-pointer whitespace-nowrap"
+            className="group flex w-full items-center justify-center gap-2 bg-primary hover:bg-[#002349] text-white border-2 border-primary px-12 py-3.5 text-lg font-roboto font-semibold transition-colors cursor-pointer whitespace-nowrap"
           >
-            View More Properties
+            <span className="relative">
+              View More Properties
+              <span className="absolute left-0 -bottom-1.5 h-[2px] w-0 bg-current transition-all duration-300 group-hover:w-full"></span>
+            </span>
             <i className="ri-arrow-right-line"></i>
           </Link>
         </div>
       </div>
+
+      <QuickViewModal
+        isOpen={quickViewProperty !== null}
+        onClose={() => setQuickViewProperty(null)}
+        property={
+          quickViewProperty
+            ? {
+                id: quickViewProperty.id,
+                slug: quickViewProperty.slug,
+                title: quickViewProperty.title,
+                price: '',
+                rawPrice: quickViewProperty.priceRaw,
+                currency: quickViewProperty.currency,
+                priceUnit: quickViewProperty.priceUnit,
+                location: quickViewProperty.location,
+                category: quickViewProperty.category,
+                beds: quickViewProperty.beds,
+                baths: quickViewProperty.baths,
+                parking: quickViewProperty.parking,
+                description: '',
+                images: quickViewProperty.images.map((img) => img.url),
+                type: quickViewProperty.type,
+                agentPhone: '',
+                agentEmail: '',
+              }
+            : null
+        }
+      />
     </section>
-  );
-}
-
-interface PropertyCardProps {
-  property: Property;
-  aspectClass: string;
-  shadowClass: string;
-  hoverClass: string;
-  showBadge: boolean;
-  showAgent: boolean;
-  badgeColor: string;
-}
-
-function PropertyCard({ property, aspectClass, shadowClass, hoverClass, showBadge, showAgent, badgeColor }: PropertyCardProps) {
-  const { format } = useCurrency();
-  return (
-    <Link to={`/property/${property.slug}`} className="block">
-      <div className={`bg-white overflow-hidden transition-all duration-300 group cursor-pointer flex flex-col w-full h-full ${shadowClass} ${hoverClass}`}>
-        <div className={`relative w-full overflow-hidden flex-shrink-0 ${aspectClass}`}>
-          <img
-            alt={property.title}
-            className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
-            src={property.image}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-100 transition-opacity duration-300 group-hover:from-black/40"></div>
-          {showBadge && (
-            <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5">
-              <span
-                className="inline-block text-[9px] font-semibold uppercase tracking-[0.18em] px-2.5 py-1.5 whitespace-nowrap text-white rounded-sm"
-                style={{ backgroundColor: badgeColor }}
-              >
-                For {property.type === 'sale' ? 'Sale' : 'Rent'}
-              </span>
-              {property.isJointVenture && (
-                <span className="inline-block text-[9px] font-semibold uppercase tracking-[0.18em] px-2.5 py-1.5 whitespace-nowrap text-white rounded-sm bg-[#2B5B3C]">
-                  Joint Venture
-                </span>
-              )}
-            </div>
-          )}
-          {property.featured && (
-            <div className="absolute top-3 right-3 z-10">
-              <span className="inline-block text-[9px] font-semibold uppercase tracking-[0.18em] px-2.5 py-1.5 whitespace-nowrap bg-golden text-white rounded-sm">
-                Featured
-              </span>
-            </div>
-          )}
-          <div className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm">
-              <span className="w-3.5 h-3.5 flex items-center justify-center">
-                <i className="ri-image-line text-xs"></i>
-              </span>
-              6
-            </span>
-          </div>
-          <div className="absolute bottom-3 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm">
-              <span className="w-3.5 h-3.5 flex items-center justify-center">
-                <i className="ri-expand-diagonal-line text-xs"></i>
-              </span>
-              Preview
-            </span>
-          </div>
-        </div>
-        <div className="flex flex-col flex-1 p-4 px-5">
-          <p className="flex items-center gap-1 truncate text-[#636363] text-[11px] md:text-xs mb-1.5">
-            <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
-              <i className="ri-map-pin-line text-xs text-[#636363]"></i>
-            </span>
-            <span className="truncate">{property.location}</span>
-          </p>
-          <h3 className="leading-snug line-clamp-2 group-hover:transition-colors text-[#011328] text-[13px] md:text-sm font-medium mb-2.5 break-words">
-            {property.title}
-          </h3>
-          <div className="flex items-center gap-4 text-xs whitespace-nowrap mb-3 text-[#363535]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-hotel-bed-line text-xs text-[#636363]"></i></span>
-              <span>{property.beds} Beds</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0"><i className="fa-solid fa-bath text-xs text-[#636363]"></i></span>
-              <span>{property.baths} Baths</span>
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-car-line text-xs text-[#636363]"></i></span>
-              <span>{property.parking} Parking</span>
-            </span>
-          </div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-3 text-[#1f1f1f]">{property.category}</p>
-          {showAgent && property.agent && (
-            <div className="flex items-center gap-2 mb-3 pb-3 border-b border-[#d6d6d6]">
-              <img
-                src={property.agent.photo}
-                alt={property.agent.name}
-                className="w-6 h-6 rounded-full object-cover"
-              />
-              <span className="text-xs text-stone-500 font-roboto">{property.agent.name}</span>
-            </div>
-          )}
-          <div className="mt-auto pt-3 flex items-end justify-between gap-2 border-t border-[#d6d6d6]">
-            <div className="flex items-baseline gap-1.5 whitespace-nowrap">
-              <span className="font-bold leading-tight text-[#002349] text-base md:text-lg lg:text-xl font-medium">
-                {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
-              </span>
-              {property.priceUnit && (
-                <span className="inline-flex items-baseline gap-1 text-[#002349] text-base md:text-lg lg:text-xl font-medium">
-                  <span>PM</span>
-                  <span className="relative inline-flex items-center cursor-help group text-base text-[#002349] opacity-60">
-                    <i className="ri-information-line"></i>
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 bg-stone-800 text-white text-[11px] whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none font-normal">
-                      per month
-                    </span>
-                  </span>
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs font-roboto font-bold text-[#00703c] whitespace-nowrap">
-                {formatTimeAgo(property.createdAt)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Link>
   );
 }

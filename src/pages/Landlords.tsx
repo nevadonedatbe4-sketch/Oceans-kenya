@@ -4,6 +4,7 @@ import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
+import PageLoader from '@/components/feature/PageLoader';
 
 const services = [
   { icon: 'ri-user-search-line', title: 'Tenant Finding', desc: 'We market your property across all major platforms and our own database of pre-qualified tenants.' },
@@ -94,7 +95,7 @@ ${message}`;
 
       {/* Hero */}
       <div className="relative flex flex-col justify-center overflow-hidden pt-16 pb-16 min-h-[420px] md:min-h-[480px]">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776885671058.JPG)' }}></div>
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/032138db-4dc5-4351-aec1-dd314054e4f1_compressed_1eddba3ee07e2d149416c3f58cbb60cc.webp)' }}></div>
         <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/80 to-primary/50"></div>
         <div className="relative z-10 w-full max-w-6xl mx-auto px-6">
           <div className="max-w-2xl">
@@ -128,7 +129,7 @@ ${message}`;
 
       {/* Stats */}
       <div className="bg-primary">
-        <div className="max-w-5xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 text-center">
           {[
             { stat: '200+', label: 'Properties Managed' },
             { stat: '98%', label: 'Occupancy Rate' },
@@ -136,54 +137,54 @@ ${message}`;
             { stat: '21 days', label: 'Avg. Time to Let' },
           ].map((item) => (
             <div key={item.label}>
-              <p className="font-roboto font-bold text-3xl text-white">{item.stat}</p>
-              <p className="text-white/60 font-roboto text-xs mt-1 uppercase tracking-wider">{item.label}</p>
+              <p className="font-roboto font-bold text-xl md:text-3xl text-white">{item.stat}</p>
+              <p className="text-white/60 font-roboto text-[9px] md:text-xs mt-1 uppercase tracking-wider">{item.label}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Priority section */}
-      <section className="py-16 px-6 border-b-2 border-gray-200">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <section className="py-10 md:py-16 px-4 md:px-6 border-b-2 border-primary/12">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
           <div>
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Commitment</p>
-            <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Your Property Is Our Priority</h2>
-            <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-5">
+            <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary mb-4 md:mb-5 leading-snug">Your Property Is Our Priority</h2>
+            <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed mb-4 md:mb-5">
               At Oceans Kenya, we understand that your property is more than an asset — it&apos;s a significant investment. Our dedicated landlord team treats every property as if it were their own: maximising returns, minimising voids, and ensuring every tenancy runs smoothly.
             </p>
-            <p className="text-stone-500 font-roboto text-sm leading-relaxed">
+            <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">
               With deep roots in Nairobi&apos;s premium property market, we have the network, experience, and systems to consistently deliver outstanding results for landlords across Karen, Westlands, Kilimani, and beyond.
             </p>
           </div>
           <div className="relative">
-            <div className="w-full h-72 overflow-hidden">
-              <img alt="Oceans Kenya agent consulting a landlord client" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776885671058.JPG" />
+            <div className="w-full h-56 md:h-72 overflow-hidden">
+              <img alt="Oceans Kenya agent consulting a landlord client" className="w-full h-full object-cover object-bottom" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/032138db-4dc5-4351-aec1-dd314054e4f1_compressed_1eddba3ee07e2d149416c3f58cbb60cc.webp" />
             </div>
-            <div className="absolute -bottom-5 -left-5 px-6 py-4 bg-golden hidden md:block">
-              <p className="text-white font-roboto font-bold text-xl">98%</p>
-              <p className="text-white/80 font-roboto text-xs">Occupancy Rate</p>
+            <div className="absolute -bottom-4 -left-4 px-4 py-3 md:px-6 md:py-4 bg-accent">
+              <p className="text-white font-roboto font-bold text-base md:text-xl">98%</p>
+              <p className="text-white/80 font-roboto text-[10px] md:text-xs">Occupancy Rate</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Services */}
-      <section className="py-20 px-6">
+      <section className="py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Services</p>
-            <h2 className="text-3xl md:text-4xl font-roboto font-bold text-primary mb-4">Our Landlord Services</h2>
-            <p className="text-stone-500 font-roboto text-sm max-w-xl mx-auto leading-relaxed">Everything you need to let and manage your property with confidence.</p>
+            <h2 className="text-xl md:text-4xl font-roboto font-bold text-primary mb-3 md:mb-4">Our Landlord Services</h2>
+            <p className="text-stone-500 font-roboto text-xs md:text-sm max-w-xl mx-auto leading-relaxed">Everything you need to let and manage your property with confidence.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {services.map((s) => (
-              <div key={s.title} className="group p-7 border-2 border-gray-200 rounded-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
-                  <i className={`${s.icon} text-xl text-primary`}></i>
+              <div key={s.title} className="group p-5 md:p-7 border-2 border-primary/12 rounded-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full mb-4 md:mb-5 bg-primary">
+                  <i className={`${s.icon} text-lg md:text-xl text-white`}></i>
                 </div>
-                <h3 className="font-roboto font-bold text-primary text-base mb-2">{s.title}</h3>
-                <p className="text-stone-500 font-roboto text-sm leading-relaxed">{s.desc}</p>
+                <h3 className="font-roboto font-bold text-primary text-sm md:text-base mb-2">{s.title}</h3>
+                <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -191,35 +192,35 @@ ${message}`;
       </section>
 
       {/* Packages */}
-      <section className="py-20 px-6 bg-white">
+      <section className="py-12 md:py-20 px-4 md:px-6 bg-white">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Service Options</p>
-            <h2 className="text-3xl font-roboto font-bold text-primary mb-4">Choose the Right Service for You</h2>
-            <p className="text-stone-500 font-roboto text-sm max-w-lg mx-auto leading-relaxed">Whether you want us to find the tenant and step back, or have us manage everything end-to-end, we have a package that fits.</p>
+            <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary mb-3 md:mb-4">Choose the Right Service for You</h2>
+            <p className="text-stone-500 font-roboto text-xs md:text-sm max-w-lg mx-auto leading-relaxed">Whether you want us to find the tenant and step back, or have us manage everything end-to-end, we have a package that fits.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
             {/* Let Only */}
             <div className="bg-white border-2 border-primary overflow-hidden rounded-sm hover:shadow-lg transition-all duration-300">
-              <div className="px-8 py-7 border-b-2 border-gray-200">
-                <div className="w-10 h-10 flex items-center justify-center rounded-full mb-4 bg-primary/5">
-                  <i className="ri-key-2-line text-lg text-primary"></i>
+              <div className="px-5 md:px-8 py-5 md:py-7 border-b-2 border-primary/12">
+                <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-full mb-3 md:mb-4 bg-primary">
+                  <i className="ri-key-2-line text-base md:text-lg text-white"></i>
                 </div>
-                <h3 className="font-roboto font-bold text-2xl text-primary mb-1">Let Only</h3>
-                <p className="text-stone-500 font-roboto text-sm">Ideal for landlords who prefer hands-on management after tenant placement.</p>
+                <h3 className="font-roboto font-bold text-lg md:text-2xl text-primary mb-1">Let Only</h3>
+                <p className="text-stone-500 font-roboto text-xs md:text-sm">Ideal for landlords who prefer hands-on management after tenant placement.</p>
               </div>
-              <div className="px-8 py-7">
-                <ul className="space-y-3">
+              <div className="px-5 md:px-8 py-5 md:py-7">
+                <ul className="space-y-2 md:space-y-3">
                   {['Professional property photography', 'Listings on all major portals', 'Tenant viewings & vetting', 'Tenancy agreement preparation', 'Deposit handling & registration', 'Handover & key release'].map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-sm font-roboto text-stone-500">
-                      <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5 text-golden">
-                        <i className="ri-check-line"></i>
+                    <li key={item} className="flex items-start gap-3 text-xs md:text-sm font-roboto text-stone-500">
+                      <span className="w-4 h-4 md:w-5 md:h-5 flex items-center justify-center flex-shrink-0 mt-0.5 text-golden">
+                        <i className="ri-check-line font-semibold"></i>
                       </span>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <a href="#landlord-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/85 transition-all">
+                <a href="#landlord-form" className="mt-6 md:mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white border-2 border-primary font-roboto font-semibold text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden5 transition-all">
                   <i className="ri-arrow-right-line"></i>Enquire About Let Only
                 </a>
               </div>
@@ -227,28 +228,28 @@ ${message}`;
 
             {/* Full Management */}
             <div className="overflow-hidden relative shadow-xl rounded-sm hover:shadow-2xl transition-all duration-300 bg-primary">
-              <div className="absolute top-5 right-5">
-                <span className="bg-golden text-white font-roboto text-xs px-3 py-1 uppercase tracking-widest whitespace-nowrap">Most Popular</span>
+              <div className="absolute top-3 md:top-5 right-3 md:right-5">
+                <span className="bg-golden text-white font-roboto text-[10px] md:text-xs px-2 md:px-3 py-1 uppercase tracking-widest whitespace-nowrap">Most Popular</span>
               </div>
-              <div className="px-8 py-7 border-b border-white/10">
-                <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full mb-4">
-                  <i className="ri-building-4-line text-lg text-white"></i>
+              <div className="px-5 md:px-8 py-5 md:py-7 border-b border-white/10">
+                <div className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center bg-white/10 rounded-full mb-3 md:mb-4">
+                  <i className="ri-building-4-line text-base md:text-lg text-white"></i>
                 </div>
-                <h3 className="text-white font-roboto font-bold text-2xl mb-1">Full Management</h3>
-                <p className="text-white/60 font-roboto text-sm">Complete peace of mind — we handle everything from first listing to ongoing tenancy.</p>
+                <h3 className="text-white font-roboto font-bold text-lg md:text-2xl mb-1">Full Management</h3>
+                <p className="text-white/60 font-roboto text-xs md:text-sm">Complete peace of mind — we handle everything from first listing to ongoing tenancy.</p>
               </div>
-              <div className="px-8 py-7">
-                <ul className="space-y-3">
+              <div className="px-5 md:px-8 py-5 md:py-7">
+                <ul className="space-y-2 md:space-y-3">
                   {['Everything in Let Only, plus:', 'Monthly rent collection', 'Detailed income statements', 'Maintenance & repair coordination', 'Periodic property inspections', 'Tenant dispute resolution', 'Annual compliance review', 'Dedicated account manager'].map((item, i) => (
-                    <li key={item} className={`flex items-start gap-3 text-sm font-roboto ${i === 0 ? 'text-white font-medium' : 'text-white/75'}`}>
-                      <span className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5 text-golden">
-                        <i className="ri-check-line"></i>
+                    <li key={item} className={`flex items-start gap-3 text-xs md:text-sm font-roboto ${i === 0 ? 'text-white font-medium' : 'text-white/75'}`}>
+                      <span className="w-4 h-4 md:w-5 md:h-5 flex items-center justify-center flex-shrink-0 mt-0.5 text-golden">
+                        <i className="ri-check-line font-semibold"></i>
                       </span>
                       {item}
                     </li>
                   ))}
                 </ul>
-                <a href="#landlord-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
+                <a href="#landlord-form" className="mt-6 md:mt-8 flex items-center justify-center gap-2 w-full py-3 bg-golden text-white font-roboto font-semibold text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
                   <i className="ri-arrow-right-line"></i>Enquire About Full Management
                 </a>
               </div>
@@ -258,25 +259,25 @@ ${message}`;
       </section>
 
       {/* How It Works */}
-      <section className="py-20 px-6 bg-white border-t border-gray-50">
+      <section className="py-12 md:py-20 px-4 md:px-6 bg-white border-t border-gray-50">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">How It Works</p>
-            <h2 className="text-3xl font-roboto font-bold text-primary">How It Works</h2>
+            <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary">How It Works</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-8">
             {howItWorks.map((step, i) => (
-              <div key={step.title} className="relative text-center p-4 rounded-sm hover:bg-white hover:shadow-md transition-all duration-300">
+              <div key={step.title} className="relative text-center p-3 md:p-4 rounded-sm hover:bg-white hover:shadow-md transition-all duration-300">
                 {i < howItWorks.length - 1 && (
                   <div className="hidden lg:block absolute top-8 left-[calc(50%+2.5rem)] w-[calc(100%-5rem)] h-px bg-gray-200"></div>
                 )}
-                <div className="relative inline-flex items-center justify-center mb-5">
-                  <div className="w-16 h-16 flex items-center justify-center rounded-full bg-primary mx-auto">
-                    <i className={`${step.icon} text-white text-xl`}></i>
+                <div className="relative inline-flex items-center justify-center mb-4 md:mb-5">
+                  <div className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center rounded-full bg-primary mx-auto">
+                    <i className={`${step.icon} text-white text-lg md:text-xl`}></i>
                   </div>
-                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center rounded-full bg-golden text-white font-roboto text-xs font-bold">{step.step}</span>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full bg-accent text-white font-roboto text-[10px] md:text-xs font-bold">{step.step}</span>
                 </div>
-                <h3 className="font-roboto font-bold text-primary text-base mb-2">{step.title}</h3>
+                <h3 className="font-roboto font-bold text-primary text-sm md:text-base mb-2">{step.title}</h3>
                 <p className="text-stone-500 font-roboto text-xs leading-relaxed">{step.desc}</p>
               </div>
             ))}
@@ -285,20 +286,20 @@ ${message}`;
       </section>
 
       {/* Why Us */}
-      <section className="py-20 px-6">
+      <section className="py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Why Us</p>
-            <h2 className="text-3xl font-roboto font-bold text-primary">Why Landlords Choose Us</h2>
+            <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary">Why Landlords Choose Us</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
             {whyUs.map((item) => (
-              <div key={item.title} className="p-7 border-2 border-gray-200 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                <div className="w-12 h-12 flex items-center justify-center rounded-full mb-5 bg-primary/5">
-                  <i className={`${item.icon} text-xl text-primary`}></i>
+              <div key={item.title} className="p-5 md:p-7 border-2 border-primary/12 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full mb-4 md:mb-5 bg-primary">
+                  <i className={`${item.icon} text-lg md:text-xl text-white`}></i>
                 </div>
-                <h3 className="font-roboto font-bold text-primary text-base mb-2">{item.title}</h3>
-                <p className="text-stone-500 font-roboto text-sm leading-relaxed">{item.desc}</p>
+                <h3 className="font-roboto font-bold text-primary text-sm md:text-base mb-2">{item.title}</h3>
+                <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -306,27 +307,27 @@ ${message}`;
       </section>
 
       {/* FAQs */}
-      <section className="py-20 px-6">
+      <section className="py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Common Questions</p>
-            <h2 className="text-3xl font-roboto font-bold text-primary">Frequently Asked Questions</h2>
+            <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary">Frequently Asked Questions</h2>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2 md:space-y-3">
             {faqs.map((faq, i) => (
-              <div key={i} className="border-2 border-gray-200 overflow-hidden rounded-sm">
+              <div key={i} className="border-2 border-primary/12 overflow-hidden rounded-sm">
                 <button
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full flex items-center justify-between px-6 py-5 text-left cursor-pointer group hover:bg-gray-50/80 transition-colors"
+                  className="w-full flex items-center justify-between px-4 md:px-6 py-4 md:py-5 text-left cursor-pointer group hover:bg-gray-50/80 transition-colors"
                 >
-                  <span className="font-roboto font-bold text-primary text-sm pr-4">{faq.q}</span>
-                  <span className="w-7 h-7 flex items-center justify-center flex-shrink-0 rounded-full bg-gray-50 group-hover:bg-gray-100 transition-colors">
+                  <span className="font-roboto font-bold text-primary text-xs md:text-sm pr-4">{faq.q}</span>
+                  <span className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center flex-shrink-0 rounded-full bg-gray-50 group-hover:bg-gray-100 transition-colors">
                     <i className={`text-sm transition-transform duration-300 ${openFaq === i ? 'ri-subtract-line' : 'ri-add-line'}`}></i>
                   </span>
                 </button>
                 {openFaq === i && (
-                  <div className="px-6 pb-5">
-                    <p className="text-stone-500 font-roboto text-sm leading-relaxed">{faq.a}</p>
+                  <div className="px-4 md:px-6 pb-4 md:pb-5">
+                    <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">{faq.a}</p>
                   </div>
                 )}
               </div>
@@ -336,48 +337,48 @@ ${message}`;
       </section>
 
       {/* Guarantees */}
-      <section className="py-16 px-6 bg-primary">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+      <section className="py-12 md:py-16 px-4 md:px-6 bg-primary">
+        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 text-center">
           {guarantees.map((g) => (
             <div key={g.title} className="flex flex-col items-center">
-              <div className="w-14 h-14 flex items-center justify-center bg-white/10 rounded-full mb-4">
-                <i className={`${g.icon} text-2xl text-golden`}></i>
+              <div className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-white/10 rounded-full mb-3 md:mb-4">
+                <i className={`${g.icon} text-xl md:text-2xl text-golden`}></i>
               </div>
-              <h3 className="text-white font-roboto font-bold text-lg mb-2">{g.title}</h3>
-              <p className="text-white/60 font-roboto text-sm leading-relaxed">{g.desc}</p>
+              <h3 className="text-white font-roboto font-bold text-base md:text-lg mb-2">{g.title}</h3>
+              <p className="text-white/60 font-roboto text-xs md:text-sm leading-relaxed">{g.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* Form */}
-      <section id="landlord-form" className="relative py-20 px-6">
+      <section id="landlord-form" className="relative py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-5xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 md:gap-12 items-start">
             {/* Left info */}
             <div className="lg:col-span-2">
-              <div className="w-full aspect-square overflow-hidden mb-8">
-                <img alt="Oceans Estate &amp; Letting Agents" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776886125836.jpg" />
+              <div className="w-full aspect-square overflow-hidden mb-6 md:mb-8">
+                <img alt="Oceans Kenya" className="w-full h-full object-cover object-top" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp" />
               </div>
-              <p className="text-golden text-xs font-roboto tracking-widest uppercase mb-3">Get Started</p>
-              <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Let's Talk About Your Property</h2>
-              <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-10">
+              <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Get Started</p>
+              <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary mb-4 md:mb-5 leading-snug">Let's Talk About Your Property</h2>
+              <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed mb-8 md:mb-10">
                 Fill in the short form and one of our dedicated landlord specialists will be in touch within 24 hours to discuss how we can maximise your rental return.
               </p>
-              <div className="space-y-6">
+              <div className="space-y-4 md:space-y-6">
                 {[
-                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254712345678' },
-                  { icon: 'ri-mail-line', label: 'Email Us', value: 'info@oceans.co.ke' },
-                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Riverside Drive, Westlands, Nairobi' },
+                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254703712984' },
+                  { icon: 'ri-mail-line', label: 'Email Us', value: 'ask@oceanske.com' },
+                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Plot 9, Riverside Drive, Westlands, Nairobi' },
                   { icon: 'ri-time-line', label: 'Office Hours', value: 'Mon – Fri: 8:30am – 5:30pm' },
                 ].map((item) => (
-                  <div key={item.label} className="flex gap-4">
-                    <div className="w-10 h-10 flex items-center justify-center bg-primary/8 rounded-full flex-shrink-0">
-                      <i className={`${item.icon} text-primary`}></i>
+                  <div key={item.label} className="flex gap-3 md:gap-4">
+                    <div className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center bg-primary rounded-full flex-shrink-0">
+                      <i className={`${item.icon} text-white text-sm`}></i>
                     </div>
                     <div>
-                      <p className="text-primary font-roboto text-xs font-semibold uppercase tracking-wider mb-0.5">{item.label}</p>
-                      <p className="text-stone-500 font-roboto text-sm">{item.value}</p>
+                      <p className="text-primary font-roboto text-[10px] md:text-xs font-semibold uppercase tracking-wider mb-0.5">{item.label}</p>
+                      <p className="text-stone-500 font-roboto text-xs md:text-sm">{item.value}</p>
                     </div>
                   </div>
                 ))}
@@ -385,19 +386,19 @@ ${message}`;
             </div>
 
             {/* Form */}
-            <div className="lg:col-span-3 bg-white border-2 border-stone-200 p-8 md:p-10">
+            <div className="lg:col-span-3 bg-white border-2 border-primary/20 p-5 md:p-10 shadow-[0_4px_12px_rgba(0,35,73,0.05),0_12px_32px_rgba(0,35,73,0.08),0_24px_64px_rgba(0,35,73,0.10)]">
               <form data-readdy-form="true" id="landlord-property-form" onSubmit={handleFormSubmit} className="space-y-6">
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-stone-200">About Your Property</p>
+                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-primary/20">About Your Property</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Address <span className="text-red-400">*</span></label>
-                      <input required name="property_address" placeholder="e.g. 14 Riverside Drive, Westlands" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                      <input required name="property_address" placeholder="e.g. 14 Riverside Drive, Westlands" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Type</label>
-                        <select name="property_type" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="property_type" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option>Apartment</option>
                           <option>Villa</option>
                           <option>Penthouse</option>
@@ -410,7 +411,7 @@ ${message}`;
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Bedrooms</label>
-                        <select name="bedrooms" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="bedrooms" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option>Studio</option>
                           <option>1 Bed</option>
                           <option>2 Beds</option>
@@ -424,7 +425,7 @@ ${message}`;
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Service Required</label>
-                        <select name="service_required" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="service_required" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option value="full_management">Full Management</option>
                           <option value="let_only">Let Only</option>
                           <option value="sale">I Want to Sell</option>
@@ -433,7 +434,7 @@ ${message}`;
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Current Status</label>
-                        <select name="current_status" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="current_status" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                           <option value="vacant">Currently Vacant</option>
                           <option value="occupied">Currently Tenanted</option>
                           <option value="owner_occupied">Owner Occupied</option>
@@ -444,25 +445,25 @@ ${message}`;
                   </div>
                 </div>
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-stone-200">Your Details</p>
+                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-primary/20">Your Details</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full Name <span className="text-red-400">*</span></label>
-                      <input required name="full_name" placeholder="Your full name" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                      <input required name="full_name" placeholder="Your full name" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email <span className="text-red-400">*</span></label>
-                        <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                        <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone <span className="text-red-400">*</span></label>
-                        <input required type="tel" name="phone" placeholder="+256 700 000 000" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                        <input required type="tel" name="phone" placeholder="+256 700 000 000" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Message / Additional Details</label>
-                      <textarea name="message" rows={3} maxLength={500} placeholder="Tell us anything else about your property or requirements..." className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                      <textarea name="message" rows={3} maxLength={500} placeholder="Tell us anything else about your property or requirements..." className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
                     </div>
                   </div>
                 </div>
@@ -473,11 +474,11 @@ ${message}`;
                 <button
                   type="submit"
                   disabled={formStatus === 'submitting'}
-                  className="w-full py-3.5 bg-primary hover:bg-golden text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full px-5 py-2.5 bg-primary hover:bg-golden text-white border-2 border-primary font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {formStatus === 'submitting' ? (
                     <>
-                      <i className="ri-loader-4-line animate-spin"></i>
+                      <PageLoader size={20} />
                       Submitting...
                     </>
                   ) : formStatus === 'success' ? (

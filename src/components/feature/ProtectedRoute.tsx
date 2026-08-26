@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import PageLoader from '@/components/feature/PageLoader';
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   super_admin: ['*'],
@@ -52,7 +53,7 @@ export default function ProtectedRoute({ children, requiredRoles }: ProtectedRou
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <PageLoader size={48} />
       </div>
     );
   }

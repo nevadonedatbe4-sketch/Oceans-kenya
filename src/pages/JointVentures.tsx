@@ -7,6 +7,8 @@ import PageContactSection from '@/components/feature/PageContactSection';
 import { supabase } from '@/lib/supabase';
 import { useLeadSubmit } from '@/hooks/useFormSubmit';
 import { useCurrency } from '@/hooks/useCurrency';
+import ProjectCard from '@/pages/joint-ventures/components/ProjectCard';
+import { normalizeJvProjectImages, type JvImage } from '@/lib/jvImages';
 
 const projectTypes = [
   'Apartment Blocks',
@@ -107,6 +109,20 @@ interface LandListing {
   image: string;
 }
 
+interface JvProject {
+  id: string;
+  slug: string;
+  title: string;
+  location: string;
+  type: string;
+  units: number;
+  status: string;
+  priceRange: string;
+  description: string;
+  image: string;
+  images: JvImage[];
+}
+
 export default function JointVentures() {
   const { format } = useCurrency();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
@@ -116,11 +132,16 @@ export default function JointVentures() {
   const [landData, setLandData] = useState<LandListing[]>([]);
   const [landLoading, setLandLoading] = useState(true);
   const [landError, setLandError] = useState('');
+  const [expandedLand, setExpandedLand] = useState<Set<string>>(new Set());
+  const [jvProjects, setJvProjects] = useState<JvProject[]>([]);
+  const [jvProjectsLoading, setJvProjectsLoading] = useState(true);
+  const [jvProjectsError, setJvProjectsError] = useState('');
   const landownerForm = useJVForm('landowner');
   const investorForm = useJVForm('investor');
 
   useEffect(() => {
     fetchLandListings();
+    fetchJvProjects();
     fetchFaqs();
   }, []);
 
@@ -144,48 +165,95 @@ export default function JointVentures() {
       const { data, error } = await supabase
         .from('listings')
         .select('*')
-        .eq('property_type', 'land')
-        .eq('purpose', 'sale')
+        .eq('property_category', 'land')
         .eq('is_published', true)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       if (data && data.length > 0) {
-          const mapped: LandListing[] = data.map((row: Record<string, unknown>) => {
-            const currencyLabel = String(row.currency || '').toUpperCase() === 'USD' ? 'USD' : 'KES';
-            const priceVal = row.price ? Number(row.price) : 0;
-            let priceDisplay = 'On request';
-            if (priceVal > 0) {
-              if (priceVal >= 1_000_000) {
-                priceDisplay = `${currencyLabel} ${(priceVal / 1_000_000).toFixed(priceVal % 1_000_000 === 0 ? 0 : 1)}M`;
-              } else {
-                priceDisplay = `${currencyLabel} ${priceVal.toLocaleString()}`;
-              }
-            }
-            return {
-              id: String(row.id),
-              slug: String(row.slug || ''),
-              ref: String(row.property_id || `LAND/${String(row.sub_type || 'OP').toUpperCase()}-${String(row.id).slice(0, 3)}`),
-              title: String(row.title || ''),
-              district: String(row.state_region || row.location || ''),
-              area: String(row.location || ''),
-              size: row.land_size ? `${row.land_size} ${row.land_unit || 'acres'}` : (row.size ? `${row.size} ${row.size_unit || 'sqm'}` : ''),
-              titleType: (row.custom_fields as Record<string, unknown> | null)?.title_type as string || 'Freehold',
-              price: priceDisplay,
-              priceRaw: priceVal,
-              currency: currencyLabel,
-              category: (row.sub_type === 'joint_venture' ? 'joint_venture' : 'outright') as 'outright' | 'joint_venture',
-              description: String(row.description || ''),
-              image: String(row.main_image || ''),
-            };
-          });
-          setLandData(mapped);
-        }
+        const mapped: LandListing[] = data.map((row: Record<string, unknown>) => {
+          const title = String(row.title || '');
+          const rawLocation = String(row.location || '');
+          let district = String(row.state_region || '');
+          let area = rawLocation;
+          if (!district && !area) {
+            const locMatch = title.match(/\bin\s+([^()]+)/i);
+            if (locMatch) area = locMatch[1].trim();
+          }
+
+          const currencyLabel = String(row.currency || '').toUpperCase() === 'USD' ? 'USD' : 'KES';
+          const priceVal = row.price ? Number(row.price) : 0;
+
+          let size = row.land_size
+            ? `${row.land_size} ${row.land_unit || 'acres'}`
+            : (row.size ? `${row.size} ${row.size_unit || 'sqm'}` : '');
+          if (!size) {
+            const acreMatch = title.match(/(\d+(?:\.\d+)?)\s*acre/i);
+            if (acreMatch) size = `${acreMatch[1]} acres`;
+          }
+
+          return {
+            id: String(row.id),
+            slug: String(row.slug || ''),
+            ref: String(row.property_id || `LAND/${String(row.sub_type || (row.purpose === 'joint_ventures' ? 'JV' : 'OP')).toUpperCase()}-${String(row.id).slice(0, 3)}`),
+            title,
+            district,
+            area,
+            size,
+            titleType: (row.custom_fields as Record<string, unknown> | null)?.title_type as string || 'Freehold',
+            price: priceVal > 0 ? `${currencyLabel} ${priceVal.toLocaleString()}` : 'On request',
+            priceRaw: priceVal,
+            currency: currencyLabel,
+            category: (row.property_category === 'joint_venture' ? 'joint_venture' : 'outright') as 'outright' | 'joint_venture',
+            description: String(row.description || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim(),
+            image: String(row.main_image || ''),
+          };
+        });
+        setLandData(mapped);
+      }
     } catch (err: unknown) {
       setLandError(err instanceof Error ? err.message : 'Failed to load land listings');
     } finally {
       setLandLoading(false);
+    }
+  }
+
+  async function fetchJvProjects() {
+    setJvProjectsLoading(true);
+    setJvProjectsError('');
+    try {
+      const { data, error } = await supabase
+        .from('jv_projects')
+        .select('id, title, slug, location, type, units, status, price_range, description, image, jv_project_images(id, image_url, storage_path, alt_text, sort_order, is_cover)')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: JvProject[] = (data || []).map((row: Record<string, unknown>) => {
+        const title = String(row.title || '');
+        const legacyImage = String(row.image || '') || null;
+        const rawImages = row.jv_project_images;
+        return {
+          id: String(row.id),
+          slug: String(row.slug || ''),
+          title,
+          location: String(row.location || ''),
+          type: String(row.type || ''),
+          units: Number(row.units) || 0,
+          status: String(row.status || ''),
+          priceRange: String(row.price_range || ''),
+          description: String(row.description || ''),
+          image: legacyImage || '',
+          images: normalizeJvProjectImages(rawImages, legacyImage, title),
+        };
+      });
+      setJvProjects(mapped);
+    } catch (err: unknown) {
+      setJvProjectsError(err instanceof Error ? err.message : 'Failed to load JV projects');
+    } finally {
+      setJvProjectsLoading(false);
     }
   }
 
@@ -202,7 +270,7 @@ export default function JointVentures() {
           className="absolute inset-0"
           style={{
             backgroundImage:
-              'linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px)',
+              'linear-gradient(to right, rgba(255,255,255,0.05) 2px, transparent 2px), linear-gradient(to bottom, rgba(255,255,255,0.05) 2px, transparent 2px)',
             backgroundSize: '80px 80px',
           }}
         />
@@ -231,16 +299,16 @@ export default function JointVentures() {
                 <a
                   href="#request-desk"
                   onClick={(e) => { e.preventDefault(); setRequestTab('landowner'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-golden text-[#152238] text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-semibold"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-bold"
                 >
-                  I own land
+                  I Own Land
                 </a>
                 <a
                   href="#request-desk"
                   onClick={(e) => { e.preventDefault(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3 border border-white/30 text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3 border border-white/30 text-white text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors"
                 >
-                  I have capital
+                  I Have Capital
                 </a>
               </div>
             </div>
@@ -249,11 +317,11 @@ export default function JointVentures() {
             <div className="lg:col-span-2">
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 p-6 md:p-7">
                 <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/10">
-                  <p className="text-white/50 font-roboto text-[10px] uppercase tracking-[0.2em]">
+                  <p className="text-white/50 font-roboto font-medium text-[18px] uppercase tracking-[0.2em]">
                     JV Desk — Live Figures
                   </p>
-                  <span className="text-white/40 font-roboto text-[10px] uppercase tracking-wider">
-                    KES
+                  <span className="text-white/40 font-roboto font-medium text-[18px] uppercase tracking-wider">
+                    KES/ Usd
                   </span>
                 </div>
                 <div className="space-y-5">
@@ -265,7 +333,7 @@ export default function JointVentures() {
                       Acres currently under JV negotiation
                     </p>
                   </div>
-                  <div className="h-px bg-white/10" />
+                  <div className="h-[2px] bg-white/10" />
                   <div className="flex items-baseline gap-4">
                     <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
                       28
@@ -274,7 +342,7 @@ export default function JointVentures() {
                       Active investor briefs on file
                     </p>
                   </div>
-                  <div className="h-px bg-white/10" />
+                  <div className="h-[2px] bg-white/10" />
                   <div className="flex items-baseline gap-4">
                     <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
                       12
@@ -291,13 +359,13 @@ export default function JointVentures() {
       </section>
 
       {/* Project types strip */}
-      <section className="border-b-2 border-stone-200">
+      <section className="border-b-2 border-primary/12">
         <div className="max-w-6xl mx-auto px-6 py-5 md:py-6">
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <span className="text-stone-400 font-roboto text-xs uppercase tracking-wider mr-1">What gets built on JV land:</span>
+            <span className="text-golden font-roboto text-[18px] font-bold uppercase tracking-wider mr-1">What gets built on JV land:</span>
             {projectTypes.map((type) => (
-              <span key={type} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-50 border border-stone-200 rounded-full text-stone-600 font-roboto text-xs whitespace-nowrap">
-                <i className="ri-building-line text-golden text-[10px]"></i>
+              <span key={type} className="group inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border-2 border-[#002349] rounded-full text-primary/70 font-roboto text-xs font-bold whitespace-nowrap transition-colors hover:bg-[#002349] hover:text-white cursor-pointer">
+                <i className="ri-building-line text-golden text-[10px] group-hover:text-white transition-colors"></i>
                 {type}
               </span>
             ))}
@@ -311,15 +379,15 @@ export default function JointVentures() {
           <div className="text-center mb-10 md:mb-12">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">How It Works</p>
             <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Two starting points, one deal room.</h2>
-            <p className="text-stone-500 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
+            <p className="text-primary/70 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
               Whichever side of the table you sit on, every request lands with our JV desk, gets verified, and is matched by location, acreage and structure before any introduction is made.
             </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-0 items-stretch">
             {/* Landowner card */}
-            <div className="border-2 border-stone-200 bg-white p-6 md:p-8 flex flex-col">
-              <span className="inline-block self-start px-3 py-1 bg-primary/5 text-primary font-roboto text-[10px] uppercase tracking-widest font-semibold mb-5">
+            <div className="border-2 border-primary/12 bg-white p-6 md:p-8 flex flex-col">
+              <span className="inline-block self-start px-3 py-1 bg-[#6F4E37] text-white font-roboto text-[14px] uppercase tracking-widest font-medium mb-5">
                 Landowner
               </span>
               <h3 className="font-roboto font-bold text-primary text-lg md:text-xl mb-5 leading-snug">
@@ -332,8 +400,8 @@ export default function JointVentures() {
                   'We verify title and shortlist matched investors.',
                   'You review offers and choose who you work with.',
                 ].map((step, i) => (
-                  <li key={i} className="flex items-start gap-3 text-stone-600 font-roboto text-sm leading-relaxed">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-primary font-roboto text-xs font-bold">
+                  <li key={i} className="flex items-start gap-3 text-primary/70 font-roboto text-sm leading-relaxed">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-primary font-roboto text-sm font-extrabold">
                       {i + 1}
                     </span>
                     {step}
@@ -343,24 +411,26 @@ export default function JointVentures() {
               <a
                 href="#request-desk"
                 onClick={(e) => { e.preventDefault(); setRequestTab('landowner'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 border border-stone-300 text-primary font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
+                className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
               >
                 Post your land brief <i className="ri-arrow-right-line"></i>
               </a>
             </div>
 
             {/* Center connector */}
-            <div className="flex items-center justify-center px-4 py-6 lg:py-0">
-              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-primary flex items-center justify-center">
-                <span className="text-white font-roboto text-[9px] md:text-[10px] leading-tight text-center font-bold tracking-wider">
+            <div className="relative flex items-center justify-center px-4 py-6 lg:py-0">
+              {/* Glow ring */}
+              <div className="absolute w-28 h-28 md:w-36 md:h-36 rounded-full bg-primary/15 blur-2xl" />
+              <div className="relative w-20 h-20 md:w-24 md:h-24 rounded-full bg-primary flex items-center justify-center">
+                <span className="text-white font-roboto text-[10px] md:text-[11px] leading-tight text-center font-extrabold tracking-wider">
                   JV<br />DEAL<br />ROOM
                 </span>
               </div>
             </div>
 
             {/* Investor card */}
-            <div className="border-2 border-stone-200 bg-white p-6 md:p-8 flex flex-col">
-              <span className="inline-block self-start px-3 py-1 bg-accent/10 text-accent font-roboto text-[10px] uppercase tracking-widest font-semibold mb-5">
+            <div className="border-2 border-primary/12 bg-white p-6 md:p-8 flex flex-col">
+              <span className="inline-block self-start px-3 py-1 bg-[#228B22] text-white font-roboto text-[14px] uppercase tracking-widest font-medium mb-5">
                 Investor
               </span>
               <h3 className="font-roboto font-bold text-primary text-lg md:text-xl mb-5 leading-snug">
@@ -373,8 +443,8 @@ export default function JointVentures() {
                   'Receive a shortlist with title status and site notes.',
                   'Structure the JV or purchase directly, your call.',
                 ].map((step, i) => (
-                  <li key={i} className="flex items-start gap-3 text-stone-600 font-roboto text-sm leading-relaxed">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-accent font-roboto text-xs font-bold">
+                  <li key={i} className="flex items-start gap-3 text-primary/70 font-roboto text-sm leading-relaxed">
+                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-accent font-roboto text-sm font-extrabold">
                       {i + 1}
                     </span>
                     {step}
@@ -384,7 +454,7 @@ export default function JointVentures() {
               <a
                 href="#request-desk"
                 onClick={(e) => { e.preventDefault(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 border border-stone-300 text-primary font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
+                className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
               >
                 Submit your investment brief <i className="ri-arrow-right-line"></i>
               </a>
@@ -394,8 +464,8 @@ export default function JointVentures() {
       </section>
 
       {/* Services section */}
-      <section className="bg-primary px-6 py-14 md:py-20">
-        <div className="max-w-6xl mx-auto">
+      <section className="relative overflow-hidden bg-primary px-6 py-14 md:py-20">
+        <div className="relative z-10 max-w-6xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Full-Service Desk</p>
             <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">What the Desk Handles</h2>
@@ -407,8 +477,8 @@ export default function JointVentures() {
             {services.map((svc) => (
               <div key={svc.code} className="bg-primary p-6 md:p-7 hover:bg-primary/80 transition-colors">
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-golden font-roboto text-[10px] tracking-widest uppercase font-semibold">{svc.code}</span>
-                  <div className="flex-1 h-px bg-white/10"></div>
+                  <span className="text-golden font-roboto text-xs tracking-widest uppercase font-extrabold">{svc.code}</span>
+                  <div className="flex-1 h-[2px] bg-white/10"></div>
                 </div>
                 <h3 className="font-roboto font-bold text-white text-base md:text-lg mb-2">{svc.title}</h3>
                 <p className="text-white/50 font-roboto text-sm leading-relaxed">{svc.desc}</p>
@@ -418,14 +488,80 @@ export default function JointVentures() {
         </div>
       </section>
 
+      {/* Live JV Projects */}
+      <section className="px-6 py-14 md:py-20">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-8 md:mb-10">
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Live Pipeline</p>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Projects Seeking Partners</h2>
+            <p className="text-primary/70 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
+              Verified developments currently open for joint venture — each with approved plans, verified titles and a clear capital ask.
+            </p>
+          </div>
+
+          {jvProjectsLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="border-2 border-primary/12 bg-white animate-pulse">
+                  <div className="h-48 bg-stone-200" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-4 bg-stone-200 rounded w-2/3" />
+                    <div className="h-3 bg-stone-200 rounded w-1/2" />
+                    <div className="h-3 bg-stone-200 rounded w-full" />
+                    <div className="h-3 bg-stone-200 rounded w-4/5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!jvProjectsLoading && jvProjectsError && (
+            <div className="text-center py-10">
+              <p className="text-primary/70 font-roboto text-sm mb-3">{jvProjectsError}</p>
+              <button onClick={fetchJvProjects} className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
+                <i className="ri-refresh-line"></i>Retry
+              </button>
+            </div>
+          )}
+
+          {!jvProjectsLoading && !jvProjectsError && jvProjects.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
+                <i className="ri-building-2-line text-2xl text-primary/50"></i>
+              </div>
+              <p className="text-primary/70 font-roboto text-sm">No live projects right now. Submit a brief to be notified when new opportunities open.</p>
+            </div>
+          )}
+
+          {!jvProjectsLoading && !jvProjectsError && jvProjects.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
+              {jvProjects.map((project) => (
+                <ProjectCard
+                  key={project.id}
+                  title={project.title}
+                  slug={project.slug}
+                  location={project.location}
+                  type={project.type}
+                  units={project.units}
+                  priceRange={project.priceRange}
+                  description={project.description}
+                  status={project.status}
+                  images={project.images}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Lands Available */}
-      <section id="projects" className="px-6 py-14 md:py-20 bg-stone-50">
+      <section id="projects" className="px-6 py-14 md:py-20 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
             <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Available Now</p>
             <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Land on the desk today.</h2>
-            <p className="text-stone-600 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
-              A live feed of plots available for outright purchase and open joint venture opportunities, pulled directly from our listings database.
+            <p className="text-primary/70 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
+              A live feed of open joint venture land opportunities, pulled directly from our listings database.
             </p>
           </div>
 
@@ -442,7 +578,7 @@ export default function JointVentures() {
                 className={`px-5 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-colors border ${
                   landTab === f.key
                     ? 'bg-primary text-white border-primary font-semibold'
-                    : 'text-stone-600 border-stone-300 hover:text-primary hover:border-primary bg-white'
+                    : 'text-primary/70 border-stone-300 hover:text-primary hover:border-primary bg-white'
                 }`}
               >
                 {f.label}
@@ -454,7 +590,7 @@ export default function JointVentures() {
           {landLoading && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
               {[1, 2, 3, 4, 5, 6].map((n) => (
-                <div key={n} className="border-2 border-stone-200 bg-white p-5 md:p-6 animate-pulse">
+                <div key={n} className="border-2 border-primary/12 bg-white p-5 md:p-6 animate-pulse">
                   <div className="flex items-center justify-between mb-3">
                     <div className="h-3 bg-stone-200 rounded w-24" />
                     <div className="h-5 bg-stone-200 rounded w-20" />
@@ -481,10 +617,10 @@ export default function JointVentures() {
               <div className="w-16 h-16 flex items-center justify-center bg-red-50 rounded-full mx-auto mb-4">
                 <i className="ri-error-warning-line text-2xl text-red-400"></i>
               </div>
-              <p className="text-stone-500 font-roboto text-sm mb-4">{landError}</p>
+              <p className="text-primary/70 font-roboto text-sm mb-4">{landError}</p>
               <button
                 onClick={fetchLandListings}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
               >
                 <i className="ri-refresh-line"></i>Retry
               </button>
@@ -495,10 +631,10 @@ export default function JointVentures() {
           {!landLoading && !landError && filteredLand.length === 0 && (
             <div className="text-center py-16">
               <div className="w-16 h-16 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
-                <i className="ri-landscape-line text-2xl text-stone-400"></i>
+                <i className="ri-landscape-line text-2xl text-primary/50"></i>
               </div>
-              <p className="text-stone-500 font-roboto text-sm mb-2">No {landTab !== 'all' ? landTab === 'outright' ? 'outright purchase' : 'joint venture' : ''} plots available right now.</p>
-              <p className="text-stone-400 font-roboto text-xs">Check back soon or submit a brief to be notified when new opportunities arrive.</p>
+              <p className="text-primary/70 font-roboto text-sm mb-2">No {landTab !== 'all' ? landTab === 'outright' ? 'outright purchase' : 'joint venture' : ''} plots available right now.</p>
+              <p className="text-primary/50 font-roboto text-xs">Check back soon or submit a brief to be notified when new opportunities arrive.</p>
             </div>
           )}
 
@@ -507,16 +643,16 @@ export default function JointVentures() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
                 {filteredLand.map((land) => (
-                  <Link to={land.slug ? `/property/${land.slug}` : '#'} key={land.id} data-type={land.category === 'joint_venture' ? 'jv' : 'sale'} className="group relative block cursor-pointer">
+                  <Link to={land.slug ? `/property/${land.slug}` : '#'} key={land.id} data-type={land.category === 'joint_venture' ? 'jv' : 'sale'} className="group relative block cursor-pointer h-full">
                     {/* Top zigzag serration */}
                     <svg className="absolute -top-[5px] left-0 w-full h-[5px] block" preserveAspectRatio="none" viewBox="0 0 100 5">
                       <path d="M0 5 L2.5 0 L5 5 L7.5 0 L10 5 L12.5 0 L15 5 L17.5 0 L20 5 L22.5 0 L25 5 L27.5 0 L30 5 L32.5 0 L35 5 L37.5 0 L40 5 L42.5 0 L45 5 L47.5 0 L50 5 L52.5 0 L55 5 L57.5 0 L60 5 L62.5 0 L65 5 L67.5 0 L70 5 L72.5 0 L75 5 L77.5 0 L80 5 L82.5 0 L85 5 L87.5 0 L90 5 L92.5 0 L95 5 L97.5 0 L100 5 Z" fill="#ffffff" />
                     </svg>
 
                     {/* Card body — receipt paper */}
-                    <div className="bg-white border-2 border-stone-200 p-6 md:p-7 relative">
+                    <div className="bg-white border-2 border-primary-500 p-6 md:p-7 relative h-full flex flex-col">
                       {/* Ref code — mono, top center */}
-                      <span className="font-mono text-xs text-stone-500 tracking-[0.2em] uppercase font-semibold block text-center mb-4">
+                      <span className="font-mono text-xs text-[#2D303D] tracking-[0.2em] uppercase font-semibold block text-center mb-4">
                         {land.ref}
                       </span>
 
@@ -532,11 +668,11 @@ export default function JointVentures() {
                       </div>
 
                       {/* Title — centered, receipt style */}
-                      <h4 className="font-roboto font-bold text-primary text-sm md:text-base text-center mb-1.5 leading-snug">{land.title}</h4>
+                      <h4 className="font-roboto font-semibold text-primary text-[18px] text-center mb-1.5 leading-snug">{land.title}</h4>
 
                       {/* Location — centered */}
-                      <p className="font-roboto text-xs text-stone-600 text-center mb-5">
-                        <i className="ri-map-pin-2-line mr-1 text-stone-400"></i>{land.district}, {land.area}
+                      <p className="font-roboto text-xs text-[#2D303D] text-center mb-5">
+                        <i className="ri-map-pin-2-line mr-1 text-[#2D303D]/50"></i>{[land.district, land.area].filter(Boolean).join(', ')}
                       </p>
 
                       {/* Dashed separator */}
@@ -545,29 +681,53 @@ export default function JointVentures() {
                       {/* Metrics — two-column receipt rows */}
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center justify-between">
-                          <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">{land.category === 'joint_venture' ? 'Acreage' : 'Size'}</span>
-                          <span className="font-mono text-sm text-primary font-bold">{land.size}</span>
+                          <span className="font-roboto text-sm text-[#2D303D] uppercase tracking-wider font-semibold">{land.category === 'joint_venture' ? 'Acreage' : 'Size'}</span>
+                          <span className="font-mono text-sm text-[#2D303D] font-bold">{land.size}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">Title</span>
-                          <span className="font-mono text-sm text-primary font-bold">{land.titleType}</span>
+                          <span className="font-roboto text-sm text-[#2D303D] uppercase tracking-wider font-semibold">Title</span>
+                          <span className="font-mono text-sm text-[#2D303D] font-bold">{land.titleType}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="font-roboto text-xs text-stone-600 uppercase tracking-wider font-medium">{land.category === 'joint_venture' ? 'Ask' : 'Price'}</span>
-                          <span className="font-mono text-sm text-golden font-bold">{format(land.priceRaw, land.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
+                          <span className="font-roboto text-sm text-[#2D303D] uppercase tracking-wider font-semibold">{land.category === 'joint_venture' ? 'Ask' : 'Price'}</span>
+                          <span className="font-mono text-[20px] text-[#C9A227] font-bold">{format(land.priceRaw, land.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
                         </div>
+                        <p className="text-[12px] font-roboto text-[#2D303D] text-right -mt-1 mb-1">Guide Price</p>
                       </div>
 
                       {/* Dashed separator */}
                       <div className="border-t border-dashed border-stone-300 mb-4" />
 
                       {/* Description — centered, receipt style */}
-                      <p className="font-roboto text-xs text-stone-600 leading-relaxed text-center mb-5">{land.description}</p>
+                      <p className={`font-roboto text-xs text-[#2D303D] leading-relaxed text-center ${expandedLand.has(land.id) ? 'mb-3' : 'line-clamp-3 mb-2'}`}>
+                        {land.description}
+                      </p>
+
+                      {/* Read more / less — expands in place, never navigates */}
+                      {land.description.length > 180 && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setExpandedLand((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(land.id)) next.delete(land.id);
+                              else next.add(land.id);
+                              return next;
+                            });
+                          }}
+                          className="inline-flex items-center gap-1.5 mx-auto mb-5 text-golden font-roboto text-[11px] uppercase tracking-wider font-bold cursor-pointer hover:opacity-70 transition-opacity"
+                        >
+                          {expandedLand.has(land.id) ? 'Read less' : 'Read more'}
+                          <i className={expandedLand.has(land.id) ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}></i>
+                        </button>
+                      )}
 
                       {/* CTA — full width, outlined */}
                       <div
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                        className="inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 border border-dashed border-stone-400 text-primary font-roboto text-[11px] tracking-wider uppercase cursor-pointer whitespace-nowrap hover:bg-primary hover:text-white hover:border-primary transition-colors"
+                        className="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-[11px] tracking-wider uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
                       >
                         Enquire about this plot <i className="ri-arrow-right-line"></i>
                       </div>
@@ -598,26 +758,26 @@ export default function JointVentures() {
 
           {/* Tab switcher */}
           <div className="flex items-center justify-center mb-8 md:mb-10">
-            <div className="inline-flex items-center bg-white/10 rounded-full px-1 py-1">
+            <div className="inline-flex items-center bg-white/10 px-1 py-1">
               <button
                 onClick={() => setRequestTab('landowner')}
-                className={`px-6 py-2.5 rounded-full text-sm font-roboto whitespace-nowrap cursor-pointer transition-all ${
+                className={`px-6 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-all font-bold ${
                   requestTab === 'landowner'
-                    ? 'bg-golden text-primary font-semibold'
+                    ? 'bg-golden text-white'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
-                I own land
+                I Own Land
               </button>
               <button
                 onClick={() => setRequestTab('investor')}
-                className={`px-6 py-2.5 rounded-full text-sm font-roboto whitespace-nowrap cursor-pointer transition-all ${
+                className={`px-6 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-all font-bold ${
                   requestTab === 'investor'
-                    ? 'bg-golden text-primary font-semibold'
+                    ? 'bg-accent text-white'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
-                I have capital
+                I Have Capital
               </button>
             </div>
           </div>
@@ -631,27 +791,27 @@ export default function JointVentures() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-6">
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full name</label>
-                  <input required name="full_name" placeholder="e.g. Sarah Namutebi" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="full_name" placeholder="e.g. Sarah Namutebi" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone / WhatsApp</label>
-                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email</label>
-                  <input type="email" name="email" placeholder="you@email.com" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="email" name="email" placeholder="you@email.com" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">District / location</label>
-                  <input required name="land_location" placeholder="e.g. Wakiso, Kira" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="land_location" placeholder="e.g. Wakiso, Kira" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Acreage</label>
-                  <input required name="land_size" placeholder="e.g. 12 acres" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="land_size" placeholder="e.g. 12 acres" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Title status</label>
-                  <select required name="title_status" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="title_status" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                     <option value="">Select one</option>
                     <option value="freehold">Freehold</option>
                     <option value="leasehold">Leasehold</option>
@@ -662,7 +822,7 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred structure</label>
-                  <select required name="preferred_structure" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="preferred_structure" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                     <option value="">Select one</option>
                     <option value="revenue_share">Joint venture — revenue share</option>
                     <option value="equity_split">Joint venture — equity split</option>
@@ -673,18 +833,18 @@ export default function JointVentures() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Tell us about the land</label>
-                  <textarea name="message" rows={3} maxLength={500} placeholder="Access road, current use, nearby landmarks, any existing survey or valuation, ideal type of investor..." className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
-                  <p className="text-right text-xs text-stone-300 font-roboto mt-1">Max 500 characters</p>
+                  <textarea name="message" rows={3} maxLength={500} placeholder="Access road, current use, nearby landmarks, any existing survey or valuation, ideal type of investor..." className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                  <p className="text-right text-xs text-primary/50 font-roboto mt-1">Max 500 characters</p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t-2 border-stone-200">
-                <p className="text-stone-400 font-roboto text-xs leading-relaxed max-w-md">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t-2 border-primary/12">
+                <p className="text-primary/50 font-roboto text-xs leading-relaxed max-w-md">
                   Have a survey map or photos? Mention it here — our team will follow up to collect them by WhatsApp or email.
                 </p>
                 <button
                   type="submit"
                   disabled={landownerForm.status === 'submitting'}
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-golden text-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-semibold flex-shrink-0"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-golden text-white text-base tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-semibold flex-shrink-0"
                 >
                   {landownerForm.status === 'submitting' ? 'Submitting...' : 'Submit land brief'}
                 </button>
@@ -713,19 +873,19 @@ export default function JointVentures() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-6">
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full name</label>
-                  <input required name="full_name" placeholder="e.g. David Okello" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="full_name" placeholder="e.g. David Okello" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone / WhatsApp</label>
-                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email</label>
-                  <input type="email" name="email" placeholder="you@email.com" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="email" name="email" placeholder="you@email.com" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Investment range (KES)</label>
-                  <select required name="budget_range" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="budget_range" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                     <option value="">Select one</option>
                     <option value="below_100m">Below 100M</option>
                     <option value="100m_500m">100M – 500M</option>
@@ -736,11 +896,11 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred district(s)</label>
-                  <input name="preferred_location" placeholder="e.g. Karen, Westlands, Kileleshwa" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input name="preferred_location" placeholder="e.g. Karen, Westlands, Kileleshwa" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred use</label>
-                  <select required name="preferred_use" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="preferred_use" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                     <option value="">Select one</option>
                     <option value="agriculture">Agriculture / agri-processing</option>
                     <option value="residential">Residential estate development</option>
@@ -751,7 +911,7 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Timeline</label>
-                  <select name="timeline" className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select name="timeline" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
                     <option value="">Select one</option>
                     <option value="within_30_days">Ready to move within 30 days</option>
                     <option value="1_3_months">1–3 months</option>
@@ -761,18 +921,18 @@ export default function JointVentures() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">What are you looking for?</label>
-                  <textarea name="message" rows={3} maxLength={500} placeholder="Minimum acreage, access requirements, JV structure preference, or any land you've already seen..." className="w-full border border-stone-200 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
-                  <p className="text-right text-xs text-stone-300 font-roboto mt-1">Max 500 characters</p>
+                  <textarea name="message" rows={3} maxLength={500} placeholder="Minimum acreage, access requirements, JV structure preference, or any land you've already seen..." className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                  <p className="text-right text-xs text-primary/50 font-roboto mt-1">Max 500 characters</p>
                 </div>
               </div>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t-2 border-stone-200">
-                <p className="text-stone-400 font-roboto text-xs leading-relaxed max-w-md">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t-2 border-primary/12">
+                <p className="text-primary/50 font-roboto text-xs leading-relaxed max-w-md">
                   We only share your brief with landowners once you approve a shortlist — your details stay private until then.
                 </p>
                 <button
                   type="submit"
                   disabled={investorForm.status === 'submitting'}
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-golden text-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-semibold flex-shrink-0"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-golden text-white text-base tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-semibold flex-shrink-0"
                 >
                   {investorForm.status === 'submitting' ? 'Submitting...' : 'Submit investment brief'}
                 </button>
@@ -803,18 +963,18 @@ export default function JointVentures() {
           </div>
           <div className="space-y-3">
             {jvFaqs.map((faq, idx) => (
-              <div key={idx} className="border-2 border-stone-200 overflow-hidden">
+              <div key={idx} className="border-2 border-primary/12 overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
                   className="w-full flex items-start gap-3 p-4 md:p-5 text-left hover:bg-stone-50 transition-colors cursor-pointer"
                 >
                   <span className="text-golden font-roboto text-xs font-bold mt-0.5 flex-shrink-0">{String(idx + 1).padStart(2, '0')}</span>
                   <span className="flex-1 font-roboto font-bold text-primary text-sm md:text-base">{faq.question}</span>
-                  <i className={`${openFaq === idx ? 'ri-subtract-line' : 'ri-add-line'} text-stone-400 mt-1 flex-shrink-0`}></i>
+                  <i className={`${openFaq === idx ? 'ri-subtract-line' : 'ri-add-line'} text-primary/50 mt-1 flex-shrink-0`}></i>
                 </button>
                 {openFaq === idx && (
                   <div className="px-4 md:px-5 pb-4 md:pb-5 pl-10 md:pl-12">
-                    <p className="text-stone-500 font-roboto text-sm leading-relaxed">{faq.answer}</p>
+                    <p className="text-primary/70 font-roboto text-sm leading-relaxed">{faq.answer}</p>
                   </div>
                 )}
               </div>
@@ -832,11 +992,11 @@ export default function JointVentures() {
             Whether you hold land or capital, our desk is built to structure deals that work for every partner. Submit a brief and let\'s talk.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a href="#request-desk" className="inline-flex items-center gap-2 px-6 py-2.5 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto justify-center">
+            <a href="#request-desk" className="inline-flex items-center gap-2 px-6 py-2.5 bg-golden text-white text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto justify-center">
               <i className="ri-file-list-3-line"></i>Submit a Brief
             </a>
-            <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-2.5 border border-white/30 text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors w-full sm:w-auto justify-center">
-              <i className="ri-chat-1-line"></i>Speak to the Desk
+            <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-2.5 border border-white/30 text-white text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors w-full sm:w-auto justify-center">
+              <i className="ri-mail-send-line"></i>Speak to the Desk
             </Link>
           </div>
         </div>

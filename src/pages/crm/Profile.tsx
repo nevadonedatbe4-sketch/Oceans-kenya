@@ -140,7 +140,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <h2 className="font-roboto text-xl font-bold text-white lg:text-[#1a1a2e]">{profileName}</h2>
+            <h2 className="font-roboto text-2xl font-bold text-white lg:text-[#1a1a2e]">{profileName}</h2>
             <p className="text-sm text-[#6b7280] lg:text-gray-500 font-roboto">{profileEmail}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-roboto font-medium uppercase ${

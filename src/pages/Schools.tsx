@@ -176,7 +176,7 @@ function StarRating({ rating }: { rating: number }) {
           className={`ri-star-fill text-xs ${s <= Math.round(rating) ? 'text-golden' : 'text-gray-300'}`}
         ></i>
       ))}
-      <span className="text-xs font-roboto text-gray-600 ml-1">{rating}</span>
+      <span className="text-xs font-roboto text-primary/60 ml-1">{rating}</span>
     </div>
   );
 }
@@ -195,7 +195,7 @@ export default function Schools() {
   });
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[92px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[120px]">
       <Header />
 
       {/* Hero */}
@@ -205,7 +205,7 @@ export default function Schools() {
           alt="Schools in Nairobi"
           className="w-full h-full object-cover object-top"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-black/50"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/90 via-primary/80 to-primary/50"></div>
         <div className="absolute inset-0 flex items-center justify-center text-center px-4">
           <div>
             <h1 className="text-white font-roboto font-bold text-3xl md:text-4xl mb-3">Schools in Nairobi</h1>
@@ -217,22 +217,22 @@ export default function Schools() {
       </div>
 
       {/* Search + Filters */}
-      <div className="sticky top-[92px] z-40 bg-white border-b border-gray-200 shadow-sm">
+      <div className="sticky top-[92px] z-40 bg-white border-b border-primary/12 shadow-sm">
         <div className="px-4 md:px-6 lg:px-10 py-3 max-w-[1400px] mx-auto">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-md">
-              <div className="flex items-center gap-2.5 px-4 h-10 bg-white border border-gray-300 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
+              <div className="flex items-center gap-2.5 px-4 h-10 bg-white border border-primary/20 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
                 <span className="w-5 h-5 flex items-center justify-center shrink-0">
                   <i className="ri-search-line text-gray-400 text-sm"></i>
                 </span>
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search schools or neighbourhoods..."
+                  placeholder="Looking for"
                   className="flex-1 min-w-0 text-sm font-roboto text-gray-800 placeholder:text-gray-400 focus:outline-none bg-transparent"
                 />
                 {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
+                  <button onClick={() => setSearchQuery('')} className="w-4 h-4 flex items-center justify-center text-gray-400 hover:text-primary/60 cursor-pointer">
                     <i className="ri-close-line text-xs"></i>
                   </button>
                 )}
@@ -243,7 +243,7 @@ export default function Schools() {
                 <button
                   key={t}
                   onClick={() => setSelectedType(t)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${selectedType === t ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${selectedType === t ? 'bg-primary text-white' : 'bg-gray-100 text-primary hover:bg-gray-200'}`}
                 >
                   {t}
                 </button>
@@ -254,7 +254,7 @@ export default function Schools() {
                 <select
                   value={selectedCurriculum}
                   onChange={(e) => setSelectedCurriculum(e.target.value)}
-                  className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer"
+                  className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                 >
                   {curriculumFilters.map((c) => (
                     <option key={c}>{c === 'All' ? 'All curriculums' : c}</option>
@@ -265,7 +265,7 @@ export default function Schools() {
             </div>
             <button
               onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-roboto text-gray-700 cursor-pointer"
+              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 border border-primary/20 rounded-lg text-xs font-roboto text-primary cursor-pointer"
             >
               <i className="ri-equalizer-line text-xs"></i>
               Filters
@@ -279,7 +279,7 @@ export default function Schools() {
                 <button
                   key={t}
                   onClick={() => setSelectedType(t)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${selectedType === t ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  className={`px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${selectedType === t ? 'bg-primary text-white' : 'bg-gray-100 text-primary hover:bg-gray-200'}`}
                 >
                   {t}
                 </button>
@@ -308,7 +308,7 @@ export default function Schools() {
               {filtered.map((school) => (
                 <div
                   key={school.id}
-                  className="flex flex-col sm:flex-row bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                  className="flex flex-col sm:flex-row bg-white border border-primary/12 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:border-primary/20 hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-all duration-200"
                 >
                   {/* Image */}
                   <div className="relative sm:w-[220px] lg:w-[260px] h-[180px] sm:h-auto flex-shrink-0 overflow-hidden">
@@ -318,7 +318,7 @@ export default function Schools() {
                       className="w-full h-full object-cover object-top"
                     />
                     <div className="absolute top-2 left-2">
-                      <span className={`text-[10px] font-roboto font-semibold px-2 py-0.5 rounded text-white ${school.type === 'International' ? 'bg-[#0D5959]' : school.type === 'Secondary' ? 'bg-[#4B0082]' : school.type === 'Primary' ? 'bg-[#D2691E]' : 'bg-[#556B2F]'}`}>
+                      <span className={`text-[10px] font-roboto font-semibold px-2 py-0.5 rounded text-white ${school.type === 'International' ? 'bg-accent' : school.type === 'Secondary' ? 'bg-[#4B0082]' : school.type === 'Primary' ? 'bg-[#D2691E]' : 'bg-[#556B2F]'}`}>
                         {school.type}
                       </span>
                     </div>
@@ -337,7 +337,7 @@ export default function Schools() {
                         </span>
                         {school.location}, Nairobi
                       </p>
-                      <div className="flex items-center gap-3 mb-2 text-xs font-roboto text-gray-600">
+                      <div className="flex items-center gap-3 mb-2 text-xs font-roboto text-primary/60">
                         <span className="flex items-center gap-1">
                           <i className="ri-book-open-line text-primary text-xs"></i>
                           {school.curriculum}
@@ -363,22 +363,22 @@ export default function Schools() {
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {school.features.map((f) => (
-                          <span key={f} className="px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-roboto rounded">
+                          <span key={f} className="px-2 py-0.5 bg-gray-100 text-primary/60 text-[10px] font-roboto rounded">
                             {f}
                           </span>
                         ))}
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-gray-200">
+                    <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-primary/12">
                       <Link
                         to={`/rent?area=${school.location.toLowerCase()}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white border-2 border-primary rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                       >
                         <i className="ri-home-4-line text-[10px]"></i>
                         Properties nearby
                       </Link>
-                      <button className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-md text-[10px] font-roboto font-semibold hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+                      <button className="flex items-center gap-1.5 px-3 py-1.5 border border-primary/20 text-primary rounded-md text-[10px] font-roboto font-semibold hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
                         <i className="ri-phone-line text-[10px]"></i>
                         Contact school
                       </button>
@@ -393,7 +393,7 @@ export default function Schools() {
                 <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-full">
                   <i className="ri-school-line text-gray-400 text-xl"></i>
                 </div>
-                <h3 className="text-sm font-roboto font-semibold text-gray-700 mb-1">No schools found</h3>
+                <h3 className="text-sm font-roboto font-semibold text-primary mb-1">No schools found</h3>
                 <p className="text-xs font-roboto text-gray-500">Try adjusting your filters or search query</p>
               </div>
             )}
@@ -403,7 +403,7 @@ export default function Schools() {
           <div className="hidden lg:block lg:w-[35%] xl:w-[30%]">
             <div className="sticky top-[140px] space-y-4">
               {/* By neighbourhood */}
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <h3 className="text-sm font-roboto font-semibold text-primary">Schools by Neighbourhood</h3>
                 </div>
@@ -414,7 +414,7 @@ export default function Schools() {
                       <button
                         key={area}
                         onClick={() => setSearchQuery(area)}
-                        className="w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer hover:bg-gray-50 transition-colors text-gray-600"
+                        className="w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer hover:bg-gray-50 transition-colors text-primary/60"
                       >
                         <span className="flex items-center gap-2">
                           <i className="ri-map-pin-2-line text-xs"></i>
@@ -428,7 +428,7 @@ export default function Schools() {
               </div>
 
               {/* Type breakdown */}
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <h3 className="text-sm font-roboto font-semibold text-primary">School Types</h3>
                 </div>
@@ -436,7 +436,7 @@ export default function Schools() {
                   {schoolTypeFilters.slice(1).map((t) => {
                     const count = schools.filter((s) => s.type === t).length;
                     return (
-                      <div key={t} className="flex items-center justify-between text-xs font-roboto text-gray-600">
+                      <div key={t} className="flex items-center justify-between text-xs font-roboto text-primary/60">
                         <span>{t}</span>
                         <span className="text-gray-400">{count} schools</span>
                       </div>

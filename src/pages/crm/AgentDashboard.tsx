@@ -267,8 +267,8 @@ export default function AgentDashboard() {
       value: stats.totalDeals,
       sub: `${stats.wonDeals} won · ${stats.winRate}% win rate`,
       icon: Handshake,
-      iconBg: 'bg-amber-50',
-      iconColor: 'text-amber-600',
+      iconBg: 'bg-orange-50',
+      iconColor: 'text-orange-600',
       link: '/crm/deals',
     },
   ];

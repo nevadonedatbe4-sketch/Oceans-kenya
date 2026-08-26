@@ -65,7 +65,7 @@ export default function CompareModal({ isOpen, onClose, compareIds, developments
           <Link to={`/property/${dev.slug}`} onClick={onClose}>
             <div className="w-full h-28 sm:h-32 rounded-sm overflow-hidden bg-stone-100">
               {dev.image ? (
-                <img src={dev.image} alt={dev.name} className="w-full h-full object-cover object-top" />
+                <img src={dev.image} alt={dev.name} className="w-full h-full object-cover object-center" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <i className="ri-building-line text-2xl text-stone-300"></i>

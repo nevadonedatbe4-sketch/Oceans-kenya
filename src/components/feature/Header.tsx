@@ -41,7 +41,7 @@ function CurrencyDropdown({
   if (!open) return null;
 
   return (
-    <div className="absolute top-full right-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[150px] py-1 z-50 overflow-hidden">
+    <div className="absolute top-full right-0 mt-1 bg-white rounded-lg border border-primary/12 shadow-lg min-w-[150px] py-1 z-50 overflow-hidden">
       {availableCurrencies.map((c) => (
         <button
           key={c.code}
@@ -75,8 +75,6 @@ export default function Header() {
   const mobileCurrencyRef = useRef<HTMLDivElement>(null);
 
   const [scrolled, setScrolled] = useState(false);
-  const [companyOpen, setCompanyOpen] = useState(false);
-  const companyRef = useRef<HTMLDivElement>(null);
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
   const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const location = useLocation();
@@ -89,9 +87,6 @@ export default function Header() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (companyRef.current && !companyRef.current.contains(e.target as Node)) {
-        setCompanyOpen(false);
-      }
       // Close any open dynamic dropdowns when clicking outside
       Object.entries(dropdownRefs.current).forEach(([id, ref]) => {
         if (ref && !ref.contains(e.target as Node)) {
@@ -104,8 +99,8 @@ export default function Header() {
   }, []);
 
   const siteName = site.site_name || 'Oceans Kenya';
-  const contactPhone = site.contact_phone || '+254(0)712345678';
-  const contactEmail = site.contact_email || 'info@oceans.co.ke';
+  const contactPhone = site.contact_phone || '+254703712984';
+  const contactEmail = site.contact_email || 'ask@oceanske.com';
   const logoUrl = site.logo_url || 'https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/b5c367b8-0348-44ab-b81a-83abfed5503c_favicaon-1-1024x887.png?v=5d2f68fc83a460dece14c00261f8d058';
 
   // Component settings
@@ -122,9 +117,11 @@ export default function Header() {
   const navBgClass = useTransparent ? 'bg-transparent' : 'bg-primary';
   const topBarClass = useTransparent ? 'bg-black/40 border-white/5' : 'bg-black border-white/10';
 
-  // Split nav links: group "About Us" and "Contact" into "Connect" dropdown
+  // Split nav links: "About" and "Contact" become independent items (no dropdown)
   const companyLabels = ['about us', 'about', 'contact', 'contact us'];
   const companyLinks = navLinks.filter((l) => companyLabels.includes(l.label.toLowerCase().trim()));
+  const aboutLinks = companyLinks.filter((l) => /about/.test(l.label.toLowerCase()));
+  const contactLinks = companyLinks.filter((l) => /contact/.test(l.label.toLowerCase()));
   // Filter out Residential Property from nav
   const filteredNavLinks = navLinks.filter((l) => !['residential property', 'commercial property'].includes(l.label.toLowerCase().trim()));
   // Links with children become their own dropdowns
@@ -142,7 +139,7 @@ export default function Header() {
               {showPhone && (
                 <a
                   href={`tel:${contactPhone}`}
-                  className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
+                  className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-bold transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
                 >
                   <span className="w-5 h-5 flex items-center justify-center">
                     <i className="ri-phone-line text-sm"></i>
@@ -152,7 +149,7 @@ export default function Header() {
               )}
               <a
                 href={`mailto:${contactEmail}`}
-                className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
+                className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-bold transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
               >
                 <span className="w-5 h-5 flex items-center justify-center">
                   <i className="ri-mail-line text-sm"></i>
@@ -166,8 +163,8 @@ export default function Header() {
                 className="flex items-center gap-2 cursor-pointer whitespace-nowrap select-none text-white hover:text-golden transition-colors"
                 aria-label={`Current currency: ${currency}. Click to switch.`}
               >
-                <span className="font-semibold text-sm">{currency}</span>
-                <span className={`text-base text-golden transition-transform duration-300 ${desktopCurrencyOpen ? 'rotate-180' : ''}`}>&#9662;</span>
+                <span className="font-bold text-sm">{currency}</span>
+                <span className={`text-base text-white transition-transform duration-300 ${desktopCurrencyOpen ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
               </button>
               <CurrencyDropdown
                 currency={currency}
@@ -183,8 +180,8 @@ export default function Header() {
       </div>
 
       {/* Main nav */}
-      <div className={`transition-all duration-300 ${navBgClass} ${useTransparent ? '' : 'shadow-md'}`}>
-        <div className="flex items-center justify-between px-4 md:px-6 lg:px-10 py-3">
+      <div className={`transition-all duration-300 ${navBgClass} ${useTransparent ? '' : 'shadow-md border-b border-white/15'}`}>
+        <div className="flex items-center justify-between px-4 md:px-6 lg:px-10 py-2 md:py-3">
           <Link
             to="/"
             aria-label={`Go to ${siteName} homepage`}
@@ -192,7 +189,7 @@ export default function Header() {
           >
             <img
               alt={siteName}
-              className="w-16 h-16 md:w-20 md:h-20 object-contain"
+              className="w-10 h-10 md:w-16 md:h-16 lg:w-20 lg:h-20 object-contain"
               src={logoUrl}
             />
           </Link>
@@ -207,71 +204,81 @@ export default function Header() {
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
+                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em]"
                   >
                     {link.label}
                   </Link>
                 ))}
-                {dropdownLinks.map((link) => (
-                  <div
+                {dropdownLinks.map((link) => {
+                  const hasRealHref = !!link.href && link.href !== '#' && link.href !== '';
+                  return (
+                    <div
+                      key={link.id}
+                      className="relative"
+                      ref={(el) => { dropdownRefs.current[link.id] = el; }}
+                      onMouseEnter={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: true }))}
+                      onMouseLeave={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: false }))}
+                    >
+                      {hasRealHref ? (
+                        <Link
+                          to={link.href}
+                          className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
+                        >
+                          {link.label}
+                          <span className={`text-base ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
+                          className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
+                        >
+                          {link.label}
+                          <span className={`text-base ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
+                        </button>
+                      )}
+                      {openDropdowns[link.id] && (
+                        <div className="absolute top-full left-0 pt-1 z-50">
+                          <div className="bg-white rounded-lg border border-primary/12 shadow-lg min-w-[220px] py-1">
+                            {link.children.map((child) => (
+                              <Link
+                                key={child.id}
+                                to={child.href}
+                                className="block px-4 py-2.5 text-[17px] font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+                                onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: false }))}
+                              >
+                                {child.label}
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {aboutLinks.map((link) => (
+                  <Link
                     key={link.id}
-                    className="relative"
-                    ref={(el) => { dropdownRefs.current[link.id] = el; }}
+                    to={link.href}
+                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium tracking-[0.05em]"
                   >
-                    <button
-                      onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
-                      className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] flex items-center gap-2"
-                    >
-                      {link.label}
-                      <span className={`text-base ml-0.5 text-golden transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}>&#9662;</span>
-                    </button>
-                    {openDropdowns[link.id] && (
-                      <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[220px] py-1 z-50">
-                        {link.children.map((child) => (
-                          <Link
-                            key={child.id}
-                            to={child.href}
-                            className="block px-4 py-2.5 text-sm font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
-                            onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: false }))}
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    About us
+                  </Link>
                 ))}
-                {companyLinks.length > 0 && (
-                  <div className="relative" ref={companyRef}>
-                    <button
-                      onClick={() => setCompanyOpen(!companyOpen)}
-                      className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] flex items-center gap-2"
-                    >
-                      Connect
-                      <span className={`text-base ml-0.5 text-golden transition-transform duration-300 ${companyOpen ? 'rotate-180' : ''}`}>&#9662;</span>
-                    </button>
-                    {companyOpen && (
-                      <div className="absolute top-full left-0 mt-1 bg-white rounded-lg border border-gray-200 shadow-lg min-w-[160px] py-1 z-50">
-                        {companyLinks.map((link) => (
-                          <Link
-                            key={link.id}
-                            to={link.href}
-                            className="block px-4 py-2.5 text-sm font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
-                            onClick={() => setCompanyOpen(false)}
-                          >
-                            {link.label}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {contactLinks.map((link) => (
+                  <Link
+                    key={link.id}
+                    to={link.href}
+                    className="ml-3 px-5 py-2.5 bg-accent text-white text-[15px] font-semibold tracking-wider hover:bg-accent/90 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    Let's talk
+                  </Link>
+                ))}
               </>
             )}
             {showCTA && (
               <Link
                 to={ctaLink}
-                className="ml-3 px-5 py-2.5 bg-golden text-white text-xs font-semibold capitalize tracking-wider hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
+                className="ml-3 px-5 py-2.5 bg-golden text-white text-[15px] font-semibold capitalize tracking-wider hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
               >
                 {ctaLabel}
               </Link>
@@ -286,8 +293,8 @@ export default function Header() {
                 className="flex items-center gap-2 cursor-pointer whitespace-nowrap select-none text-white hover:text-golden transition-colors"
                 aria-label={`Current currency: ${currency}. Click to switch.`}
               >
-                <span className="font-semibold text-sm">{currency}</span>
-                <span className={`text-base text-golden transition-transform duration-300 ${mobileCurrencyOpen ? 'rotate-180' : ''}`}>&#9662;</span>
+                <span className="font-bold text-sm">{currency}</span>
+                <span className={`text-base text-white transition-transform duration-300 ${mobileCurrencyOpen ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
               </button>
               <CurrencyDropdown
                 currency={currency}
@@ -299,7 +306,7 @@ export default function Header() {
               />
             </div>
             <button
-              className="flex items-center justify-center w-10 h-10 rounded-md cursor-pointer text-white"
+              className="flex items-center justify-center w-11 h-11 rounded-md cursor-pointer text-white"
               aria-label="Toggle menu"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
@@ -316,7 +323,7 @@ export default function Header() {
                 <Link
                   key={link.id}
                   to={link.href}
-                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em] border-b border-white/5"
+                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] border-b border-white/5"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}
@@ -326,10 +333,10 @@ export default function Header() {
                 <div key={link.id} className="border-b border-white/5">
                   <button
                     onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
-                    className="w-full px-4 py-3 flex items-center justify-between cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
+                    className="w-full px-4 py-3 flex items-center justify-between cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em]"
                   >
                     {link.label}
-                    <span className={`text-base text-golden transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}>&#9662;</span>
+                    <span className={`text-base text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
                   </button>
                   {openDropdowns[link.id] && (
                     <div className="pb-2 pl-6 flex flex-col gap-1">
@@ -337,7 +344,7 @@ export default function Header() {
                         <Link
                           key={child.id}
                           to={child.href}
-                          className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/70 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
+                          className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/70 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em]"
                           onClick={() => { setMobileMenuOpen(false); setOpenDropdowns((prev) => ({ ...prev, [link.id]: false })); }}
                         >
                           {child.label}
@@ -347,27 +354,30 @@ export default function Header() {
                   )}
                 </div>
               ))}
-              {companyLinks.length > 0 && (
-                <div className="px-4 py-3 border-b border-white/5">
-                  <p className="text-white/60 text-xs font-medium capitalize tracking-[0.05em] mb-2">Connect</p>
-                  <div className="flex flex-col gap-1">
-                    {companyLinks.map((link) => (
-                      <Link
-                        key={link.id}
-                        to={link.href}
-                        className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-sm font-medium capitalize tracking-[0.05em]"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {aboutLinks.map((link) => (
+                <Link
+                  key={link.id}
+                  to={link.href}
+                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium tracking-[0.05em] border-b border-white/5"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  About us
+                </Link>
+              ))}
+              {contactLinks.map((link) => (
+                <Link
+                  key={link.id}
+                  to={link.href}
+                  className="px-4 py-3 mt-2 bg-accent text-white text-center text-[17px] font-semibold tracking-[0.05em] cursor-pointer whitespace-nowrap rounded-md"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Let's talk
+                </Link>
+              ))}
               {showCTA && (
                 <Link
                   to={ctaLink}
-                  className="px-4 py-3 bg-golden text-white text-xs font-semibold capitalize tracking-wider text-center mt-2 cursor-pointer whitespace-nowrap"
+                  className="px-4 py-3 bg-golden text-white text-[15px] font-semibold capitalize tracking-wider text-center mt-2 cursor-pointer whitespace-nowrap"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {ctaLabel}

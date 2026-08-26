@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { getPropertySpecs } from '@/lib/propertySpecs';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
+import PropertyBadge from '@/components/feature/PropertyBadge';
 import { useCurrency } from '@/hooks/useCurrency';
+import { smartTitleCase } from '@/lib/location';
 
 interface DBListing {
   id: string;
@@ -24,6 +27,10 @@ interface DBListing {
   bathrooms: number | null;
   parking: number | null;
   size: number | null;
+  sqft: number | null;
+  land_size: number | null;
+  acreage: number | null;
+  land_unit: string | null;
   main_image: string | null;
   cover_image: string | null;
   images: string[] | null;
@@ -96,7 +103,7 @@ export default function NeighbourhoodDetail() {
         const { data: dbListings } = await supabase
           .from('listings')
           .select(
-            'id, title, slug, location, price, currency, price_prefix, price_postfix, purpose, status, property_type, bedrooms, bathrooms, parking, size, main_image, cover_image, images, neighbourhood'
+            'id, title, slug, location, price, currency, price_prefix, price_postfix, purpose, status, property_type, bedrooms, bathrooms, parking, size, sqft, land_size, acreage, land_unit, main_image, cover_image, images, neighbourhood'
           )
           .eq('is_published', true)
           .eq('status', 'available')
@@ -172,7 +179,7 @@ export default function NeighbourhoodDetail() {
             </p>
             <Link
               to="/neighbourhoods"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               View All Neighbourhoods
               <i className="ri-arrow-right-line text-xs"></i>
@@ -223,7 +230,7 @@ export default function NeighbourhoodDetail() {
           <p className="text-golden text-xs font-roboto font-semibold uppercase tracking-[0.35em] mb-2">
             {neighbourhood?.propertyCount} Properties Available
           </p>
-          <h1 className="font-roboto font-bold text-3xl md:text-5xl text-white mb-4 leading-tight">
+          <h1 className="font-roboto font-bold text-2xl md:text-5xl text-white mb-4 leading-tight">
             {neighbourhood?.name} Area Guide
           </h1>
           <p className="font-roboto text-white/80 text-sm md:text-base max-w-2xl leading-relaxed">
@@ -242,15 +249,15 @@ export default function NeighbourhoodDetail() {
                 {neighbourhood?.description || neighbourhood?.summary || ''}
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-stone-50 p-4 rounded-lg border-2 border-stone-200">
+                <div className="bg-stone-50 p-4 rounded-lg border-2 border-primary/12">
                   <p className="font-roboto text-stone-400 text-xs uppercase tracking-wider mb-1">Price Range (2026)</p>
                   <p className="font-roboto text-primary text-sm font-semibold">{neighbourhood?.average_sale_price ? format(neighbourhood.average_sale_price, 'KES') : 'Contact us'}</p>
                 </div>
-                <div className="bg-stone-50 p-4 rounded-lg border-2 border-stone-200">
+                <div className="bg-stone-50 p-4 rounded-lg border-2 border-primary/12">
                   <p className="font-roboto text-stone-400 text-xs uppercase tracking-wider mb-1">Rental Range</p>
                   <p className="font-roboto text-primary text-sm font-semibold">{neighbourhood?.rental_range_kes || 'Contact us'}</p>
                 </div>
-                <div className="bg-stone-50 p-4 rounded-lg border-2 border-stone-200">
+                <div className="bg-stone-50 p-4 rounded-lg border-2 border-primary/12">
                   <p className="font-roboto text-stone-400 text-xs uppercase tracking-wider mb-1">Best Suited For</p>
                   <p className="font-roboto text-stone-600 text-xs leading-relaxed">{neighbourhood?.target_market || ''}</p>
                 </div>
@@ -262,7 +269,7 @@ export default function NeighbourhoodDetail() {
           <Reveal>
           <section className="mb-12 md:mb-16">
             <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-4">Location</h2>
-            <div className="w-full h-64 md:h-80 rounded-lg overflow-hidden border border-stone-200">
+            <div className="w-full h-56 md:h-80 rounded-lg overflow-hidden border border-primary/12">
               <iframe
                 allowFullScreen
                 className="w-full h-full"
@@ -286,7 +293,7 @@ export default function NeighbourhoodDetail() {
               </div>
               <Link
                 to="/all-properties"
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-stone-500 hover:text-primary transition-colors whitespace-nowrap"
+                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 text-sm font-roboto font-medium text-primary border border-primary/20 rounded-sm hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap"
               >
                 View All
                 <i className="ri-arrow-right-line"></i>
@@ -322,12 +329,12 @@ export default function NeighbourhoodDetail() {
             ) : (
               <>
                 {(propertyTab === 'sale' ? saleListings : rentListings).length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                     {(propertyTab === 'sale' ? saleListings : rentListings).map((p) => (
                       <Link
                         key={p.id}
                         to={`/property/${p.slug}`}
-                        className="group cursor-pointer block bg-white rounded-lg overflow-hidden border-2 border-stone-200 hover:border-stone-200 transition-all duration-300"
+                        className="group cursor-pointer block bg-white rounded-lg overflow-hidden border-2 border-primary/12 hover:border-primary/12 transition-all duration-300"
                       >
                         <div className="relative aspect-[4/3] overflow-hidden">
                           <img
@@ -335,33 +342,31 @@ export default function NeighbourhoodDetail() {
                             className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                             src={p.main_image || p.cover_image || (p.images && p.images[0]) || ''}
                           />
-                          <div className={`absolute top-2.5 left-2.5 px-2 py-0.5 text-white text-xs font-roboto font-medium uppercase tracking-wider rounded-sm ${
-                            propertyTab === 'sale' ? 'bg-primary/90' : 'bg-emerald-600/90'
-                          }`}>
-                            {propertyTab === 'sale' ? 'For Sale' : 'To Let'}
-                          </div>
+                          <PropertyBadge variant={propertyTab === 'sale' ? 'sale' : 'rent'} className="absolute top-2.5 left-2.5" />
                         </div>
                         <div className="p-3.5 md:p-4">
                           <p className="text-golden text-xs font-roboto font-semibold uppercase tracking-wider mb-1">
                             {p.property_type}
                           </p>
                           <h3 className="font-roboto font-bold text-sm md:text-base text-primary leading-snug mb-2 line-clamp-2">
-                            {p.title}
+                            {smartTitleCase(p.title)}
                           </h3>
                           <p className="font-roboto text-stone-400 text-xs mb-3 flex items-center gap-1">
                             <i className="ri-map-pin-line"></i>
-                            {p.location}
+                            {smartTitleCase(p.location)}
                           </p>
-                          <div className="flex items-center gap-3 text-stone-400 text-xs font-roboto mb-3">
-                            {p.bedrooms !== null && (
-                              <span className="flex items-center gap-1"><i className="ri-hotel-bed-line"></i> {p.bedrooms}</span>
-                            )}
-                            {p.bathrooms !== null && (
-                              <span className="flex items-center gap-1"><i className="fa-solid fa-bath"></i> {p.bathrooms}</span>
-                            )}
-                            {p.parking !== null && (
-                              <span className="flex items-center gap-1"><i className="ri-car-line"></i> {p.parking}</span>
-                            )}
+                          <div className="flex items-center gap-3 flex-wrap text-stone-400 text-xs font-roboto mb-3">
+                            {getPropertySpecs(p.property_type, {
+                              beds: p.bedrooms ?? 0,
+                              baths: p.bathrooms ?? 0,
+                              parking: p.parking ?? 0,
+                              sqft: Number(p.sqft ?? 0),
+                              acreage: Number(p.acreage ?? 0),
+                              landSize: Number(p.land_size ?? 0),
+                              landUnit: p.land_unit || undefined,
+                            }).map((spec) => (
+                              <span key={spec.key} className="flex items-center gap-1"><i className={spec.icon}></i> {spec.label}</span>
+                            ))}
                           </div>
                           <div className="flex items-center justify-between pt-2.5 border-t border-stone-100">
                             <p className="font-roboto text-primary text-sm font-semibold">{format(p.price, (p.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR')}</p>
@@ -374,7 +379,7 @@ export default function NeighbourhoodDetail() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12 bg-stone-50 rounded-lg border-2 border-stone-200">
+                  <div className="text-center py-12 bg-stone-50 rounded-lg border-2 border-primary/12">
                     <div className="w-12 h-12 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-3">
                       <i className="ri-home-4-line text-stone-400 text-xl"></i>
                     </div>
@@ -386,7 +391,7 @@ export default function NeighbourhoodDetail() {
                     </p>
                     <Link
                       to="/contact"
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-xs font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
                     >
                       Register Interest
                       <i className="ri-arrow-right-line text-xs"></i>
@@ -402,7 +407,7 @@ export default function NeighbourhoodDetail() {
           <Reveal>
           <section className="mb-12 md:mb-16">
             <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">Explore Nearby Areas</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {nearbyHoods.slice(0, 4).map((n) => (
                 <Link
                   key={n.id}
@@ -438,10 +443,10 @@ export default function NeighbourhoodDetail() {
             </p>
             <Link
               to="/contact"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2.5 px-8 md:px-10 py-4 bg-primary text-white border-2 border-primary text-base font-roboto font-semibold tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
               Speak to an Agent
-              <i className="ri-arrow-right-line text-xs"></i>
+              <i className="ri-arrow-right-line text-sm"></i>
             </Link>
           </div>
           </Reveal>
@@ -451,7 +456,7 @@ export default function NeighbourhoodDetail() {
           <section className="mt-16">
             <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-2">How Nairobi Neighbourhoods Compare</h2>
             <p className="font-roboto text-stone-500 text-sm mb-6">Quick reference for the top 6 neighbourhoods — at a glance.</p>
-            <div className="overflow-x-auto rounded-lg border-2 border-stone-200">
+            <div className="overflow-x-auto rounded-lg border-2 border-primary/12">
               <table className="w-full text-xs font-roboto">
                 <thead>
                   <tr className="bg-stone-50 border-b border-stone-100">

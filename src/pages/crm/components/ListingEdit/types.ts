@@ -43,6 +43,7 @@ export interface ListingFormState {
   landSize: string;
   acreage: string;
   landTitle: string;
+  landType: string;
   sqft: string;
   amenities: string[];
   features: string;
@@ -112,6 +113,8 @@ export interface ListingFormState {
   waterSupply: string;
   constructionType: string;
   completionDate: string;
+  isNewDevelopment: boolean;
+  developmentStage: string;
 }
 
 export const STEPS = [
@@ -140,8 +143,12 @@ export const LAND_STEPS = [
   { id: 'summary', label: 'Summary', desc: 'Review & publish' },
 ];
 
+// Treat every land-shaped type as land so the form switches to land-only fields.
+export const isLandType = (type: string): boolean =>
+  type === 'land' || type === 'farms_/_land' || type === 'farms_land';
+
 export const getSteps = (propertyType: string) => {
-  return propertyType === 'land' ? LAND_STEPS : STEPS;
+  return isLandType(propertyType) ? LAND_STEPS : STEPS;
 };
 
 export const AMENITIES = [
@@ -203,7 +210,7 @@ export const PURPOSES = ['sale', 'rent', 'joint_ventures', 'new_development', 's
 export const PURPOSE_LABELS: Record<string, string> = {
   sale: 'For Sale',
   rent: 'For Rent',
-  joint_ventures: 'Joint Ventures',
+  joint_ventures: 'Land & Joint Ventures',
   new_development: 'New Development',
   short_stay: 'Short Stay',
   sold: 'Sold',
@@ -258,30 +265,100 @@ export const COMMERCIAL_PROPERTY_TYPES = [
   'Restaurant',
   'Cafe',
   'Guest House',
+  'Land',
 ];
 
 export const RESIDENTIAL_PROPERTY_TYPES = [
   'House',
-  'Flat / Apartment',
+  'Apartment',
   'Bungalow',
   'Studio',
   'Maisonette',
   'Villa',
   'Townhouse',
   'Penthouse',
-  'Studio Flat',
   'Detached',
   'Semi-detached',
   'Terraced',
+  'Land',
 ];
 
 export const PROPERTY_TYPES = [
   ...RESIDENTIAL_PROPERTY_TYPES,
   ...COMMERCIAL_PROPERTY_TYPES,
-  'Land',
   'Farms / Land',
   'Park Home',
 ];
+
+// Maps display labels to the canonical DB value (matches existing listings)
+export const PROPERTY_TYPE_TO_DB: Record<string, string> = {
+  'House': 'house',
+  'Apartment': 'apartment',
+  'Bungalow': 'bungalow',
+  'Studio': 'studio_flat',
+  'Maisonette': 'maisonette',
+  'Villa': 'villa',
+  'Townhouse': 'townhouse',
+  'Penthouse': 'penthouse',
+  'Detached': 'detached',
+  'Semi-detached': 'semi-detached',
+  'Terraced': 'terraced',
+  'Land': 'land',
+  'Farms / Land': 'farms_/_land',
+  'Park Home': 'park_home',
+  'Office': 'office',
+  'Serviced Office': 'serviced_office',
+  'Retail / Shop': 'retail_shop',
+  'Warehouse': 'warehouse',
+  'Distribution Warehouse': 'distribution_warehouse',
+  'Industrial Park': 'industrial_park',
+  'Light Industrial': 'light_industrial',
+  'Heavy Industrial': 'heavy_industrial',
+  'Factory': 'factory',
+  'Storage': 'storage',
+  'Hotel': 'hotel',
+  'Pub': 'pub',
+  'Restaurant': 'restaurant',
+  'Cafe': 'cafe',
+  'Guest House': 'guest_house',
+};
+
+// Reverse: DB value → display label
+export const DB_TO_PROPERTY_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(PROPERTY_TYPE_TO_DB).map(([k, v]) => [v, k])
+);
+
+// Infer property category from the canonical DB property_type value
+export const inferCategoryFromType = (type: string): string => {
+  const residentialTypes = new Set([
+    'house', 'apartment', 'bungalow', 'studio', 'studio_flat', 'maisonette', 'villa',
+    'townhouse', 'penthouse', 'detached', 'semi-detached',
+    'terraced', 'park_home',
+  ]);
+  const commercialTypes = new Set([
+    'office', 'serviced_office', 'retail_shop', 'warehouse',
+    'distribution_warehouse', 'industrial_park', 'light_industrial',
+    'heavy_industrial', 'factory', 'storage', 'hotel', 'pub', 'restaurant',
+    'cafe', 'guest_house',
+  ]);
+  if (residentialTypes.has(type)) return 'residential';
+  if (commercialTypes.has(type)) return 'commercial';
+  if (type === 'land' || type === 'farms_land' || type === 'farms_/_land') return 'land';
+  return '';
+};
+
+// Legacy DB values that should be normalized to current canonical values
+export const LEGACY_PROPERTY_TYPE_MAP: Record<string, string> = {
+  'flat_apartment': 'apartment',
+  'flat': 'apartment',
+  'condo': 'apartment',
+  'semi_detached': 'semi-detached',
+  'terraced_house': 'terraced',
+  'retail_/_shop': 'retail_shop',
+  'flat_/_apartment': 'apartment',
+  'studio': 'studio_flat',
+  'farms_land': 'farms_/_land',
+};
 
 export const SUB_TYPES = [
   'Long Term Rental',
@@ -294,11 +371,26 @@ export const SUB_TYPES = [
 export const PURPOSE_OPTIONS = [
   { value: 'sale', label: 'For Sale' },
   { value: 'rent', label: 'For Rent' },
-  { value: 'joint_ventures', label: 'Joint Ventures' },
-  { value: 'new_development', label: 'New Development' },
+  { value: 'joint_ventures', label: 'Land & Joint Ventures' },
   { value: 'short_stay', label: 'Short Stay' },
   { value: 'sold', label: 'Sold' },
   { value: 'rented', label: 'Rented' },
+];
+
+// Primary classification: what the property IS (Standard Property vs New Development).
+export const LISTING_TYPES = [
+  { value: 'standard', label: 'Standard Property' },
+  { value: 'new_development', label: 'New Development' },
+];
+
+// Secondary development stage labels shown alongside NEW DEVELOPMENT.
+export const DEVELOPMENT_STAGES = [
+  { value: '', label: 'Select stage (optional)' },
+  { value: 'off_plan', label: 'Off-Plan' },
+  { value: 'under_construction', label: 'Under Construction' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'sold_off_plan', label: 'Sold Off-Plan' },
+  { value: 'sold_out', label: 'Sold Out' },
 ];
 
 // Sale sub-types (New Developments is under Sale, not a separate purpose)
@@ -363,4 +455,14 @@ export const LAND_TITLE_TYPES = [
   'Absolute',
   'Customary',
   'Grant',
+];
+
+export const LAND_TYPES = [
+  'Residential Land',
+  'Commercial Land',
+  'Agricultural Land',
+  'Development Land',
+  'Mixed-Use Land',
+  'Investment Land',
+  'Industrial Land',
 ];

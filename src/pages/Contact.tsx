@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
@@ -21,7 +21,7 @@ const defaultSocialLinks = [
   { icon: 'ri-facebook-fill', label: 'Facebook', href: 'https://www.facebook.com/oceanskenya' },
   { icon: 'ri-instagram-line', label: 'Instagram', href: 'https://www.instagram.com/oceans_estateagents' },
   { icon: 'ri-linkedin-fill', label: 'LinkedIn', href: 'https://www.linkedin.com/company/oceans-estate-agents' },
-  { icon: 'ri-whatsapp-line', label: 'WhatsApp', href: 'https://wa.me/254712345678' },
+  { icon: 'ri-whatsapp-line', label: 'WhatsApp', href: 'https://wa.me/254703712984' },
   { icon: 'ri-twitter-x-line', label: 'X / Twitter', href: 'https://x.com/oceanskenya' },
   { icon: 'ri-youtube-fill', label: 'YouTube', href: 'https://www.youtube.com/@oceanskenya' },
 ];
@@ -31,12 +31,14 @@ const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 export default function Contact() {
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
   const { getSite, social } = useSiteSettings();
+  const [searchParams] = useSearchParams();
+  const presetEnquiry = searchParams.get('type');
   const socialLinks = resolveSocials(social, 'contact', defaultSocialLinks);
 
-  const sitePhone = getSite('contact_phone') || '+254712345678';
-  const siteEmail = getSite('contact_email') || 'info@oceans.co.ke';
+  const sitePhone = getSite('contact_phone') || '+254703712984';
+  const siteEmail = getSite('contact_email') || 'ask@oceanske.com';
   const siteWhatsapp = getSite('whatsapp_number') || sitePhone;
-  const siteAddress = getSite('address') || 'Riverside Drive, Westlands, Nairobi, Kenya';
+  const siteAddress = getSite('address') || 'Plot 9, Riverside Drive, Westlands, Nairobi, Kenya';
   const telHref = `tel:${sitePhone.replace(/[^+\d]/g, '')}`;
   const waHref = `https://wa.me/${siteWhatsapp.replace(/[^\d]/g, '')}`;
 
@@ -80,13 +82,13 @@ export default function Contact() {
       <Header />
 
       {/* Hero */}
-      <div className="relative flex flex-col items-center justify-center text-center overflow-hidden pt-14 pb-14">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776885671058.JPG)' }}></div>
+      <div className="relative flex flex-col items-center justify-center text-center overflow-hidden pt-24 pb-24 md:pt-32 md:pb-32">
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/081993bb-66d8-410a-a65c-8ed076d89add_compressed_69e72d7c66bbc8a88ac31d12985aa0f4.webp)' }}></div>
         <div className="absolute inset-0 bg-primary/80"></div>
         <div className="relative z-10 w-full max-w-2xl mx-auto px-6">
           <p className="text-golden text-sm md:text-base font-roboto font-semibold tracking-[0.2em] uppercase mb-3">We're Here to Help</p>
           <h1 className="text-3xl md:text-5xl font-roboto font-bold text-white mb-3 leading-tight">Get In Touch</h1>
-          <p className="text-white/75 font-roboto text-sm leading-relaxed max-w-md mx-auto">
+          <p className="text-white/75 font-roboto text-sm leading-relaxed max-w-md mx-auto mb-6">
             Whether you're buying, selling, renting, or just have a question — our team is ready and happy to help.
           </p>
         </div>
@@ -99,77 +101,78 @@ export default function Contact() {
 
       {/* Quick links */}
       <div className="bg-primary">
-        <div className="max-w-5xl mx-auto px-6 py-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-5 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
           {[
             { icon: 'ri-building-2-line', label: 'Browse Properties For Sale', href: '/buy' },
             { icon: 'ri-key-2-line', label: 'Properties To Rent', href: '/rent' },
             { icon: 'ri-home-heart-line', label: 'Landlord Services', href: '/landlords' },
             { icon: 'ri-bar-chart-2-line', label: 'Free Valuation', href: '/valuation' },
           ].map((item) => (
-            <Link key={item.label} to={item.href} className="flex items-center gap-2 bg-white/8 border border-white/10 px-3 py-2.5 hover:bg-white/15 hover:shadow-md transition-all cursor-pointer group rounded-sm">
-              <div className="w-7 h-7 flex items-center justify-center rounded-full bg-white/10 flex-shrink-0">
-                <i className={`${item.icon} text-golden text-xs`}></i>
+            <Link key={item.label} to={item.href} className="flex items-center gap-2 bg-white/8 border border-white/10 px-2.5 md:px-3 py-2 md:py-2.5 hover:bg-white/15 hover:shadow-md transition-all cursor-pointer group rounded-sm">
+              <div className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full bg-white/10 flex-shrink-0">
+                <i className={`${item.icon} text-golden text-[10px] md:text-xs`}></i>
               </div>
-              <span className="text-white/80 font-roboto text-[11px] leading-tight group-hover:text-white transition-colors">{item.label}</span>
+              <span className="text-white/80 font-roboto text-[10px] md:text-[11px] leading-tight group-hover:text-white transition-colors">{item.label}</span>
             </Link>
           ))}
         </div>
       </div>
 
       {/* Main content */}
-      <section className="relative max-w-6xl mx-auto px-6 py-10 md:py-14">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <section className="relative max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-14">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-start">
           {/* Form + Map */}
-          <div className="lg:col-span-8 flex flex-col h-full pb-6 md:pb-8">
-            <div className="mb-5">
-              <p className="text-golden text-sm md:text-base font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Send a Message</p>
-              <h2 className="text-2xl font-roboto font-bold text-primary mb-2">How Can We Help You?</h2>
-              <p className="text-stone-500 font-roboto text-sm leading-relaxed">Fill in the form below and one of our agents will be in touch within 24 hours. For urgent matters, call us directly.</p>
+          <div className="lg:col-span-8 flex flex-col h-full pb-4 md:pb-8">
+            <div className="mb-4 md:mb-5">
+              <p className="text-golden text-xs md:text-base font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Send a Message</p>
+              <h2 className="text-xl md:text-2xl font-roboto font-bold text-primary mb-2">How Can We Help You?</h2>
+              <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">Fill in the form below and one of our agents will be in touch within 24 hours. For urgent matters, call us directly.</p>
             </div>
 
-            <div className="bg-white border-2 border-gray-200 p-6 md:p-10">
-              <form data-readdy-form="true" id="contact-main-form" onSubmit={handleSubmit} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="bg-white border-2 border-primary/12 p-4 md:p-10">
+              <form data-readdy-form="true" id="contact-main-form" onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
                   <div>
-                    <label className="block text-primary font-roboto text-sm font-semibold mb-1">Full Name <span className="text-red-400">*</span></label>
-                    <input required name="full_name" placeholder="Your full name" className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                    <label className="block text-primary font-roboto text-sm font-semibold mb-2">Full Name <span className="text-red-400">*</span></label>
+                    <input required name="full_name" placeholder="Your full name" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-primary font-roboto text-sm font-semibold mb-1">Email <span className="text-red-400">*</span></label>
-                    <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                    <label className="block text-primary font-roboto text-sm font-semibold mb-2">Email <span className="text-red-400">*</span></label>
+                    <input required type="email" name="email" placeholder="your@email.com" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-primary font-roboto text-sm font-semibold mb-1">Phone Number</label>
-                    <input type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                    <label className="block text-primary font-roboto text-sm font-semibold mb-2">Phone Number</label>
+                    <input type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-primary font-roboto text-sm font-semibold mb-1">Enquiry Type</label>
-                    <select name="enquiry_type" className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                    <label className="block text-primary font-roboto text-sm font-semibold mb-2">Enquiry Type</label>
+                    <select name="enquiry_type" defaultValue={presetEnquiry === 'brochure' ? 'brochure' : undefined} className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary focus:outline-none focus:border-primary cursor-pointer bg-white">
                       <option value="buy">Buying a Property</option>
                       <option value="rent">Renting a Property</option>
                       <option value="sell">Selling a Property</option>
                       <option value="let">Letting / Landlord Services</option>
                       <option value="valuation">Property Valuation</option>
+                      <option value="brochure">Request Brochure</option>
                       <option value="general">General Enquiry</option>
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Subject <span className="text-red-400">*</span></label>
-                  <input required name="subject" placeholder="How can we help?" className="w-full border border-stone-200 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <label className="block text-primary font-roboto text-sm font-semibold mb-2">Subject <span className="text-red-400">*</span></label>
+                  <input required name="subject" placeholder="How can we help?" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                 </div>
                 <div>
-                  <label className="block text-primary font-roboto text-sm font-semibold mb-1">Message <span className="text-red-400">*</span></label>
-                  <textarea name="message" required rows={4} maxLength={500} placeholder="Tell us about your property needs, questions, or anything else we can help with..." className="w-full border border-stone-200 px-3.5 py-2 text-sm font-roboto text-primary placeholder:text-stone-300 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
-                  <p className="text-right text-xs text-stone-300 font-roboto mt-1">Max 500 characters</p>
+                  <label className="block text-primary font-roboto text-sm font-semibold mb-2">Message <span className="text-red-400">*</span></label>
+                  <textarea name="message" required rows={4} maxLength={500} placeholder="Tell us about your property needs, questions, or anything else we can help with..." className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors resize-none"></textarea>
+                  <p className="text-right text-sm text-primary/50 font-roboto mt-1">Max 500 characters</p>
                 </div>
                 <input type="text" name="company_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="contact-hp-field" />
                 <button
                   type="submit"
                   disabled={formStatus === 'submitting'}
-                  className="w-full py-3 bg-primary hover:bg-golden text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="w-full px-5 py-3 bg-primary hover:bg-accent text-white border-2 border-primary font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {formStatus === 'submitting' ? 'Submitting...' : 'Submit'}
                 </button>
@@ -184,20 +187,20 @@ export default function Contact() {
             </div>
 
             {/* Map */}
-            <div className="mt-6 border border-gray-300 overflow-hidden">
-              <div className="bg-primary px-4 py-2.5 flex items-center justify-between gap-3">
+            <div className="mt-4 md:mt-6 border border-primary/12 overflow-hidden">
+              <div className="bg-primary px-3 md:px-4 py-2 md:py-2.5 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-7 h-7 flex items-center justify-center bg-white/10 rounded-full shrink-0">
-                    <i className="ri-map-pin-2-fill text-golden text-xs"></i>
+                  <div className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center bg-white/10 rounded-full shrink-0">
+                    <i className="ri-map-pin-2-fill text-golden text-[10px] md:text-xs"></i>
                   </div>
-                  <p className="text-white font-roboto text-xs font-bold truncate">{siteAddress}</p>
+                  <p className="text-white font-roboto text-[10px] md:text-xs font-bold truncate">{siteAddress}</p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                   <a href={telHref} className="hidden sm:flex items-center gap-1 text-white font-roboto text-xs hover:text-white/80 transition-colors cursor-pointer">
                     <i className="ri-phone-line text-xs"></i>{sitePhone}
                   </a>
-                  <a href="https://www.google.com/maps/dir//Riverside%20Drive%2C%20Westlands%2C%20Nairobi%2C%20Kenya" target="_blank" rel="nofollow noreferrer" className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-roboto font-medium bg-golden text-white hover:bg-golden/90 transition cursor-pointer whitespace-nowrap">
-                    <i className="ri-navigation-fill text-xs"></i>Get Directions
+                  <a href="https://www.google.com/maps/dir//Riverside%20Drive%2C%20Westlands%2C%20Nairobi%2C%20Kenya" target="_blank" rel="nofollow noreferrer" className="inline-flex items-center gap-1 px-2.5 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs font-roboto font-medium bg-golden text-white hover:bg-golden/90 transition cursor-pointer whitespace-nowrap">
+                    <i className="ri-navigation-fill text-[10px] md:text-xs"></i>Get Directions
                   </a>
                 </div>
               </div>
@@ -210,23 +213,24 @@ export default function Contact() {
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
                   src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d255281.1989180463!2d36.68258773125!3d-1.302861050000005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f1172d84d49a7%3A0xf7cf0254b297924c!2sNairobi%2C%20Kenya!5e0!3m2!1sen!2sus!4v1717000000000!5m2!1sen!2sus"
+                  className="h-[300px] md:h-[480px]"
                 ></iframe>
               </div>
             </div>
           </div>
 
           {/* Sidebar */}
-          <div className="lg:col-span-4 relative pb-6 md:pb-8">
-            <div className="bg-white border-2 border-gray-300 p-7 space-y-8 lg:sticky lg:top-24 lg:self-start">
+          <div className="lg:col-span-4 relative pb-4 md:pb-8">
+            <div className="bg-white border-2 border-primary/12 p-4 md:p-7 space-y-5 md:space-y-8 lg:sticky lg:top-24 lg:self-start">
               <div>
-                <p className="text-golden text-sm font-roboto font-semibold tracking-widest uppercase mb-2">Our Details</p>
-                <h2 className="text-2xl font-roboto font-bold text-primary">Visit or Call Us</h2>
+                <p className="text-golden text-xs md:text-sm font-roboto font-semibold tracking-widest uppercase mb-2">Our Details</p>
+                <h2 className="text-xl md:text-2xl font-roboto font-bold text-primary">Visit or Call Us</h2>
               </div>
 
-              <div className="space-y-4 md:space-y-5">
+              <div className="space-y-3 md:space-y-5">
                 {/* Office photo */}
                 <div className="w-full aspect-square overflow-hidden">
-                  <img alt="Oceans Estate &amp; Letting Agents" className="w-full h-full object-cover object-top" src="https://iisgbnbwbmxrdvhmolee.supabase.co/storage/v1/object/public/property-images/hero-bg-1776886125836.jpg" />
+                  <img alt="Oceans Kenya" className="w-full h-full object-cover object-top" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp" />
                 </div>
 
                 {/* Open status */}
@@ -236,7 +240,7 @@ export default function Contact() {
                 </div>
 
                 {/* Hours */}
-                <div className="bg-white border-2 border-gray-200 p-4 md:p-5">
+                <div className="bg-white border-2 border-primary/12 p-4 md:p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-time-line text-primary text-xs"></i>
@@ -261,10 +265,10 @@ export default function Contact() {
                 </div>
 
                 {/* Contact info */}
-                <div className="bg-white border-2 border-gray-200 p-4 md:p-5">
+                <div className="bg-white border-2 border-primary/12 p-4 md:p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <div className="w-7 h-7 flex items-center justify-center rounded-full">
-                      <i className="ri-contacts-line text-primary text-xs"></i>
+                    <div className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10">
+                      <i className="ri-contacts-line text-golden text-xs"></i>
                     </div>
                     <h3 className="text-primary font-roboto font-bold text-sm">Get In Touch</h3>
                   </div>
@@ -274,30 +278,58 @@ export default function Contact() {
                       { icon: 'ri-whatsapp-line', label: 'WhatsApp', value: siteWhatsapp, href: waHref },
                       { icon: 'ri-mail-line', label: 'Email', value: siteEmail, href: `mailto:${siteEmail}` },
                     ].map((item) => (
-                      <a key={item.label} href={item.href} target={item.href.startsWith('https://wa') ? '_blank' : undefined} rel={item.href.startsWith('https') ? 'nofollow' : undefined} className="flex items-start gap-2 md:gap-2.5 group cursor-pointer">
-                        <div className="w-8 h-8 flex items-center justify-center bg-golden/10 rounded-full flex-shrink-0 group-hover:bg-golden/20 transition-colors">
-                          <i className={`${item.icon} text-golden text-xs`}></i>
+                      <a key={item.label} href={item.href} target={item.href.startsWith('https://wa') ? '_blank' : undefined} rel={item.href.startsWith('https') ? 'nofollow' : undefined} className="flex items-start gap-2 md:gap-2.5 group cursor-pointer rounded-sm p-1.5 -mx-1.5 hover:bg-primary/5 transition-colors">
+                        <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full flex-shrink-0 group-hover:bg-golden/20 transition-colors">
+                          <i className={`${item.icon} text-golden text-xs group-hover:text-golden transition-colors`}></i>
                         </div>
                         <div>
-                          <p className="text-primary font-roboto text-[10px] font-semibold uppercase tracking-wider mb-0.5">{item.label}</p>
-                          <p className="text-stone-500 font-roboto text-sm group-hover:text-golden transition-colors">{item.value}</p>
+                          <p className="text-primary font-roboto text-sm font-bold uppercase tracking-wider mb-0.5">{item.label}</p>
+                          <p className="text-primary font-roboto text-base font-medium group-hover:text-golden transition-colors">{item.value}</p>
                         </div>
                       </a>
                     ))}
-                    <div className="flex items-start gap-2 md:gap-2.5">
-                      <div className="w-8 h-8 flex items-center justify-center bg-golden/10 rounded-full flex-shrink-0">
+                    <div className="flex items-start gap-2 md:gap-2.5 rounded-sm p-1.5 -mx-1.5 hover:bg-primary/5 transition-colors">
+                      <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full flex-shrink-0">
                         <i className="ri-map-pin-2-line text-golden text-xs"></i>
                       </div>
                       <div>
-                        <p className="text-primary font-roboto text-[10px] font-semibold uppercase tracking-wider mb-0.5">Office</p>
-                        <p className="text-stone-500 font-roboto text-sm leading-relaxed">Riverside Drive, Westlands, Nairobi, Kenya</p>
+                        <p className="text-primary font-roboto text-sm font-bold uppercase tracking-wider mb-0.5">Office</p>
+                        <p className="text-primary font-roboto text-base font-medium leading-relaxed">Plot 9, Riverside Drive, Westlands, Nairobi, Kenya</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Department emails */}
+                <div className="bg-white border-2 border-primary/12 p-4 md:p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 flex items-center justify-center rounded-full bg-primary/10">
+                      <i className="ri-mail-send-line text-golden text-xs"></i>
+                    </div>
+                    <h3 className="text-primary font-roboto font-bold text-sm">Email Us</h3>
+                  </div>
+                  <div className="space-y-2.5 md:space-y-3">
+                    {[
+                      { label: 'General Inquiries', value: 'ask@oceanske.com' },
+                      { label: 'Sales', value: 'sales@oceanske.com' },
+                      { label: 'Rentals', value: 'Rent@oceanske.com' },
+                      { label: 'Ventures', value: 'ventures@oceanske.com' },
+                    ].map((item) => (
+                      <a key={item.label} href={`mailto:${item.value}`} className="flex items-start gap-2 md:gap-2.5 group cursor-pointer rounded-sm p-1.5 -mx-1.5 hover:bg-primary/5 transition-colors">
+                        <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full flex-shrink-0 group-hover:bg-golden/20 transition-colors">
+                          <i className="ri-mail-line text-golden text-xs"></i>
+                        </div>
+                        <div>
+                          <p className="text-primary font-roboto text-sm font-bold uppercase tracking-wider mb-0.5">{item.label}</p>
+                          <p className="text-primary font-roboto text-base font-medium group-hover:text-golden transition-colors">{item.value}</p>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Social */}
-                <div className="bg-white border-2 border-gray-200 p-4 md:p-5">
+                <div className="bg-white border-2 border-primary/12 p-4 md:p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="w-7 h-7 flex items-center justify-center rounded-full">
                       <i className="ri-share-line text-primary text-xs"></i>
@@ -306,7 +338,7 @@ export default function Contact() {
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     {socialLinks.map((s) => (
-                      <a key={s.label} href={s.href} rel="nofollow" target="_blank" aria-label={s.label} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full border border-gray-200 text-primary hover:bg-primary hover:text-white hover:border-primary transition-all cursor-pointer">
+                      <a key={s.label} href={s.href} rel="nofollow" target="_blank" aria-label={s.label} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-primary text-white border border-primary hover:bg-transparent hover:text-primary hover:border-primary/12 transition-all cursor-pointer">
                         <i className={`${s.icon} text-base md:text-lg`}></i>
                       </a>
                     ))}
@@ -330,25 +362,25 @@ export default function Contact() {
       </section>
 
       {/* Find our office */}
-      <section className="py-10 md:py-12 px-6 md:px-12 border-t-2 border-gray-200">
+      <section className="py-8 md:py-12 px-4 md:px-12 border-t-2 border-primary/12">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-8">
-            <p className="text-golden text-sm font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Our Location</p>
-            <h2 className="text-2xl font-roboto font-bold text-primary">Find Our Office</h2>
+          <div className="text-center mb-6 md:mb-8">
+            <p className="text-golden text-xs md:text-sm font-roboto font-semibold tracking-[0.2em] uppercase mb-2">Our Location</p>
+            <h2 className="text-xl md:text-2xl font-roboto font-bold text-primary">Find Our Office</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-8">
             <div className="text-center flex flex-col items-center">
-              <div className="w-11 h-11 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-3">
-                <i className="ri-map-pin-2-line text-primary text-lg"></i>
+              <div className="w-11 h-11 flex items-center justify-center bg-primary rounded-full mx-auto mb-3">
+                <i className="ri-map-pin-2-line text-white text-lg"></i>
               </div>
               <h3 className="text-primary font-roboto font-bold text-sm mb-1">Our Address</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed">
-                Riverside Drive<br />Westlands<br />Nairobi<br />Kenya
+                Plot 9, Riverside Drive<br />Westlands<br />Nairobi<br />Kenya
               </p>
             </div>
             <div className="text-center flex flex-col items-center">
-              <div className="w-11 h-11 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-3">
-                <i className="ri-car-line text-primary text-lg"></i>
+              <div className="w-11 h-11 flex items-center justify-center bg-primary rounded-full mx-auto mb-3">
+                <i className="ri-car-line text-white text-lg"></i>
               </div>
               <h3 className="text-primary font-roboto font-bold text-sm mb-1">Getting Here</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed max-w-sm mx-auto">
@@ -356,15 +388,15 @@ export default function Contact() {
               </p>
             </div>
             <div className="text-center flex flex-col items-center">
-              <div className="w-11 h-11 flex items-center justify-center bg-primary/5 rounded-full mx-auto mb-3">
-                <i className="ri-calendar-line text-primary text-lg"></i>
+              <div className="w-11 h-11 flex items-center justify-center bg-primary rounded-full mx-auto mb-3">
+                <i className="ri-calendar-line text-white text-lg"></i>
               </div>
               <h3 className="text-primary font-roboto font-bold text-sm mb-1">Book a Meeting</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed mb-3 max-w-sm mx-auto">
                 Prefer a face-to-face consultation? Call ahead to book a time with one of our property specialists.
               </p>
-              <a href={telHref} className="inline-flex items-center gap-1.5 font-roboto text-xs text-golden hover:underline cursor-pointer mt-auto">
-                <i className="ri-phone-line"></i>{sitePhone}
+              <a href={telHref} className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-golden text-white font-roboto text-xs font-semibold tracking-wider uppercase rounded-sm cursor-pointer mt-auto transition-colors whitespace-nowrap">
+                <i className="ri-phone-line text-sm"></i>Get in Touch
               </a>
             </div>
           </div>

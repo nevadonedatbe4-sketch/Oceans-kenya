@@ -5,8 +5,12 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import QuickViewModal from '@/components/feature/QuickViewModal';
+import PropertyBadge from '@/components/feature/PropertyBadge';
+import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import CompareToolbar from '@/components/feature/CompareToolbar';
 import CompareModal from '@/components/feature/CompareModal';
+import ContactAgentModal from '@/components/feature/ContactAgentModal';
+import Pagination from '@/components/feature/Pagination';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, ListingFilters, type MappedListing } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from './Rent/components/AdvancedFilters';
@@ -14,10 +18,16 @@ import { geocodeLocation } from '@/lib/geocode';
 import { radiusLabelToMeters } from '@/lib/distance';
 import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
 import ListingHero from '@/components/feature/ListingHero';
+import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
+import MobileFilterPills from '@/components/feature/MobileFilterPills';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
+import { getPropertySpecs } from '@/lib/propertySpecs';
 import { formatTimeAgo } from '@/lib/timeAgo';
+import { smartTitleCase } from '@/lib/location';
+import { cleanListingDescription } from '@/lib/description';
+import PageLoader from '@/components/feature/PageLoader';
 
 function toDisplayType(category: string): string {
   return category
@@ -45,12 +55,10 @@ function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): 
   const sym = SYMS[curr] || curr;
   const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
   const val = curr === 'KES' ? kes : Math.round(kes * rate);
-  if (val >= 1_000_000) { const m = val / 1_000_000; return `${sym} ${m >= 100 ? Math.round(m) : (Number.isInteger(m) ? m : m.toFixed(1))}M`; }
-  if (val >= 1_000) return `${sym} ${Math.round(val / 1_000)}K`;
-  return `${sym} ${val.toLocaleString()}`;
+  return `${sym} ${val.toLocaleString('en-US')}`;
 }
 const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const propTypeOptions = ['Any type', 'House', 'Flat / Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
+const propTypeOptions = ['Any type', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
 const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
 const sortOptions = ['Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
@@ -62,20 +70,29 @@ const nearbyAreas = [
 ];
 
 const relatedSearches = [
-  'New homes in Nairobi',
-  'Properties for sale in Nairobi',
-  'Explore house prices in Nairobi',
-  'Find letting agents in Nairobi',
-  'Commercial properties to rent in Nairobi',
-  'Studios to rent in Nairobi',
-  'Houses to rent in Nairobi',
-  'Furnished apartments in Nairobi',
+  'New homes',
+  'Properties for sale',
+  'Explore house prices',
+  'Find letting agents',
+  'Commercial properties to rent',
+  'Studios to rent',
+  'Houses to rent',
+  'Furnished apartments',
 ];
 
 export default function Rent() {
   const { hero } = usePropertyPageSettings('rent');
-  const [searchQuery, setSearchQuery] = useState(() => { try { return localStorage.getItem('rent_search') || 'Nairobi'; } catch { return 'Nairobi'; } });
+  const handleLocationChange = (value: string, suggestion?: LocationSuggestion) => {
+    setSearchQuery(value);
+    setAppliedSearchQuery(value);
+    if (suggestion) {
+      setSearchCenter({ lat: suggestion.lat, lng: suggestion.lng });
+      setGeocodedName(suggestion.name);
+      setCurrentPage(1);
+    }
+  };
   const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState(() => { try { return localStorage.getItem('rent_search') || ''; } catch { return ''; } });
   const [selectedRadius, setSelectedRadius] = useState(() => { try { return localStorage.getItem('rent_radius') || 'This area only'; } catch { return 'This area only'; } });
   const [selectedPrice, setSelectedPrice] = useState(() => { try { return localStorage.getItem('rent_price') || 'Any price'; } catch { return 'Any price'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => { try { return localStorage.getItem('rent_beds') || 'Any beds'; } catch { return 'Any beds'; } });
@@ -101,6 +118,7 @@ export default function Rent() {
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const [quickViewProperty, setQuickViewProperty] = useState<MappedListing | null>(null);
+  const [contactProperty, setContactProperty] = useState<MappedListing | null>(null);
   const [recentlyViewed, setRecentlyViewed] = useState<MappedListing[]>([]);
   const compare = useCompareToolbar();
   const [showCompareModal, setShowCompareModal] = useState(false);
@@ -232,12 +250,6 @@ export default function Rent() {
     appliedFilters.advanced.keywords !== '' ||
     appliedFilters.advanced.keywordsExclude !== '';
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      executeSearch();
-    }
-  };
-
   // Reset pagination when quick filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -248,8 +260,8 @@ export default function Rent() {
     const mapStoredObj = (obj: Record<string, unknown>): MappedListing => ({
       id: String(obj.id || ''),
       slug: String(obj.slug || ''),
-      title: String(obj.name || obj.title || ''),
-      location: String(obj.location || ''),
+      title: smartTitleCase(String(obj.name || obj.title || '')),
+      location: smartTitleCase(String(obj.location || '')),
       type: 'sale',
       category: '',
       beds: 0,
@@ -297,15 +309,15 @@ export default function Rent() {
         if (realIds.length > 0) {
           supabase
             .from('listings')
-            .select('id,title,location,price,property_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email')
+            .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email')
             .in('id', realIds)
             .then(({ data }) => {
               if (!cancelled && data && data.length > 0) {
                 const mapped = ((data || []) as Record<string, unknown>[]).map((row): MappedListing => ({
                   id: String(row.id),
                   slug: String(row.slug || ''),
-                  title: String(row.title || ''),
-                  location: String(row.location || ''),
+                  title: smartTitleCase(String(row.title || '')),
+                  location: smartTitleCase(String(row.location || '')),
                   type: String(row.purpose || 'sale') === 'rent' ? 'rent' : 'sale',
                   category: String(row.property_type || ''),
                   beds: Number(row.bedrooms ?? 0),
@@ -415,101 +427,94 @@ export default function Rent() {
   }, [rentListings]);
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[92px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[116px] md:pt-[120px]">
       <Header />
 
       {/* Hero Section */}
       <ListingHero
         hero={hero}
         defaultEyebrow="Premium Rentals"
-        defaultTitle="Properties For Rent in Nairobi"
-        defaultSubtitle="Explore exceptional rental properties across Nairobi's finest neighbourhoods."
+        defaultTitle="Properties For Rent"
+        defaultSubtitle="Explore exceptional rental properties across Kenya's finest neighbourhoods."
       />
 
       {/* === SEARCH + FILTER BAR === */}
-      <div className="z-40 bg-white border-b border-gray-200 shadow-sm mt-6">
+      <div className="z-40 bg-white border-b border-primary/12 shadow-sm mt-6">
         {/* Search bar */}
         <div className="px-4 md:px-6 lg:px-10 py-3">
-          <div className="flex items-stretch gap-2 max-w-[1400px] mx-auto">
-            <div className="relative flex items-center gap-2 flex-1 min-w-0">
-              <div className="relative flex-1 min-w-0 flex items-center gap-2.5 px-4 h-11 bg-white border border-gray-300 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
-                <span className="w-5 h-5 flex items-center justify-center shrink-0">
-                  <i className="ri-map-pin-line text-gray-400 text-base"></i>
-                </span>
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  placeholder="e.g. 'Nairobi', 'Kilimani', or '3 bed house'"
-                  className="flex-1 min-w-0 text-sm font-roboto font-medium text-gray-800 placeholder:text-gray-400 focus:outline-none bg-transparent"
-                />
-                {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 cursor-pointer">
-                    <i className="ri-close-line text-sm"></i>
-                  </button>
-                )}
-              </div>
-            </div>
-            <div className="hidden md:flex items-center gap-2">
+          <div className="flex items-stretch gap-[2px] max-w-[1400px] mx-auto">
+            <LocationSearch
+              value={searchQuery}
+              onChange={handleLocationChange}
+              className="flex-1 min-w-0"
+              placeholderCycle={[
+                "Looking for a rental in a leafy suburb...",
+                "Looking for an apartment with a view...",
+                "Looking for a studio with great amenities...",
+                "Looking for a furnished spacious home...",
+                "Looking for a townhouse in Gigiri...",
+              ]}
+            />
+            <div className="hidden md:flex items-center gap-[2px]">
               <div className="relative">
-                <select value={selectedRadius} onChange={(e) => setSelectedRadius(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                <select value={selectedRadius} onChange={(e) => setSelectedRadius(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {radiusOptions.map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
               </div>
               <div className="relative">
-                <select value={selectedBeds} onChange={(e) => setSelectedBeds(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                <select value={selectedBeds} onChange={(e) => setSelectedBeds(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {bedOptions.map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
               </div>
               <div className="relative">
-                <select value={selectedPrice} onChange={(e) => setSelectedPrice(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                <select value={selectedPrice} onChange={(e) => setSelectedPrice(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {priceOptions.map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
               </div>
               <div className="relative">
-                <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {propTypeOptions.map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
               </div>
             </div>
             <button
-              onClick={() => setShowAdvancedFilters(true)}
-              className="hidden md:flex items-center gap-2 h-11 px-4 text-sm font-roboto font-medium text-gray-700 border border-gray-300 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`hidden md:flex items-center gap-2 h-11 px-4 text-sm font-roboto font-medium border rounded-lg transition-colors cursor-pointer whitespace-nowrap ${showAdvancedFilters ? 'text-accent border-accent bg-accent/5' : 'text-accent border-accent/20 hover:bg-accent hover:text-white hover:border-accent'}`}
             >
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className="ri-equalizer-line text-sm"></i>
               </span>
-              Filters
+              Advanced Filters
             </button>
             <button
               onClick={executeSearch}
               disabled={isSearching}
-              className="hidden md:flex items-center gap-2 h-11 px-5 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60"
+              className="hidden md:flex items-center gap-2 h-11 px-5 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60"
             >
               <span className="w-4 h-4 flex items-center justify-center">
-                {isSearching ? <i className="ri-loader-4-line text-sm animate-spin"></i> : <i className="ri-search-line text-sm"></i>}
+                {isSearching ? <PageLoader size={18} /> : <i className="ri-search-line text-sm"></i>}
               </span>
               {isSearching ? 'Searching...' : 'Search'}
             </button>
-            <button className="hidden md:flex items-center gap-2 h-11 px-4 border border-gray-300 text-sm font-roboto font-medium text-gray-700 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+            <button className="hidden md:flex items-center gap-2 h-11 px-4 border border-primary/50 text-sm font-roboto font-medium text-primary rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap">
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className="ri-heart-line text-sm"></i>
               </span>
               Save
             </button>
-            <button onClick={() => setShowFilters(!showFilters)} className="md:hidden flex items-center justify-center w-11 h-11 border border-gray-300 rounded-lg text-gray-600 cursor-pointer">
+            <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`md:hidden flex items-center justify-center w-11 h-11 border rounded-lg cursor-pointer transition-colors ${showAdvancedFilters ? 'text-accent border-accent bg-accent/5' : 'text-accent/60 border-accent/20'}`}>
               <i className="ri-equalizer-line text-lg"></i>
             </button>
             <button
               onClick={executeSearch}
               disabled={isSearching}
-              className="md:hidden flex items-center justify-center w-11 h-11 bg-primary text-white rounded-lg cursor-pointer disabled:opacity-60"
+              className="md:hidden flex items-center justify-center w-11 h-11 bg-primary text-white border-2 border-primary rounded-lg cursor-pointer disabled:opacity-60"
             >
-              {isSearching ? <i className="ri-loader-4-line text-sm animate-spin"></i> : <i className="ri-search-line text-lg"></i>}
+              {isSearching ? <PageLoader size={18} /> : <i className="ri-search-line text-lg"></i>}
             </button>
           </div>
         </div>
@@ -518,37 +523,70 @@ export default function Rent() {
         {showFilters && (
           <div className="md:hidden px-4 pb-3 flex flex-wrap gap-2">
             <div className="relative">
-              <select value={selectedRadius} onChange={(e) => setSelectedRadius(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer">
+              <select value={selectedRadius} onChange={(e) => setSelectedRadius(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
                 {radiusOptions.map((o) => <option key={o}>{o}</option>)}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
             </div>
             <div className="relative">
-              <select value={selectedPrice} onChange={(e) => setSelectedPrice(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer">
+              <select value={selectedPrice} onChange={(e) => setSelectedPrice(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
                 {priceOptions.map((o) => <option key={o}>{o}</option>)}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
             </div>
             <div className="relative">
-              <select value={selectedBeds} onChange={(e) => setSelectedBeds(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer">
+              <select value={selectedBeds} onChange={(e) => setSelectedBeds(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
                 {bedOptions.map((o) => <option key={o}>{o}</option>)}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
             </div>
             <div className="relative">
-              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer">
+              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
                 {propTypeOptions.map((o) => <option key={o}>{o}</option>)}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
             </div>
             <div className="relative">
-              <select value={selectedAdded} onChange={(e) => setSelectedAdded(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-gray-700 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer">
+              <select value={selectedAdded} onChange={(e) => setSelectedAdded(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
                 {addedOptions.map((o) => <option key={o}>{o}</option>)}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
             </div>
           </div>
         )}
+
+        {/* Advanced Filters Panel */}
+        <AdvancedFilters
+          isOpen={showAdvancedFilters}
+          onClose={() => setShowAdvancedFilters(false)}
+          onApply={(f) => {
+            setAdvancedFilters(f);
+            setAppliedSearchQuery(searchQuery);
+            setAppliedFilters({
+              price: selectedPrice,
+              beds: selectedBeds,
+              type: selectedType,
+              added: selectedAdded,
+              advanced: { ...f },
+            });
+            setCurrentPage(1);
+          }}
+          initialFilters={advancedFilters}
+        />
+
+        {/* Mobile filter pills */}
+        <MobileFilterPills
+          pills={[
+            ...(appliedSearchQuery && appliedSearchQuery !== '' ? [{ key: 'search', label: `"${appliedSearchQuery}"`, onRemove: () => { setSearchQuery(''); setAppliedSearchQuery(''); } }] : []),
+            ...(selectedPrice !== 'Any price' ? [{ key: 'price', label: selectedPrice, onRemove: () => setSelectedPrice('Any price') }] : []),
+            ...(selectedBeds !== 'Any beds' ? [{ key: 'beds', label: selectedBeds, onRemove: () => setSelectedBeds('Any beds') }] : []),
+            ...(selectedType !== 'Any type' ? [{ key: 'type', label: selectedType, onRemove: () => setSelectedType('Any type') }] : []),
+            ...(selectedAdded !== 'Anytime' ? [{ key: 'added', label: selectedAdded, onRemove: () => setSelectedAdded('Anytime') }] : []),
+            ...(selectedRadius !== 'This area only' ? [{ key: 'radius', label: selectedRadius, onRemove: () => setSelectedRadius('This area only') }] : []),
+            ...(sortBy !== 'Most recent' ? [{ key: 'sort', label: sortBy, onRemove: () => setSortBy('Most recent') }] : []),
+          ]}
+          onClearAll={clearSearch}
+        />
 
         {/* Secondary filter bar — underline style */}
         <div className="hidden md:flex items-center justify-between px-4 md:px-6 lg:px-10 pb-0 max-w-[1400px] mx-auto">
@@ -556,20 +594,20 @@ export default function Rent() {
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'added' ? null : 'added')}
-                className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap ${openDropdown === 'added' ? 'text-primary border-primary' : 'text-gray-700 border-transparent hover:text-primary'}`}
+                className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${openDropdown === 'added' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
               >
                 {selectedAdded}
-                <span className="w-3 h-3 flex items-center justify-center text-gray-400"><i className={`ri-arrow-down-s-line text-xs transition-transform ${openDropdown === 'added' ? 'rotate-180' : ''}`}></i></span>
+                <span className="w-3 h-3 flex items-center justify-center text-primary/60"><i className={`ri-arrow-down-s-line text-xs transition-transform ${openDropdown === 'added' ? 'rotate-180' : ''}`}></i></span>
               </button>
               {openDropdown === 'added' && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)}></div>
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/20 rounded-lg shadow-lg z-50">
                     {addedOptions.map((o) => (
                       <button
                         key={o}
                         onClick={() => { setSelectedAdded(o); setOpenDropdown(null); }}
-                        className={`w-full text-left px-3 py-2 text-xs font-roboto cursor-pointer hover:bg-gray-50 ${selectedAdded === o ? 'text-primary font-semibold' : 'text-gray-600'}`}
+                        className={`w-full text-left px-3 py-2 text-xs font-roboto cursor-pointer hover:bg-gray-50 ${selectedAdded === o ? 'text-primary font-semibold' : 'text-primary/60'}`}
                       >
                         {o}
                       </button>
@@ -581,20 +619,20 @@ export default function Rent() {
             <div className="relative">
               <button
                 onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
-                className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap ${openDropdown === 'sort' ? 'text-primary border-primary' : 'text-gray-700 border-transparent hover:text-primary'}`}
+                className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${openDropdown === 'sort' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
               >
                 {sortBy}
-                <span className="w-3 h-3 flex items-center justify-center text-gray-400"><i className={`ri-arrow-down-s-line text-xs transition-transform ${openDropdown === 'sort' ? 'rotate-180' : ''}`}></i></span>
+                <span className="w-3 h-3 flex items-center justify-center text-primary/60"><i className={`ri-arrow-down-s-line text-xs transition-transform ${openDropdown === 'sort' ? 'rotate-180' : ''}`}></i></span>
               </button>
               {openDropdown === 'sort' && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)}></div>
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/20 rounded-lg shadow-lg z-50">
                     {sortOptions.map((o) => (
                       <button
                         key={o}
                         onClick={() => { setSortBy(o); setOpenDropdown(null); }}
-                        className={`w-full text-left px-3 py-2 text-xs font-roboto cursor-pointer hover:bg-gray-50 ${sortBy === o ? 'text-primary font-semibold' : 'text-gray-600'}`}
+                        className={`w-full text-left px-3 py-2 text-xs font-roboto cursor-pointer hover:bg-gray-50 ${sortBy === o ? 'text-primary font-semibold' : 'text-primary/60'}`}
                       >
                         {o}
                       </button>
@@ -603,11 +641,11 @@ export default function Rent() {
                 </>
               )}
             </div>
-            <Link to="/commute-time" className="flex items-center gap-1.5 py-2 text-xs font-roboto font-medium text-gray-700 border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer">
+            <Link to="/commute-time" className="flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold text-primary border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer">
               <i className="ri-route-line text-xs"></i>
               Commute time
             </Link>
-            <Link to="/schools" className="flex items-center gap-1.5 py-2 text-xs font-roboto font-medium text-gray-700 border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer">
+            <Link to="/schools" className="flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold text-primary border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer">
               <i className="ri-school-line text-xs"></i>
               Schools
             </Link>
@@ -615,19 +653,19 @@ export default function Rent() {
           <div className="flex items-center gap-6">
             <button
               onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap ${viewMode === 'list' ? 'text-primary border-primary' : 'text-gray-700 border-transparent hover:text-primary'}`}
+              className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${viewMode === 'list' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
             >
               <i className="ri-list-check text-xs"></i>
               List
             </button>
             <button
               onClick={() => setViewMode('map')}
-              className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-medium border-b-2 transition-colors cursor-pointer whitespace-nowrap ${viewMode === 'map' ? 'text-primary border-primary' : 'text-gray-700 border-transparent hover:text-primary'}`}
+              className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${viewMode === 'map' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
             >
               <i className="ri-map-2-line text-xs"></i>
               Map
             </button>
-            <button className="flex items-center gap-1.5 py-2 text-xs font-roboto font-medium text-gray-700 border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer whitespace-nowrap">
+            <button className="flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold text-primary border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer whitespace-nowrap">
               <i className="ri-bookmark-line text-xs"></i>
               Save search
             </button>
@@ -635,41 +673,22 @@ export default function Rent() {
         </div>
       </div>
 
-      {/* Advanced Filters Panel */}
-      <AdvancedFilters
-        isOpen={showAdvancedFilters}
-        onClose={() => setShowAdvancedFilters(false)}
-        onApply={(f) => {
-          setAdvancedFilters(f);
-          setAppliedSearchQuery(searchQuery);
-          setAppliedFilters({
-            price: selectedPrice,
-            beds: selectedBeds,
-            type: selectedType,
-            added: selectedAdded,
-            advanced: { ...f },
-          });
-          setCurrentPage(1);
-        }}
-        initialFilters={advancedFilters}
-      />
-
       {/* === RESULTS HEADER === */}
       <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">Properties to rent in Nairobi</h1>
+            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">Properties to rent</h1>
             {geocodedName && radiusMeters && (
-              <p className="text-xs font-roboto text-gray-500 mt-0.5">
+              <p className="text-xs font-roboto text-primary/50 mt-0.5">
                 <span className="w-3.5 h-3.5 inline-flex items-center justify-center align-middle mr-1">
                   <i className="ri-focus-3-line text-primary text-xs"></i>
                 </span>
                 Within <span className="text-primary font-semibold">{selectedRadius}</span> of {geocodedName}
               </p>
             )}
-            <p className="text-xs font-roboto text-gray-500 mt-0.5">
+            <p className="text-xs font-roboto text-primary/50 mt-0.5">
               <span className="text-primary font-semibold">{activeCount}</span> properties &middot; <span className="text-primary font-semibold">{agentCount}</span> agents
-              {hasActiveFilters && <span className="text-gray-400"> &middot; filtered</span>}
+              {hasActiveFilters && <span className="text-primary/50"> &middot; filtered</span>}
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -686,12 +705,12 @@ export default function Rent() {
             )}
             <div className="md:hidden flex items-center gap-2">
               <div className="relative">
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-8 px-3 pr-7 text-xs font-roboto font-medium text-gray-600 bg-white border border-gray-300 rounded-lg focus:outline-none cursor-pointer">
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-8 px-3 pr-7 text-xs font-roboto font-medium text-primary/60 bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer">
                   {sortOptions.map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
               </div>
-              <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-8 h-8 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 cursor-pointer">
+              <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-8 h-8 flex items-center justify-center border border-primary/12 rounded-lg text-primary/60 cursor-pointer">
                 <i className={viewMode === 'list' ? 'ri-map-2-line text-xs' : 'ri-list-check text-xs'}></i>
               </button>
             </div>
@@ -700,13 +719,13 @@ export default function Rent() {
       </div>
 
       {/* === MAIN CONTENT === */}
-      <main className="flex-1 px-4 md:px-6 lg:px-10 pb-10 max-w-[1400px] mx-auto w-full">
+      <main className="flex-1 px-4 md:px-6 lg:px-10 pb-24 md:pb-10 max-w-[1400px] mx-auto w-full">
         <div className={`flex gap-6 ${viewMode === 'map' ? 'flex-col lg:flex-row' : 'flex-col lg:flex-row'}`}>
           {/* Listings */}
           <div className={`${viewMode === 'map' ? 'lg:w-[55%] xl:w-[60%]' : 'lg:w-[75%] xl:w-[78%]'}`}>
             {/* Map view / Create alert tab bar */}
             <div className="flex items-center gap-2 mb-4">
-              <button className="flex items-center gap-1.5 h-9 px-4 text-xs font-roboto font-medium text-gray-600 border border-gray-300 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
+              <button className="flex items-center gap-1.5 h-9 px-4 text-xs font-roboto font-medium text-primary/60 border border-primary/12 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
                 <span className="w-4 h-4 flex items-center justify-center">
                   <i className="ri-notification-3-line text-xs"></i>
                 </span>
@@ -726,8 +745,8 @@ export default function Rent() {
               {loading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex flex-col sm:flex-row bg-white border-2 border-gray-200 rounded-lg overflow-hidden sm:h-[300px] animate-pulse">
-                      <div className="sm:w-[300px] md:w-[360px] lg:w-[400px] xl:w-[440px] h-[240px] sm:h-full bg-gray-200" />
+                    <div key={i} className="flex flex-col sm:flex-row bg-white border-2 border-primary/12 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden md:h-[300px] animate-pulse">
+                      <div className="w-full sm:w-[280px] md:w-[360px] lg:w-[400px] xl:w-[440px] h-[220px] sm:h-full bg-gray-200" />
                       <div className="flex-1 p-6 space-y-4">
                         <div className="h-7 bg-gray-200 rounded w-1/3" />
                         <div className="h-5 bg-gray-200 rounded w-2/3" />
@@ -745,10 +764,10 @@ export default function Rent() {
                     <i className="ri-error-warning-line text-red-400 text-2xl"></i>
                   </div>
                   <h3 className="text-lg font-roboto font-bold text-primary mb-2">Something went wrong</h3>
-                  <p className="text-sm font-roboto text-gray-500 mb-4">{fetchError}</p>
+                  <p className="text-sm font-roboto text-primary/60 mb-4">{fetchError}</p>
                   <button
                     onClick={refetch}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                   >
                     <i className="ri-refresh-line"></i>
                     Try again
@@ -757,10 +776,10 @@ export default function Rent() {
               ) : rentListings.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
-                    <i className="ri-home-line text-gray-400 text-2xl"></i>
+                    <i className="ri-home-line text-primary/50 text-2xl"></i>
                   </div>
                   <h3 className="text-lg font-roboto font-bold text-primary mb-2">No rental properties yet</h3>
-                  <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">
+                  <p className="text-sm font-roboto text-primary/60 mb-4 max-w-md mx-auto">
                     There are currently no rental listings available. Check back soon or browse properties for sale.
                   </p>
                   <Link
@@ -774,10 +793,10 @@ export default function Rent() {
               ) : paginated.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
-                    <i className="ri-search-line text-gray-400 text-2xl"></i>
+                    <i className="ri-search-line text-primary/50 text-2xl"></i>
                   </div>
                   <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties match your filters</h3>
-                  <p className="text-sm font-roboto text-gray-500 mb-4">Try adjusting your search criteria or clearing filters.</p>
+                  <p className="text-sm font-roboto text-primary/60 mb-4">Try adjusting your search criteria or clearing filters.</p>
                   <button
                     onClick={clearSearch}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
@@ -794,24 +813,39 @@ export default function Rent() {
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white border-2 border-gray-200 rounded-lg overflow-hidden sm:h-[300px] hover:border-gray-300 hover:shadow-md transition-all duration-200"
+                    className="flex flex-col sm:flex-row bg-white rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden md:h-[300px] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-all duration-200"
                     onMouseEnter={() => setHoveredCard(p.id)}
                     onMouseLeave={() => setHoveredCard(null)}
                   >
                     {/* Image area */}
-                    <div className="relative sm:w-[300px] md:w-[360px] lg:w-[400px] xl:w-[440px] h-[240px] sm:h-full flex-shrink-0 overflow-hidden group">
-                      <Link to={`/property/${p.slug}`} className="block w-full h-full">
-                        <img
-                          src={p.images[imgIdx]}
-                          alt={p.title}
-                          className={`w-full h-full object-cover object-top transition-transform duration-500 ${isHovered ? 'scale-[1.06]' : 'scale-100'}`}
-                        />
+                    <div className="relative w-full sm:w-[280px] md:w-[360px] lg:w-[400px] xl:w-[440px] h-[220px] sm:h-full flex-shrink-0 overflow-hidden group"
+                      onTouchStart={(e) => { const t = e.touches[0].clientX; (e.currentTarget as HTMLElement).dataset.tsX = String(t); }}
+                      onTouchMove={(e) => { (e.currentTarget as HTMLElement).dataset.teX = String(e.touches[0].clientX); }}
+                      onTouchEnd={(e) => {
+                        const el = e.currentTarget as HTMLElement;
+                        const sx = parseFloat(el.dataset.tsX || '0');
+                        const ex = parseFloat(el.dataset.teX || '0');
+                        if (Math.abs(sx - ex) > 40 && p.images.length > 1) {
+                          if (sx - ex > 0) setImageIndexes((prev) => ({ ...prev, [p.id]: ((prev[p.id] || 0) + 1) % p.images.length }));
+                          else setImageIndexes((prev) => ({ ...prev, [p.id]: ((prev[p.id] || 0) - 1 + p.images.length) % p.images.length }));
+                        }
+                      }}
+                    >
+                      <Link
+                        to={`/property/${p.slug}`}
+                        className="flex h-full transition-transform duration-200 ease-out will-change-transform"
+                        style={{ transform: `translateX(-${imgIdx * 100}%)` }}
+                      >
+                        {p.images.map((src, i) => (
+                          <img
+                            key={i}
+                            src={src}
+                            alt={p.title}
+                            loading={i === 0 ? undefined : "lazy"}
+                            className="w-full h-full object-cover object-center flex-shrink-0 transition-transform duration-700 group-hover:scale-105 pointer-events-none select-none"
+                          />
+                        ))}
                       </Link>
-
-                      {/* Image counter */}
-                      <div className="absolute bottom-2 left-2 bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">
-                        {imgIdx + 1}/{p.images.length}
-                      </div>
 
                       {/* Preview badge */}
                       <button
@@ -835,51 +869,24 @@ export default function Rent() {
                         <>
                           <button
                             onClick={(e) => prevImage(p.id, e)}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors"
+                            className="absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white transition-all duration-150 cursor-pointer whitespace-nowrap opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            aria-label="Previous image"
                           >
-                            <i className="ri-arrow-left-s-line text-sm"></i>
+                            <i className="ri-arrow-left-s-line text-base md:text-lg"></i>
                           </button>
                           <button
                             onClick={(e) => nextImage(p.id, e)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors"
+                            className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white transition-all duration-150 cursor-pointer whitespace-nowrap opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            aria-label="Next image"
                           >
-                            <i className="ri-arrow-right-s-line text-sm"></i>
+                            <i className="ri-arrow-right-s-line text-base md:text-lg"></i>
                           </button>
                         </>
                       )}
 
-                      {/* Top badges */}
+                      {/* Status badge — SALE / RENT only */}
                       <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
-                        {p.isJointVenture && (
-                          <span className="bg-[#2B5B3C] text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">Joint Venture</span>
-                        )}
-                        {p.justAdded && (
-                          <span className="bg-[#F5A623] text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">Just added</span>
-                        )}
-                        {p.newHome && (
-                          <span className="bg-[#0D5959] text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">New home</span>
-                        )}
-                        {p.reduced && (
-                          <span className="bg-[#E63946] text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded">Reduced</span>
-                        )}
-                        {p.videoTour && (
-                          <span className="bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                            <i className="ri-video-line text-[10px]"></i>Video tour
-                          </span>
-                        )}
-                        {p.virtualTour && (
-                          <span className="bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                            <i className="ri-globe-line text-[10px]"></i>Virtual tour
-                          </span>
-                        )}
-                        {p.floorPlan && (
-                          <span className="bg-black/60 text-white text-[10px] font-roboto font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                            <i className="ri-map-2-line text-[10px]"></i>Floor plan
-                          </span>
-                        )}
-                        {p.houseShare && (
-                          <span className="bg-white text-gray-700 text-[10px] font-roboto font-semibold px-2 py-0.5 rounded border border-gray-200">House share</span>
-                        )}
+                        <PropertyBadge variant={p.type === 'rent' ? 'rent' : 'sale'} />
                       </div>
 
                       {/* Top right actions */}
@@ -899,56 +906,68 @@ export default function Rent() {
                     {/* Content area */}
                     <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
                       <div>
+                        <PropertyMetaBadges
+                          featured={p.featured}
+                          justListed={p.justAdded}
+                          jointVenture={p.isJointVenture}
+                          newHome={p.newHome}
+                          reduced={p.reduced}
+                          videoTour={p.videoTour}
+                          virtualTour={p.virtualTour}
+                          floorPlan={p.floorPlan}
+                          houseShare={p.houseShare}
+                          propertyOfTheWeek={p.propertyOfTheWeek}
+                          backOnMarket={p.backOnMarket}
+                          refurbished={p.refurbished}
+                          className="mb-2"
+                        />
                         {/* Price — Rightmove style: value + pcm same size + info icon */}
                         <div className="mb-1">
                           <div className="flex items-baseline gap-1.5">
-                            <span className="font-roboto font-semibold text-[#002349] text-sm md:text-base lg:text-lg">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
-                            <span className="font-roboto font-semibold text-[#002349] text-sm md:text-base lg:text-lg">pcm</span>
-                            <span className="w-4 h-4 flex items-center justify-center cursor-help" title="Per calendar month">
-                              <i className="ri-information-line text-[#636363] text-sm"></i>
+                            <span className="font-roboto font-semibold text-primary text-sm md:text-base lg:text-lg">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
+                            <span className="font-roboto font-semibold text-primary text-sm md:text-base lg:text-lg">pcm</span>
+                            <span className="relative inline-flex items-center cursor-help group text-[#636363] opacity-40">
+                              <i className="ri-information-line text-[10px]"></i>
+                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-stone-800 text-white text-[10px] whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none font-normal">
+                                Per calendar month
+                              </span>
                             </span>
                           </div>
                         </div>
 
                         {/* Meta badges — Rightmove bold style */}
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-                          {p.beds > 0 && (
-                            <span className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#222222]">
-                              <i className="ri-hotel-bed-line text-[#555555] text-xs"></i>
-                              {p.beds} {p.beds === 1 ? 'bed' : 'beds'}
+                          {getPropertySpecs(p.propertyType, {
+                            beds: p.beds,
+                            baths: p.baths,
+                            parking: p.parking,
+                            sqft: p.sqft,
+                            acreage: p.acreage,
+                            landSize: p.landSize,
+                            landUnit: p.landUnit,
+                          }).map((spec) => (
+                            <span key={spec.key} className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#222222]">
+                              <i className={`${spec.icon} text-[#555555] text-xs`}></i>
+                              {spec.label}
                             </span>
-                          )}
-                          {p.baths > 0 && (
-                            <span className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#222222]">
-                              <i className="fas fa-bath text-[#555555] text-xs"></i>
-                              {p.baths} {p.baths === 1 ? 'bath' : 'baths'}
-                            </span>
-                          )}
-                          {p.receptions > 0 && (
-                            <span className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#222222]">
-                              <i className="ri-sofa-line text-[#555555] text-xs"></i>
-                              {p.receptions} {p.receptions === 1 ? 'reception' : 'receptions'}
-                            </span>
-                          )}
-                          {p.parking > 0 && (
-                            <span className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#222222]">
-                              <i className="ri-car-line text-[#555555] text-xs"></i>
-                              {p.parking} {p.parking === 1 ? 'parking' : 'parking'}
-                            </span>
-                          )}
-                          {p.beds === 0 && p.baths === 0 && p.parking === 0 && (
-                            <span className="text-xs font-roboto text-gray-400 italic">Details on request</span>
+                          ))}
+                          {p.beds === 0 && p.baths === 0 && p.parking === 0 && p.sqft === 0 && p.acreage === 0 && p.landSize === 0 && (
+                            <span className="text-xs font-roboto text-primary/50 italic">Details on request</span>
                           )}
                         </div>
 
                         <Link to={`/property/${p.slug}`} className="block mb-3">
-                          <address className="text-xs md:text-sm font-roboto font-medium text-[#636363] leading-relaxed not-italic flex items-center gap-1">
-                            <span className="w-3 h-3 flex items-center justify-center shrink-0">
+                          <h3 className="text-sm md:text-base font-roboto font-bold text-primary leading-snug mb-1 line-clamp-2 transition-colors hover:text-[#2d4a7a]">{p.title}</h3><address className="not-italic flex items-start gap-1.5">
+                            <span className="w-3 h-3 flex items-center justify-center shrink-0 mt-0.5">
                               <i className="ri-map-pin-line text-golden text-[10px]"></i>
                             </span>
-                            {p.location}, Nairobi
+                            <span className="min-w-0">
+                              <span className="block text-xs md:text-sm font-roboto font-medium text-primary/70 leading-snug">
+                                {p.area || p.location}
+                              </span>
+                            </span>
                             {searchCenter && p.distanceKm != null && (
-                              <span className="ml-1.5 text-[10px] font-roboto font-semibold text-primary bg-primary/5 px-1.5 py-0.5 rounded">
+                              <span className="ml-1.5 mt-0.5 text-[10px] font-roboto font-semibold text-primary bg-primary/5 px-1.5 py-0.5 rounded whitespace-nowrap">
                                 {p.distanceKm < 1
                                   ? `${Math.round(p.distanceKm * 1000)}m away`
                                   : `${p.distanceKm.toFixed(1)}km away`}
@@ -958,27 +977,27 @@ export default function Rent() {
                         </Link>
 
                         {/* Description */}
-                        <p className="text-xs md:text-sm font-roboto text-[#555555] leading-relaxed line-clamp-2 mb-3">{p.description.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim()}</p>
+                        <p className="text-xs md:text-sm font-roboto text-[#555555] leading-relaxed line-clamp-2 mb-3">{cleanListingDescription(p.description)}</p>
                       </div>
 
                       {/* Agent footer — Rightmove style: Added today green bold */}
-                      <div className="flex items-end justify-between gap-3 pt-2.5 border-t-2 border-gray-200">
-                        <span className="text-xs font-roboto font-bold text-[#00703c]">
+                      <div className="flex items-end justify-between gap-3 pt-2.5 border-t-2 border-primary/12">
+                        <span className="text-xs font-roboto font-bold text-[#00703c] whitespace-nowrap shrink-0">
                             {formatTimeAgo(p.createdAt)}
                           </span>
                         <div className="flex items-center gap-2 shrink-0">
-                          <a href={`tel:${p.agentPhone || '+254712345678'}`} className="flex items-center gap-1 text-xs font-roboto font-semibold text-[#1a2744] hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
+                          <a href={`tel:${p.agentPhone || '+2547111393806'}`} className="flex items-center gap-1 text-xs font-roboto font-semibold text-primary hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-3.5 h-3.5 flex items-center justify-center">
                               <i className="ri-phone-line text-xs"></i>
                             </span>
                             Call
                           </a>
-                          <a href={`mailto:${p.agentEmail || 'info@property.co.ke'}?subject=Enquiry about ${encodeURIComponent(p.title)}`} className="flex items-center gap-1 text-xs font-roboto font-semibold text-[#1a2744] hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
+                          <button onClick={(e) => { e.preventDefault(); setContactProperty(p); }} className="flex items-center gap-1 text-xs font-roboto font-semibold text-primary hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-3.5 h-3.5 flex items-center justify-center">
                               <i className="ri-mail-line text-xs"></i>
                             </span>
-                            Email
-                          </a>
+                            Message
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -988,43 +1007,21 @@ export default function Rent() {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-1 mt-8">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="w-9 h-9 flex items-center justify-center text-sm font-roboto text-gray-500 hover:text-primary disabled:opacity-30 cursor-pointer border border-gray-200 rounded-md hover:border-primary"
-                >
-                  <i className="ri-arrow-left-s-line"></i>
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => setCurrentPage(page)}
-                    className={`w-9 h-9 flex items-center justify-center text-sm font-roboto cursor-pointer transition-colors border rounded-md ${currentPage === page ? 'bg-primary text-white border-primary' : 'text-gray-500 border-gray-200 hover:border-primary hover:text-primary'}`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="w-9 h-9 flex items-center justify-center text-sm font-roboto text-gray-500 hover:text-primary disabled:opacity-30 cursor-pointer border border-gray-200 rounded-md hover:border-primary"
-                >
-                  <i className="ri-arrow-right-s-line"></i>
-                </button>
-              </div>
-            )}
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
 
             {/* Bottom CTA */}
             <div className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
               <h3 className="text-lg font-roboto font-bold text-primary mb-2">Can't find what you're looking for?</h3>
-              <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">Register for property alerts and be the first to know about new rentals in your area.</p>
+              <p className="text-sm font-roboto text-primary/60 mb-4 max-w-md mx-auto">Register for property alerts and be the first to know about new rentals in your area.</p>
               <form data-readdy-form="true" id="rent-alert-form" onSubmit={handleEnquiry} className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
-                <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-gray-300 rounded-lg focus:outline-none focus:border-primary" />
+                <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-primary/12 rounded-lg focus:outline-none focus:border-primary" />
                 <input type="hidden" name="type" value="rent_alert" />
-                <input type="hidden" name="location" value="Nairobi" />
-                <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto h-11 px-6 bg-primary text-white text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+                <input type="hidden" name="location" value="" />
+                <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white border-2 border-primary text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
                   {alertStatus === 'success' ? 'Alert set!' : 'Get alerts'}
                 </button>
               </form>
@@ -1040,12 +1037,12 @@ export default function Rent() {
           {/* Right Sidebar - Only in list view */}
           {viewMode === 'list' && (
             <div className="hidden lg:block lg:w-[25%] xl:w-[22%]">
-              <div className="sticky top-[140px] space-y-3">
+              <div className="sticky top-[140px] space-y-6">
                 {/* Recently Viewed */}
                 {recentlyViewed.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between">
-                      <h3 className="text-xs font-roboto font-semibold text-primary flex items-center gap-1.5">
+                  <div className="bg-white border border-primary/20 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-primary/15 mb-2 flex items-center justify-between">
+                      <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide flex items-center gap-1.5">
                         <span className="w-3.5 h-3.5 flex items-center justify-center">
                           <i className="ri-time-line text-[10px]"></i>
                         </span>
@@ -1053,12 +1050,12 @@ export default function Rent() {
                       </h3>
                       <button
                         onClick={() => { localStorage.removeItem('recently_viewed_properties'); localStorage.removeItem('recently_viewed_devs'); setRecentlyViewed([]); }}
-                        className="text-[10px] font-roboto text-gray-400 hover:text-gray-600 cursor-pointer whitespace-nowrap"
+                        className="text-[10px] font-roboto text-primary/50 hover:text-accent cursor-pointer whitespace-nowrap transition-colors"
                       >
                         Clear
                       </button>
                     </div>
-                    <div className="px-3 py-2 space-y-2">
+                    <div className="px-4 py-3 space-y-3">
                       {recentlyViewed.slice(0, 4).map((p) => (
                         <div key={p.id} className="group">
                           <Link
@@ -1069,14 +1066,14 @@ export default function Rent() {
                               <img
                                 src={p.image || p.images[0]}
                                 alt={p.title}
-                                className="w-full h-full object-cover object-top"
+                                className="w-full h-full object-cover object-center"
                               />
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="text-xs font-roboto font-semibold text-[#002349] group-hover:text-primary transition-colors truncate">
+                              <p className="text-xs font-roboto font-semibold text-primary group-hover:text-accent transition-colors truncate">
                                 {format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
                               </p>
-                              <p className="text-[10px] font-roboto text-gray-500 truncate">{p.title}</p>
+                              <p className="text-[10px] font-roboto text-primary/85 truncate">{p.title}</p>
                             </div>
                           </Link>
                           <div className="flex items-center justify-between mt-1 pl-[66px]">
@@ -1090,14 +1087,14 @@ export default function Rent() {
                                 };
                                 compare.toggleCompare(cp);
                               }}
-                              className={`text-[10px] font-roboto cursor-pointer whitespace-nowrap transition-colors ${
+                              className={`inline-flex items-center gap-1.5 text-[10px] font-roboto font-bold uppercase tracking-wide whitespace-nowrap underline underline-offset-2 decoration-2 transition-colors cursor-pointer ${
                                 compare.isSelected(p.id)
-                                  ? 'text-primary font-semibold'
-                                  : 'text-gray-400 hover:text-primary'
+                                  ? 'text-accent decoration-accent'
+                                  : 'text-accent/80 decoration-accent/50 hover:text-accent hover:decoration-accent'
                               }`}
                             >
-                              <span className="w-3 h-3 inline-flex items-center justify-center mr-0.5">
-                                <i className={`${compare.isSelected(p.id) ? 'ri-checkbox-circle-fill' : 'ri-checkbox-blank-circle-line'} text-[10px]`}></i>
+                              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                                <i className={`${compare.isSelected(p.id) ? 'ri-scales-fill' : 'ri-scales-line'} text-sm`}></i>
                               </span>
                               {compare.isSelected(p.id) ? 'Added' : 'Compare'}
                             </button>
@@ -1109,17 +1106,17 @@ export default function Rent() {
                 )}
 
                 {/* Refine search */}
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-semibold text-primary">Refine your search</h3>
+                <div className="bg-white border border-primary/20 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Refine your search</h3>
                   </div>
-                  <div className="px-3 py-2 space-y-1.5">
-                    <p className="text-[11px] font-roboto text-gray-500 leading-relaxed">
+                  <div className="px-4 py-3 space-y-2">
+                    <p className="text-[11px] font-roboto text-primary/70 leading-relaxed">
                       {geocodedName && radiusMeters
                         ? `Showing properties within ${selectedRadius} of ${geocodedName}`
                         : appliedSearchQuery
-                        ? `Showing results for "${appliedSearchQuery}" in Nairobi`
-                        : 'Rental properties across Nairobi and surrounding areas'}
+                        ? `Showing results for "${appliedSearchQuery}"`
+                        : 'Rental properties across surrounding areas'}
                     </p>
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {['Studio', '1 Bed', '2 Bed', '3 Bed', 'Furnished', 'Pet Friendly', 'Parking'].map((tag) => (
@@ -1146,7 +1143,7 @@ export default function Rent() {
                             }
                             setCurrentPage(1);
                           }}
-                          className="px-2.5 py-1 text-[10px] font-roboto font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-full hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap"
+                          className="px-2.5 py-1 text-[10px] font-roboto font-medium text-primary/85 bg-background-100 border border-primary/12 rounded-full hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap"
                         >
                           {tag}
                         </button>
@@ -1167,11 +1164,11 @@ export default function Rent() {
                 </div>
 
                 {/* Nearby areas */}
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-semibold text-primary">Nearby Nairobi</h3>
+                <div className="bg-white border border-primary/20 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Popular areas</h3>
                   </div>
-                  <div className="px-3 py-2 grid grid-cols-2 gap-x-2 gap-y-1.5">
+                  <div className="px-4 py-3 grid grid-cols-2 gap-2">
                     {nearbyAreas.map((area) => (
                       <button
                         key={area}
@@ -1180,7 +1177,7 @@ export default function Rent() {
                           setAppliedSearchQuery(area);
                           setCurrentPage(1);
                         }}
-                        className="text-left text-xs font-roboto text-gray-600 hover:text-primary hover:underline transition-colors cursor-pointer whitespace-nowrap"
+                        className="text-left text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors cursor-pointer whitespace-nowrap"
                       >
                         {area}
                       </button>
@@ -1189,41 +1186,41 @@ export default function Rent() {
                 </div>
 
                 {/* Related searches */}
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-semibold text-primary">Related searches</h3>
+                <div className="bg-white border border-primary/20 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Related searches</h3>
                   </div>
-                  <div className="px-3 py-2 space-y-1.5">
+                  <div className="px-4 py-3 space-y-2">
                     {relatedSearches.map((search) => (
                       <button
                         key={search}
                         onClick={() => {
-                          let searchTerm = search.replace(' to rent in Nairobi', '').replace('Properties ', '').replace(' in Nairobi', '').replace('New homes in ', '').trim();
-                          if (search === 'New homes in Nairobi') {
+                          let searchTerm = search.replace(' to rent in ', '').replace('Properties ', '').replace(' in ', '').replace('New homes in ', '').trim();
+                          if (search === 'New homes') {
                             setSelectedAdded('Last 14 days');
-                            setSearchQuery('Nairobi');
-                            setAppliedSearchQuery('Nairobi');
-                          } else if (search === 'Properties for sale in Nairobi') {
+                            setSearchQuery('');
+                            setAppliedSearchQuery('');
+                          } else if (search === 'Properties for sale') {
                             navigate('/buy');
                             return;
-                          } else if (search === 'Explore house prices in Nairobi') {
+                          } else if (search === 'Explore house prices') {
                             navigate('/valuation');
                             return;
-                          } else if (search === 'Find letting agents in Nairobi') {
+                          } else if (search === 'Find letting agents') {
                             navigate('/landlords');
                             return;
-                          } else if (search === 'Studios to rent in Nairobi') {
+                          } else if (search === 'Studios to rent') {
                             setSelectedBeds('Studio');
                             setSelectedType('Studio');
-                            setSearchQuery('Nairobi');
-                            setAppliedSearchQuery('Nairobi');
+                            setSearchQuery('');
+                            setAppliedSearchQuery('');
                           } else {
                             setSearchQuery(searchTerm);
                             setAppliedSearchQuery(searchTerm);
                           }
                           setCurrentPage(1);
                         }}
-                        className="block w-full text-left text-xs font-roboto text-gray-600 hover:text-primary hover:underline transition-colors cursor-pointer"
+                        className="block w-full text-left text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors cursor-pointer"
                       >
                         {search}
                       </button>
@@ -1232,36 +1229,36 @@ export default function Rent() {
                 </div>
 
                 {/* Quick links */}
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-semibold text-primary">Quick links</h3>
+                <div className="bg-white border border-primary/20 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Quick links</h3>
                   </div>
-                  <div className="px-3 py-2 space-y-1.5">
-                    <Link to="/buy" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors">
+                  <div className="px-4 py-3 space-y-2.5">
+                    <Link to="/buy" className="flex items-center gap-2 text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors">
                       <span className="w-3.5 h-3.5 flex items-center justify-center">
                         <i className="ri-home-line text-[10px]"></i>
                       </span>
                       Properties for sale
                     </Link>
-                    <Link to="/neighbourhoods" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors">
+                    <Link to="/neighbourhoods" className="flex items-center gap-2 text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors">
                       <span className="w-3.5 h-3.5 flex items-center justify-center">
                         <i className="ri-building-2-line text-[10px]"></i>
                       </span>
-                      Nairobi neighbourhoods
+                      Neighbourhoods
                     </Link>
-                    <Link to="/commute-time" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors">
+                    <Link to="/commute-time" className="flex items-center gap-2 text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors">
                       <span className="w-3.5 h-3.5 flex items-center justify-center">
                         <i className="ri-route-line text-[10px]"></i>
                       </span>
                       Commute time search
                     </Link>
-                    <Link to="/schools" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors">
+                    <Link to="/schools" className="flex items-center gap-2 text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors">
                       <span className="w-3.5 h-3.5 flex items-center justify-center">
                         <i className="ri-school-line text-[10px]"></i>
                       </span>
                       Schools near you
                     </Link>
-                    <Link to="/new-developments" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors">
+                    <Link to="/new-developments" className="flex items-center gap-2 text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors">
                       <span className="w-3.5 h-3.5 flex items-center justify-center">
                         <i className="ri-building-4-line text-[10px]"></i>
                       </span>
@@ -1271,8 +1268,8 @@ export default function Rent() {
                 </div>
 
                 {/* List property CTA */}
-                <div className="bg-primary rounded-lg p-3.5 text-center">
-                  <h3 className="text-white font-roboto font-bold text-xs mb-1.5">List your property</h3>
+                <div className="bg-primary rounded-lg p-4 text-center">
+                  <h3 className="text-white font-roboto font-bold text-xs uppercase tracking-wide mb-1.5">List your property</h3>
                   <p className="text-white/70 font-roboto text-[10px] mb-2.5">Reach thousands of qualified tenants</p>
                   <Link to="/landlords" className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-golden text-white font-roboto text-[10px] font-semibold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
                     Get started
@@ -1285,7 +1282,7 @@ export default function Rent() {
           {/* Map view */}
           {viewMode === 'map' && (
             <div className="lg:w-[45%] xl:w-[40%] lg:sticky lg:top-[180px] lg:h-[calc(100vh-200px)]" ref={mapRef}>
-              <div className="w-full h-[400px] lg:h-full rounded-lg overflow-hidden border border-gray-200">
+              <div className="w-full h-[400px] lg:h-full rounded-lg overflow-hidden border border-primary/12">
                 <iframe
                   src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d255281.1989180463!2d36.68258773125!3d-1.302861050000005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f1172d84d49a7%3A0xf7cf0254b297924c!2sNairobi%2C%20Kenya!5e0!3m2!1sen!2sus!4v1717000000000!5m2!1sen!2sus"
                   width="100%"
@@ -1303,13 +1300,13 @@ export default function Rent() {
                 {paginated.slice(0, 3).map((p) => (
                   <div
                     key={p.id}
-                    className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${activeMapMarker === p.id ? 'border-primary bg-primary/5' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${activeMapMarker === p.id ? 'border-primary bg-primary/5' : 'border-primary/12 hover:border-primary/20'}`}
                     onClick={() => setActiveMapMarker(activeMapMarker === p.id ? null : p.id)}
                   >
                     <img src={p.image} alt={p.title} className="w-16 h-12 object-cover rounded" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-roboto font-semibold text-primary truncate">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</p>
-                      <p className="text-[10px] font-roboto text-gray-500 truncate">{p.title}</p>
+                      <p className="text-[10px] font-roboto text-primary/50 truncate">{p.title}</p>
                     </div>
                   </div>
                 ))}
@@ -1324,7 +1321,7 @@ export default function Rent() {
         <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">Own a Property?</p>
         <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">List Your Property With Us</h2>
         <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">Reach thousands of qualified tenants. Get a free rental assessment from our expert team today.</p>
-        <Link to="/landlords" className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
+        <Link to="/landlords" className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white border-2 border-golden font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
           <i className="ri-home-heart-line"></i>Get Rental Valuation
         </Link>
       </div>
@@ -1368,6 +1365,16 @@ export default function Rent() {
         onClose={() => setShowCompareModal(false)}
         properties={compare.selected}
         onRemove={compare.removeFromCompare}
+      />
+
+      <ContactAgentModal
+        isOpen={contactProperty !== null}
+        onClose={() => setContactProperty(null)}
+        propertyTitle={contactProperty?.title || ''}
+        propertyId={contactProperty?.id || ''}
+        propertySlug={contactProperty?.slug || ''}
+        propertyPrice={contactProperty ? format(contactProperty.rawPrice, contactProperty.currency as 'KES' | 'USD' | 'GBP' | 'EUR') : ''}
+        propertyLocation={contactProperty?.location || ''}
       />
     </div>
   );

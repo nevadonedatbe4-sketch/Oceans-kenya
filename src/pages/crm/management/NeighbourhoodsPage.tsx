@@ -18,6 +18,8 @@ interface Content {
   meta_title: string; meta_description: string; meta_keywords: string;
   accent_color: string; hero_height: string;
   is_published: boolean; published_at: string | null;
+  tag_green: string; tag_luxury: string; tag_wealthy: string; tag_family: string;
+  tag_young: string; tag_gated: string; tag_modern: string; tag_default: string;
 }
 
 const DEFAULTS: Content = {
@@ -28,6 +30,8 @@ const DEFAULTS: Content = {
   meta_title: 'Neighbourhoods — Oceans', meta_description: 'Explore detailed neighbourhood guides. Find the perfect area for your lifestyle with our comprehensive area profiles.', meta_keywords: 'neighbourhoods, area guides, locations, communities',
   accent_color: '#1B4332', hero_height: '400',
   is_published: true, published_at: null,
+  tag_green: '#2C5E1A', tag_luxury: '#E55B13', tag_wealthy: '#F6A21E', tag_family: '#1F7A6E',
+  tag_young: '#7A871E', tag_gated: '#3E6B8A', tag_modern: '#32CD30', tag_default: '#6B4423',
 };
 
 function SC({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
@@ -109,7 +113,46 @@ export default function NeighbourhoodsPageCMS() {
           <div className="flex items-center justify-between py-2"><div><p className="text-sm font-medium text-stone-700">Show Filters</p></div><button onClick={() => upd('show_filter', !c.show_filter)} className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${c.show_filter ? 'bg-[#1B4332]' : 'bg-stone-200'}`}><span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${c.show_filter ? 'translate-x-6' : 'translate-x-1'}`}></span></button></div>
         </SC>}
 
-        {activeTab === 'styling' && <SC title="Styling" icon="ri-palette-line"><div className="space-y-1.5"><label className="text-sm font-medium text-stone-700 block">Accent Color</label><div className="flex items-center gap-2"><input type="color" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" /><input type="text" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" /></div></div></SC>}
+        {activeTab === 'styling' && (
+          <div className="space-y-5">
+            <SC title="Styling" icon="ri-palette-line">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-stone-700 block">Accent Color</label>
+                <div className="flex items-center gap-2">
+                  <input type="color" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
+                  <input type="text" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
+                </div>
+              </div>
+            </SC>
+            <SC title="Tag Colours" icon="ri-price-tag-3-line">
+              <p className="text-xs text-stone-400 leading-relaxed">Control the badge colour used for each category of neighbourhood tag (shown on cards and blog posts). Each colour auto-applies based on the tag's meaning.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { key: 'tag_green', label: 'Green / Nature / Views', hint: 'leafy, park, garden, scenic, tree', sample: 'Garden' },
+                  { key: 'tag_luxury', label: 'Luxury / Prestige', hint: 'luxury, premium, exclusive, historic', sample: 'Luxury' },
+                  { key: 'tag_wealthy', label: 'Wealthy / Nightlife', hint: 'upscale, investment, social, bar', sample: 'Upscale' },
+                  { key: 'tag_family', label: 'Family / Schools', hint: 'family, school, diplomatic, expat', sample: 'Family' },
+                  { key: 'tag_young', label: 'Young Professionals', hint: 'young, starter, value, affordable', sample: 'Young' },
+                  { key: 'tag_gated', label: 'Gated / Urban / Secure', hint: 'gated, corporate, central, hospital', sample: 'Gated' },
+                  { key: 'tag_modern', label: 'Modern / New', hint: 'modern, contemporary, development', sample: 'Modern' },
+                  { key: 'tag_default', label: 'Default (Fallback)', hint: 'any other tag', sample: 'Other' },
+                ].map((t) => (
+                  <div key={t.key} className="space-y-1.5">
+                    <label className="text-sm font-medium text-stone-700 block">{t.label}</label>
+                    <p className="text-[11px] text-stone-400 leading-snug">{t.hint}</p>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={c[t.key as keyof Content] as string} onChange={(e) => upd(t.key as keyof Content, e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
+                      <input type="text" value={c[t.key as keyof Content] as string} onChange={(e) => upd(t.key as keyof Content, e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
+                    </div>
+                    <div className="pt-1">
+                      <span className="inline-block px-2.5 py-1 text-white text-[11px] font-semibold uppercase tracking-[0.06em] rounded-sm" style={{ backgroundColor: c[t.key as keyof Content] as string }}>{t.sample}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SC>
+          </div>
+        )}
 
         {activeTab === 'seo' && <SC title="SEO" icon="ri-search-line"><T label="Meta Title" value={c.meta_title} onChange={(v) => upd('meta_title', v)} /><TA label="Meta Description" value={c.meta_description} onChange={(v) => upd('meta_description', v)} /><T label="Keywords" value={c.meta_keywords} onChange={(v) => upd('meta_keywords', v)} /></SC>}
 

@@ -106,7 +106,7 @@ const formatCurrency = (val: number | null) => {
 
 export default function PipelineView() {
   const { user } = useAuth();
-  const { agentId } = useAgentProfile();
+  const { agentId, loading: agentLoading } = useAgentProfile();
   const navigate = useNavigate();
   const isAgent = user?.role === 'agent';
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -137,6 +137,7 @@ export default function PipelineView() {
   }, []);
 
   const fetchDeals = useCallback(async () => {
+    if (isAgent && agentLoading) return;
     setLoading(true);
     let query = supabase
       .from('deals')
@@ -162,7 +163,7 @@ export default function PipelineView() {
       setDeals(data || []);
     }
     setLoading(false);
-  }, [isAgent, agentId, search, filterAgentId]);
+  }, [isAgent, agentId, search, filterAgentId, agentLoading]);
 
   useEffect(() => {
     fetchDeals();
@@ -182,7 +183,8 @@ export default function PipelineView() {
     try {
       const { error } = await supabase.from('deals').update({ status: newStage }).eq('id', id);
       if (error) {
-        addToast('Failed to update stage', 'error');
+        console.error('Update deal stage failed:', error);
+        addToast(error.message || 'Unable to update stage. Please try again.', 'error');
       } else {
         setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStage } : d)));
         const stageLabel = stages.find((s) => s.key === newStage)?.label || newStage;
@@ -202,7 +204,8 @@ export default function PipelineView() {
         .update({ agent_id: newAgentId })
         .eq('id', dealId);
       if (error) {
-        addToast('Failed to update assignment', 'error');
+        console.error('Assign deal agent failed:', error);
+        addToast(error.message || 'Unable to update assignment. Please try again.', 'error');
       } else {
         setDeals((prev) =>
           prev.map((d) => (d.id === dealId ? { ...d, agent_id: newAgentId } : d))
@@ -252,7 +255,8 @@ export default function PipelineView() {
     };
     const { data, error } = await supabase.from('deals').insert(payload).select().single();
     if (error) {
-      addToast('Failed to add deal', 'error');
+      console.error('Add deal failed:', error);
+      addToast(error.message || 'Unable to create deal. Please check the required fields and try again.', 'error');
     } else {
       setDeals((prev) => [data, ...prev]);
       addToast('Deal added successfully', 'success');

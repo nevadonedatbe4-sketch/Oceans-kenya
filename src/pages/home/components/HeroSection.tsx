@@ -8,26 +8,30 @@ const defaultSocialLinks = [
   { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
   { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
   { icon: 'ri-youtube-fill', href: 'https://www.youtube.com/@oceanskenya', label: 'YouTube' },
-  { icon: 'ri-whatsapp-line', href: 'https://wa.me/254712345678', label: 'WhatsApp' },
+  { icon: 'ri-whatsapp-line', href: 'https://wa.me/254703712984', label: 'WhatsApp' },
 ];
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  onSearch: (query: string) => void;
+  initialQuery?: string;
+}
+
+export default function HeroSection({ onSearch, initialQuery = '' }: HeroSectionProps) {
   const { getHero, social } = useSiteSettings();
   const socialLinks = resolveSocials(social, 'header', defaultSocialLinks);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
 
   const heroOverlay = getHero('hero_show_overlay') !== 'false';
   const heroSearch = getHero('hero_show_search') === 'true';
-  const heroHeight = getHero('hero_height') || '600';
   const heroOverlayOpacity = getHero('hero_overlay_opacity') || '30';
 
   const overlayStyle = { opacity: Number(heroOverlayOpacity) / 100 };
-  const heightStyle = { minHeight: '100vh' };
+  const heightStyle = { minHeight: typeof window !== 'undefined' && window.innerWidth < 768 ? '70vh' : '100vh' };
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    window.location.href = `/all-properties?search=${encodeURIComponent(searchQuery)}`;
+    onSearch(searchQuery.trim());
   };
 
   return (
@@ -44,17 +48,17 @@ export default function HeroSection() {
         <div className="absolute inset-0 bg-black" style={overlayStyle}></div>
       )}
 
-      <div className="relative z-10 w-full px-6 md:px-8 lg:px-16 flex flex-col items-center text-center pt-24 md:pt-32">
-        <h1 className="text-white text-5xl md:text-7xl lg:text-8xl mb-3 font-[Prata,serif] font-normal tracking-[0] leading-[1.2]">
+      <div className="relative z-10 w-full px-4 md:px-8 lg:px-16 flex flex-col items-center text-center pt-20 md:pt-32">
+        <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl mb-2 md:mb-3 font-[Prata,serif] font-normal tracking-[0] leading-[1.2]">
           Oceans
         </h1>
-        <p className="mb-4 font-roboto text-xs sm:text-sm md:text-xl font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-white"
+        <p className="mb-3 md:mb-4 font-roboto text-sm sm:text-base md:text-lg font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-white"
           style={{ textShadow: '0 1px 12px rgba(0,0,0,0.45), 0 0 2px rgba(255,255,255,0.15)' }}
         >
           Estate &amp; Letting Agent
         </p>
 
-        <div className="flex items-center gap-4 sm:gap-6 justify-center mb-8 sm:mb-12">
+        <div className="flex items-center gap-3 sm:gap-6 justify-center mb-6 sm:mb-12">
           {socialLinks.map((social) => (
             <a
               key={social.label}
@@ -62,9 +66,9 @@ export default function HeroSection() {
               rel="nofollow noreferrer"
               aria-label={social.label}
               target="_blank"
-              className="w-7 h-7 flex items-center justify-center hover:text-golden transition-colors duration-300 cursor-pointer text-white"
+              className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center hover:text-golden transition-colors duration-300 cursor-pointer text-white"
             >
-              <i className={`${social.icon} text-2xl sm:text-3xl`}></i>
+              <i className={`${social.icon} text-xl sm:text-2xl md:text-3xl`}></i>
             </a>
           ))}
         </div>
@@ -89,26 +93,27 @@ export default function HeroSection() {
           </form>
         )}
 
-        <div className="flex flex-col items-center gap-3 w-full max-w-sm">
-          <div className="flex flex-row w-full gap-3">
+        {/* === Hero CTA Buttons — Oceans reference style === */}
+        <div className="flex flex-col items-center gap-2 sm:gap-3 w-full max-w-[380px] sm:max-w-[460px]">
+          <div className="flex w-full gap-2 sm:gap-3">
             <Link
               to="/rent"
-              className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
+              className="flex-1 text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-golden hover:border-golden hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
             >
-              Renters
+              Rent
             </Link>
             <Link
               to="/buy"
-              className="flex-1 transition-all duration-300 text-center whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
+              className="flex-1 text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-golden hover:border-golden hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
             >
-              Buyers
+              Buy
             </Link>
           </div>
           <Link
             to="/valuation"
-            className="w-full text-center transition-all duration-300 whitespace-nowrap cursor-pointer bg-white/5 backdrop-blur-sm text-white border border-white/60 hover:bg-[#D5A91C] hover:border-[#D5A91C] hover:text-white py-3.5 px-6 rounded-none text-sm font-roboto font-bold tracking-wider uppercase"
+            className="w-full text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-golden hover:border-golden hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
           >
-            Valuation
+            Evaluation
           </Link>
         </div>
       </div>
