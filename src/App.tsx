@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { AppRoutes } from "./router";
 import { I18nextProvider } from "react-i18next";
@@ -6,6 +6,7 @@ import i18n from "./i18n";
 import { AuthProvider } from "./hooks/AuthProvider";
 import { CurrencyProvider } from "./hooks/CurrencyProvider";
 import { useBrandTheme } from "./hooks/useBrandTheme";
+import PageLoader from "./components/feature/PageLoader";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -43,7 +44,18 @@ function ThemedApp() {
     <BrowserRouter basename={__BASE_PATH__}>
       <RecoveryRedirect />
       <ScrollToTop />
-      <AppRoutes />
+      {/* Only the lazily-loaded CRM routes suspend; public pages are eager,
+          so visitors never see this fallback. Mirrors ProtectedRoute's
+          loading state so the admin transition looks the same either way. */}
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">
+            <PageLoader size={48} />
+          </div>
+        }
+      >
+        <AppRoutes />
+      </Suspense>
     </BrowserRouter>
   );
 }
