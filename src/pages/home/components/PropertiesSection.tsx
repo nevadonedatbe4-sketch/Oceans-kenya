@@ -235,8 +235,8 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
     return () => clearInterval(interval);
   }, [totalPages, maxPage, isPaused]);
 
-  const nextSlide = () => setPage((prev) => Math.min(prev + 1, maxPage));
-  const prevSlide = () => setPage((prev) => Math.max(prev - 1, 0));
+  const nextSlide = useCallback(() => setPage((prev) => Math.min(prev + 1, maxPage)), [maxPage]);
+  const prevSlide = useCallback(() => setPage((prev) => Math.max(prev - 1, 0)), []);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -252,7 +252,7 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
       if (diff > 0) nextSlide();
       else prevSlide();
     }
-  }, [maxPage]);
+  }, [nextSlide, prevSlide]);
 
   const headingText =
     tab === 'rent'

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
@@ -20,6 +20,8 @@ import {
   Save,
   Loader2,
 } from 'lucide-react';
+
+const perPage = 10;
 
 interface BlogPost {
   id: string;
@@ -52,9 +54,8 @@ export default function BlogAdmin() {
   const [isNew, setIsNew] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const perPage = 10;
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     let query = supabase.from('blog_posts').select('*', { count: 'exact' });
     if (activeTab !== 'all') {
@@ -73,11 +74,11 @@ export default function BlogAdmin() {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  };
+  }, [activeTab, page, search]);
 
   useEffect(() => {
     fetchPosts();
-  }, [activeTab, page, search]);
+  }, [fetchPosts]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();

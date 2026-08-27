@@ -71,7 +71,10 @@ export default function Inbox() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const applyAgentFilter = (q: any) => (isAgent && agentId ? q.eq('agent_id', agentId) : q);
+  const applyAgentFilter = useCallback(
+    (q: any) => (isAgent && agentId ? q.eq('agent_id', agentId) : q),
+    [isAgent, agentId],
+  );
 
   const fetchCounts = useCallback(async () => {
     if (isAgent && agentLoading) return;
@@ -88,7 +91,7 @@ export default function Inbox() {
       starred: starredR.count ?? 0,
       archived: archivedR.count ?? 0,
     });
-  }, [isAgent, agentId, agentLoading]);
+  }, [isAgent, agentLoading, applyAgentFilter]);
 
   const fetchEnquiries = useCallback(async () => {
     setLoading(true);

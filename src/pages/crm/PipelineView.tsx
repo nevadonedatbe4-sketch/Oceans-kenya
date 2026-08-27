@@ -171,7 +171,7 @@ export default function PipelineView() {
 
   useEffect(() => {
     fetchAgents();
-  }, []);
+  }, [fetchAgents]);
 
   const getAgentById = (id: string | null) => {
     if (!id) return null;

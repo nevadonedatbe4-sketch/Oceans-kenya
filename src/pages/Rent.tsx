@@ -178,7 +178,7 @@ export default function Rent() {
     else if (selectedBeds === '4+') { filters.bedsMin = 4; }
     else if (selectedBeds === '5+') { filters.bedsMin = 5; }
     return filters;
-  }, [appliedSearchQuery, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
+  }, [appliedSearchQuery, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters, priceOptions]);
 
   const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
 

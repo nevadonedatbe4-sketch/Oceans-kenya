@@ -317,6 +317,10 @@ export default function ListingEdit() {
     };
     loadLayout();
     return () => { cancelled = true; };
+  // One-time layout load on mount. propertyType is read only to pick the
+  // fallback step list; depending on it would re-fetch the layout config from
+  // the database every time the user switches property type.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch agents
@@ -788,6 +792,11 @@ export default function ListingEdit() {
       }
     }, 3000);
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  // Debounced autosave, deliberately triggered by form-field changes only.
+  // isEdit/isPublished/id are read as guards, not triggers, and buildPayload is
+  // rebuilt every render — depending on it would re-arm the timer on each render
+  // and, via setAutoSaveStatus, loop indefinitely.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, description, location, price, bedrooms, bathrooms, amenities, images, address, seoTitle, seoDescription, agentId, isFeatured, isHomepage, isPending, propertyOfTheWeek, newHome, refurbished, reducedPrice, backOnMarket, commissionApplicable, priceUgx, autoExchange, customFields, customFeatures, documents, stateRegion, zipCode, ownerContact, leadAssignment, privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood, featuredNewDevelopment, priorityRanking, autoSEO, openGraphImage, interiorFinish, flooringType, ceilingHeight, waterSupply, constructionType, completionDate, isNewDevelopment, developmentStage, frequency, negotiable, pricePlaceholder, showSecondPrice, backupPower, gatedCommunity, staffQuarters, swimmingPool, gym, proximityAmenities, backupPowerDesc, staffQuartersRooms, uniqueFeatures, balconySize, plotDimensions, floors, floorNumber, renovatedYear, propertyCondition, availableDate, furnishedStatus, includedItems, featureCheckboxes, utilityCheckboxes, roadAccess, parkingType, wheelchairAccessible, terraceSize, plotLength, plotWidth, leasePeriod, leaseExpiryDate, plotShape, topography, selectedTags, propertyCategory, ownerName, ownerPhone, ownerEmail, ownerRole, caretakerRole, sourceName, sourceUrl, sourcePoster, caretakerName, caretakerPhone, dateSourced, sourceNotes]);
 
   const getStatusLabel = () => {

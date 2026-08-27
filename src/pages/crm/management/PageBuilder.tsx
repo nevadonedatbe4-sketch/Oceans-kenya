@@ -173,6 +173,10 @@ export default function PageBuilderPage() {
       });
       return merged;
     });
+  // Captures the baseline snapshot of mockStates as it was at mount, which is
+  // what unsaved-change detection compares against. Depending on mockStates
+  // would re-run this on every edit, which is precisely what it must not do.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentPage = PAGE_LIST.find((p) => p.key === selectedPage);

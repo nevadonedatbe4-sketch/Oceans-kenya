@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, uploadImageViaEdgeFunction } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
@@ -22,6 +22,8 @@ import {
   Crown,
   Sparkles,
 } from 'lucide-react';
+
+const perPage = 10;
 
 interface UserProfile {
   id: string;
@@ -74,9 +76,8 @@ export default function UsersAndRoles() {
   const [inviteSuccess, setInviteSuccess] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const perPage = 10;
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     let query = supabase.from('profiles').select('*', { count: 'exact' });
     if (search) {
@@ -92,11 +93,11 @@ export default function UsersAndRoles() {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  };
+  }, [page, search]);
 
   useEffect(() => {
     fetchUsers();
-  }, [page, search]);
+  }, [fetchUsers]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();

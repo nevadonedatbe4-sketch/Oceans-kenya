@@ -154,6 +154,10 @@ export default function PriceStep({
     if (!pricePrefix && purpose === 'sale') {
       setPricePrefix('Guide Price');
     }
+  // Seeds the default sale prefix once on mount. Deliberately not reactive:
+  // depending on pricePrefix/purpose would re-apply "Guide Price" every time
+  // the user clears the field, making it impossible to leave blank.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
