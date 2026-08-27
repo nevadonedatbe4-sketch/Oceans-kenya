@@ -7,6 +7,7 @@ import { AuthProvider } from "./hooks/AuthProvider";
 import { CurrencyProvider } from "./hooks/CurrencyProvider";
 import { useBrandTheme } from "./hooks/useBrandTheme";
 import PageLoader from "./components/feature/PageLoader";
+import { installRoutePrefetch } from "./router/prefetch";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -36,6 +37,13 @@ function RecoveryRedirect() {
   return null;
 }
 
+// Warms a route's chunk when the user hovers or focuses a link to it, so the
+// on-demand load usually finishes before the click lands.
+function RoutePrefetch() {
+  useEffect(() => installRoutePrefetch(__BASE_PATH__), []);
+  return null;
+}
+
 function ThemedApp() {
   // Applies brand colours from brand_settings to the root CSS variables
   // that Tailwind's primary/golden/accent tokens read from.
@@ -44,9 +52,10 @@ function ThemedApp() {
     <BrowserRouter basename={__BASE_PATH__}>
       <RecoveryRedirect />
       <ScrollToTop />
-      {/* Only the lazily-loaded CRM routes suspend; public pages are eager,
-          so visitors never see this fallback. Mirrors ProtectedRoute's
-          loading state so the admin transition looks the same either way. */}
+      <RoutePrefetch />
+      {/* Every route is code-split, so this catches the gap while a chunk
+          loads. Hover prefetching above means it is usually never shown.
+          Mirrors ProtectedRoute's loading state for a consistent look. */}
       <Suspense
         fallback={
           <div className="min-h-screen bg-[#f7f8fa] flex items-center justify-center">

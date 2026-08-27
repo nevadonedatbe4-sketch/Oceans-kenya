@@ -6,25 +6,46 @@ import ProtectedRoute from "../components/feature/ProtectedRoute";
 // Public pages are code-split too, so a visitor downloads only the page
 // they actually landed on rather than every public route.
 const NotFound = lazy(() => import("../pages/NotFound"));
-const Home = lazy(() => import("../pages/home/page"));
-const Buy = lazy(() => import("../pages/Buy"));
-const Rent = lazy(() => import("../pages/Rent"));
-const AllProperties = lazy(() => import("../pages/AllProperties"));
-const Landlords = lazy(() => import("../pages/Landlords"));
-const Neighbourhoods = lazy(() => import("../pages/Neighbourhoods"));
-const NeighbourhoodDetail = lazy(() => import("../pages/NeighbourhoodDetail"));
-const NewDevelopments = lazy(() => import("../pages/NewDevelopments"));
-const About = lazy(() => import("../pages/About"));
-const Contact = lazy(() => import("../pages/Contact"));
-const Valuation = lazy(() => import("../pages/Valuation"));
-const PropertyDetail = lazy(() => import("../pages/PropertyDetail"));
-const JointVentures = lazy(() => import("../pages/JointVentures"));
-const JointVentureProjectDetail = lazy(() => import("../pages/JointVentureProjectDetail"));
-const CommercialProperty = lazy(() => import("../pages/CommercialProperty"));
-const CommercialAdvertising = lazy(() => import("../pages/CommercialAdvertising"));
-const CommuteTime = lazy(() => import("../pages/CommuteTime"));
-const Schools = lazy(() => import("../pages/Schools"));
-const BlogDetail = lazy(() => import("../pages/BlogDetail"));
+// Public route chunks. Each loader is a named const so the *same* function
+// object backs both lazy() and the prefetch table below — they cannot drift.
+const loadHome = () => import("../pages/home/page");
+const Home = lazy(loadHome);
+const loadBuy = () => import("../pages/Buy");
+const Buy = lazy(loadBuy);
+const loadRent = () => import("../pages/Rent");
+const Rent = lazy(loadRent);
+const loadAllProperties = () => import("../pages/AllProperties");
+const AllProperties = lazy(loadAllProperties);
+const loadLandlords = () => import("../pages/Landlords");
+const Landlords = lazy(loadLandlords);
+const loadNeighbourhoods = () => import("../pages/Neighbourhoods");
+const Neighbourhoods = lazy(loadNeighbourhoods);
+const loadNeighbourhoodDetail = () => import("../pages/NeighbourhoodDetail");
+const NeighbourhoodDetail = lazy(loadNeighbourhoodDetail);
+const loadNewDevelopments = () => import("../pages/NewDevelopments");
+const NewDevelopments = lazy(loadNewDevelopments);
+const loadAbout = () => import("../pages/About");
+const About = lazy(loadAbout);
+const loadContact = () => import("../pages/Contact");
+const Contact = lazy(loadContact);
+const loadValuation = () => import("../pages/Valuation");
+const Valuation = lazy(loadValuation);
+const loadPropertyDetail = () => import("../pages/PropertyDetail");
+const PropertyDetail = lazy(loadPropertyDetail);
+const loadJointVentures = () => import("../pages/JointVentures");
+const JointVentures = lazy(loadJointVentures);
+const loadJointVentureProjectDetail = () => import("../pages/JointVentureProjectDetail");
+const JointVentureProjectDetail = lazy(loadJointVentureProjectDetail);
+const loadCommercialProperty = () => import("../pages/CommercialProperty");
+const CommercialProperty = lazy(loadCommercialProperty);
+const loadCommercialAdvertising = () => import("../pages/CommercialAdvertising");
+const CommercialAdvertising = lazy(loadCommercialAdvertising);
+const loadCommuteTime = () => import("../pages/CommuteTime");
+const CommuteTime = lazy(loadCommuteTime);
+const loadSchools = () => import("../pages/Schools");
+const Schools = lazy(loadSchools);
+const loadBlogDetail = () => import("../pages/BlogDetail");
+const BlogDetail = lazy(loadBlogDetail);
 
 // The CRM/admin console is ~62% of the source and is never used by public
 // visitors, so it is loaded on demand. Vite emits these as separate chunks
@@ -108,6 +129,33 @@ const MgmtNeighbourhoodsPage = lazy(() => import("../pages/crm/management/Neighb
 // New management sub-pages
 
 // Page Management CMS pages
+
+
+// Public route patterns paired with their chunk loader, consumed by the hover
+// prefetcher in ./prefetch. CRM routes are deliberately excluded: an admin is
+// already inside the app, and those chunks are large (ListingEdit alone is
+// 160 kB) so speculatively fetching them would waste bandwidth.
+export const PUBLIC_ROUTE_LOADERS: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
+  ["/", loadHome],
+  ["/buy", loadBuy],
+  ["/rent", loadRent],
+  ["/all-properties", loadAllProperties],
+  ["/landlords", loadLandlords],
+  ["/neighbourhoods", loadNeighbourhoods],
+  ["/neighbourhood/:slug", loadNeighbourhoodDetail],
+  ["/blog/:slug", loadBlogDetail],
+  ["/new-developments", loadNewDevelopments],
+  ["/joint-ventures", loadJointVentures],
+  ["/joint-ventures/project/:slug", loadJointVentureProjectDetail],
+  ["/about", loadAbout],
+  ["/contact", loadContact],
+  ["/valuation", loadValuation],
+  ["/property/:slug", loadPropertyDetail],
+  ["/commercial-property", loadCommercialProperty],
+  ["/c/commercial-advertising", loadCommercialAdvertising],
+  ["/commute-time", loadCommuteTime],
+  ["/schools", loadSchools],
+];
 
 const routes: RouteObject[] = [
   {
