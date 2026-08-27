@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output (vite.config.ts sets outDir: "dist"; "out" was the previous value)
+out/
+dist/
+*.local
+
+# Generated type declarations
+# unplugin-auto-import writes this on every dev/build run.
+auto-imports.d.ts
+
+# Environment
+# Note: .env is already tracked in git history — see the untrack command
+# in the project notes if you want it removed from the index.
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Supabase CLI
+.supabase/
+supabase/.temp/
+supabase/.branches/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Caches
+.cache/
+.vite/
+.eslintcache
+.tsbuildinfo
+*.tsbuildinfo
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
