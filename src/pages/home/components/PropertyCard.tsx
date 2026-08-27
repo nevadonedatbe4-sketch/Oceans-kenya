@@ -44,7 +44,6 @@ interface PropertyCardProps {
   shadowClass: string;
   hoverClass: string;
   showBadge: boolean;
-  badgeColor: string;
   onQuickView: (p: Property) => void;
 }
 
@@ -54,7 +53,6 @@ export default function PropertyCard({
   shadowClass,
   hoverClass,
   showBadge,
-  badgeColor,
   onQuickView,
 }: PropertyCardProps) {
   const { format } = useCurrency();

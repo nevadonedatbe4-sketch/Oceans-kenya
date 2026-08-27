@@ -26,7 +26,6 @@ interface ListingRow {
   description: string | null;
   main_image: string | null;
   images: string[] | null;
-  neighbourhood: string | null;
   status: string;
   amenities: string[] | null;
   features: Record<string, unknown> | null;

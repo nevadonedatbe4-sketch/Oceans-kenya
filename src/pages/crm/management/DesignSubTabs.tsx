@@ -1882,7 +1882,7 @@ export function ResponsiveTab() {
         if (match && row.value) {
           const [, viewport, field] = match;
           if (viewport in map && field in map[viewport as ViewportKey]) {
-            (map[viewport as ViewportKey] as Record<string, string>)[field] = row.value;
+            (map[viewport as ViewportKey] as unknown as Record<string, string>)[field] = row.value;
           }
         }
       });
@@ -1902,7 +1902,7 @@ export function ResponsiveTab() {
 
   const handleSave = async () => {
     setSaving(true);
-    const upserts: Promise<{ error: unknown }>[] = [];
+    const upserts: PromiseLike<{ error: unknown }>[] = [];
     (Object.keys(settings) as ViewportKey[]).forEach((vp) => {
       (Object.keys(settings[vp]) as (keyof ResponsiveDefaults)[]).forEach((field) => {
         upserts.push(

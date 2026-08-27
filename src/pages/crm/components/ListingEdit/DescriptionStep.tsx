@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { PROPERTY_TYPES, PURPOSE_OPTIONS, COMMERCIAL_PROPERTY_TYPES, RESIDENTIAL_PROPERTY_TYPES, PROPERTY_TYPE_TO_DB, LISTING_TYPES, DEVELOPMENT_STAGES } from './types';
+import { PROPERTY_TYPES, PURPOSE_OPTIONS, COMMERCIAL_PROPERTY_TYPES, RESIDENTIAL_PROPERTY_TYPES, PROPERTY_TYPE_TO_DB, LISTING_TYPES, DEVELOPMENT_STAGES, type ListingPurpose } from './types';
 
 interface Props {
   title: string;
@@ -11,7 +11,7 @@ interface Props {
   propertyCategory: string;
   setPropertyCategory: (v: string) => void;
   purpose: string;
-  setPurpose: (v: string) => void;
+  setPurpose: (v: ListingPurpose) => void;
   isNewDevelopment: boolean;
   setIsNewDevelopment: (v: boolean) => void;
   developmentStage: string;
@@ -490,7 +490,7 @@ export default function DescriptionStep({
             </label>
             <select
               value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
+              onChange={(e) => setPurpose(e.target.value as ListingPurpose)}
               className={selectClass}
             >
               {PURPOSE_OPTIONS.map((o) => (

@@ -176,7 +176,9 @@ export default function PropertyLeftColumn({
     ? `${new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${timeSince(createdAt)})`
     : 'N/A';
 
-  const detailsLeft = [
+  type DetailRow = { label: string; value: string; isPrice?: boolean };
+
+  const detailsLeft: DetailRow[] = [
     { label: 'Property ID', value: ref || 'N/A' },
     { label: 'Price', value: price, isPrice: true },
     { label: 'Bedrooms', value: displayBeds },
@@ -185,7 +187,7 @@ export default function PropertyLeftColumn({
     { label: 'Property Size', value: displaySqft },
   ];
 
-  const detailsRight = [
+  const detailsRight: DetailRow[] = [
     { label: 'Property Type', value: displayPropertyType },
     { label: 'Furnished', value: furnished || 'Unfurnished' },
     { label: 'Property Status', value: getStatusLabel(status) },

@@ -12,7 +12,7 @@ interface CurrencyInfo {
 
 // All rates stored as: 1 KES = X foreign units
 // KES is always 1 (the internal base)
-interface ExchangeRates {
+export interface ExchangeRates {
   KES: number;
   USD: number;
   GBP: number;

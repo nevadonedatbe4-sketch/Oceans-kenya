@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
-import { STEPS, COLORS, PURPOSES, PURPOSE_LABELS, Agent, DocumentFile, CustomField, generateSlug, getSteps, LAND_TITLE_TYPES, LEGACY_PROPERTY_TYPE_MAP, inferCategoryFromType } from './components/ListingEdit/types';
+import { STEPS, COLORS, PURPOSES, PURPOSE_LABELS, Agent, DocumentFile, CustomField, generateSlug, getSteps, LAND_TITLE_TYPES, LEGACY_PROPERTY_TYPE_MAP, inferCategoryFromType, type ListingPurpose } from './components/ListingEdit/types';
 import LabelsTagsStep from './components/ListingEdit/LabelsTagsStep';
 
 // Maps form_layout module IDs to step definitions
@@ -96,7 +96,7 @@ export default function ListingEdit() {
     if (!type) return 'house';
     return LEGACY_PROPERTY_TYPE_MAP[type] || type;
   };
-  const [purpose, setPurpose] = useState<'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented'>('sale');
+  const [purpose, setPurpose] = useState<ListingPurpose>('sale');
   const [price, setPrice] = useState('');
   const [currency, setCurrency] = useState('KES');
   const [bedrooms, setBedrooms] = useState(0);

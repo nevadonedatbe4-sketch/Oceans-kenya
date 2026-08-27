@@ -231,6 +231,10 @@ export default function AllProperties() {
             agentPhone: '',
             agentEmail: '',
             isLand: false,
+            propertyType: '',
+            sqft: 0,
+            landSize: 0,
+            acreage: 0,
             isJointVenture: false,
             featured: false,
           }));
@@ -252,8 +256,7 @@ export default function AllProperties() {
             .in('id', realIds)
             .then(({ data }) => {
               if (!cancelled && data) setRecentlyViewed(((data || []) as Record<string, unknown>[]).map(mapRow));
-            })
-            .catch(() => {});
+            }, () => {});
         }
       }
     } catch { /* ignore */ }
@@ -272,8 +275,7 @@ export default function AllProperties() {
         if (!error && data) {
           setNeighbourhoodNames((data as { name: string }[]).map((n) => n.name));
         }
-      })
-      .catch(() => {});
+      }, () => {});
   }, []);
 
   const toggleSave = useCallback((id: string) => {
@@ -358,7 +360,6 @@ export default function AllProperties() {
 
   useEffect(() => {
     fetchListings();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchListings]);
 
   const handleSearch = () => {
@@ -551,7 +552,7 @@ export default function AllProperties() {
               <i className="ri-error-warning-line text-xl text-red-400"></i>
             </div>
             <p className="text-sm text-primary/70 mb-4">{error}</p>
-            <button onClick={() => fetchListings(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
+            <button onClick={() => fetchListings()} className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
               <i className="ri-refresh-line"></i>Try Again
             </button>
           </div>

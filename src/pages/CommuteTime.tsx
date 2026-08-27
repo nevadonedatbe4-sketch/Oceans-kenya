@@ -237,7 +237,7 @@ export default function CommuteTime() {
             destinationLat: destination.lat,
             destinationLng: destination.lng,
             transportMode,
-            listings: listingsWithCoords.map((p) => ({ id: p.id, lat: p._lat, lng: p._lng })),
+            listings: listingsWithCoords,
           }),
         }
       );
@@ -271,7 +271,6 @@ export default function CommuteTime() {
     } finally {
       setCommuteLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProperties, destination.lat, destination.lng, transportMode]);
 
   useEffect(() => {

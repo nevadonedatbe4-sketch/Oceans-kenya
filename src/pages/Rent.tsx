@@ -21,7 +21,7 @@ import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
 import MobileFilterPills from '@/components/feature/MobileFilterPills';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { useCurrency } from '@/hooks/useCurrency';
+import { useCurrency, type CurrencyCode, type ExchangeRates } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
 import { getPropertySpecs } from '@/lib/propertySpecs';
 import { formatTimeAgo } from '@/lib/timeAgo';
@@ -50,7 +50,7 @@ const KES_RENT_RANGES: { key: string; min?: number; max?: number }[] = [
   { key: 'over_5m', min: 5_000_000 },
 ];
 
-function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): string {
+function fmtPriceKes(kes: number, curr: CurrencyCode, rates: ExchangeRates): string {
   const SYMS: Record<string, string> = { KES: 'KES', USD: '$', GBP: '£', EUR: '€', UGX: 'UGX', AED: 'AED', ZAR: 'R' };
   const sym = SYMS[curr] || curr;
   const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
@@ -268,6 +268,11 @@ export default function Rent() {
       baths: 0,
       parking: 0,
       receptions: 0,
+      propertyType: '',
+      landSize: 0,
+      acreage: 0,
+      isLand: false,
+      isJointVenture: false,
       sqft: 0,
       sqm: 0,
       price: '',
@@ -324,6 +329,11 @@ export default function Rent() {
                   baths: Number(row.bathrooms ?? 0),
                   parking: Number(row.parking ?? 0),
                   receptions: 0,
+                  propertyType: String(row.property_type || ''),
+                  landSize: 0,
+                  acreage: 0,
+                  isLand: false,
+                  isJointVenture: false,
                   sqft: 0,
                   sqm: 0,
                   price: '',
@@ -342,8 +352,7 @@ export default function Rent() {
                 }));
                 setRecentlyViewed(mapped);
               }
-            })
-            .catch(() => {});
+            }, () => {});
         }
       }
     } catch { /* ignore */ }

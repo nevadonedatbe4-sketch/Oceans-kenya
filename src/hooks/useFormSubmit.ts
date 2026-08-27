@@ -12,7 +12,7 @@ interface SubmitToContactsOptions {
   tags?: string[];
 }
 
-export interface EnquiryPayload {
+export type EnquiryPayload = {
   name?: string;
   full_name?: string;
   first_name?: string;

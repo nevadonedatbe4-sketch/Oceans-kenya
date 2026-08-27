@@ -33,7 +33,7 @@ export interface ListingFormState {
   propertyType: string;
   propertyCategory: string;
   subType: string;
-  purpose: 'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented';
+  purpose: ListingPurpose;
   price: string;
   currency: string;
   bedrooms: number;
@@ -466,3 +466,4 @@ export const LAND_TYPES = [
   'Investment Land',
   'Industrial Land',
 ];
+export type ListingPurpose = typeof PURPOSES[number];

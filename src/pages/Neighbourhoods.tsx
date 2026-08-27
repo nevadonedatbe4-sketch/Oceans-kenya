@@ -968,8 +968,6 @@ export default function Neighbourhoods() {
                           </p>
                           <div className="flex items-center gap-2 font-jost text-[#636363] text-xs uppercase tracking-[0.1em]">
                             {post.author && <span>{post.author}</span>}
-                            {post.author && post.published_at && <span>&middot;</span>}
-                            {post.readTime && <span>{post.readTime}</span>}
                           </div>
                         </div>
                       </Link>
