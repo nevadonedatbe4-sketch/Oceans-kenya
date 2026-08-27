@@ -3,8 +3,8 @@ import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { AppRoutes } from "./router";
 import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n";
-import { AuthProvider } from "./hooks/useAuth";
-import { CurrencyProvider } from "./hooks/useCurrency";
+import { AuthProvider } from "./hooks/AuthProvider";
+import { CurrencyProvider } from "./hooks/CurrencyProvider";
 import { useBrandTheme } from "./hooks/useBrandTheme";
 
 function ScrollToTop() {

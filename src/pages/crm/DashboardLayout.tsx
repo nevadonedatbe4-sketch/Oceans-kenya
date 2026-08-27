@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { supabase } from '@/lib/supabase';
 import { useSyncSettings } from '@/hooks/useSyncSettings';
-import { CRMToastContainer } from './components/CRMToast';
+import { CRMToastContainer } from './components/CRMToastContainer';
 import NotificationsDropdown from './components/NotificationsDropdown';
 import { useCrmCounters } from '@/hooks/useCrmCounters';
 import {

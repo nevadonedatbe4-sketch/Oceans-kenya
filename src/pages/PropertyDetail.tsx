@@ -14,7 +14,8 @@ import PropertyContactCard from '@/pages/PropertyDetail/components/ContactCard';
 import SimilarProperties from '@/pages/PropertyDetail/components/SimilarProperties';
 import PropertyPrevNext from '@/pages/PropertyDetail/components/PrevNext';
 import MobileStickyBar from '@/pages/PropertyDetail/components/MobileStickyBar';
-import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
+import AdvancedFilters from '@/pages/Rent/components/AdvancedFilters';
+import { defaultFilters, type FilterState } from '@/pages/Rent/components/filterState';
 import PageLoader from '@/components/feature/PageLoader';
 
 interface ListingImage {

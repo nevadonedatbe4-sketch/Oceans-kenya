@@ -11,7 +11,7 @@ export type TagCategory = 'status' | 'development' | 'lifestyle' | 'community' |
 
 const ONE_COLOR = '#0d1f2d';
 
-export const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string }> = {
+const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string }> = {
   status:      { label: 'Status',       icon: 'ri-flag-line' },
   development: { label: 'Development',  icon: 'ri-building-line' },
   lifestyle:   { label: 'Lifestyle',    icon: 'ri-heart-line' },
@@ -20,7 +20,7 @@ export const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: strin
   service:     { label: 'Service',      icon: 'ri-service-line' },
 };
 
-export const PREDEFINED_TAGS: TagDef[] = [
+const PREDEFINED_TAGS: TagDef[] = [
   { label: 'New Listing',          category: 'status' },
   { label: 'Featured',             category: 'status' },
   { label: 'Hot Deal',             category: 'status' },
