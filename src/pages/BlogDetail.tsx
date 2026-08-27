@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { sanitizeRichText } from '@/lib/sanitizeHtml';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
@@ -223,7 +224,7 @@ export default function BlogDetail() {
           <Reveal delay={100}>
             <div
               className="font-roboto text-stone-700 text-sm leading-relaxed space-y-5 [&_h3]:font-roboto font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:leading-relaxed [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:leading-relaxed [&_strong]:text-stone-800 [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:p-2 [&_th]:bg-stone-50 [&_th]:font-roboto [&_th]:font-medium [&_th]:text-stone-600 [&_td]:p-2 [&_td]:border-t [&_td]:border-primary/12 [&_em]:text-stone-500"
-              dangerouslySetInnerHTML={{ __html: post.body }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichText(post.body) }}
             />
           </Reveal>
 

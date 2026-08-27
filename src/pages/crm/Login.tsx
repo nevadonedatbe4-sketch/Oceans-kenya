@@ -152,15 +152,8 @@ export default function CRMLogin() {
             </button>
           </form>
 
-          <p className="text-center text-xs text-gray-500 mt-6 font-roboto">
-            Don&apos;t have an account?{' '}
-            <Link
-              to="/crm/signup"
-              className="text-primary hover:text-primary/80 transition-colors cursor-pointer"
-            >
-              Sign up
-            </Link>
-          </p>
+          {/* Public self-service signup was removed: staff accounts are
+              created by an admin via the invite flow (Users & Roles). */}
         </div>
       </div>
     </div>

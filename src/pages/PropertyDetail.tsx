@@ -5,6 +5,7 @@ import BackToTop from '@/components/feature/BackToTop';
 import LocationSearch from '@/components/feature/LocationSearch';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { sanitizeRichText } from '@/lib/sanitizeHtml';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatLocation, smartTitleCase } from '@/lib/location';
@@ -622,7 +623,7 @@ export default function PropertyDetail() {
                     {activeListing.description ? (
                       <div
                         className="font-roboto text-primary/80 text-sm md:text-base leading-relaxed space-y-3 [&_p]:leading-relaxed [&_strong]:text-primary [&_strong]:font-semibold [&_em]:italic [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:space-y-1 [&_li]:leading-relaxed [&_h3]:font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-4 [&_h3]:mb-2 [&_a]:text-golden [&_a]:underline"
-                        dangerouslySetInnerHTML={{ __html: activeListing.description }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeRichText(activeListing.description) }}
                       />
                     ) : (
                       <p className="text-primary/60 font-roboto text-sm md:text-base leading-relaxed">No description available for this plot.</p>

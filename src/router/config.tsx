@@ -53,7 +53,6 @@ const BlogDetail = lazy(loadBlogDetail);
 const CRMLogin = lazy(() => import("../pages/crm/Login"));
 const ForgotPassword = lazy(() => import("../pages/crm/ForgotPassword"));
 const UpdatePassword = lazy(() => import("../pages/crm/UpdatePassword"));
-const Signup = lazy(() => import("../pages/crm/Signup"));
 const DashboardLayout = lazy(() => import("../pages/crm/DashboardLayout"));
 const Dashboard = lazy(() => import("../pages/crm/Dashboard"));
 const Listings = lazy(() => import("../pages/crm/Listings"));
@@ -229,10 +228,6 @@ const routes: RouteObject[] = [
   {
     path: "/crm/update-password",
     element: <UpdatePassword />,
-  },
-  {
-    path: "/crm/signup",
-    element: <Signup />,
   },
   {
     path: "/admin-dashboard",

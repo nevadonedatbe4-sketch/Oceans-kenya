@@ -1,43 +1,55 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAdmin, canGrantRole, serviceClient } from "../_shared/auth.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
+const ALLOWED_ORIGINS = [
+  "https://oceans-kenya.vercel.app",
+  "https://oceanske.com",
+  "https://www.oceanske.com",
+  "http://localhost:3000",
+];
+
+function corsFor(req: Request): Record<string, string> {
+  const origin = req.headers.get("origin") || "";
+  return {
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0],
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Vary": "Origin",
+  };
+}
 
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
-  }
+  const cors = corsFor(req);
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+
+  const json = (body: Record<string, unknown>, status: number) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
   try {
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
+    const supabaseAdmin = serviceClient();
+
+    // Only an authenticated admin may invite users. Previously this function
+    // had no caller check and trusted a client-supplied role, so anyone could
+    // POST {role:"super_admin"} and mint an admin (audit finding, same class
+    // as C-3).
+    const auth = await requireAdmin(req, supabaseAdmin, cors);
+    if ("error" in auth) return auth.error;
 
     const { email, name, role, title, phone, bio, photo_url } = await req.json();
 
-    if (!email) {
-      return new Response(JSON.stringify({ error: "Email is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return json({ error: "A valid email is required" }, 400);
     }
 
     const displayName = name || email.split("@")[0];
     const userRole = role || "agent";
+    if (!canGrantRole(auth.caller.role, userRole)) {
+      return json({ error: `You are not permitted to grant the '${userRole}' role.` }, 403);
+    }
 
-    // Step 1: Create auth user with email auto-confirmed
-    const tempPassword = crypto.randomUUID().substring(0, 16) + "Aa1!";
+    // Create auth user with a throwaway password; they set their own via the
+    // Forgot Password flow. Full UUID for entropy.
+    const tempPassword = crypto.randomUUID() + "Aa1!";
     const { data: authUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: tempPassword,
@@ -47,45 +59,26 @@ serve(async (req: Request) => {
 
     if (createError) {
       if (createError.message?.includes("already been registered") || createError.message?.includes("already exists")) {
-        return new Response(JSON.stringify({ error: "A user with this email already exists" }), {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ error: "A user with this email already exists" }, 409);
       }
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: createError.message }, 400);
     }
 
     const userId = authUser.user.id;
 
-    // Step 2: Create profile record
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
-      .upsert({
-        user_id: userId,
-        email: email,
-        name: displayName,
-        role: userRole,
-        status: "active",
-      }, { onConflict: "user_id" });
+      .upsert({ user_id: userId, email, name: displayName, role: userRole, status: "active" }, { onConflict: "user_id" });
 
-    if (profileError) {
-      return new Response(JSON.stringify({ error: "Failed to create profile: " + profileError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (profileError) return json({ error: "Failed to create profile: " + profileError.message }, 400);
 
-    // Step 3: If role is agent, create agent record
     if (userRole === "agent") {
       const { error: agentError } = await supabaseAdmin
         .from("agents")
         .upsert({
           user_id: userId,
           name: displayName,
-          email: email,
+          email,
           title: title || "Agent",
           phone: phone || null,
           bio: bio || null,
@@ -93,31 +86,18 @@ serve(async (req: Request) => {
           is_active: true,
         }, { onConflict: "user_id" });
 
-      if (agentError) {
-        return new Response(JSON.stringify({ error: "Failed to create agent record: " + agentError.message }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (agentError) return json({ error: "Failed to create agent record: " + agentError.message }, 400);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        user_id: userId,
-        email: email,
-        role: userRole,
-        message: "User created successfully. They can sign in at /crm/login and use Forgot Password to set their password.",
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  } catch (e) {
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({
+      success: true,
+      user_id: userId,
+      email,
+      role: userRole,
+      message: "User created successfully. They can sign in at /crm/login and use Forgot Password to set their password.",
+    }, 200);
+  } catch (_e) {
+    console.error("invite-user failed:", _e);
+    return json({ error: "Internal error inviting user." }, 500);
   }
 });
