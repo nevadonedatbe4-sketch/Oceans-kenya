@@ -13,8 +13,8 @@ import {
   Calendar,
   Loader2,
   RefreshCw,
-  ChevronRight,
 } from 'lucide-react';
+import Chevron from '@/components/base/Chevron';
 
 interface PipelineStage {
   name: string;
@@ -251,7 +251,7 @@ export default function AgentDashboard() {
       icon: Building2,
       iconBg: 'bg-blue-50',
       iconColor: 'text-blue-600',
-      link: '/crm/listings',
+      link: '/admin/listings',
     },
     {
       label: 'My Leads',
@@ -260,7 +260,7 @@ export default function AgentDashboard() {
       icon: Users,
       iconBg: 'bg-teal-50',
       iconColor: 'text-teal-600',
-      link: '/crm/leads',
+      link: '/admin/leads',
     },
     {
       label: 'My Deals',
@@ -269,7 +269,7 @@ export default function AgentDashboard() {
       icon: Handshake,
       iconBg: 'bg-orange-50',
       iconColor: 'text-orange-600',
-      link: '/crm/deals',
+      link: '/admin/deals',
     },
   ];
 
@@ -301,7 +301,7 @@ export default function AgentDashboard() {
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
           <Link
-            to="/crm/listings/new"
+            to="/admin/listings/new"
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0d5959] text-white rounded-lg text-sm font-inter font-semibold hover:bg-[#0b4a4a] transition-colors whitespace-nowrap cursor-pointer"
           >
             <ArrowUpRight size={14} />
@@ -322,7 +322,7 @@ export default function AgentDashboard() {
               <div className={`w-10 h-10 rounded-xl ${card.iconBg} flex items-center justify-center`}>
                 <card.icon size={20} className={card.iconColor} />
               </div>
-              <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600 transition-colors" />
+              <Chevron className="text-gray-400 group-hover:text-teal-600 transition-colors" />
             </div>
             <p className="font-inter font-extrabold text-[32px] md:text-[36px] text-gray-900 mb-1 leading-none tracking-tight">
               {loading ? (
@@ -355,10 +355,10 @@ export default function AgentDashboard() {
                 </div>
               </div>
               <Link
-                to="/crm/deals"
+                to="/admin/deals"
                 className="text-sm font-inter font-semibold text-teal-600 hover:text-teal-700 flex items-center gap-1 cursor-pointer transition-colors"
               >
-                View All <ChevronRight size={14} />
+                View All <Chevron />
               </Link>
             </div>
             <div className="p-5">
@@ -379,7 +379,7 @@ export default function AgentDashboard() {
                   <Target size={32} className="text-gray-400 mx-auto mb-3" />
                   <p className="text-sm font-inter text-gray-500">No deals in your pipeline yet</p>
                   <Link
-                    to="/crm/deals"
+                    to="/admin/deals"
                     className="text-sm font-inter font-semibold text-teal-600 hover:text-teal-700 mt-2 inline-block cursor-pointer transition-colors"
                   >
                     Start tracking deals
@@ -540,7 +540,7 @@ export default function AgentDashboard() {
             </div>
             <div className="p-5 space-y-2">
               <Link
-                to="/crm/listings/new"
+                to="/admin/listings/new"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl bg-teal-50 hover:bg-teal-100 text-gray-700 transition-colors cursor-pointer group"
               >
                 <Building2 size={18} className="text-teal-600" />
@@ -548,7 +548,7 @@ export default function AgentDashboard() {
                 <ArrowUpRight size={14} className="ml-auto text-gray-400 group-hover:text-teal-600 transition-colors" />
               </Link>
               <Link
-                to="/crm/leads"
+                to="/admin/leads"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 hover:bg-gray-100 text-gray-700 transition-colors cursor-pointer group"
               >
                 <Users size={18} className="text-blue-600" />
@@ -556,7 +556,7 @@ export default function AgentDashboard() {
                 <ArrowUpRight size={14} className="ml-auto text-gray-400 group-hover:text-blue-600 transition-colors" />
               </Link>
               <Link
-                to="/crm/deals"
+                to="/admin/deals"
                 className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-gray-700 transition-colors cursor-pointer group"
               >
                 <Handshake size={18} className="text-amber-600" />

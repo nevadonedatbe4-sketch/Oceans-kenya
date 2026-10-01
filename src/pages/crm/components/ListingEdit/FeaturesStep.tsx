@@ -103,7 +103,7 @@ const LAND_AMENITY_GROUPS: AmenityGroup[] = [
 
 /* ── Design tokens ── */
 const inputBase =
-  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+  'w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
 
 const SectionHeader = ({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) => (
   <div className="mb-7">
@@ -235,7 +235,7 @@ export default function FeaturesStep({
                       <i className={`ri-check-line text-[11px] text-white transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
                     </div>
                   </div>
-                  <span className={`text-[14px] leading-snug transition-colors ${checked ? 'text-[#0d5959] font-medium' : 'text-[#4a5568]'}`}>
+                  <span className={`text-[16px] leading-snug transition-colors ${checked ? 'text-[#0d5959] font-medium' : 'text-[#4a5568]'}`}>
                     {item}
                   </span>
                 </label>
@@ -263,7 +263,7 @@ export default function FeaturesStep({
                 <div className="w-5 h-5 border-2 rounded flex items-center justify-center border-[#0d5959] bg-[#0d5959] shrink-0">
                   <i className="ri-check-line text-[11px] text-white" />
                 </div>
-                <span className="text-[14px] text-[#0d5959] font-medium flex-1">{item}</span>
+                <span className="text-[16px] text-[#0d5959] font-medium flex-1">{item}</span>
                 <button
                   type="button"
                   onClick={(e) => {

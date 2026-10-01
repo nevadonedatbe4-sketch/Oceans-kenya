@@ -25,7 +25,7 @@ export default function ResponsiveControlPage() {
 
   const Field = ({ label, value, onChange, placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) => (
     <div className="space-y-1">
-      <label className="text-[9px] font-medium text-stone-400 uppercase tracking-wider">{label}</label>
+      <label className="text-[9px] font-semibold text-stone-400 uppercase tracking-wider">{label}</label>
       <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full px-2 py-1 border border-stone-200 rounded text-[10px] font-mono text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white" placeholder={placeholder} />
     </div>
   );
@@ -74,7 +74,7 @@ export default function ResponsiveControlPage() {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[10px] font-mono text-stone-400">{bp.defaultWidth}px+</span>
-                    {isExpanded ? <i className="ri-arrow-up-s-line text-stone-300 text-sm"></i> : <i className="ri-arrow-down-s-line text-stone-300 text-sm"></i>}
+                    {isExpanded ? <i className="ri-arrow-up-wide-fill text-stone-300 text-sm"></i> : <i className="ri-arrow-down-wide-fill text-stone-300 text-sm"></i>}
                   </div>
                 </button>
                 {isExpanded && (

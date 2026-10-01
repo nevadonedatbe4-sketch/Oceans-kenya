@@ -11,9 +11,15 @@ interface GalleryProps {
   mainImage: string;
   title: string;
   statusLabel: string;
+  /**
+   * 'split'  - the global 55/35 editorial split (houses, apartments …).
+   * 'stacked' - one large hero image with a tile strip underneath, used for
+   *             land so it reads distinctly from the global gallery style.
+   */
+  layout?: 'split' | 'stacked';
 }
 
-export default function PropertyGallery({ images, mainImage, title, statusLabel }: GalleryProps) {
+export default function PropertyGallery({ images, mainImage, title, statusLabel, layout = 'split' }: GalleryProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lbIndex, setLbIndex] = useState(0);
 
@@ -32,9 +38,68 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
 
   return (
     <>
-      {/* ── Desktop Gallery — James Edition 55/35 split, landscape-optimized ── */}
+      {/* ── Desktop Gallery - layout depends on the property type ── */}
+      {layout === 'stacked' ? (
+        <div className="hidden md:block">
+          {/* One large hero image - flat Zoopla-style rectangle */}
+          <div
+            className="relative w-full h-[360px] md:h-[520px] overflow-hidden cursor-pointer group"
+            onClick={() => openLightboxAt(0)}
+          >
+            <img
+              src={displayImages[0] || mainImage}
+              alt={title}
+              className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.03]"
+              decoding="async"
+              fetchPriority="high"
+            />
+            <div className="absolute top-5 left-5">
+              <span className="px-3.5 py-1.5 bg-primary/90 text-white text-[11px] font-roboto font-semibold uppercase tracking-[0.15em]">
+                {statusLabel}
+              </span>
+            </div>
+            {hasMultipleImages && (
+              <button
+                onClick={(e) => { e.stopPropagation(); openLightboxAt(0); }}
+                className="absolute bottom-5 right-5 flex items-center gap-1.5 px-3.5 py-2 bg-white/95 text-gray-900 text-[11px] font-roboto font-semibold hover:bg-white transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className="w-3.5 h-3.5 flex items-center justify-center">
+                  <i className="ri-image-line text-xs"></i>
+                </span>
+                {allImages.length} Photos
+              </button>
+            )}
+          </div>
+
+          {/* Tile strip underneath - rectangular, flush Zoopla mosaic */}
+          {hasMultipleImages && (
+            <div className="mt-1.5 flex gap-1.5">
+              {displayImages.slice(1).map((url, idx, arr) => (
+                <div
+                  key={idx + 1}
+                  className="relative flex-1 aspect-[3/2] overflow-hidden cursor-pointer group"
+                  onClick={() => openLightboxAt(idx + 1)}
+                >
+                  <img
+                    src={url}
+                    alt={`${title} ${idx + 2}`}
+                    className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.06]"
+                    decoding="async"
+                    loading="lazy"
+                  />
+                  {idx === arr.length - 1 && allImages.length > displayImages.length && (
+                    <div className="absolute inset-0 bg-primary/60 flex items-center justify-center">
+                      <span className="text-white font-roboto text-sm font-semibold">+{allImages.length - displayImages.length}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="hidden md:flex relative gap-2.5 h-[420px]">
-        {/* Single image — full width when no extras */}
+        {/* Single image - full width when no extras */}
         {!hasMultipleImages ? (
           <div className="w-full relative overflow-hidden cursor-pointer group" onClick={() => openLightboxAt(0)}>
             <img
@@ -52,7 +117,7 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
           </div>
         ) : (
           <>
-            {/* ── Main image — 55% ── */}
+            {/* ── Main image - 55% ── */}
             <div
               className="w-[55%] relative overflow-hidden cursor-pointer group"
               onClick={() => openLightboxAt(0)}
@@ -64,7 +129,7 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
                 decoding="async"
                 fetchPriority="high"
               />
-              {/* Status badge — James Edition style */}
+              {/* Status badge - James Edition style */}
               <div className="absolute top-5 left-5">
                 <span className="px-3.5 py-1.5 bg-black/70 text-white text-[11px] font-roboto font-semibold uppercase tracking-[0.15em]">
                   {statusLabel}
@@ -72,7 +137,7 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
               </div>
             </div>
 
-            {/* ── Right grid — 35%, 2×2 ── */}
+            {/* ── Right grid - 35%, 2×2 ── */}
             <div className="w-[35%] grid grid-cols-2 grid-rows-2 gap-2.5">
               {displayImages.slice(1, 5).map((url, idx, arr) => (
                 <div
@@ -108,6 +173,7 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
         )}
 
       </div>
+      )}
 
       {/* Mobile Gallery with inline swipe */}
       <MobileGallery
@@ -129,13 +195,13 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); lbPrev(); }}
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/20 hover:bg-white/30 text-white cursor-pointer z-10"
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/20 hover:bg-white/30 text-white cursor-pointer z-10"
           >
             <i className="ri-arrow-left-s-line text-xl"></i>
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); lbNext(); }}
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-white/20 hover:bg-white/30 text-white cursor-pointer z-10"
+            className="absolute right-4 top-1/2 -translate-y-1/2 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/20 hover:bg-white/30 text-white cursor-pointer z-10"
           >
             <i className="ri-arrow-right-s-line text-xl"></i>
           </button>
@@ -146,7 +212,7 @@ export default function PropertyGallery({ images, mainImage, title, statusLabel 
                 alt={`${title} ${lbIndex + 1}`}
                 className="max-w-full max-h-[85vh] object-contain"
               />
-              {/* Watermark — iStock-style protection (lightbox view) */}
+              {/* Watermark - iStock-style protection (lightbox view) */}
               <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none text-white/50 font-prata text-[23px] whitespace-nowrap">
                 Oceans.ke
               </span>
@@ -250,7 +316,7 @@ function MobileGallery({ images, title, statusLabel, hasMultipleImages, onOpenLi
 
           <button
             onClick={goPrev}
-            className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap ${isHovered ? 'opacity-100' : 'opacity-0'}`}
             aria-label="Previous image"
           >
             <i className="ri-arrow-left-s-line text-lg"></i>
@@ -258,7 +324,7 @@ function MobileGallery({ images, title, statusLabel, hasMultipleImages, onOpenLi
 
           <button
             onClick={goNext}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 w-8 h-8 flex items-center justify-center bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap ${isHovered ? 'opacity-100' : 'opacity-0'}`}
             aria-label="Next image"
           >
             <i className="ri-arrow-right-s-line text-lg"></i>

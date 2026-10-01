@@ -7,9 +7,6 @@ export interface NormalizedImage {
   alt: string;
 }
 
-const FALLBACK_IMAGE =
-  'https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20clean%20white%20walls%20large%20windows%20bright%20daylight%20architectural%20photography%20high%20quality%20warm%20neutral%20background%20professional%20real%20estate%20photo&width=800&height=600&seq=hp-property-fallback&orientation=landscape';
-
 interface NormalizeInput {
   coverImage?: string | null;
   mainImage?: string | null;
@@ -44,7 +41,7 @@ export function normalizePropertyImages(input: NormalizeInput): NormalizedImage[
     seen.add(clean);
     result.push({
       url: clean,
-      alt: title ? `${title} — photo ${result.length + 1}` : `Property photo ${result.length + 1}`,
+      alt: title ? `${title} - photo ${result.length + 1}` : `Property photo ${result.length + 1}`,
     });
   };
 
@@ -57,9 +54,7 @@ export function normalizePropertyImages(input: NormalizeInput): NormalizedImage[
     }
   }
 
-  if (result.length === 0) {
-    result.push({ url: FALLBACK_IMAGE, alt: title || 'Property' });
-  }
-
+  // No generated fallback: an entity without a real photo yields an empty list
+  // so the UI shows a neutral placeholder instead of a fake picture.
   return result;
 }

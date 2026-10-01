@@ -1,16 +1,17 @@
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 
 const whyChoose = [
-  { icon: 'ri-home-heart-line', title: 'Your Home, Your Identity', desc: 'We understand that your home is more than just a place — it\'s a reflection of your unique taste, personality, and the life you\'ve worked hard to build.' },
+  { icon: 'ri-home-heart-line', title: 'Your Home, Your Identity', desc: 'We understand that your home is more than just a place - it\'s a reflection of your unique taste, personality, and the life you\'ve worked hard to build.' },
   { icon: 'ri-award-line', title: 'Unparalleled Excellence', desc: 'Our commitment to excellence starts from the moment you step into our world. You\'ll experience a personalized approach to real estate that goes far beyond what you\'d expect.' },
   { icon: 'ri-map-pin-2-line', title: 'Nairobi Market Leaders', desc: 'With over 12 years of deep expertise in Nairobi\'s premium property market, we know every neighbourhood, every price movement, and every opportunity.' },
-  { icon: 'ri-user-heart-line', title: 'Curated Living Experiences', desc: 'At Oceans, we don\'t just sell properties — we curate exceptional living experiences for discerning individuals who expect nothing but the best.' },
+  { icon: 'ri-user-heart-line', title: 'Curated Living Experiences', desc: 'At Oceans, we don\'t just sell properties - we curate exceptional living experiences for discerning individuals who expect nothing but the best.' },
   { icon: 'ri-building-2-line', title: 'Exclusive Portfolio', desc: 'From chic urban apartments and luxurious villas to stylish penthouses with panoramic views, our portfolio represents the most exclusive and desirable properties across Nairobi.' },
-  { icon: 'ri-shield-check-line', title: 'Trust & Transparency', desc: 'Every transaction we handle is conducted with complete transparency and honesty. Your interests come first — always. That\'s the Oceans promise.' },
+  { icon: 'ri-shield-check-line', title: 'Trust & Transparency', desc: 'Every transaction we handle is conducted with complete transparency and honesty. Your interests come first - always. That\'s the Oceans promise.' },
 ];
 
 const values = [
@@ -29,8 +30,10 @@ const timeline = [
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
+
+      <PageBreadcrumbs />
 
       {/* Intro section */}
       <section className="px-4 md:px-6 py-6 md:py-12">
@@ -39,14 +42,14 @@ export default function About() {
             <div className="hidden lg:block"></div>
             <div className="lg:col-span-2">
               <p className="text-golden text-xs md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-semibold">Oceans Kenya</p>
-              <h1 className="font-roboto font-bold leading-snug text-xl md:text-3xl text-primary mb-0">About Oceans Kenya</h1>
+              <h1 className="font-roboto font-semibold leading-snug text-xl md:text-3xl text-primary mb-0">About Oceans Kenya</h1>
               <span className="block mt-3 h-0.5 w-12 bg-golden"></span>
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 items-start lg:[&>*:first-child]:order-last gap-6 lg:gap-12">
             <div className="relative">
               <div className="w-full overflow-hidden h-52 sm:h-64 lg:h-[380px]">
-                <img alt="Oceans Kenya team" className="w-full h-full object-cover object-top" src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/80654c03-86fa-4eb2-bc42-7d6b94688b6b_compressed_5016c457-f096-4879-8937-a60638aac297.webp" />
+                <img alt="Oceans Kenya team" className="w-full h-full object-cover object-center" src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/80654c03-86fa-4eb2-bc42-7d6b94688b6b_compressed_5016c457-f096-4879-8937-a60638aac297.webp" />
               </div>
               <div className="absolute -bottom-3 -right-3 px-4 py-2.5 md:px-5 md:py-3 bg-accent">
                 <p className="text-white font-roboto font-bold text-base md:text-xl">Est. 2015</p>
@@ -58,10 +61,10 @@ export default function About() {
                 Welcome to Oceans Kenya, where luxury meets lifestyle in the heart of Nairobi, Kenya!
               </p>
               <p className="text-stone-600 font-roboto text-sm leading-relaxed mb-3">
-                At Oceans, we don't just sell properties — we curate exceptional living experiences for the discerning middle-class to high-end individuals. Our passion for real estate goes beyond bricks and mortar; it's about creating homes that resonate with your aspirations and lifestyle.
+                At Oceans, we don't just sell properties - we curate exceptional living experiences for the discerning middle-class to high-end individuals. Our passion for real estate goes beyond bricks and mortar; it's about creating homes that resonate with your aspirations and lifestyle.
               </p>
               <p className="text-stone-600 font-roboto text-sm leading-relaxed">
-                <strong className="text-primary">Why Oceans?</strong> Because we understand that your home is more than just a place — it's a reflection of your unique taste, personality, and the life you've worked hard to build. Whether you're seeking a chic urban apartment, a luxurious villa, or a stylish penthouse with panoramic views, Oceans Kenya is your gateway to the most exclusive and desirable properties in Nairobi.
+                <strong className="text-primary">Why Oceans?</strong> Because we understand that your home is more than just a place - it's a reflection of your unique taste, personality, and the life you've worked hard to build. Whether you're seeking a chic urban apartment, a luxurious villa, or a stylish penthouse with panoramic views, Oceans Kenya is your gateway to the most exclusive and desirable properties in Nairobi.
               </p>
               <div className="flex flex-wrap items-center gap-3 mt-5">
                 <Link to="/all-properties" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase font-semibold cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-opacity w-full sm:w-auto justify-center">
@@ -136,7 +139,7 @@ export default function About() {
               <div className="border-l-2 border-golden pl-4 md:pl-5">
                 <h3 className="text-golden text-xs uppercase tracking-wider mb-1 font-roboto font-semibold">Vision</h3>
                 <p className="text-white/70 font-roboto text-xs md:text-sm leading-relaxed">
-                  To be Kenya's most respected and trusted property agency — known for integrity, innovation, and delivering outstanding results for every single client we serve.
+                  To be Kenya's most respected and trusted property agency - known for integrity, innovation, and delivering outstanding results for every single client we serve.
                 </p>
               </div>
             </div>
@@ -179,7 +182,7 @@ export default function About() {
           </div>
           <div className="relative">
             <div className="w-full overflow-hidden h-48 sm:h-64 lg:h-[380px]">
-              <img alt="Oceans Kenya story" className="w-full h-full object-cover object-top" src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/8dc23801-be18-42ec-beba-c8e4d0252b6d_compressed_nai.webp" />
+              <img alt="Oceans Kenya story" className="w-full h-full object-cover object-center" src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/8dc23801-be18-42ec-beba-c8e4d0252b6d_compressed_nai.webp" />
             </div>
             <div className="absolute -bottom-3 -left-3 px-4 py-2.5 md:px-5 md:py-3 bg-primary">
               <p className="text-white font-roboto font-bold text-base md:text-xl">Since 2015</p>
@@ -195,7 +198,7 @@ export default function About() {
           <p className="text-golden text-xs md:text-base tracking-[0.2em] uppercase mb-3 font-roboto font-semibold">Get Started Today</p>
           <h2 className="text-white font-roboto font-bold mb-3 leading-snug text-xl md:text-3xl">Ready to Find Your Perfect Property?</h2>
           <p className="text-white/65 font-roboto text-xs md:text-sm leading-relaxed mb-6 md:mb-7 max-w-lg mx-auto">
-            Whether you're buying, selling, or renting — our team of dedicated property professionals is here to help every step of the way. Contact us today for a free, no-obligation consultation.
+            Whether you're buying, selling, or renting - our team of dedicated property professionals is here to help every step of the way. Contact us today for a free, no-obligation consultation.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link to="/all-properties" className="inline-flex items-center gap-2 px-6 py-2.5 bg-golden text-white border-2 border-golden text-xs tracking-widest uppercase font-semibold cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto justify-center">

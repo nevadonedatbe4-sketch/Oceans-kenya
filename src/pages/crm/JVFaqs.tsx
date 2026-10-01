@@ -243,7 +243,7 @@ export default function JVFaqs() {
       {/* List */}
       {!loading && !error && faqs.length > 0 && (
         <div className="bg-white rounded-xl border border-[#f0f0f0] overflow-hidden">
-          <div className="divide-y divide-[#f0f0f0]/60">
+          <div className="divide-y divide-[#cbd5e1]">
             {faqs.map((faq, idx) => (
               <div
                 key={faq.id}
@@ -269,7 +269,7 @@ export default function JVFaqs() {
                     className="w-6 h-5 flex items-center justify-center rounded text-[#9ca3af] hover:text-[#001731] hover:bg-[#f0f0f0] cursor-pointer disabled:opacity-30"
                     title="Move down"
                   >
-                    <i className="ri-arrow-down-s-line text-sm" />
+                    <i className="ri-arrow-down-wide-fill text-sm" />
                   </button>
                 </div>
 

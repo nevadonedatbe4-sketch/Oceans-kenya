@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
 import { normalizePropertyImages, type NormalizedImage } from '@/lib/propertyImages';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { formatLocation, formatAreaName, smartTitleCase } from '@/lib/location';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import PropertyCard, { type Property } from './PropertyCard';
 import Pagination from '@/components/feature/Pagination';
+import { parsePropertySearch, parseSearchClauses, buildClausesOr, clauseSummary, intentToChips, withoutIntent, buildIntentOr } from '@/lib/propertySearch';
 
 interface ListingRow {
   id: string;
@@ -34,6 +36,8 @@ interface ListingRow {
   is_featured: boolean;
   currency: string;
   sub_type: string | null;
+  property_category?: string | null;
+  is_new_development?: boolean | null;
   new_home?: boolean | null;
   refurbished?: boolean | null;
   reduced_price?: boolean | null;
@@ -116,16 +120,16 @@ const TABS = [
   { key: 'featured', label: 'Featured' },
   { key: 'sale', label: 'For Sale' },
   { key: 'rent', label: 'To Let' },
-  { key: 'commercial', label: 'Commercial' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
 
 interface PropertiesSectionProps {
   searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
-export default function PropertiesSection({ searchQuery = '' }: PropertiesSectionProps) {
+export default function PropertiesSection({ searchQuery = '', onSearchChange }: PropertiesSectionProps) {
   const [tab, setTab] = useState<TabKey>('all');
   const [page, setPage] = useState(0);
   const [cardsPerView, setCardsPerView] = useState(3);
@@ -162,32 +166,67 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
       setLoading(true);
       setError('');
       try {
+        // Parse the free-text query into a canonical intent (same engine as Buy/Rent)
+        const parsed = parsePropertySearch(searchQuery);
+        const clauses = parseSearchClauses(searchQuery);
+        const isCompound = clauses.length > 1;
+        const hasCriteria = searchQuery.trim().length > 0;
+
         let query = supabase
-          .from('listings')
-          .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,sub_type,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,cover_image,images,purpose,is_featured,currency,new_home,refurbished,reduced_price,back_on_market,property_of_the_week')
+          .from('all_listings')
+          .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,sub_type,property_category,is_new_development,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,cover_image,images,purpose,is_featured,currency,new_home,refurbished,reduced_price,back_on_market,property_of_the_week')
           .eq('is_published', true)
           .neq('title', '')
-          .gt('price', 0)
-          .in('status', ['available', 'under_contract'])
+          .not('status', 'in', NON_PUBLIC_STATUS_LIST)
+          // The homepage "Properties" section is strictly residential - commercial
+          // and land listings must never appear here, even via a search query.
+          .eq('property_category', 'residential')
           .order('created_at', { ascending: false })
           .limit(36);
 
-        if (tab === 'featured') {
-          query = query.eq('is_featured', true).eq('property_category', 'residential').neq('is_new_development', true);
-        } else if (tab === 'sale') {
-          query = query.eq('purpose', 'sale').eq('property_category', 'residential').neq('is_new_development', true);
-        } else if (tab === 'rent') {
-          query = query.eq('purpose', 'rent').eq('property_category', 'residential').neq('is_new_development', true);
-        } else if (tab === 'commercial') {
-          query = query.eq('property_category', 'commercial');
-        } else {
-          query = query.eq('property_category', 'residential').neq('is_new_development', true);
-        }
+        // Base constraints from the active tab (commercial is intentionally absent -
+        // this section is residential-only).
+        let basePurpose: 'sale' | 'rent' | null = null;
+        let baseFeatured = false;
+        if (tab === 'featured') baseFeatured = true;
+        else if (tab === 'sale') basePurpose = 'sale';
+        else if (tab === 'rent') basePurpose = 'rent';
 
-        if (searchQuery.trim()) {
-          query = query.or(
-            `title.ilike.%${searchQuery.trim()}%,location.ilike.%${searchQuery.trim()}%,property_type.ilike.%${searchQuery.trim()}%`,
-          );
+        // A compound query carries its own per-clause type/transaction/location, so
+        // the global purpose/category/tab filters are skipped (they'd conflict) and
+        // the whole compound clause tree is applied as a single PostgREST or().
+        if (isCompound) {
+          const clauseOr = buildClausesOr(clauses);
+          if (clauseOr) query = query.or(clauseOr);
+        } else {
+          // Purpose: an explicit intent transaction (e.g. "to rent") wins over the tab,
+          // otherwise fall back to the tab's purpose.
+          if (parsed.transaction === 'rent') query = query.eq('purpose', 'rent');
+          else if (parsed.transaction === 'sale') query = query.eq('purpose', 'sale');
+          else if (basePurpose) query = query.eq('purpose', basePurpose);
+
+          if (baseFeatured) query = query.eq('is_featured', true);
+
+          // Combine the new-development exclusion + intended location/terms into a
+          // single PostgREST `.or()` (multiple .or() calls would overwrite each other).
+          // New development is always excluded here - this is a resale-home section.
+          const orConds: string[] = [];
+          orConds.push('is_new_development.eq.false');
+          orConds.push('is_new_development.is.null');
+          if (hasCriteria) {
+            const intentOr = buildIntentOr(parsed);
+            if (intentOr) orConds.push(...intentOr.split(','));
+          }
+          if (orConds.length > 0) query = query.or(orConds.join(','));
+
+          // Structured filters derived from the intent - these only ever ADD constraints.
+          if (hasCriteria) {
+            if (parsed.propertyType) query = query.eq('property_type', parsed.propertyType);
+            if (parsed.bedroomsMin !== undefined && parsed.bedroomsMin > 0) query = query.gte('bedrooms', parsed.bedroomsMin);
+            if (parsed.bedroomsMax !== undefined && parsed.bedroomsMax > 0 && parsed.bedroomsMax !== parsed.bedroomsMin) query = query.lte('bedrooms', parsed.bedroomsMax);
+            if (parsed.priceMin !== undefined && parsed.priceMin > 0) query = query.gte('price', parsed.priceMin);
+            if (parsed.priceMax !== undefined && parsed.priceMax > 0) query = query.lte('price', parsed.priceMax);
+          }
         }
 
         const { data, error: dbError } = await query;
@@ -196,7 +235,13 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
         if (cancelled) return;
 
         const rows = (data || []) as ListingRow[];
-        setProperties(rows.map(mapRow));
+        // Hard client-side guarantee: this section only ever shows residential,
+        // non-new-development homes. Belt-and-suspenders on top of the DB filter.
+        const residentialRows = rows.filter((r) => {
+          const cat = (r.property_category || 'residential').toLowerCase();
+          return cat === 'residential' && !r.is_new_development;
+        });
+        setProperties(residentialRows.map(mapRow));
       } catch (err: unknown) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load properties');
@@ -235,8 +280,8 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
     return () => clearInterval(interval);
   }, [totalPages, maxPage, isPaused]);
 
-  const nextSlide = useCallback(() => setPage((prev) => Math.min(prev + 1, maxPage)), [maxPage]);
-  const prevSlide = useCallback(() => setPage((prev) => Math.max(prev - 1, 0)), []);
+  const nextSlide = () => setPage((prev) => Math.min(prev + 1, maxPage));
+  const prevSlide = () => setPage((prev) => Math.max(prev - 1, 0));
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -252,16 +297,24 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
       if (diff > 0) nextSlide();
       else prevSlide();
     }
-  }, [nextSlide, prevSlide]);
+  }, [maxPage]);
 
   const headingText =
     tab === 'rent'
       ? 'Prime Homes for Rent'
       : tab === 'sale'
         ? 'Prime Homes for Sale'
-        : tab === 'commercial'
-          ? 'Commercial Properties'
-          : 'Prime Residential Homes You\u2019ll Love';
+        : 'Prime Residential Homes You\u2019ll Love';
+
+  // Understood search criteria - same engine that drives Buy/Rent
+  const parsedIntent = parsePropertySearch(searchQuery);
+  const intentChips = intentToChips(parsedIntent);
+  const searchClauses = parseSearchClauses(searchQuery);
+  const isCompound = searchClauses.length > 1;
+  const hasSearch = searchQuery.trim() !== '';
+  const removeChip = (key: 'transaction' | 'propertyType' | 'location' | 'bedrooms' | 'price' | 'furnished') => {
+    if (onSearchChange) onSearchChange(withoutIntent(searchQuery, key));
+  };
 
   if (error) {
     return (
@@ -293,12 +346,10 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
             </h2>
             <p className="mt-2 text-sm sm:text-base md:text-lg font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] text-golden">
               {tab === 'rent'
-                ? 'Properties for rent in Nairobi'
+                ? 'Homes to let in Nairobi'
                 : tab === 'sale'
-                  ? 'Properties for sale in Nairobi'
-                  : tab === 'commercial'
-                    ? 'Commercial spaces in Nairobi'
-                    : 'Properties for sale and rent in Nairobi'}
+                  ? 'Homes for sale in Nairobi'
+                  : 'Residential homes for sale and rent in Nairobi'}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-1 md:mt-2">
@@ -320,6 +371,36 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
             </button>
           </div>
         </div>
+
+        {/* Understood search criteria - the engine shows what it parsed */}
+        {hasSearch && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">You searched for</span>
+            {isCompound ? (
+              searchClauses.map((cl, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
+                  <span className="w-4 h-4 flex items-center justify-center text-primary/40"><i className="ri-arrow-right-s-line text-xs"></i></span>
+                  {clauseSummary(cl)}
+                </span>
+              ))
+            ) : intentChips.length === 0 ? (
+              <span className="text-xs font-roboto text-primary/60 bg-primary/5 border border-primary/15 rounded-full px-3 py-1">"{searchQuery}"</span>
+            ) : (
+              intentChips.map((chip) => (
+                <span key={`${chip.key}-${chip.label}`} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
+                  {chip.label}
+                  <button
+                    onClick={() => removeChip(chip.key)}
+                    className="w-4 h-4 flex items-center justify-center text-primary/50 hover:text-accent hover:bg-accent/10 rounded-full transition-colors cursor-pointer"
+                    aria-label={`Remove ${chip.label}`}
+                  >
+                    <i className="ri-close-line text-sm"></i>
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -343,8 +424,22 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
             <div className="w-14 h-14 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
               <i className="ri-building-line text-xl text-stone-300"></i>
             </div>
-            <h3 className="font-roboto font-bold text-lg text-primary mb-2">No Properties Listed Yet</h3>
-            <p className="text-sm text-stone-500 font-roboto">Check back soon for new listings.</p>
+            <h3 className="font-roboto font-bold text-lg text-primary mb-2">
+              {hasSearch ? 'No properties match your search' : 'No Properties Listed Yet'}
+            </h3>
+            <p className="text-sm text-stone-500 font-roboto">
+              {hasSearch
+                ? 'There are no matching properties for your search criteria. Try adjusting your search.'
+                : 'Check back soon for new listings.'}
+            </p>
+            {hasSearch && onSearchChange && (
+              <button
+                onClick={() => onSearchChange('')}
+                className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+              >
+                <i className="ri-close-circle-line"></i>Clear search
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -388,10 +483,30 @@ export default function PropertiesSection({ searchQuery = '' }: PropertiesSectio
           </>
         )}
 
+        {/* Small valuation CTA - mid-page discoverability */}
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-2 border-primary/12 bg-white px-5 py-5 md:px-7 md:py-6">
+          <div className="flex items-center gap-4 text-center sm:text-left">
+            <span className="w-11 h-11 hidden sm:flex items-center justify-center rounded-full bg-primary/5 text-golden shrink-0">
+              <i className="ri-line-chart-line text-lg"></i>
+            </span>
+            <div>
+              <p className="font-roboto font-bold text-primary text-sm md:text-base">Wondering what your property is worth?</p>
+              <p className="text-stone-500 font-roboto text-xs md:text-sm mt-0.5">Get a free, no-obligation valuation from our team.</p>
+            </div>
+          </div>
+          <Link
+            to="/valuation"
+            className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 border-2 border-[#002349] text-[#002349] px-6 py-2.5 text-xs md:text-sm font-roboto font-semibold tracking-wide uppercase hover:bg-[#002349] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+          >
+            Get a Free Valuation
+            <i className="ri-arrow-right-line transition-transform duration-300 group-hover:translate-x-0.5"></i>
+          </Link>
+        </div>
+
         <div className="mt-10">
           <Link
             to="/all-properties"
-            className="group flex w-full items-center justify-center gap-2 bg-primary hover:bg-[#002349] text-white border-2 border-primary px-12 py-3.5 text-lg font-roboto font-semibold transition-colors cursor-pointer whitespace-nowrap"
+            className="group flex w-full items-center justify-center gap-2 bg-primary hover:bg-[#002349] text-white border-2 border-primary px-8 sm:px-12 py-2.5 text-sm sm:text-base font-roboto font-semibold transition-colors cursor-pointer whitespace-nowrap"
           >
             <span className="relative">
               View More Properties

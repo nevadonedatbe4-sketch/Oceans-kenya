@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Settings, Palette, Type, Layout, Image, Search, Globe, Monitor,
-  Grid3X3, CreditCard, Play, Building2, Shield, Home, Layers, ChevronRight,
+  Grid3X3, CreditCard, Play, Building2, Shield, Home, Layers,
   Phone, Share2, MapPin, DollarSign, Menu, Bell, SlidersHorizontal,
-  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X,
+  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X, Mail,
 } from 'lucide-react';
+import Chevron from '@/components/base/Chevron';
 
 const MIDDLE_ICON_MAP: Record<string, any> = {
   'Global Design System': Palette,
@@ -36,7 +37,7 @@ const MIDDLE_ICON_MAP: Record<string, any> = {
   'Homepage Controls': Layers,
   'Hero Section': Home,
   'Neighbourhoods (Homepage)': MapPin,
-  'Breadcrumbs': ChevronRight,
+  'Breadcrumbs': () => <Chevron />,
   'Dashboard Menu': Menu,
   'Landlords Page': Users,
   'Landlords — Images & Text': Image,
@@ -50,95 +51,102 @@ const MIDDLE_ICON_MAP: Record<string, any> = {
   'Property Cards': Image,
   'Cards & Carousel': Play,
   'Save / Sync / Cache': Bell,
+  'Email Management': Mail,
 };
 
 const MIDDLE_RAIL_GROUPS = [
   {
     label: 'DESIGN SYSTEM',
     items: [
-      { label: 'Global Design System', path: '/crm/management/global-design' },
-      { label: 'Component Settings', path: '/crm/management/component-settings' },
-      { label: 'Page Builder', path: '/crm/management/page-builder' },
-      { label: 'Navigation Settings', path: '/crm/management/dashboard-menu' },
+      { label: 'Global Design System', path: '/admin/management/global-design' },
+      { label: 'Component Settings', path: '/admin/management/component-settings' },
+      { label: 'Page Builder', path: '/admin/management/page-builder' },
+      { label: 'Navigation Settings', path: '/admin/management/dashboard-menu' },
     ],
   },
   {
     label: 'FRONTEND CONTROL',
     items: [
-      { label: 'Design System Hub', path: '/crm/management/design-system-hub' },
-      { label: 'Colour Palette', path: '/crm/management/colour-palette' },
-      { label: 'Typography System', path: '/crm/management/typography' },
-      { label: 'Spacing & Sizes', path: '/crm/management/spacing-sizes' },
-      { label: 'Card Box System', path: '/crm/management/card-box' },
-      { label: 'Button System', path: '/crm/management/button-system' },
-      { label: 'Card v7 (Content/Style/Adv...)', path: '/crm/management/card-v7' },
-      { label: 'Carousel + Dots System', path: '/crm/management/carousel' },
-      { label: 'Global Page Control', path: '/crm/management/global-page-control' },
-      { label: 'Responsive Control', path: '/crm/management/responsive' },
+      { label: 'Design System Hub', path: '/admin/management/design-system-hub' },
+      { label: 'Colour Palette', path: '/admin/management/colour-palette' },
+      { label: 'Typography System', path: '/admin/management/typography' },
+      { label: 'Spacing & Sizes', path: '/admin/management/spacing-sizes' },
+      { label: 'Card Box System', path: '/admin/management/card-box' },
+      { label: 'Button System', path: '/admin/management/button-system' },
+      { label: 'Card v7 (Content/Style/Adv...)', path: '/admin/management/card-v7' },
+      { label: 'Carousel + Dots System', path: '/admin/management/carousel' },
+      { label: 'Global Page Control', path: '/admin/management/global-page-control' },
+      { label: 'Responsive Control', path: '/admin/management/responsive' },
     ],
   },
   {
     label: 'SITE IDENTITY',
     items: [
-      { label: 'General', path: '/crm/management/general' },
-      { label: 'Logos & Branding', path: '/crm/management/branding' },
-      { label: 'Typography', path: '/crm/management/typography' },
+      { label: 'General', path: '/admin/management/general' },
+      { label: 'Logos & Branding', path: '/admin/management/branding' },
+      { label: 'Typography', path: '/admin/management/typography' },
     ],
   },
   {
     label: 'LISTINGS & SEARCH',
     items: [
-      { label: 'Price & Currency', path: '/crm/management/currency' },
-      { label: 'Property Settings', path: '/crm/management/property' },
-      { label: 'Property Details', path: '/crm/management/property-details' },
-      { label: 'Listings Pages', path: '/crm/management/listings-pages' },
-      { label: 'Search & Filters', path: '/crm/management/search' },
-      { label: 'Required Fields', path: '/crm/management/required' },
-      { label: 'Form Layout Manager', path: '/crm/management/form-layout' },
-      { label: 'Property Detail Layout', path: '/crm/management/property-detail-layout' },
+      { label: 'Price & Currency', path: '/admin/management/currency' },
+      { label: 'Property Settings', path: '/admin/management/property' },
+      { label: 'Property Details', path: '/admin/management/property-details' },
+      { label: 'Listings Pages', path: '/admin/management/listings-pages' },
+      { label: 'Search & Filters', path: '/admin/management/search' },
+      { label: 'Required Fields', path: '/admin/management/required' },
+      { label: 'Form Layout Manager', path: '/admin/management/form-layout' },
+      { label: 'Property Detail Layout', path: '/admin/management/property-detail-layout' },
     ],
   },
   {
     label: 'CONTENT & PAGES',
     items: [
-      { label: 'Homepage Controls', path: '/crm/management/homepage' },
-      { label: 'Hero Section', path: '/crm/management/hero' },
-      { label: 'Neighbourhoods (Homepage)', path: '/crm/management/neighbourhoods-homepage' },
-      { label: 'Breadcrumbs', path: '/crm/management/breadcrumbs' },
-      { label: 'Dashboard Menu', path: '/crm/management/dashboard-menu' },
+      { label: 'Homepage Controls', path: '/admin/management/homepage' },
+      { label: 'Hero Section', path: '/admin/management/hero' },
+      { label: 'Neighbourhoods (Homepage)', path: '/admin/management/neighbourhoods-homepage' },
+      { label: 'Breadcrumbs', path: '/admin/management/breadcrumbs' },
+      { label: 'Dashboard Menu', path: '/admin/management/dashboard-menu' },
     ],
   },
   {
     label: 'PAGE MANAGEMENT',
     items: [
-      { label: 'Landlords Page', path: '/crm/management/landlords-page' },
-      { label: 'Landlords — Images & Text', path: '/crm/management/landlords-images' },
-      { label: 'New Developments Page', path: '/crm/management/new-developments-page' },
-      { label: 'About Us Page', path: '/crm/management/about-page' },
-      { label: 'Contact Page', path: '/crm/management/contact-page' },
-      { label: 'Neighbourhoods Page', path: '/crm/management/neighbourhoods-page' },
+      { label: 'Landlords Page', path: '/admin/management/landlords-page' },
+      { label: 'Landlords — Images & Text', path: '/admin/management/landlords-images' },
+      { label: 'New Developments Page', path: '/admin/management/new-developments-page' },
+      { label: 'About Us Page', path: '/admin/management/about-page' },
+      { label: 'Contact Page', path: '/admin/management/contact-page' },
+      { label: 'Neighbourhoods Page', path: '/admin/management/neighbourhoods-page' },
     ],
   },
   {
     label: 'COMPANY INFO',
     items: [
-      { label: 'Contact & Company', path: '/crm/management/contact' },
-      { label: 'Social Media Links', path: '/crm/management/social' },
-      { label: 'Maps & Location', path: '/crm/management/maps' },
+      { label: 'Contact & Company', path: '/admin/management/contact' },
+      { label: 'Social Media Links', path: '/admin/management/social' },
+      { label: 'Maps & Location', path: '/admin/management/maps' },
     ],
   },
   {
     label: 'STYLING',
     items: [
-      { label: 'Property Cards', path: '/crm/management/styling-cards' },
-      { label: 'Property Details', path: '/crm/management/styling-details' },
-      { label: 'Cards & Carousel', path: '/crm/management/cards-carousel' },
+      { label: 'Property Cards', path: '/admin/management/styling-cards' },
+      { label: 'Property Details', path: '/admin/management/styling-details' },
+      { label: 'Cards & Carousel', path: '/admin/management/cards-carousel' },
+    ],
+  },
+  {
+    label: 'COMMUNICATION',
+    items: [
+      { label: 'Email Management', path: '/admin/management/email' },
     ],
   },
   {
     label: 'SYSTEM',
     items: [
-      { label: 'Save / Sync / Cache', path: '/crm/management/cache' },
+      { label: 'Save / Sync / Cache', path: '/admin/management/cache' },
     ],
   },
 ];

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useCurrency } from '@/hooks/useCurrency';
+import EntityImage from '@/components/feature/EntityImage';
+import { toTelHref } from '@/lib/contactDefaults';
 
 export interface QuickViewProperty {
   id: string;
@@ -61,7 +63,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
 
   if (!isOpen || !property) return null;
 
-  const images = property.images.length > 0 ? property.images : ['https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20with%20clean%20white%20walls%20spacious%20living%20area%20large%20windows%20bright%20daylight%20architectural%20photography%20high%20quality%20warm%20neutral%20background&width=1000&height=600&seq=qv-fallback&orientation=landscape'];
+  const images = property.images.filter((src) => (src || '').trim().length > 0);
   const totalImages = images.length;
 
   const nextImg = () => { if (totalImages > 1) setImgIdx((p) => (p + 1) % totalImages); };
@@ -83,13 +85,13 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
 
         {/* Image Gallery */}
         <div className="relative w-full h-[360px] md:h-[460px] bg-stone-100 flex-shrink-0 overflow-hidden group">
-          <img
+          <EntityImage
             src={images[imgIdx]}
             alt={property.title}
             className="w-full h-full object-cover object-center"
           />
 
-          {/* Watermark — iStock-style protection (expanded view only) */}
+          {/* Watermark - iStock-style protection (expanded view only) */}
           <span className="absolute bottom-3 right-3 z-20 select-none pointer-events-none text-white/30 font-roboto font-semibold text-sm tracking-[0.2em] uppercase">
             Oceans
           </span>
@@ -106,13 +108,13 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
             <>
               <button
                 onClick={prevImg}
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-md cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
               >
                 <i className="ri-arrow-left-s-line text-xl"></i>
               </button>
               <button
                 onClick={nextImg}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-md cursor-pointer transition-colors opacity-0 group-hover:opacity-100"
               >
                 <i className="ri-arrow-right-s-line text-xl"></i>
               </button>
@@ -147,7 +149,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl md:text-3xl font-roboto font-medium text-primary">{property.rawPrice ? format(property.rawPrice, (property.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR') : property.price}</span>
+                <span className="text-2xl md:text-3xl font-roboto font-medium text-primary">{format(property.rawPrice || 0, (property.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR')}</span>
               </div>
               <h2 className="text-lg md:text-xl font-roboto font-bold text-primary leading-snug mb-2">{property.title}</h2>
               <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500">
@@ -218,7 +220,7 @@ export default function QuickViewModal({ isOpen, onClose, property }: QuickViewM
           {/* Call / Email */}
           <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
             <a
-              href={`tel:${property.agentPhone || '+2547111393806'}`}
+              href={toTelHref(property.agentPhone)}
               className="flex items-center gap-1.5 text-sm font-roboto text-gray-700 hover:text-primary hover:bg-primary/5 rounded-md px-3 py-1.5 -mx-3 transition-all duration-200 cursor-pointer whitespace-nowrap"
             >
               <span className="w-4 h-4 flex items-center justify-center">

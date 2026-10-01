@@ -19,11 +19,11 @@ interface Props {
 
 /* ── Design tokens ── */
 const inputBase =
-  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+  'w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
 
 const selectClass = `${inputBase} cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%237a8a99%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_14px_center] bg-[length:20px_20px] pr-11`;
 
-const labelClass = 'block text-[14px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
+const labelClass = 'block text-[16px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
 
 const hintClass = 'text-[15px] text-[#4a5568] mt-2 leading-relaxed';
 
@@ -111,7 +111,7 @@ export default function LocationStep({
           {/* Neighbourhood */}
           <div>
             <div className="flex items-center justify-between gap-4 mb-2.5">
-              <label className="block text-[14px] font-bold tracking-wide text-[#0d1f2d] uppercase leading-none">
+              <label className="block text-[16px] font-bold tracking-wide text-[#0d1f2d] uppercase leading-none">
                 Area / Neighbourhood {isLocationRequired !== false && <span className="text-red-500 normal-case">*</span>}
               </label>
               <button
@@ -176,7 +176,7 @@ export default function LocationStep({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div>
               <label className={labelClass}>City</label>
-              <div className="w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#9ba5b1] bg-[#f8f9fa] rounded-md cursor-not-allowed select-none flex items-center gap-2">
+              <div className="w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#9ba5b1] bg-[#f8f9fa] rounded-md cursor-not-allowed select-none flex items-center gap-2">
                 <i className="ri-lock-line text-xs text-[#c8cdd5]" />
                 {city || 'Nairobi'}
               </div>
@@ -184,7 +184,7 @@ export default function LocationStep({
             </div>
             <div>
               <label className={labelClass}>Country</label>
-              <div className="w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#9ba5b1] bg-[#f8f9fa] rounded-md cursor-not-allowed select-none flex items-center gap-2">
+              <div className="w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#9ba5b1] bg-[#f8f9fa] rounded-md cursor-not-allowed select-none flex items-center gap-2">
                 <i className="ri-lock-line text-xs text-[#c8cdd5]" />
                 {country || 'Kenya'}
               </div>

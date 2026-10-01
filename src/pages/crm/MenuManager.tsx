@@ -9,8 +9,9 @@ import {
   UserRound, Image, BarChart3, History, MapPin, FileText,
   Grid3X3, Shield, Sliders, Search, Globe, Share2,
   DollarSign, Phone, Home, Star, MessageSquare,
-  Calendar, Tag, Bookmark, Bell, ChevronRight,
+  Calendar, Tag, Bookmark, Bell,
 } from 'lucide-react';
+import Chevron from '@/components/base/Chevron';
 
 interface MenuItem {
   id: string;
@@ -29,7 +30,7 @@ const ICONS: Record<string, any> = {
   UserRound, Image, BarChart3, History, MapPin, FileText,
   Grid3X3, Settings, Shield, Sliders, Search, Globe,
   Share2, DollarSign, Phone, Home, Star, MessageSquare,
-  Calendar, Tag, Bookmark, Bell, ChevronRight,
+  Calendar, Tag, Bookmark, Bell, ChevronRight: () => <Chevron />,
 };
 
 const ROLES = ['super_admin', 'admin', 'editor', 'agent'];

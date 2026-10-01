@@ -1,8 +1,11 @@
-import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, FormEvent } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
+import JVImageManager, { JvImageDraft } from '@/pages/crm/components/JVImageManager';
+import { SUBMISSION_PRICE_BASIS_OPTIONS, SUBMISSION_PAYMENT_TERMS_OPTIONS, CURRENCY_OPTIONS } from '@/pages/crm/jvOpportunityConstants';
 
 type SubmissionType = 'landowner' | 'jv_proposal' | 'investor';
 
@@ -46,6 +49,13 @@ const STATUS_LABELS: Record<string, string> = {
   contacted: 'Contacted',
   archived: 'Archived',
 };
+
+const SOURCE_OPTIONS = [
+  { value: 'admin', label: 'Admin / Staff' },
+  { value: 'agent', label: 'Agent Logged' },
+  { value: 'public', label: 'Public Website' },
+  { value: 'phone', label: 'Phone / Walk-in' },
+];
 
 const TITLE_STATUS_OPTIONS = [
   { value: 'freehold', label: 'Freehold' },
@@ -94,19 +104,22 @@ const TIMELINE_OPTIONS = [
   { value: 'exploring', label: 'Exploring options' },
 ];
 
-const inputCls =
-  'w-full border border-[#e5e9ee] px-3.5 py-2.5 text-sm font-roboto text-[#001731] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 rounded-lg bg-white';
+const inputCls = 'w-full border border-[#e5e9ee] px-3.5 py-2.5 text-base font-roboto text-[#001731] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 rounded-lg bg-white';
 
-const labelCls = 'block text-[#001731] font-roboto text-sm font-medium mb-1.5';
+const labelCls = 'block text-[#001731] font-roboto text-base font-medium mb-1.5';
 
 export default function JVSubmissionEdit() {
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const isEdit = Boolean(id);
+  const { user } = useAuth();
 
   const [type, setType] = useState<SubmissionType>('landowner');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('new');
+  const [source, setSource] = useState('admin');
 
   // Land / JV shared fields
   const [landLocation, setLandLocation] = useState('');
@@ -121,7 +134,72 @@ export default function JVSubmissionEdit() {
   const [timeline, setTimeline] = useState('');
 
   const [message, setMessage] = useState('');
+  const [images, setImages] = useState<JvImageDraft[]>([]);
+
+  // Optional commercial pricing & payment terms
+  const [price, setPrice] = useState('');
+  const [priceCurrency, setPriceCurrency] = useState('');
+  const [priceBasis, setPriceBasis] = useState('');
+  const [priceOnRequest, setPriceOnRequest] = useState(false);
+  const [paymentTerms, setPaymentTerms] = useState<string[]>([]);
+
+  const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isEdit) return;
+
+    let cancelled = false;
+
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('jv_submissions')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (error || !data || cancelled) {
+        if (!cancelled) addToast('Failed to load submission', 'error');
+        setLoading(false);
+        return;
+      }
+
+      setType((data.submission_type as SubmissionType) || 'landowner');
+      setFullName(String(data.full_name || ''));
+      setPhone(String(data.phone || ''));
+      setEmail(String(data.email || ''));
+      setStatus(String(data.status || 'new'));
+      setSource(String(data.source || 'admin'));
+      setLandLocation(String(data.land_location || ''));
+      setLandSize(String(data.land_size || ''));
+      setTitleStatus(String(data.title_status || ''));
+      setPreferredStructure(String(data.preferred_structure || ''));
+      setBudgetRange(String(data.budget_range || ''));
+      setPreferredLocation(String(data.preferred_location || ''));
+      setPreferredUse(String(data.preferred_use || ''));
+      setTimeline(String(data.timeline || ''));
+      setMessage(String(data.message || ''));
+      setPrice(data.price != null ? String(data.price) : '');
+      setPriceCurrency(String(data.price_currency || ''));
+      setPriceBasis(String(data.price_basis || ''));
+      setPriceOnRequest(Boolean(data.price_on_request));
+      setPaymentTerms(Array.isArray(data.payment_terms) ? data.payment_terms : []);
+      setImages(
+        (Array.isArray(data.images) ? data.images : []).map((url: string, idx: number) => ({
+          url,
+          alt: '',
+          sortOrder: idx + 1,
+          isCover: idx === 0,
+        }))
+      );
+      setLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, isEdit]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -143,24 +221,45 @@ export default function JVSubmissionEdit() {
       preferred_use: type !== 'landowner' ? preferredUse || null : null,
       timeline: type !== 'landowner' ? timeline || null : null,
       message: message.trim() || null,
+      source,
+      price: price.trim() ? Number(price) : null,
+      price_currency: priceCurrency || null,
+      price_basis: priceBasis || null,
+      price_on_request: priceOnRequest,
+      payment_terms: paymentTerms.filter(Boolean),
+      images: images.map((img) => img.url),
     };
 
-    const { error } = await supabase.from('jv_submissions').insert(payload);
+    const ownerId = user?.id || null;
 
-    if (error) {
-      addToast(`Failed to save submission: ${error.message}`, 'error');
+    try {
+      if (isEdit) {
+        const { error } = await supabase
+          .from('jv_submissions')
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
+        addToast('Submission updated', 'success');
+      } else {
+        const { error } = await supabase.from('jv_submissions').insert({
+          ...payload,
+          source: source || 'admin',
+          owner_id: ownerId,
+          status: status || 'new',
+        });
+        if (error) throw error;
+        addToast('Submission added', 'success');
+      }
+      broadcastSync();
+      navigate('/admin/joint-ventures?tab=submissions');
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : 'Failed to save submission', 'error');
       setSaving(false);
-      return;
     }
-
-    addToast('Submission added', 'success');
-    broadcastSync();
-    navigate('/crm/joint-ventures');
   };
 
   const selectType = (value: SubmissionType) => {
     setType(value);
-    // Clear fields that don't apply so stale values don't sneak into the payload
     if (value === 'investor') {
       setTitleStatus('');
       setLandLocation('');
@@ -174,18 +273,34 @@ export default function JVSubmissionEdit() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-5">
+        <div className="bg-white rounded-xl border border-[#f0f0f0] p-8 animate-pulse space-y-4">
+          <div className="h-6 w-48 bg-[#f7f8fa] rounded" />
+          <div className="h-10 bg-[#f7f8fa] rounded" />
+          <div className="h-10 bg-[#f7f8fa] rounded" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div>
-          <h1 className="font-jost text-xl font-semibold text-[#001731]">New JV Submission</h1>
+          <h1 className="font-jost text-xl font-semibold text-[#001731]">
+            {isEdit ? 'Edit Submission' : 'New JV Submission'}
+          </h1>
           <p className="text-sm font-roboto text-[#636363] mt-0.5">
-            Manually log a land, JV or capital brief into the submissions desk
+            {isEdit
+              ? 'Update this land, JV or capital brief on the submissions desk'
+              : 'Manually log a land, JV or capital brief into the submissions desk'}
           </p>
         </div>
         <button
-          onClick={() => navigate('/crm/joint-ventures')}
+          onClick={() => navigate('/admin/joint-ventures?tab=submissions')}
           className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-roboto text-[#636363] hover:text-[#0d5959] hover:border-[#0d5959]/20 transition-all cursor-pointer whitespace-nowrap"
         >
           <i className="ri-arrow-left-line" />
@@ -217,7 +332,7 @@ export default function JVSubmissionEdit() {
                   <i className={`${opt.icon} text-lg`} />
                 </div>
                 <div>
-                  <p className={`font-jost text-sm font-semibold ${active ? 'text-[#0d5959]' : 'text-[#001731]'}`}>
+                  <p className={`font-jost text-base font-semibold ${active ? 'text-[#0d5959]' : 'text-[#001731]'}`}>
                     {opt.label}
                   </p>
                   <p className="text-[11px] font-roboto text-[#636363]">{opt.desc}</p>
@@ -239,7 +354,7 @@ export default function JVSubmissionEdit() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">1</span>
-            <h2 className="font-jost text-sm font-semibold text-[#001731]">Contact Details</h2>
+            <h2 className="font-jost text-base font-semibold text-[#001731]">Contact Details</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -264,7 +379,7 @@ export default function JVSubmissionEdit() {
                 className={inputCls}
               />
             </div>
-            <div className="sm:col-span-2">
+            <div>
               <label className={labelCls}>Email</label>
               <input
                 type="email"
@@ -274,6 +389,14 @@ export default function JVSubmissionEdit() {
                 placeholder="you@email.com"
                 className={inputCls}
               />
+            </div>
+            <div>
+              <label className={labelCls}>Source</label>
+              <select value={source} onChange={(e) => setSource(e.target.value)} className={`${inputCls} cursor-pointer`}>
+                {SOURCE_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -285,7 +408,7 @@ export default function JVSubmissionEdit() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">2</span>
-              <h2 className="font-jost text-sm font-semibold text-[#001731]">Land Details</h2>
+              <h2 className="font-jost text-base font-semibold text-[#001731]">Land Details</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -334,7 +457,7 @@ export default function JVSubmissionEdit() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">2</span>
-              <h2 className="font-jost text-sm font-semibold text-[#001731]">Project Details</h2>
+              <h2 className="font-jost text-base font-semibold text-[#001731]">Project Details</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -401,7 +524,7 @@ export default function JVSubmissionEdit() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">2</span>
-              <h2 className="font-jost text-sm font-semibold text-[#001731]">Investment Details</h2>
+              <h2 className="font-jost text-base font-semibold text-[#001731]">Investment Details</h2>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -446,10 +569,91 @@ export default function JVSubmissionEdit() {
 
         <div className="border-t border-[#f0f0f0]" />
 
-        {/* Message & status */}
+        {/* Images section */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">3</span>
+            <h2 className="font-jost text-base font-semibold text-[#001731]">Images</h2>
+          </div>
+          <JVImageManager images={images} onChange={setImages} storageBucket="jv-submissions" />
+        </div>
+
+        {/* Pricing & Payment Terms — optional */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">4</span>
+            <h2 className="font-jost text-sm font-semibold text-[#001731]">Pricing &amp; Payment Terms</h2>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className={labelCls}>Price (optional)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="e.g. 2500000"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Currency</label>
+              <select value={priceCurrency} onChange={(e) => setPriceCurrency(e.target.value)} className={`${inputCls} cursor-pointer`}>
+                <option value="">Select currency</option>
+                {CURRENCY_OPTIONS.filter((o) => o.value !== '').map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Price basis</label>
+              <select value={priceBasis} onChange={(e) => setPriceBasis(e.target.value)} className={`${inputCls} cursor-pointer`}>
+                {SUBMISSION_PRICE_BASIS_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-end pb-2.5">
+              <label className="inline-flex items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={priceOnRequest}
+                  onChange={(e) => setPriceOnRequest(e.target.checked)}
+                  className="w-[18px] h-[18px] rounded text-[#001731] border-[#cdd5de] focus:ring-[#001731]"
+                />
+                <span className="text-[16px] font-roboto text-[#001731]">Price on request</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Payment terms</label>
+            <p className="text-[13px] font-roboto text-[#636363] mb-2">Select all that apply — checkable rectangular pills, not a dropdown.</p>
+            <div className="flex flex-wrap gap-2.5">
+              {SUBMISSION_PAYMENT_TERMS_OPTIONS.map((term) => {
+                const active = paymentTerms.includes(term);
+                return (
+                  <button
+                    key={term}
+                    type="button"
+                    onClick={() => setPaymentTerms((prev) => (active ? prev.filter((t) => t !== term) : [...prev, term]))}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2 border rounded-none text-[16px] font-roboto font-medium transition-all cursor-pointer whitespace-nowrap ${active ? 'border-[#001731] bg-[#001731] text-white' : 'border-[#cdd5de] bg-white text-[#001731] hover:border-[#001731]/40'}`}
+                  >
+                    <i className={active ? 'ri-checkbox-fill' : 'ri-checkbox-blank-line'} />
+                    {term}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-[#f0f0f0]" />
+
+        {/* Message & status */}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">5</span>
             <h2 className="font-jost text-sm font-semibold text-[#001731]">Notes &amp; Status</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -492,7 +696,7 @@ export default function JVSubmissionEdit() {
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t border-[#f0f0f0]">
           <button
             type="button"
-            onClick={() => navigate('/crm/joint-ventures')}
+            onClick={() => navigate('/admin/joint-ventures?tab=submissions')}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-roboto text-[#636363] border border-[#f0f0f0] hover:text-[#001731] hover:border-[#c0c8d0] transition-all cursor-pointer whitespace-nowrap"
           >
             Cancel
@@ -503,7 +707,7 @@ export default function JVSubmissionEdit() {
             className="inline-flex items-center justify-center gap-2 px-7 py-2.5 rounded-lg text-sm font-roboto bg-[#0d5959] hover:bg-[#0d5959]/90 text-white transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
           >
             {saving ? <i className="ri-loader-4-line animate-spin" /> : <i className="ri-save-line" />}
-            {saving ? 'Saving...' : 'Save Submission'}
+            {saving ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Submission'}
           </button>
         </div>
       </form>

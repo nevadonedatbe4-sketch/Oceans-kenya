@@ -1,22 +1,26 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import CompareToolbar from '@/components/feature/CompareToolbar';
 import CompareModal from '@/components/feature/CompareModal';
-import CommercialSearchPanel from '@/components/feature/CommercialSearchPanel';
+import PropertySearchBar from '@/components/feature/PropertySearchBar';
 import Pagination from '@/components/feature/Pagination';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
+import CardContactActions from '@/components/feature/CardContactActions';
+import EntityImage from '@/components/feature/EntityImage';
+import ShareButton from '@/components/feature/ShareButton';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, type MappedListing, type ListingFilters } from '@/hooks/useListings';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { useCurrency, type CurrencyCode, type ExchangeRates } from '@/hooks/useCurrency';
+import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
 import { getPropertySpecs } from '@/lib/propertySpecs';
-import { formatTimeAgo } from '@/lib/timeAgo';
+import { formatListingAge } from '@/lib/listingMeta';
 import { smartTitleCase } from '@/lib/location';
 import { cleanListingDescription } from '@/lib/description';
 
@@ -56,7 +60,22 @@ const COMM_TYPE_DB_MAP: Record<string, string> = {
   other: 'other',
 };
 
-function fmtPriceKes(kes: number, curr: CurrencyCode, rates: ExchangeRates): string {
+// Commercial property type options - labels drive the shared search bar's
+// "Property type" dropdown; keys map to the DB values above.
+const COMM_TYPE_OPTIONS: { key: string; label: string }[] = [
+  { key: 'any', label: 'Any sector' },
+  { key: 'office', label: 'Offices' },
+  { key: 'serviced_office', label: 'Serviced Office' },
+  { key: 'retail', label: 'Retail / Shop' },
+  { key: 'leisure', label: 'Leisure / Hospitality' },
+  { key: 'guest_house', label: 'Guest House' },
+  { key: 'warehouse', label: 'Warehouse' },
+  { key: 'industrial', label: 'Industrial' },
+  { key: 'land', label: 'Land / Development' },
+  { key: 'other', label: 'Other' },
+];
+
+function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): string {
   const SYMS: Record<string, string> = { KES: 'KES', USD: '$', GBP: '£', EUR: '€', UGX: 'UGX', AED: 'AED', ZAR: 'R' };
   const sym = SYMS[curr] || curr;
   const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
@@ -68,7 +87,7 @@ function fmtPriceKes(kes: number, curr: CurrencyCode, rates: ExchangeRates): str
 
 const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
 const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
-const sortOptions = ['Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
+const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 const nearbyAreas = [
@@ -87,7 +106,7 @@ const relatedSearches = [
 export default function CommercialProperty() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const isBuy = searchParams.get('buy') === 'true';
+  const isBuy = searchParams.get('buy') !== 'false';
   const purpose: 'sale' | 'rent' = isBuy ? 'sale' : 'rent';
   const kesRanges = isBuy ? KES_SALE_RANGES : KES_RENT_RANGES;
 
@@ -110,19 +129,28 @@ export default function CommercialProperty() {
   const [minSize, setMinSize] = useState(() => { try { return localStorage.getItem('comm_minsize') || ''; } catch { return ''; } });
   const [maxSize, setMaxSize] = useState(() => { try { return localStorage.getItem('comm_maxsize') || ''; } catch { return ''; } });
   const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('comm_added') || 'Anytime'; } catch { return 'Anytime'; } });
-  const [sortBy, setSortBy] = useState(() => { try { return localStorage.getItem('comm_sort') || 'Most recent'; } catch { return 'Most recent'; } });
+  const [sortBy, setSortBy] = useState(() => {
+    try {
+      const saved = localStorage.getItem('comm_sort');
+      return saved && saved !== 'Most recent' ? saved : 'A - Z';
+    } catch { return 'A - Z'; }
+  });
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [currentPage, setCurrentPage] = useState(1);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  // On touch devices there is no real hover, so the first tap on a card image
+  // reveals the prev/next arrows instead of jumping straight to the listing.
+  const [revealedCards, setRevealedCards] = useState<Set<string>>(new Set());
   const [activeMapMarker, setActiveMapMarker] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const alertFormRef = useRef<HTMLDivElement>(null);
+  const resultsTopRef = useRef<HTMLDivElement>(null);
+  const resultsScrollInit = useRef(false);
   const [savedSearch, setSavedSearch] = useState(false);
   const [searchBookmarked, setSearchBookmarked] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [quickViewProperty, setQuickViewProperty] = useState<MappedListing | null>(null);
   const [recentlyViewed, setRecentlyViewed] = useState<MappedListing[]>([]);
   const compare = useCompareToolbar();
@@ -135,7 +163,7 @@ export default function CommercialProperty() {
     for (let i = 1; i < kesRanges.length; i++) {
       const r = kesRanges[i];
       if (r.min !== undefined && r.max !== undefined) {
-        opts.push(`${fmtPriceKes(r.min, currency, rates)} – ${fmtPriceKes(r.max, currency, rates)}`);
+        opts.push(`${fmtPriceKes(r.min, currency, rates)} - ${fmtPriceKes(r.max, currency, rates)}`);
       } else if (r.max !== undefined) {
         opts.push(`Under ${fmtPriceKes(r.max, currency, rates)}`);
       } else if (r.min !== undefined) {
@@ -262,6 +290,16 @@ export default function CommercialProperty() {
     setCurrentPage(1);
   }, [selectedPrice, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy]);
 
+  // Keep the visitor in context on page change - bring the top of the results
+  // back into view instantly (no disorienting smooth scroll, no jump to the very top).
+  useEffect(() => {
+    if (!resultsScrollInit.current) { resultsScrollInit.current = true; return; }
+    const el = resultsTopRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 96;
+    window.scrollTo({ top: Math.max(0, top) });
+  }, [currentPage]);
+
   useEffect(() => {
     const mapStoredObj = (obj: Record<string, unknown>): MappedListing => ({
       id: String(obj.id || ''),
@@ -274,11 +312,6 @@ export default function CommercialProperty() {
       baths: 0,
       parking: 0,
       receptions: 0,
-      propertyType: '',
-      landSize: 0,
-      acreage: 0,
-      isLand: false,
-      isJointVenture: false,
       sqft: 0,
       sqm: 0,
       price: '',
@@ -316,7 +349,7 @@ export default function CommercialProperty() {
         const realIds = ids.filter((id) => !id.startsWith('mock-')).slice(0, 6);
         if (realIds.length > 0) {
           supabase
-            .from('listings')
+            .from('all_listings')
             .select('id,title,location,price,property_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email')
             .in('id', realIds)
             .then(({ data }) => {
@@ -332,11 +365,6 @@ export default function CommercialProperty() {
                   baths: Number(row.bathrooms ?? 0),
                   parking: Number(row.parking ?? 0),
                   receptions: 0,
-                  propertyType: String(row.property_type || ''),
-                  landSize: 0,
-                  acreage: 0,
-                  isLand: false,
-                  isJointVenture: false,
                   sqft: 0,
                   sqm: 0,
                   price: '',
@@ -355,7 +383,8 @@ export default function CommercialProperty() {
                 }));
                 setRecentlyViewed(mapped);
               }
-            }, () => {});
+            })
+            .catch(() => {});
         }
       }
     } catch { /* ignore */ }
@@ -364,7 +393,6 @@ export default function CommercialProperty() {
   }, []);
 
   const activeCount = totalCount;
-  const agentCount = 8;
 
   const handleSearch = () => {
     refetch();
@@ -372,25 +400,6 @@ export default function CommercialProperty() {
 
   const scrollToAlertForm = () => {
     alertFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  const handleShare = async (p: MappedListing) => {
-    const url = `${window.location.origin}/property/${p.slug}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: p.title, text: `${format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')} - ${p.title}`, url });
-      } catch {
-        // user cancelled
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        setCopiedId(p.id);
-        setTimeout(() => setCopiedId(null), 2000);
-      } catch {
-        // clipboard failed
-      }
-    }
   };
 
   const handleAreaClick = (area: string) => {
@@ -410,17 +419,13 @@ export default function CommercialProperty() {
     : 'Explore premium office, retail, and industrial properties to rent.';
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[120px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero Section */}
       <section className="relative w-full">
         <div className="relative w-full h-[280px] md:h-[380px] lg:h-[420px] overflow-hidden">
-          <img
-            src="https://readdy.ai/api/search-image?query=Modern%20commercial%20office%20building%20exterior%20with%20glass%20facade%20reflecting%20clouds%2C%20Nairobi%20skyline%20in%20background%2C%20professional%20architectural%20photography%20with%20warm%20afternoon%20light%2C%20clean%20corporate%20aesthetic%2C%20high%20detail&width=1600&height=800&seq=comm-hero-01&orientation=landscape"
-            alt={heroTitle}
-            className="w-full h-full object-cover object-center"
-          />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-accent/70"></div>
           <div className="absolute inset-0 bg-gradient-to-b from-primary/90 via-primary/80 to-primary/50"></div>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center px-6 w-full">
@@ -432,32 +437,36 @@ export default function CommercialProperty() {
         </div>
       </section>
 
-      {/* Commercial Search Panel — overlaps hero, pushed lower */}
-      <div className="relative z-10 -mt-28 md:-mt-32 px-4 md:px-6 lg:px-10">
-        <div className="max-w-[1400px] mx-auto">
-          <CommercialSearchPanel
-            isBuy={isBuy}
-            onTogglePurpose={(buy) => {
-              navigate(buy ? '/commercial-property?buy=true' : '/commercial-property');
-            }}
+      {/* Shared global search bar - kept on the commercial page so search
+          matches Buy / Rent / All Properties. Purpose, price, radius, type and
+          a size filter are all preserved. */}
+      <div className="relative z-10 -mt-24 md:-mt-28 px-4 md:px-6 lg:px-10">
+        <div className="max-w-[1400px] mx-auto bg-white rounded-2xl border border-primary/12 shadow-lg p-4 md:p-6">
+          {/* Rent / Buy toggle */}
+          <div className="flex items-center justify-center border-b border-primary/12 pb-4 mb-4">
+            <div className="inline-flex gap-1 w-full sm:w-auto" role="group" aria-label="Rent or Buy toggle">
+              <button
+                type="button"
+                onClick={() => navigate('/commercial-property?buy=false')}
+                aria-pressed={!isBuy}
+                className={`flex-1 sm:flex-none px-6 sm:px-10 py-2.5 text-sm font-roboto font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap tracking-[0.12em] ${!isBuy ? 'bg-accent text-white' : 'border border-primary/40 text-primary/70 hover:text-primary hover:border-primary'}`}
+              >
+                RENT
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/commercial-property?buy=true')}
+                aria-pressed={isBuy}
+                className={`flex-1 sm:flex-none px-6 sm:px-10 py-2.5 text-sm font-roboto font-bold rounded-lg transition-colors cursor-pointer whitespace-nowrap tracking-[0.12em] ${isBuy ? 'bg-accent text-white' : 'border border-primary/40 text-primary/70 hover:text-primary hover:border-primary'}`}
+              >
+                BUY
+              </button>
+            </div>
+          </div>
+
+          <PropertySearchBar
             searchQuery={searchQuery}
-            onSearchChange={triggerSearch}
-            selectedType={selectedType}
-            onTypeChange={setSelectedType}
-            selectedRadius={selectedRadius}
-            onRadiusChange={setSelectedRadius}
-            minSize={minSize}
-            onMinSizeChange={setMinSize}
-            maxSize={maxSize}
-            onMaxSizeChange={setMaxSize}
-            onSearch={handleSearch}
-            loading={loading}
-            savedSearch={savedSearch}
-            onToggleSave={() => setSavedSearch(!savedSearch)}
-            sizeUnit="sqm"
-            priceOptions={priceOptions}
-            selectedPrice={selectedPrice}
-            onPriceChange={setSelectedPrice}
+            onLocationChange={(val) => triggerSearch(val)}
             placeholderCycle={[
               "Looking for prime office space...",
               "Looking for retail space to lease...",
@@ -465,17 +474,57 @@ export default function CommercialProperty() {
               "Looking for land & development sites...",
               "Looking for a serviced office space...",
             ]}
+            radiusValue={selectedRadius}
+            onRadiusChange={setSelectedRadius}
+            radiusOptions={radiusOptions}
+            priceValue={selectedPrice}
+            onPriceChange={setSelectedPrice}
+            priceOptions={priceOptions}
+            typeValue={COMM_TYPE_OPTIONS.find((t) => t.key === selectedType)?.label || 'Any sector'}
+            onTypeChange={(label) => setSelectedType(COMM_TYPE_OPTIONS.find((t) => t.label === label)?.key || 'any')}
+            typeOptions={COMM_TYPE_OPTIONS.map((t) => t.label)}
+            saved={savedSearch}
+            onToggleSave={() => setSavedSearch(!savedSearch)}
+            onSearch={handleSearch}
+            onMapView={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
+            mapActive={viewMode === 'map'}
+            onCreateAlert={scrollToAlertForm}
           />
+
+          {/* Size filter - preserved from the commercial search panel */}
+          <div className="mt-4 pt-3 border-t border-primary/15 flex items-center gap-2 md:gap-3">
+            <span className="text-sm font-roboto font-semibold text-primary whitespace-nowrap shrink-0">Size (sq m)</span>
+            <input
+              type="number"
+              value={minSize}
+              onChange={(e) => setMinSize(e.target.value)}
+              placeholder="Min"
+              min="0"
+              className="flex-1 min-w-0 md:flex-none md:w-28 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/60 rounded-[4px] focus:outline-none focus:border-primary"
+            />
+            <span className="text-sm font-roboto text-primary/60 shrink-0">to</span>
+            <input
+              type="number"
+              value={maxSize}
+              onChange={(e) => setMaxSize(e.target.value)}
+              placeholder="Max"
+              min="0"
+              className="flex-1 min-w-0 md:flex-none md:w-28 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/60 rounded-[4px] focus:outline-none focus:border-primary"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Secondary filter bar — simplified, no Price (now in panel) */}
+      {/* Breadcrumb below the banner - keeps the blue flow intact */}
+      <PageBreadcrumbs />
+
+      {/* Secondary filter bar - simplified, no Price (now in panel) */}
       <div className="hidden md:flex items-center justify-between px-4 md:px-6 lg:px-10 pt-6 pb-1 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center gap-6">
           <div className="relative group">
             <button className="flex items-center gap-1.5 py-2 text-sm font-roboto font-bold text-accent border-b-2 border-transparent hover:text-accent transition-colors cursor-pointer">
               {selectedAdded}
-              <span className="w-4 h-4 flex items-center justify-center text-gray-400"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center text-gray-400"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </button>
             <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/12 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               {addedOptions.map((o) => (
@@ -492,7 +541,7 @@ export default function CommercialProperty() {
           <div className="relative group">
             <button className="flex items-center gap-1.5 py-2 text-sm font-roboto font-bold text-accent border-b-2 border-transparent hover:text-accent transition-colors cursor-pointer">
               {sortBy}
-              <span className="w-4 h-4 flex items-center justify-center text-gray-400"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center text-gray-400"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </button>
             <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/12 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               {sortOptions.map((o) => (
@@ -526,14 +575,14 @@ export default function CommercialProperty() {
       </div>
 
       {/* === RESULTS HEADER === */}
-      <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
+      <div ref={resultsTopRef} className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">
               {isBuy ? 'Commercial properties for sale' : 'Commercial properties to rent'}
             </h1>
             <p className="text-sm font-roboto text-gray-500 mt-0.5">
-              <span className="text-primary font-bold">{activeCount}</span> properties &middot; <span className="text-primary font-bold">{agentCount}</span> agents
+              <span className="text-primary font-bold">{activeCount}</span> properties
             </p>
           </div>
           <div className="md:hidden flex items-center gap-2">
@@ -541,7 +590,7 @@ export default function CommercialProperty() {
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-sm font-roboto font-bold text-accent/60 bg-white border border-accent/20 rounded-lg focus:outline-none cursor-pointer">
                 {sortOptions.map((o) => <option key={o}>{o}</option>)}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-accent/50 text-sm pointer-events-none"></i>
+              <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-accent/50 text-sm pointer-events-none"></i>
             </div>
             <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-9 h-9 flex items-center justify-center border border-accent/20 rounded-lg text-accent/60 cursor-pointer">
               <i className={viewMode === 'list' ? 'ri-map-2-line text-sm' : 'ri-list-check text-sm'}></i>
@@ -618,14 +667,25 @@ export default function CommercialProperty() {
                 const imgIdx = imageIndexes[p.id] || 0;
                 const isSaved = savedIds.has(p.id);
                 const isHovered = hoveredCard === p.id;
+                const openVideo = p.videoUrl ? () => window.open(p.videoUrl as string, '_blank', 'noopener,noreferrer') : undefined;
+                const openVirtualTour = p.virtualTourUrl ? () => window.open(p.virtualTourUrl as string, '_blank', 'noopener,noreferrer') : undefined;
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden sm:h-[300px] hover:shadow-md transition-all duration-200"
+                    className="flex flex-col sm:flex-row bg-[var(--card-bg)] rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden sm:h-[300px] hover:shadow-md transition-all duration-200"
                     onMouseEnter={() => setHoveredCard(p.id)}
                     onMouseLeave={() => setHoveredCard(null)}
                   >
                     <div className="relative sm:w-[300px] md:w-[360px] lg:w-[400px] xl:w-[440px] h-[240px] sm:h-full flex-shrink-0 overflow-hidden group"
+                      onClickCapture={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button')) return;
+                        if (window.matchMedia('(hover: none)').matches && !revealedCards.has(p.id)) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setRevealedCards((prev) => new Set(prev).add(p.id));
+                        }
+                      }}
                       onTouchStart={(e) => { const t = e.touches[0].clientX; (e.currentTarget as HTMLElement).dataset.tsX = String(t); }}
                       onTouchMove={(e) => { (e.currentTarget as HTMLElement).dataset.teX = String(e.touches[0].clientX); }}
                       onTouchEnd={(e) => {
@@ -643,19 +703,19 @@ export default function CommercialProperty() {
                         className="flex h-full transition-transform duration-200 ease-out will-change-transform"
                         style={{ transform: `translateX(-${imgIdx * 100}%)` }}
                       >
-                        {p.images.map((src, i) => (
-                          <img
+                        {(p.images.length > 0 ? p.images : ['']).map((src, i) => (
+                          <EntityImage
                             key={i}
                             src={src}
                             alt={p.title}
-                            loading={i === 0 ? undefined : "lazy"}
+                            loading={i === 0 ? undefined : 'lazy'}
                             className="w-full h-full object-cover object-center flex-shrink-0 transition-transform duration-700 group-hover:scale-105 pointer-events-none select-none"
                           />
                         ))}
                       </Link>
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickViewProperty(p); }}
-                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        className="absolute bottom-3 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                       >
                         <span className="flex items-center gap-1 text-white text-[10px] font-bold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm cursor-pointer hover:bg-black/80 transition-colors">
                           <span className="w-3.5 h-3.5 flex items-center justify-center">
@@ -666,10 +726,10 @@ export default function CommercialProperty() {
                       </button>
                       {p.images.length > 1 && (
                         <>
-                          <button onClick={(e) => prevImage(p.id, e)} className="absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white/80 md:bg-white/90 text-stone-700 hover:bg-white hover:text-primary transition-all duration-150 cursor-pointer whitespace-nowrap opacity-100 md:opacity-0 md:group-hover:opacity-100 rounded-sm" aria-label="Previous image">
+                          <button onClick={(e) => prevImage(p.id, e)} className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/80 md:bg-white/90 text-stone-700 hover:bg-white hover:text-primary transition-opacity duration-150 cursor-pointer whitespace-nowrap md:opacity-100 ${revealedCards.has(p.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} aria-label="Previous image">
                             <i className="ri-arrow-left-s-line text-base md:text-lg"></i>
                           </button>
-                          <button onClick={(e) => nextImage(p.id, e)} className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white/80 md:bg-white/90 text-stone-700 hover:bg-white hover:text-primary transition-all duration-150 cursor-pointer whitespace-nowrap opacity-100 md:opacity-0 md:group-hover:opacity-100 rounded-sm" aria-label="Next image">
+                          <button onClick={(e) => nextImage(p.id, e)} className={`absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/80 md:bg-white/90 text-stone-700 hover:bg-white hover:text-primary transition-opacity duration-150 cursor-pointer whitespace-nowrap md:opacity-100 ${revealedCards.has(p.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} aria-label="Next image">
                             <i className="ri-arrow-right-s-line text-base md:text-lg"></i>
                           </button>
                         </>
@@ -683,9 +743,15 @@ export default function CommercialProperty() {
                         <button onClick={() => toggleSave(p.id)} className={`w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors ${isSaved ? 'bg-primary text-white' : 'bg-black/40 hover:bg-black/60 text-white'}`}>
                           <i className={`${isSaved ? 'ri-heart-fill' : 'ri-heart-line'} text-sm`}></i>
                         </button>
-                        <button onClick={() => handleShare(p)} className={`w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors ${copiedId === p.id ? 'bg-primary text-white' : 'bg-black/40 hover:bg-black/60 text-white'}`}>
-                          <i className={`${copiedId === p.id ? 'ri-check-line' : 'ri-share-forward-line'} text-sm`}></i>
-                        </button>
+                        <ShareButton
+                          title={p.title}
+                          slug={p.slug}
+                          id={p.id}
+                          priceLabel={format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+                          className="w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors bg-black/40 hover:bg-black/60 text-white"
+                          activeClassName="bg-primary text-white"
+                          iconClassName="text-sm"
+                        />
                       </div>
                     </div>
                     <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
@@ -699,13 +765,18 @@ export default function CommercialProperty() {
                           propertyOfTheWeek={p.propertyOfTheWeek}
                           backOnMarket={p.backOnMarket}
                           refurbished={p.refurbished}
+                          videoTour={p.videoTour}
+                          virtualTour={p.virtualTour}
+                          floorPlan={p.floorPlan}
+                          onVideoClick={openVideo}
+                          onVirtualTourClick={openVirtualTour}
                           className="mb-2"
                         />
                         <div className="mb-1">
                           <div className="flex items-baseline gap-1.5">
-                            <span className="font-roboto font-bold text-primary text-sm md:text-base lg:text-lg">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
-                            {!isBuy && <span className="font-roboto font-bold text-primary text-sm md:text-base lg:text-lg">pcm</span>}
-                            <span className="text-xs font-roboto text-[#636363]">Guide price</span>
+                            <span className="font-roboto font-bold text-[color:var(--card-price-text)] text-sm md:text-base lg:text-lg">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
+                            {p.rawPrice > 0 && !isBuy && <span className="font-roboto font-normal text-[color:var(--card-price-text)] text-sm md:text-base lg:text-lg">pcm</span>}
+                            {p.rawPrice > 0 && <span className="text-xs font-roboto font-normal text-[color:var(--card-category-text)]">Guide price</span>}
                           </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
@@ -714,46 +785,42 @@ export default function CommercialProperty() {
                             baths: p.baths,
                             parking: p.parking,
                             sqft: p.sqft,
+                            sqm: p.sqm,
                             acreage: p.acreage,
                             landSize: p.landSize,
                             landUnit: p.landUnit,
                           }).map((spec) => (
-                            <span key={spec.key} className="flex items-center gap-1 text-xs md:text-sm font-roboto font-bold text-[#222222]">
+                            <span key={spec.key} className="flex items-center gap-1 text-xs md:text-sm font-roboto font-normal text-[#2D303D]">
                               <i className={`${spec.icon} text-[#555555] text-xs`}></i>
                               {spec.label}
                             </span>
                           ))}
                         </div>
                         <Link to={`/property/${p.slug}`} className="block mb-3">
-                          <h3 className="text-sm md:text-base font-roboto font-bold text-primary leading-snug mb-1 line-clamp-2 transition-colors hover:text-[#2d4a7a]">{p.title}</h3><address className="not-italic flex items-start gap-1.5">
+                          <h3 className="text-sm md:text-base font-roboto font-medium text-[color:var(--card-title-text)] leading-snug mb-1 line-clamp-2 transition-colors hover:text-primary">{p.title}</h3><address className="not-italic flex items-start gap-1.5">
                             <span className="w-3 h-3 flex items-center justify-center shrink-0 mt-0.5">
-                              <i className="ri-map-pin-line text-golden text-[10px]"></i>
+                              <i className="ri-map-pin-line text-accent text-[10px]"></i>
                             </span>
                             <span className="min-w-0">
-                              <span className="block text-xs md:text-sm font-roboto font-medium text-primary/70 leading-snug">
+                              <span className="block text-xs md:text-sm font-roboto font-medium text-[#2D303D] leading-snug">
                                 {p.area || p.location}
                               </span>
                             </span>
                           </address>
                         </Link>
-                        <p className="text-xs md:text-sm font-roboto text-[#555555] leading-relaxed line-clamp-2 mb-3">{cleanListingDescription(p.description)}</p>
+                        <p className="text-xs md:text-sm font-roboto font-normal text-[#2D303D] leading-relaxed line-clamp-2 mb-3">{cleanListingDescription(p.description, { normalizeCase: true })}</p>
                       </div>
-                      <div className="flex items-end justify-between gap-3 pt-2.5 border-t-2 border-primary/12">
-                        <span className="text-xs font-roboto font-bold text-[#00703c] whitespace-nowrap shrink-0">{formatTimeAgo(p.createdAt)}</span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a href={`tel:${p.agentPhone || '+2547111393806'}`} className="flex items-center gap-1 text-xs font-roboto font-bold text-primary hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3.5 h-3.5 flex items-center justify-center">
-                              <i className="ri-phone-line text-xs"></i>
-                            </span>
-                            Call
-                          </a>
-                          <a href={`mailto:${p.agentEmail || 'ask@oceanske.com'}?subject=Enquiry about ${encodeURIComponent(p.title)}`} className="flex items-center gap-1 text-xs font-roboto font-bold text-primary hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3.5 h-3.5 flex items-center justify-center">
-                              <i className="ri-mail-line text-xs"></i>
-                            </span>
-                            Email
-                          </a>
-                        </div>
+                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5 pt-2.5 border-t-2 border-primary/12">
+                        {formatListingAge(p.createdAt) && (
+                          <span className="text-xs font-roboto font-medium text-[color:var(--card-time-text)] whitespace-nowrap shrink-0">{formatListingAge(p.createdAt)}</span>
+                        )}
+                        <CardContactActions
+                          phone={p.agentPhone}
+                          email={p.agentEmail}
+                          messageLabel="Message"
+                          emailSubject={`Enquiry about ${p.title}`}
+                          className="shrink-0"
+                        />
                       </div>
                     </div>
                   </div>
@@ -811,7 +878,7 @@ export default function CommercialProperty() {
                         <div key={p.id} className="group">
                           <Link to={`/property/${p.slug}`} className="flex items-center gap-2.5 cursor-pointer">
                             <div className="w-14 h-10 flex-shrink-0 overflow-hidden rounded">
-                              <img src={p.image || p.images[0]} alt={p.title} className="w-full h-full object-cover object-center" />
+                              <EntityImage src={p.image || p.images[0]} alt={p.title} compact className="w-full h-full object-cover object-center" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="text-xs font-roboto font-bold text-primary group-hover:text-primary transition-colors truncate">
@@ -894,7 +961,7 @@ export default function CommercialProperty() {
                     className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${activeMapMarker === p.id ? 'border-primary bg-primary/5' : 'border-primary/12 hover:border-primary/12'}`}
                     onClick={() => setActiveMapMarker(activeMapMarker === p.id ? null : p.id)}
                   >
-                    <img src={p.image} alt={p.title} className="w-16 h-12 object-cover rounded" />
+                    <EntityImage src={p.image} alt={p.title} compact className="w-16 h-12 object-cover rounded" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-roboto font-bold text-primary truncate">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</p>
                       <p className="text-[10px] font-roboto text-gray-500 truncate">{p.title}</p>

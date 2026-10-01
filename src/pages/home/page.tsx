@@ -25,7 +25,14 @@ export default function Home() {
       <main>
         <HeroSection onSearch={handleSearch} initialQuery={searchQuery} />
         <NeighborhoodsSection />
-        <PropertiesSection searchQuery={searchQuery} />
+        <PropertiesSection
+          searchQuery={searchQuery}
+          onSearchChange={(query) => {
+            setSearchQuery(query);
+            if (query.trim()) setSearchParams({ search: query });
+            else setSearchParams({});
+          }}
+        />
         <PageContactSection />
       </main>
       {/* CTA Banner */}
@@ -43,12 +50,20 @@ export default function Home() {
           <p className="text-white/60 text-sm font-roboto mb-6">
             Get a free, no-obligation valuation from Nairobi&apos;s leading estate agents.
           </p>
-          <Link
-            to="/landlords"
-            className="inline-block bg-white text-primary border-2 border-white hover:bg-primary hover:text-white hover:border-primary px-10 py-3 text-base font-roboto font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer whitespace-nowrap"
-          >
-            Request Evaluation
-          </Link>
+          <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              to="/landlords"
+              className="inline-block w-full sm:w-auto text-center bg-white text-primary border-2 border-white hover:bg-primary hover:text-white hover:border-primary px-10 py-3 text-base font-roboto font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer whitespace-nowrap"
+            >
+              Request Valuation
+            </Link>
+            <Link
+              to="/valuation"
+              className="inline-block w-full sm:w-auto text-center bg-transparent text-white border-2 border-white hover:bg-white hover:text-primary px-10 py-3 text-base font-roboto font-semibold tracking-wider uppercase transition-all duration-300 cursor-pointer whitespace-nowrap"
+            >
+              Valuation
+            </Link>
+          </div>
         </div>
       </section>
       <ContactCTA />

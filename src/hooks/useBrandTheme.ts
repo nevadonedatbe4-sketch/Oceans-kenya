@@ -16,6 +16,20 @@ function hexToRgbChannels(hex: string): string | null {
   return `${r} ${g} ${b}`;
 }
 
+// Apply an admin-uploaded favicon to the document head at runtime.
+function applyFavicon(url: string) {
+  if (!url) return;
+  const existing = Array.from(document.head.querySelectorAll<HTMLLinkElement>("link[rel~='icon']"));
+  if (existing.length === 0) {
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = url;
+    document.head.appendChild(link);
+  } else {
+    existing.forEach((l) => { l.href = url; });
+  }
+}
+
 // Maps a brand_settings key -> the CSS variable it drives.
 const BRAND_VAR_MAP: Record<string, string> = {
   primary_color: '--color-primary',
@@ -40,7 +54,7 @@ export function useBrandTheme() {
         const { data, error } = await supabase
           .from('brand_settings')
           .select('key, value')
-          .in('key', Object.keys(BRAND_VAR_MAP));
+          .in('key', [...Object.keys(BRAND_VAR_MAP), 'favicon']);
 
         if (cancelled || error || !data) return;
 
@@ -53,6 +67,11 @@ export function useBrandTheme() {
             root.style.setProperty(cssVar, channels);
           }
         });
+
+        const favicon = data.find((row: { key: string; value: string | null }) => row.key === 'favicon');
+        if (favicon?.value) {
+          applyFavicon(favicon.value);
+        }
       } catch {
         // Keep index.css defaults on any failure.
       }

@@ -4,11 +4,11 @@ import type { CustomField } from './types';
 
 /* ── Luxury shared styling ── */
 const inputBase =
-  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+  'w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
 
 const selectClass = `${inputBase} cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%237a8a99%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_14px_center] bg-[length:20px_20px] pr-11`;
 
-const labelClass = 'block text-[14px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
+const labelClass = 'block text-[16px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
 
 const hintClass = 'text-[15px] text-[#4a5568] mt-2 leading-relaxed';
 
@@ -65,7 +65,7 @@ const CollapsibleCard = ({
           <span className="text-[15px] font-semibold text-[#0d1f2d] tracking-normal">{title}</span>
         </div>
         <i
-          className={`ri-arrow-down-s-line text-[#7a8a99] text-xl transition-transform duration-200 ${
+          className={`ri-arrow-down-wide-fill text-[#7a8a99] text-xl transition-transform duration-200 ${
             open ? 'rotate-180' : ''
           }`}
         />
@@ -135,7 +135,7 @@ const CheckChip = ({
       onChange={onChange}
       className="w-4 h-4 rounded border-[#c8cdd5] text-[#0d5959] focus:ring-[#0d5959]/20 cursor-pointer accent-[#0d5959] shrink-0"
     />
-    <span className="text-[14px] text-[#2d3748] group-hover:text-[#0d1f2d] transition-colors leading-snug">{label}</span>
+    <span className="text-[16px] text-[#2d3748] group-hover:text-[#0d1f2d] transition-colors leading-snug">{label}</span>
   </label>
 );
 
@@ -160,7 +160,7 @@ const RadioOption = ({
       onChange={() => onChange(value)}
       className="w-4 h-4 border-[#c8cdd5] text-[#0d5959] focus:ring-[#0d5959]/20 cursor-pointer accent-[#0d5959]"
     />
-    <span className="text-[14px] text-[#2d3748]">{label}</span>
+    <span className="text-[16px] text-[#2d3748]">{label}</span>
   </label>
 );
 
@@ -292,7 +292,7 @@ interface Props {
   furnishedStatus: string;
   setFurnishedStatus: (v: string) => void;
   includedItems: string[];
-  setIncludedItems: React.Dispatch<React.SetStateAction<string[]>>;
+  setIncludedItems: (v: string[]) => void;
   featureCheckboxes: Record<string, boolean>;
   setFeatureCheckboxes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   utilityCheckboxes: Record<string, boolean>;
@@ -606,12 +606,12 @@ export default function DetailsStep(props: Props) {
                 ))}
               </div>
             ) : (
-              <p className="text-[14px] text-[#9ba5b1] mb-5">No custom fields added yet.</p>
+              <p className="text-[16px] text-[#9ba5b1] mb-5">No custom fields added yet.</p>
             )}
             <button
               onClick={addCustomField}
               type="button"
-              className="inline-flex items-center gap-2 px-5 py-3 border border-[#d1d5db] text-[13px] font-semibold text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d] transition-colors cursor-pointer whitespace-nowrap rounded-md tracking-wide uppercase"
+              className="inline-flex items-center gap-2 px-5 py-3 border border-[#d1d5db] text-[16px] font-semibold text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d] transition-colors cursor-pointer whitespace-nowrap rounded-md tracking-wide uppercase"
             >
               <i className="ri-add-line text-base" /> Add Custom Field
             </button>
@@ -1029,12 +1029,12 @@ export default function DetailsStep(props: Props) {
               ))}
             </div>
           ) : (
-            <p className="text-[14px] text-[#9ba5b1] mb-5">No custom fields added yet.</p>
+            <p className="text-[16px] text-[#9ba5b1] mb-5">No custom fields added yet.</p>
           )}
           <button
             onClick={addCustomField}
             type="button"
-            className="inline-flex items-center gap-2 px-5 py-3 border border-[#d1d5db] text-[13px] font-semibold text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d] transition-colors cursor-pointer whitespace-nowrap rounded-md tracking-wide uppercase"
+            className="inline-flex items-center gap-2 px-5 py-3 border border-[#d1d5db] text-[16px] font-semibold text-[#7a8a99] hover:border-[#0d1f2d] hover:text-[#0d1f2d] transition-colors cursor-pointer whitespace-nowrap rounded-md tracking-wide uppercase"
           >
             <i className="ri-add-line text-base" /> Add Custom Field
           </button>

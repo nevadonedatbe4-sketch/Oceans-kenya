@@ -59,7 +59,7 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
           </div>
         </div>
         <Link
-          to="/crm/deals"
+          to="/admin/deals"
           className="text-xs sm:text-sm font-inter text-[#5eead4] lg:text-[#0d5959] hover:text-[#5eead4] lg:hover:text-[#001731] transition-colors whitespace-nowrap cursor-pointer"
         >
           View all
@@ -101,7 +101,7 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
       </div>
 
       {/* Desktop Table */}
-      <div className="overflow-x-auto hidden lg:block">
+      <div className="overflow-x-auto hidden lg:block big-scroll-x">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#f0f0f0]">
@@ -119,7 +119,7 @@ export default function RecentDeals({ deals, loading }: RecentDealsProps) {
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#f0f0f0]/60">
+          <tbody className="divide-y divide-[#cbd5e1]">
             {loading ? (
               Array.from({ length: 4 }).map((_, i) => (
                 <tr key={i}>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
@@ -12,7 +12,7 @@ interface SubmitToContactsOptions {
   tags?: string[];
 }
 
-export type EnquiryPayload = {
+export interface EnquiryPayload {
   name?: string;
   full_name?: string;
   first_name?: string;
@@ -68,26 +68,33 @@ async function invokeIngest(body: Record<string, unknown>): Promise<{ success: b
 export function useFormSubmit() {
   const [status, setStatus] = useState<FormStatus>('idle');
   const [error, setError] = useState('');
+  const submittingRef = useRef(false);
 
   const submitToContacts = useCallback(async (data: SubmitToContactsOptions): Promise<boolean> => {
+    if (submittingRef.current) return false;
+    submittingRef.current = true;
     setStatus('submitting');
     setError('');
-    const result = await invokeIngest({
-      name: data.name,
-      email: data.email,
-      phone: data.phone || undefined,
-      type: data.type,
-      notes: data.notes || undefined,
-      tags: data.tags,
-      source: 'Contact Form',
-      form_name: 'contact-form',
-    });
-    if (result.success) setStatus('success');
-    else {
-      setError(result.error || 'Submission failed. Please try again.');
-      setStatus('error');
+    try {
+      const result = await invokeIngest({
+        name: data.name,
+        email: data.email,
+        phone: data.phone || undefined,
+        type: data.type,
+        notes: data.notes || undefined,
+        tags: data.tags,
+        source: 'Contact Form',
+        form_name: 'contact-form',
+      });
+      if (result.success) setStatus('success');
+      else {
+        setError(result.error || 'Submission failed. Please try again.');
+        setStatus('error');
+      }
+      return result.success;
+    } finally {
+      submittingRef.current = false;
     }
-    return result.success;
   }, []);
 
   const reset = useCallback(() => {
@@ -112,6 +119,14 @@ interface SubmitToLeadsOptions {
   preferred_location?: string;
   preferred_use?: string;
   timeline?: string;
+  // JV deal-room context (offer / contribution pre-matched to a listing).
+  deal_ref?: string;
+  offer_amount?: string;
+  offer_currency?: string;
+  contribution_type?: string;
+  project_type?: string;
+  listing_id?: string;
+  property_title?: string;
 }
 
 function splitName(name: string): { first: string; last: string } {
@@ -131,6 +146,11 @@ const FIELD_LABELS: Record<string, string> = {
   preferred_location: 'Preferred location',
   preferred_use: 'Preferred use',
   timeline: 'Timeline',
+  deal_ref: 'JV reference',
+  offer_amount: 'Offer amount',
+  offer_currency: 'Offer currency',
+  contribution_type: 'Contribution type',
+  project_type: 'Project type',
 };
 
 function composeMessage(data: SubmitToLeadsOptions): string {
@@ -146,29 +166,53 @@ function composeMessage(data: SubmitToLeadsOptions): string {
 export function useLeadSubmit() {
   const [status, setStatus] = useState<FormStatus>('idle');
   const [error, setError] = useState('');
+  const submittingRef = useRef(false);
 
   const submitToLeads = useCallback(async (data: SubmitToLeadsOptions): Promise<boolean> => {
+    if (submittingRef.current) return false;
+    submittingRef.current = true;
     setStatus('submitting');
     setError('');
-    const { first, last } = splitName(data.full_name || '');
-    const message = composeMessage(data);
-    const isInvestor = data.submission_type === 'investor';
-    const result = await invokeIngest({
-      first_name: first,
-      last_name: last,
-      email: data.email,
-      phone: data.phone || undefined,
-      message,
-      type: isInvestor ? 'investor' : 'landlord',
-      source: 'Joint Ventures',
-      form_name: isInvestor ? 'jv-investor' : 'jv-landowner',
-    });
-    if (result.success) setStatus('success');
-    else {
-      setError(result.error || 'Submission failed. Please try again.');
-      setStatus('error');
+    try {
+      const { first, last } = splitName(data.full_name || '');
+      const message = composeMessage(data);
+      const isInvestor = data.submission_type === 'investor';
+      const result = await invokeIngest({
+        first_name: first,
+        last_name: last,
+        email: data.email,
+        phone: data.phone || undefined,
+        message,
+        type: isInvestor ? 'investor' : 'landlord',
+        source: 'Joint Ventures',
+        form_name: isInvestor ? 'jv-investor' : 'jv-landowner',
+        submission_type: data.submission_type,
+        land_location: data.land_location || undefined,
+        land_size: data.land_size || undefined,
+        title_status: data.title_status || undefined,
+        preferred_structure: data.preferred_structure || undefined,
+        budget_range: data.budget_range || undefined,
+        preferred_location: data.preferred_location || undefined,
+        preferred_use: data.preferred_use || undefined,
+        timeline: data.timeline || undefined,
+        deal_ref: data.deal_ref || undefined,
+        offer_amount: data.offer_amount || undefined,
+        offer_currency: data.offer_currency || undefined,
+        contribution_type: data.contribution_type || undefined,
+        project_type: data.project_type || undefined,
+        listing_id: data.listing_id || undefined,
+        property_title: data.property_title || undefined,
+        source_url: typeof window !== 'undefined' ? window.location.href : undefined,
+      });
+      if (result.success) setStatus('success');
+      else {
+        setError(result.error || 'Submission failed. Please try again.');
+        setStatus('error');
+      }
+      return result.success;
+    } finally {
+      submittingRef.current = false;
     }
-    return result.success;
   }, []);
 
   const reset = useCallback(() => {
@@ -182,17 +226,24 @@ export function useLeadSubmit() {
 export function useEnquirySubmit() {
   const [status, setStatus] = useState<FormStatus>('idle');
   const [error, setError] = useState('');
+  const submittingRef = useRef(false);
 
   const submitEnquiry = useCallback(async (data: EnquiryPayload): Promise<boolean> => {
+    if (submittingRef.current) return false;
+    submittingRef.current = true;
     setStatus('submitting');
     setError('');
-    const result = await invokeIngest(data);
-    if (result.success) setStatus('success');
-    else {
-      setError(result.error || 'Submission failed. Please try again.');
-      setStatus('error');
+    try {
+      const result = await invokeIngest(data);
+      if (result.success) setStatus('success');
+      else {
+        setError(result.error || 'Submission failed. Please try again.');
+        setStatus('error');
+      }
+      return result.success;
+    } finally {
+      submittingRef.current = false;
     }
-    return result.success;
   }, []);
 
   const reset = useCallback(() => {

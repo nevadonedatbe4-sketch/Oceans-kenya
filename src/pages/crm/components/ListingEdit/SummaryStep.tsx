@@ -16,7 +16,7 @@ interface Props {
   mainImage: string;
   floorPlans: string[];
   documents: { name: string; url: string; size?: number }[];
-  agentName: string;
+  agentNames: string;
   isPublished: boolean;
   isPending: boolean;
   seoTitle: string;
@@ -64,7 +64,7 @@ interface Props {
   requiredFieldMap?: Record<string, boolean>;
   validationErrors?: string[];
   description?: string;
-  agentId?: string;
+  sourceSummary?: string;
 }
 
 const SectionHeader = ({
@@ -103,7 +103,7 @@ const Value = ({ children }: { children: React.ReactNode }) => (
 export default function SummaryStep({
   title, location, propertyType, purpose, isFeatured, price, currency,
   bedrooms, bathrooms, size, amenities, images, mainImage, floorPlans,
-  documents, agentName, isPublished, isPending, seoTitle, slug, saving, handleSave,
+  documents, agentNames, isPublished, isPending, seoTitle, slug, saving, handleSave,
   priceUgx, autoExchange, propertyLabel, availabilityStatus, sizeUnit,
   garages, yearBuilt, rooms, customFeatures,
   priorityRanking, interiorFinish, flooringType, ceilingHeight, waterSupply,
@@ -111,7 +111,8 @@ export default function SummaryStep({
   privateListing, stickyListing, includeSearch, includeFeatured, featuredNeighborhood,
   isHomepage, stateRegion, city, country, address, zipCode,
   videoUrl, virtualTourUrl, propertyId, customFields, landSize, landUnit, tags, onPreview,
-  requiredFieldMap = {}, validationErrors = [], description = '', agentId = '',
+  requiredFieldMap = {}, validationErrors = [], description = '',
+  sourceSummary,
 }: Props) {
   const isLand = isLandType(propertyType);
 
@@ -179,7 +180,7 @@ export default function SummaryStep({
                   </span>
                 )}
                 {propertyLabel && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-red-200 bg-red-50 text-red-700">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold border border-amber-200 bg-amber-50 text-amber-700">
                     <i className="ri-fire-line" /> {propertyLabel}
                   </span>
                 )}
@@ -235,6 +236,10 @@ export default function SummaryStep({
             <div>
               <Label>Availability</Label>
               <Value>{availabilityStatus || '—'}</Value>
+            </div>
+            <div>
+              <Label>Source / Seller</Label>
+              <Value>{sourceSummary || 'Not set'}</Value>
             </div>
           </div>
 
@@ -379,7 +384,7 @@ export default function SummaryStep({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-4 border-t border-[#d1d5db]">
             <div>
               <Label>Agent</Label>
-              <Value>{agentName}</Value>
+              <Value>{agentNames}</Value>
             </div>
             <div>
               <Label>Availability</Label>
@@ -414,19 +419,19 @@ export default function SummaryStep({
       {/* Validation Errors */}
       {validationErrors.length > 0 && (
         <section className="pb-2">
-          <div className="border-2 border-red-300 bg-red-50 p-5">
+          <div className="border-2 border-amber-300 bg-amber-50 p-5">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-red-500 rounded-full">
+              <div className="w-7 h-7 flex items-center justify-center shrink-0 bg-amber-500 rounded-full">
                 <i className="ri-error-warning-line text-white text-sm"></i>
               </div>
-              <p className="font-jost text-sm font-bold text-red-700 uppercase tracking-[0.5px]">
+              <p className="font-jost text-sm font-bold text-amber-700 uppercase tracking-[0.5px]">
                 Cannot Publish — {validationErrors.length} Required Field{validationErrors.length > 1 ? 's' : ''} Missing
               </p>
             </div>
             <ul className="space-y-2">
               {validationErrors.map((err, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm text-red-700 font-roboto">
-                  <i className="ri-close-circle-fill text-red-500 text-sm shrink-0"></i>
+                <li key={i} className="flex items-center gap-2 text-sm text-amber-700 font-roboto">
+                  <i className="ri-close-circle-fill text-amber-500 text-sm shrink-0"></i>
                   {err}
                 </li>
               ))}

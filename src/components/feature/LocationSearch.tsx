@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import PageLoader from '@/components/feature/PageLoader';
+import { useCanonicalAreas, type NairobiArea } from '@/lib/locationRegistry';
 
 // ── Types ────────────────────────────────────────────────────────────────
 export interface LocationSuggestion {
@@ -20,6 +21,16 @@ interface LocationSearchProps {
   placeholderCycle?: string[];
   className?: string;
   inputClassName?: string;
+  boxClassName?: string;
+  overlayClassName?: string;
+  /** 'zoopla' renders the refined rectangular field: no leading icon, no inline
+   *  near-me button, 54px tall, 4px corners and a thin dark-grey border. */
+  variant?: 'default' | 'zoopla';
+  showIcon?: boolean;
+  showNearMeButton?: boolean;
+  /** Renders borderless with no rounding, so the field can sit inside a
+   *  shared "one box" container (used by the mobile search bar). */
+  embedded?: boolean;
 }
 
 // ── Default animated placeholder cycle (buy/general) ─────────────────────
@@ -31,31 +42,35 @@ const DEFAULT_PLACEHOLDER_CYCLE = [
 ];
 
 // ── Known neighbourhoods (fallback when Mapbox isn't available) ──────────
-const LOCAL_NEIGHBOURHOODS: LocationSuggestion[] = [
-  { id: 'loc-karen', name: 'Karen', city: 'Karen', region: 'Nairobi County', country: 'Kenya', lat: -1.3170, lng: 36.6950, source: 'local' },
-  { id: 'loc-runda', name: 'Runda', city: 'Runda', region: 'Nairobi County', country: 'Kenya', lat: -1.2080, lng: 36.8150, source: 'local' },
-  { id: 'loc-lavington', name: 'Lavington', city: 'Lavington', region: 'Nairobi County', country: 'Kenya', lat: -1.2730, lng: 36.7750, source: 'local' },
-  { id: 'loc-kilimani', name: 'Kilimani', city: 'Kilimani', region: 'Nairobi County', country: 'Kenya', lat: -1.2870, lng: 36.7890, source: 'local' },
-  { id: 'loc-westlands', name: 'Westlands', city: 'Westlands', region: 'Nairobi County', country: 'Kenya', lat: -1.2675, lng: 36.8042, source: 'local' },
-  { id: 'loc-kileleshwa', name: 'Kileleshwa', city: 'Kileleshwa', region: 'Nairobi County', country: 'Kenya', lat: -1.2730, lng: 36.7850, source: 'local' },
-  { id: 'loc-muthaiga', name: 'Muthaiga', city: 'Muthaiga', region: 'Nairobi County', country: 'Kenya', lat: -1.2520, lng: 36.8330, source: 'local' },
-  { id: 'loc-parklands', name: 'Parklands', city: 'Parklands', region: 'Nairobi County', country: 'Kenya', lat: -1.2590, lng: 36.8190, source: 'local' },
-  { id: 'loc-gigiri', name: 'Gigiri', city: 'Gigiri', region: 'Nairobi County', country: 'Kenya', lat: -1.2300, lng: 36.8070, source: 'local' },
-  { id: 'loc-spring-valley', name: 'Spring Valley', city: 'Spring Valley', region: 'Nairobi County', country: 'Kenya', lat: -1.2410, lng: 36.7900, source: 'local' },
-  { id: 'loc-nyari', name: 'Nyari', city: 'Nyari', region: 'Nairobi County', country: 'Kenya', lat: -1.2180, lng: 36.8020, source: 'local' },
-  { id: 'loc-langata', name: 'Langata', city: 'Langata', region: 'Nairobi County', country: 'Kenya', lat: -1.3630, lng: 36.7410, source: 'local' },
-  { id: 'loc-ngong', name: 'Ngong', city: 'Ngong', region: 'Kajiado County', country: 'Kenya', lat: -1.3600, lng: 36.6540, source: 'local' },
-  { id: 'loc-kitengela', name: 'Kitengela', city: 'Kitengela', region: 'Kajiado County', country: 'Kenya', lat: -1.4760, lng: 36.9620, source: 'local' },
-  { id: 'loc-nairobi', name: 'Nairobi', city: 'Nairobi', region: 'Nairobi County', country: 'Kenya', lat: -1.2921, lng: 36.8219, source: 'local' },
-  { id: 'loc-riverside', name: 'Riverside', city: 'Riverside', region: 'Nairobi County', country: 'Kenya', lat: -1.2670, lng: 36.8000, source: 'local' },
-  { id: 'loc-kiserian', name: 'Kiserian', city: 'Kiserian', region: 'Kajiado County', country: 'Kenya', lat: -1.4300, lng: 36.6740, source: 'local' },
-  { id: 'loc-athi-river', name: 'Athi River', city: 'Athi River', region: 'Machakos County', country: 'Kenya', lat: -1.4580, lng: 36.9780, source: 'local' },
-  { id: 'loc-rosslyn', name: 'Rosslyn', city: 'Rosslyn', region: 'Nairobi County', country: 'Kenya', lat: -1.2080, lng: 36.8000, source: 'local' },
-  { id: 'loc-lower-kabete', name: 'Lower Kabete', city: 'Lower Kabete', region: 'Nairobi County', country: 'Kenya', lat: -1.2380, lng: 36.7750, source: 'local' },
-  { id: 'loc-arboretum', name: 'Arboretum', city: 'Arboretum', region: 'Nairobi County', country: 'Kenya', lat: -1.2830, lng: 36.8110, source: 'local' },
-  { id: 'loc-old-kitisuru', name: 'Old Kitisuru', city: 'Old Kitisuru', region: 'Nairobi County', country: 'Kenya', lat: -1.2260, lng: 36.7650, source: 'local' },
-  { id: 'loc-enaki-town', name: 'Enaki Town', city: 'Enaki Town', region: 'Nairobi County', country: 'Kenya', lat: -1.2320, lng: 36.7960, source: 'local' },
-];
+// Sourced from the canonical location registry (DB-backed) so a newly-added
+// neighbourhood is automatically searchable. Region is shown as the CITY
+// (e.g. "Nairobi") - never "Nairobi County", which is only an internal parent.
+function areaToSuggestion(a: NairobiArea): LocationSuggestion {
+  return {
+    id: `area-${a.slug}`,
+    name: a.name,
+    city: a.city,
+    region: a.city,
+    country: a.country,
+    lat: a.latitude ?? 0,
+    lng: a.longitude ?? 0,
+    source: 'local' as const,
+  };
+}
+
+// City-level option: "All Nairobi Areas"
+function citySuggestion(city: string): LocationSuggestion {
+  return {
+    id: `city-${city.toLowerCase()}`,
+    name: city,
+    city,
+    region: city,
+    country: 'Kenya',
+    lat: 0,
+    lng: 0,
+    source: 'local' as const,
+  };
+}
 
 const RECENT_STORAGE_KEY = 'location_search_recent';
 const MAX_RECENT = 5;
@@ -88,7 +103,18 @@ export default function LocationSearch({
   placeholderCycle,
   className = '',
   inputClassName = '',
+  boxClassName = '',
+  overlayClassName = '',
+  variant = 'default',
+  showIcon,
+  showNearMeButton,
+  embedded = false,
 }: LocationSearchProps) {
+  const isZoopla = variant === 'zoopla';
+  // Every location field (including the refined 'zoopla' variant used by the
+  // shared PropertySearchBar) shows a leading search icon.
+  const withIcon = showIcon ?? true;
+  const withNearMe = showNearMeButton ?? !isZoopla;
   const [query, setQuery] = useState(value);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -113,6 +139,9 @@ export default function LocationSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Canonical (DB-backed) location registry for area suggestions.
+  const { areas: canonicalAreas } = useCanonicalAreas();
 
   const mapboxToken = (import.meta as any).env?.VITE_PUBLIC_MAPBOX_TOKEN as string | undefined;
 
@@ -222,20 +251,33 @@ export default function LocationSearch({
       }
     }
 
-    // Local fallback
+    // Canonical registry fallback (DB-backed areas + aliases)
     if (!controller.signal.aborted) {
       const lower = trimmed.toLowerCase();
-      const matched = LOCAL_NEIGHBOURHOODS.filter(
-        (l) =>
-          l.name.toLowerCase().includes(lower) ||
-          l.city.toLowerCase().includes(lower) ||
-          l.region.toLowerCase().includes(lower)
-      ).slice(0, 6);
+      const areaMatches = canonicalAreas
+        .filter(
+          (a) =>
+            a.name.toLowerCase().includes(lower) ||
+            a.city.toLowerCase().includes(lower) ||
+            (a.aliases && a.aliases.some((al) => al.toLowerCase().includes(lower)))
+        )
+        .slice(0, 6)
+        .map(areaToSuggestion);
+
+      // City-level option (“All Nairobi Areas”) when the query is city-ish.
+      const cityMatches: LocationSuggestion[] = [];
+      if (['nairobi', 'naoirobi'].some((c) => c.startsWith(lower) || lower.includes('nairobi'))) {
+        cityMatches.push(citySuggestion('Nairobi'));
+      }
+      if (lower && 'mombasa'.startsWith(lower)) cityMatches.push(citySuggestion('Mombasa'));
+      if (lower && 'kisumu'.startsWith(lower)) cityMatches.push(citySuggestion('Kisumu'));
+
+      const matched = [...cityMatches, ...areaMatches].slice(0, 8);
       setSuggestions(matched);
       setIsOpen(matched.length > 0);
       setLoading(false);
     }
-  }, [mapboxToken]);
+  }, [mapboxToken, canonicalAreas]);
 
   // ── Debounced search ─────────────────────────────────────────────────
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -261,12 +303,38 @@ export default function LocationSearch({
     inputRef.current?.blur();
   };
 
+  // ── Commit a "Near me" result ───────────────────────────────────────
+  // Near-me is a DISTANCE-based search: we keep the query as the neutral
+  // label "Near me" (which the parser treats as no location filter) so the
+  // engine searches purely by the visitor's coordinates + radius, rather than
+  // narrowing to whichever neighbourhood happens to be nearest by name.
+  const commitNearMe = (suggestion: LocationSuggestion) => {
+    setQuery('Near me');
+    setIsOpen(false);
+    setActiveIdx(-1);
+    setGeoError(null);
+    addToRecent(suggestion);
+    setRecentSearches(loadRecent());
+    onChange('Near me', suggestion);
+    inputRef.current?.blur();
+  };
+
   // ── Keyboard navigation ──────────────────────────────────────────────
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!isOpen) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         fetchSuggestions(query);
+        return;
+      }
+      // Pressing Enter with no active dropdown commits the typed query as a
+      // search - so the Search button / Enter key always runs the query.
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (query.trim()) {
+          onChange(query, undefined);
+          inputRef.current?.blur();
+        }
         return;
       }
       return;
@@ -286,6 +354,14 @@ export default function LocationSearch({
         e.preventDefault();
         if (activeIdx >= 0 && activeIdx < items.length) {
           selectSuggestion(items[activeIdx]);
+        } else {
+          // No highlighted suggestion - commit the typed query as a search.
+          if (query.trim()) {
+            onChange(query, undefined);
+            setIsOpen(false);
+            setActiveIdx(-1);
+            inputRef.current?.blur();
+          }
         }
         break;
       case 'Escape':
@@ -355,7 +431,7 @@ export default function LocationSearch({
                   lng: longitude,
                   source: 'geolocation',
                 };
-                selectSuggestion(suggestion);
+                commitNearMe(suggestion);
                 return;
               }
             }
@@ -365,13 +441,14 @@ export default function LocationSearch({
         // Local fallback: find nearest known neighbourhood
         let nearest: LocationSuggestion | null = null;
         let minDist = Infinity;
-        for (const loc of LOCAL_NEIGHBOURHOODS) {
+        for (const loc of canonicalAreas) {
+          if (loc.latitude == null || loc.longitude == null) continue;
           const d = Math.sqrt(
-            (loc.lat - latitude) ** 2 + (loc.lng - longitude) ** 2
+            (loc.latitude - latitude) ** 2 + (loc.longitude - longitude) ** 2
           );
           if (d < minDist) {
             minDist = d;
-            nearest = loc;
+            nearest = areaToSuggestion(loc);
           }
         }
 
@@ -382,7 +459,7 @@ export default function LocationSearch({
             lng: longitude,
             source: 'geolocation',
           };
-          selectSuggestion(suggestion);
+          commitNearMe(suggestion);
         } else {
           const fallback: LocationSuggestion = {
             id: 'geo-fallback',
@@ -394,7 +471,7 @@ export default function LocationSearch({
             lng: longitude,
             source: 'geolocation',
           };
-          selectSuggestion(fallback);
+          commitNearMe(fallback);
         }
       },
       (error) => {
@@ -441,16 +518,18 @@ export default function LocationSearch({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {/* Input */}
-      <div className="relative flex-1 min-w-0 flex items-center gap-2.5 px-4 h-11 bg-white border border-primary/20 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20 transition-all">
-        <span className="w-5 h-5 flex items-center justify-center shrink-0">
-          <i className="ri-search-line text-stone-400 text-base"></i>
-        </span>
+      <div className={`relative flex-1 min-w-0 flex items-center gap-2.5 transition-all ${embedded ? 'px-4 h-[54px] bg-transparent' : `bg-white ${isZoopla ? 'px-4 h-[54px] border border-primary/60 rounded-[4px] focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/25' : 'px-4 h-11 border border-primary/20 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20'}`} ${boxClassName}`}>
+        {withIcon && (
+          <span className="w-5 h-5 flex items-center justify-center shrink-0">
+            <i className="ri-search-line text-stone-400 text-base"></i>
+          </span>
+        )}
 
         {/* Animated placeholder overlay (typewriter + cursor blink) */}
         {shouldAnimate && animText && (
-          <div className="absolute inset-0 flex items-center px-4 pointer-events-none z-[1]">
-            <span className="w-5 h-5 flex items-center justify-center shrink-0" />
-            <span className="flex-1 min-w-0 text-base font-roboto font-medium text-stone-400 truncate ml-2.5">
+          <div className={`absolute inset-0 flex items-center px-4 pointer-events-none z-[1] ${overlayClassName}`}>
+            {withIcon && <span className="w-5 h-5 flex items-center justify-center shrink-0" />}
+            <span className={`flex-1 min-w-0 text-base font-roboto font-medium text-stone-400 truncate ${withIcon ? 'ml-2.5' : ''}`}>
               {animText}
               <span className="inline-block w-[2px] h-[1.1em] bg-stone-400/60 ml-0.5 align-middle animate-[cursor-blink_1s_step-end_infinite]" />
             </span>
@@ -479,9 +558,28 @@ export default function LocationSearch({
         {loading && (
           <PageLoader size={20} />
         )}
+        {withNearMe && !geoLoading && (
+          <button
+            onClick={handleNearMe}
+            aria-label="Search near me"
+            title="Search near me"
+            className="w-6 h-6 flex items-center justify-center text-primary/60 hover:text-primary hover:bg-primary/10 rounded-full transition-colors cursor-pointer shrink-0"
+          >
+            <i className="ri-crosshair-line text-base"></i>
+          </button>
+        )}
+        {withNearMe && geoLoading && (
+          <span className="w-6 h-6 flex items-center justify-center shrink-0">
+            <PageLoader size={16} />
+          </span>
+        )}
         {query && !loading && (
-          <button onClick={handleClear} className="w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-600 cursor-pointer">
-            <i className="ri-close-line text-sm"></i>
+          <button
+            onClick={handleClear}
+            aria-label="Clear location"
+            className={isZoopla ? 'w-7 h-7 flex items-center justify-center text-primary/70 hover:text-primary transition-colors cursor-pointer shrink-0' : 'w-5 h-5 flex items-center justify-center text-stone-400 hover:text-stone-600 cursor-pointer'}
+          >
+            <i className={isZoopla ? 'ri-close-line text-xl' : 'ri-close-line text-sm'}></i>
           </button>
         )}
       </div>

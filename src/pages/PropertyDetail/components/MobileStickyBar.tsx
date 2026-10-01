@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { DEFAULT_CONTACT, toTelHref } from '@/lib/contactDefaults';
 
 interface MobileStickyBarProps {
   propertyTitle: string;
@@ -6,7 +6,7 @@ interface MobileStickyBarProps {
 }
 
 export default function MobileStickyBar({ agentPhone, propertyTitle }: MobileStickyBarProps) {
-  const phoneNumber = agentPhone || '+254 7111393806';
+  const phoneNumber = agentPhone || DEFAULT_CONTACT.phone;
 
   const scrollToContact = () => {
     const el = document.getElementById('section-contact');
@@ -19,10 +19,11 @@ export default function MobileStickyBar({ agentPhone, propertyTitle }: MobileSti
     <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-primary/12 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
       <div className="flex items-center gap-3">
         <a
-          href={`tel:${phoneNumber}`}
-          className="w-12 h-12 flex items-center justify-center border border-primary/12 rounded-[2px] text-primary shrink-0 cursor-pointer"
+          href={toTelHref(phoneNumber)}
+          className="flex-1 h-12 flex items-center justify-center gap-2 border border-primary rounded-[2px] text-primary font-roboto text-xs font-semibold uppercase tracking-wider shrink-0 cursor-pointer whitespace-nowrap"
         >
           <i className="ri-phone-line text-lg"></i>
+          Call
         </a>
         <button
           onClick={scrollToContact}

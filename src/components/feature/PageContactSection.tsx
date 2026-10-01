@@ -1,15 +1,17 @@
 import { useState, FormEvent } from 'react';
 import { useContactSections } from '@/hooks/useContactSections';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import PageLoader from '@/components/feature/PageLoader';
+import { DEFAULT_CONTACT, formatPhoneDisplay, toTelHref } from '@/lib/contactDefaults';
 
 const FALLBACK = {
-  name: 'Oceans Nairobi',
+  name: 'Oceans Kenya',
   tagline: 'Estate & Letting Agents',
   cityLine: 'Nairobi | Kenya',
-  address: 'Plot 9, Riverside Drive, Westlands, Nairobi, Kenya',
-  phone: '+254703712984',
-  email: 'ask@oceanske.com',
+  address: 'Plot 9, Mandera Rd , Kilelleshwa, Nairobi',
+  phone: DEFAULT_CONTACT.phone,
+  email: DEFAULT_CONTACT.email,
   image: 'https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp',
 };
 
@@ -17,13 +19,15 @@ const FORM_URL = 'https://readdy.ai/api/form/d9bofl832e7atrj5h7qg';
 
 export default function PageContactSection() {
   const { sections, loading } = useContactSections();
+  const { getSite } = useSiteSettings();
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
 
   const section = sections[0];
-  const companyName = section?.title || FALLBACK.name;
+  const companyName = section?.title || getSite('site_name') || FALLBACK.name;
   const companyTagline = section?.subtitle || FALLBACK.tagline;
-  const companyPhone = section?.phone || FALLBACK.phone;
-  const companyEmail = section?.email || FALLBACK.email;
+  const companyPhone = section?.phone || getSite('contact_phone') || FALLBACK.phone;
+  const companyEmail = section?.email || getSite('contact_email') || FALLBACK.email;
+  const companyAddress = getSite('address') || FALLBACK.address;
   const companyImage = section?.profile_image || FALLBACK.image;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -63,10 +67,10 @@ export default function PageContactSection() {
     <section id="contact" className="py-14 sm:py-20 px-3 md:px-6 lg:px-10" style={{ backgroundColor: '#FFFFFF' }}>
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16 items-start">
-          {/* Left – Company Info */}
+          {/* Left - Company Info */}
           <div className="md:col-span-1 pb-6 md:pb-8 bg-white" style={{ boxShadow: '0 1px 2px rgba(0, 23, 49, 0.04), 0 4px 12px rgba(0, 23, 49, 0.06), 0 16px 48px rgba(0, 23, 49, 0.08)', borderRadius: '2px' }}>
             <div className="w-full overflow-hidden mb-5" style={{ aspectRatio: '4 / 5' }}>
-              <img alt={companyName} className="w-full h-full object-cover object-top" src={companyImage} />
+              <img alt={companyName} className="w-full h-full object-cover object-center" src={companyImage} />
             </div>
             <div className="px-5 md:px-6">
             <h3 className="font-prata font-bold text-primary text-[32px] leading-snug mb-0.5">{companyName}</h3>
@@ -76,20 +80,20 @@ export default function PageContactSection() {
             <div className="mb-4">
               <p className="font-roboto text-lg font-normal text-primary mb-0.5">{FALLBACK.cityLine}</p>
               <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(FALLBACK.address)}`}
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(companyAddress)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="font-roboto text-lg text-stone-500 leading-relaxed hover:text-primary hover:underline underline-offset-4 transition-colors cursor-pointer"
               >
-                {FALLBACK.address}
+                {companyAddress}
               </a>
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-5 h-5 flex items-center justify-center">
                 <i className="ri-phone-line text-lg font-semibold" style={{ color: 'rgb(201, 168, 76)' }}></i>
               </div>
-              <a href={`tel:${companyPhone.replace(/[^+\d]/g, '')}`} className="font-roboto text-lg font-normal text-stone-600 hover:text-primary hover:underline underline-offset-4 transition-colors cursor-pointer">
-                {companyPhone}
+              <a href={toTelHref(companyPhone)} className="font-roboto text-lg font-normal text-stone-600 hover:text-primary hover:underline underline-offset-4 transition-colors cursor-pointer">
+                {formatPhoneDisplay(companyPhone)}
               </a>
             </div>
             <div className="flex items-center gap-2">
@@ -103,7 +107,7 @@ export default function PageContactSection() {
             </div>
           </div>
 
-          {/* Right – Contact Form */}
+          {/* Right - Contact Form */}
           <div className="md:col-span-2 pb-6 md:pb-8">
             <div className="mb-6">
               <h2 className="font-roboto font-bold text-primary mb-2" style={{ fontSize: 'clamp(1.75rem, 4vw, 2.5rem)' }}>
@@ -113,31 +117,31 @@ export default function PageContactSection() {
                 Buying, Renting or Leasing Prime<br className="md:hidden" /> Residential?
               </p>
             </div>
-            <div className="bg-white p-6 sm:p-8 md:p-10 w-full" style={{ boxShadow: '0 1px 2px rgba(0, 23, 49, 0.04), 0 4px 12px rgba(0, 23, 49, 0.06), 0 16px 48px rgba(0, 23, 49, 0.08)', borderRadius: '2px' }}>
+            <div className="bg-white p-6 sm:p-8 md:p-10 w-full border border-primary/10" style={{ boxShadow: '0 1px 2px rgba(0, 23, 49, 0.04), 0 4px 12px rgba(0, 23, 49, 0.06), 0 16px 48px rgba(0, 23, 49, 0.08)', borderRadius: '2px' }}>
               <form data-readdy-form="true" onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">First Name</label>
-                    <input required name="first_name" placeholder="Enter your name" className="w-full px-4 py-3 border-2 border-primary/40 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input required name="first_name" placeholder="Enter your name" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
                   </div>
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">Last Name</label>
-                    <input required name="last_name" placeholder="Enter your last name" className="w-full px-4 py-3 border-2 border-primary/40 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input required name="last_name" placeholder="Enter your last name" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">Email</label>
-                    <input required type="email" name="email" placeholder="Enter your email" className="w-full px-4 py-3 border-2 border-primary/40 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input required type="email" name="email" placeholder="Enter your email" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
                   </div>
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">Phone Number</label>
-                    <input type="tel" name="phone" placeholder="Enter your phone" className="w-full px-4 py-3 border-2 border-primary/40 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input type="tel" name="phone" placeholder="Enter your phone" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-roboto font-semibold text-primary mb-2">Enquiry Type</label>
-                  <select name="enquiry_type" className="w-full px-4 py-3 border-2 border-primary/40 text-base font-roboto font-normal text-primary focus:outline-none focus:border-primary cursor-pointer" style={{ borderRadius: '1px' }}>
+                  <select name="enquiry_type" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary focus:outline-none focus:border-primary cursor-pointer" style={{ borderRadius: '1px' }}>
                     <option value="buy">Buying a Property</option>
                     <option value="rent">Renting a Property</option>
                     <option value="sell">Selling a Property</option>
@@ -149,7 +153,7 @@ export default function PageContactSection() {
                 </div>
                 <div>
                   <label className="block text-sm font-roboto font-semibold text-primary mb-2">Message</label>
-                  <textarea name="message" rows={5} required maxLength={500} placeholder="How can we help you?" className="w-full px-4 py-3 border-2 border-primary/40 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors resize-none" style={{ borderRadius: '1px' }}></textarea>
+                  <textarea name="message" rows={5} required maxLength={500} placeholder="How can we help you?" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors resize-none" style={{ borderRadius: '1px' }}></textarea>
                 </div>
 
                 {/* Anti-spam honeypot */}
@@ -157,7 +161,7 @@ export default function PageContactSection() {
 
                 <button
                   type="submit"
-                  disabled={formStatus === 'submitting'}
+                  disabled={formStatus === 'submitting' || formStatus === 'success'}
                   className="w-full px-5 py-3 bg-primary hover:bg-accent text-white font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                   style={{ borderRadius: '1px' }}
                 >
@@ -178,7 +182,15 @@ export default function PageContactSection() {
               </form>
 
               {formStatus === 'success' && (
-                <p className="mt-4 text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll be in touch shortly.</p>
+                <div className="mt-4 flex items-start gap-3 p-4 bg-green-50 border-2 border-green-200 rounded-lg" role="status">
+                  <span className="w-6 h-6 flex items-center justify-center rounded-full bg-green-100 shrink-0">
+                    <i className="ri-check-line text-green-600"></i>
+                  </span>
+                  <div className="text-left">
+                    <p className="text-green-700 font-roboto font-semibold text-sm">Message sent successfully!</p>
+                    <p className="text-green-600 font-roboto text-xs mt-0.5">Thank you - we&apos;ll be in touch shortly. No need to send it again.</p>
+                  </div>
+                </div>
               )}
               {formStatus === 'error' && (
                 <p className="mt-4 text-red-500 text-sm font-roboto text-center">{formError}</p>

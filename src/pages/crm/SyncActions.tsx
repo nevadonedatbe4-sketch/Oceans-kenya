@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
 import {
-  Save, Loader2, RefreshCw, Trash2, RotateCcw, Hammer,
+  Save, Loader2, RefreshCw, Trash2, RotateCcw, Hammer, ImageIcon,
   Check, AlertCircle, Clock,
 } from 'lucide-react';
 
@@ -28,6 +28,7 @@ export default function SyncActions() {
     cache: { ...INITIAL_STATE, lastRun: localStorage.getItem('oceans_last_cache') },
     rebuild: { ...INITIAL_STATE, lastRun: localStorage.getItem('oceans_last_rebuild') },
     reset: { ...INITIAL_STATE, lastRun: localStorage.getItem('oceans_last_reset') },
+    photos: { ...INITIAL_STATE, lastRun: localStorage.getItem('oceans_last_photos') },
   });
 
   const updateState = (key: string, updates: Partial<ActionState>) => {
@@ -133,6 +134,35 @@ export default function SyncActions() {
     }
   };
 
+  /**
+   * Pull real photos from each place's own website. The backend function works
+   * in small batches, so we call it repeatedly until it reports nothing left.
+   */
+  const handleFetchPhotos = async () => {
+    updateState('photos', { loading: true, success: false, error: null });
+    try {
+      let fetched = 0;
+      let remaining = 1;
+      let guard = 0;
+      while (remaining > 0 && guard < 80) {
+        const { data, error: fnError } = await supabase.functions.invoke('fetch-place-images', {
+          body: { limit: 10 },
+        });
+        if (fnError) throw fnError;
+        fetched += Number(data?.updated) || 0;
+        remaining = Number(data?.remaining) || 0;
+        guard += 1;
+      }
+      broadcastSync();
+      updateState('photos', { loading: false, success: true });
+      setLastRun('photos', new Date().toISOString());
+      showToast(fetched > 0 ? `Fetched ${fetched} place photo${fetched === 1 ? '' : 's'}` : 'No new photos to fetch', 'success');
+    } catch (err: any) {
+      updateState('photos', { loading: false, error: err?.message || 'Failed to fetch photos' });
+      showToast('Photo fetch failed', 'error');
+    }
+  };
+
   const actions = [
     {
       key: 'save',
@@ -165,6 +195,14 @@ export default function SyncActions() {
       icon: Hammer,
       color: 'blue',
       onClick: handleRebuild,
+    },
+    {
+      key: 'photos',
+      label: 'Fetch Place Photos',
+      desc: 'Pull real photos from each place\u2019s own website',
+      icon: ImageIcon,
+      color: 'primary',
+      onClick: handleFetchPhotos,
     },
     {
       key: 'reset',

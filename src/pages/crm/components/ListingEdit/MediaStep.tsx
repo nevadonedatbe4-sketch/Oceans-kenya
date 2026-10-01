@@ -49,7 +49,7 @@ const SectionHeader = ({
 );
 
 const inputBase =
-  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+  'w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
 
 export default function MediaStep({
   images, setImages, mainImage, setMainImage, coverImage, setCoverImage,
@@ -296,7 +296,7 @@ export default function MediaStep({
 
         {/* Video Tour URL */}
         <div className="pt-4 border-t border-[#d1d5db]">
-          <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
+          <label className="block text-base font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
             <i className="ri-video-line text-[#0d5959]" />
             Video Tour URL <span className="text-[#7a8a99] font-normal">(optional)</span>
           </label>
@@ -323,7 +323,7 @@ export default function MediaStep({
         {/* Floor Plans */}
         {!isLandType(propertyType || '') && (
           <div className="pt-4 border-t border-[#d1d5db]">
-            <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
+            <label className="block text-base font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
               <i className="ri-layout-2-line text-[#0d5959]" />
               Floor Plans <span className="text-[#7a8a99] font-normal">(optional)</span>
             </label>
@@ -379,7 +379,7 @@ export default function MediaStep({
 
         {/* Virtual Tour URL */}
         <div className="pt-4 border-t border-[#d1d5db]">
-          <label className="block text-sm font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
+          <label className="block text-base font-bold text-[#1a1e24] mb-2 flex items-center gap-2">
             <i className="ri-global-line text-[#0d5959]" />
             Virtual Tour URL <span className="text-[#7a8a99] font-normal">(optional)</span>
           </label>

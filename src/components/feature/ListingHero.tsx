@@ -7,6 +7,12 @@ interface Props {
   defaultSubtitle?: string;
 }
 
+/** Keep hero text at a legible minimum weight (eyebrow 600, subtitle 500, title 600). */
+function weightAtLeast(value: string | undefined, floor: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.max(floor, n) : floor;
+}
+
 export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaultSubtitle }: Props) {
   // Show nothing during loading (hero is null)
   if (!hero) return null;
@@ -39,7 +45,7 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
         {eyebrow && (
           <p
             style={{
-              fontWeight: hero.eyebrowWeight || '400',
+              fontWeight: weightAtLeast(hero.eyebrowWeight, 600),
               fontSize: `clamp(10px, 2vw, ${hero.eyebrowSize || '12'}px)`,
               letterSpacing: `${hero.eyebrowSpacing || '0.3'}em`,
               textTransform: (hero.eyebrowTransform || 'uppercase') as any,
@@ -55,7 +61,7 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
           <h1
             style={{
               fontFamily: hero.titleFont || undefined,
-              fontWeight: hero.titleWeight || '400',
+              fontWeight: weightAtLeast(hero.titleWeight, 600),
               fontSize: `clamp(20px, 5vw, ${hero.titleSize || '48'}px)`,
               letterSpacing: `${hero.titleSpacing || '0'}em`,
               lineHeight: hero.titleLineHeight || '1.2',
@@ -73,7 +79,7 @@ export default function ListingHero({ hero, defaultEyebrow, defaultTitle, defaul
           <p
             style={{
               fontFamily: hero.subtitleFont || undefined,
-              fontWeight: hero.subtitleWeight || '400',
+              fontWeight: weightAtLeast(hero.subtitleWeight, 500),
               fontSize: `clamp(11px, 2.5vw, ${hero.subtitleSize || '14'}px)`,
               letterSpacing: `${hero.subtitleSpacing || '0'}em`,
               lineHeight: hero.subtitleLineHeight || '1.5',

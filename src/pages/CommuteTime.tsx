@@ -1,15 +1,19 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import ContactAgentModal from '@/components/feature/ContactAgentModal';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import { supabase } from '@/lib/supabase';
+import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
 import { useCurrency } from '@/hooks/useCurrency';
 import { smartTitleCase } from '@/lib/location';
 import PageLoader from '@/components/feature/PageLoader';
+import CommuteMap from '@/components/feature/CommuteMap';
+import EntityImage from '@/components/feature/EntityImage';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -87,8 +91,6 @@ const TIME_RANGES: { label: string; minutes: number }[] = [
   { label: 'Any', minutes: 999 },
 ];
 
-const FALLBACK_IMAGE = 'https://readdy.ai/api/search-image?query=Modern%20luxury%20real%20estate%20property%20exterior%20with%20clean%20white%20walls%20and%20large%20windows%20in%20bright%20daylight%2C%20architectural%20photography%2C%20minimalist%20design%2C%20tropical%20landscaping%2C%20blue%20sky%20background&width=800&height=600&seq=ct-fallback-2026&orientation=landscape';
-
 // ── Helpers ────────────────────────────────────────────
 
 function toCategoryLabel(cat: string): string {
@@ -118,14 +120,14 @@ function formatListingLocation(row: ListingRow): string {
   if (neighbourhood) return smartTitleCase(neighbourhood);
   if (location && location.toLowerCase() !== 'nairobi') return smartTitleCase(location);
   if (city) return smartTitleCase(city);
-  return smartTitleCase(location) || '—';
+  return smartTitleCase(location) || '-';
 }
 
 function mapListingToProperty(row: ListingRow): CommuteProperty {
   const purpose = String(row.purpose || 'sale');
   const mainImg = String(row.main_image || '');
   const images = row.images || [];
-  const image = mainImg || (images.length > 0 ? images[0] : FALLBACK_IMAGE);
+  const image = mainImg || images[0] || '';
 
   return {
     id: row.id,
@@ -156,9 +158,10 @@ export default function CommuteTime() {
   const { format } = useCurrency();
 
   // Search state
-  const [selectedDest, setSelectedDest] = useState(0);
+  const [selectedDest, setSelectedDest] = useState(5); // Lavington Curve is the default area
   const [transportMode, setTransportMode] = useState<string>('Driving');
   const [timeRangeIndex, setTimeRangeIndex] = useState(1); // "Under 30 min"
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   // Data state
   const [allProperties, setAllProperties] = useState<CommuteProperty[]>([]);
@@ -182,21 +185,36 @@ export default function CommuteTime() {
       setLoading(true);
       setError('');
       try {
-        const { data, error: dbError } = await supabase
-          .from('listings')
-          .select('id,title,location,address,neighbourhood,city,price,property_type,bedrooms,bathrooms,parking,slug,main_image,images,purpose,currency,latitude,longitude')
-          .eq('is_published', true)
-          .neq('title', '')
-          .gt('price', 0)
-          .in('status', ['available', 'under_contract'])
-          .order('created_at', { ascending: false })
-          .limit(30);
+        const PAGE_SIZE = 1000;
+        const allRows: ListingRow[] = [];
+        let from = 0;
+        let hasMore = true;
 
-        if (dbError) throw dbError;
+        while (hasMore && !cancelled) {
+          const { data, error: dbError } = await supabase
+            .from('all_listings')
+            .select('id,title,location,address,neighbourhood,city,price,property_type,bedrooms,bathrooms,parking,slug,main_image,images,purpose,currency,latitude,longitude')
+            .eq('is_published', true)
+            .neq('title', '')
+            .not('status', 'in', NON_PUBLIC_STATUS_LIST)
+            .order('created_at', { ascending: false })
+            .range(from, from + PAGE_SIZE - 1);
+
+          if (dbError) throw dbError;
+
+          const rows = (data || []) as ListingRow[];
+          allRows.push(...rows);
+
+          if (rows.length < PAGE_SIZE) {
+            hasMore = false;
+          } else {
+            from += PAGE_SIZE;
+          }
+        }
+
         if (cancelled) return;
 
-        const rows = (data || []) as ListingRow[];
-        const mapped = rows.map(mapListingToProperty);
+        const mapped = allRows.map(mapListingToProperty);
         setAllProperties(mapped);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -207,6 +225,26 @@ export default function CommuteTime() {
       }
     }
     fetchListings();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Load default time range from CRM settings ─────────
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchDefaultTimeRange() {
+      const { data, error } = await supabase
+        .from('map_settings')
+        .select('value')
+        .eq('key', 'commute_default_time_range')
+        .maybeSingle();
+
+      if (cancelled || error) return;
+
+      const minutes = data?.value ? parseInt(String(data.value), 10) : NaN;
+      const idx = TIME_RANGES.findIndex((t) => t.minutes === minutes);
+      if (idx >= 0) setTimeRangeIndex(idx);
+    }
+    fetchDefaultTimeRange();
     return () => { cancelled = true; };
   }, []);
 
@@ -221,7 +259,7 @@ export default function CommuteTime() {
     ).map((p) => ({ id: p.id, lat: p._lat as number, lng: p._lng as number }));
 
     if (listingsWithCoords.length === 0) {
-      // No coordinates available — keep distance as null
+      // No coordinates available - keep distance as null
       setEnrichedProperties(allProperties.map((p) => ({ ...p, distanceKm: null, commuteTimeMin: null, commuteTimeText: null, commuteAvailable: false })));
       setCommuteLoading(false);
       return;
@@ -237,7 +275,7 @@ export default function CommuteTime() {
             destinationLat: destination.lat,
             destinationLng: destination.lng,
             transportMode,
-            listings: listingsWithCoords,
+            listings: listingsWithCoords.map((p) => ({ id: p.id, lat: p._lat, lng: p._lng })),
           }),
         }
       );
@@ -271,6 +309,7 @@ export default function CommuteTime() {
     } finally {
       setCommuteLoading(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allProperties, destination.lat, destination.lng, transportMode]);
 
   useEffect(() => {
@@ -279,7 +318,7 @@ export default function CommuteTime() {
 
   // ── Filtering ─────────────────────────────────────────
   const filtered = useMemo(() => {
-    return enrichedProperties.filter((p) => {
+    const matches = enrichedProperties.filter((p) => {
       // If no commute time available, include based on distance (under ~20km radius if "Any")
       if (!p.commuteAvailable && p.distanceKm === null) {
         return maxMinutes === 999; // only show in "Any" mode
@@ -294,7 +333,27 @@ export default function CommuteTime() {
       }
       return false;
     });
+
+    // Sort by proximity to the selected area so the closest properties surface first
+    return matches.sort((a, b) => {
+      const aKey = a.commuteTimeMin ?? (a.distanceKm !== null ? a.distanceKm * 2.5 : Number.MAX_SAFE_INTEGER);
+      const bKey = b.commuteTimeMin ?? (b.distanceKm !== null ? b.distanceKm * 2.5 : Number.MAX_SAFE_INTEGER);
+      return aKey - bKey;
+    });
   }, [enrichedProperties, maxMinutes]);
+
+  // Fallback: when nothing falls within the chosen time window, surface the
+  // closest properties instead of a dead end.
+  const closestProperties = useMemo(() => {
+    return [...enrichedProperties].sort((a, b) => {
+      const aKey = a.commuteTimeMin ?? (a.distanceKm !== null ? a.distanceKm * 2.5 : Number.MAX_SAFE_INTEGER);
+      const bKey = b.commuteTimeMin ?? (b.distanceKm !== null ? b.distanceKm * 2.5 : Number.MAX_SAFE_INTEGER);
+      return aKey - bKey;
+    });
+  }, [enrichedProperties]);
+
+  const isFallback = filtered.length === 0 && enrichedProperties.length > 0;
+  const displayProperties = isFallback ? closestProperties : filtered;
 
   const avgDistance = useMemo(() => {
     const withDistance = filtered.filter((p) => p.distanceKm !== null);
@@ -314,6 +373,26 @@ export default function CommuteTime() {
     return enrichedProperties.some((p) => p.commuteAvailable);
   }, [enrichedProperties]);
 
+  // ── Pins for the map view ─────────────────────────────
+  const mapPins = useMemo(() => {
+    return displayProperties
+      .filter((p) => typeof p._lat === 'number' && typeof p._lng === 'number')
+      .map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        lat: p._lat as number,
+        lng: p._lng as number,
+        title: p.title,
+        priceLabel: format(p.priceRaw, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR'),
+        commuteLabel: p.commuteAvailable && p.commuteTimeMin !== null
+          ? `${p.commuteTimeMin} min to ${destination.name}`
+          : p.distanceKm !== null
+            ? `${p.distanceKm} km to ${destination.name}`
+            : '',
+        image: p.image,
+      }));
+  }, [displayProperties, destination.name, format]);
+
   // ── Map URL ───────────────────────────────────────────
   const mapUrl = useMemo(() => {
     return `https://www.google.com/maps?q=${destination.lat},${destination.lng}&z=13&output=embed`;
@@ -321,8 +400,10 @@ export default function CommuteTime() {
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[120px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
+
+      <PageBreadcrumbs />
 
       {/* Hero / Search */}
       <div className="bg-background-100 border-b border-background-200">
@@ -422,14 +503,41 @@ export default function CommuteTime() {
 
       {/* Main Content */}
       <main className="flex-1 px-4 md:px-6 lg:px-10 py-8 max-w-[1400px] mx-auto w-full">
+        {/* Toolbar: heading + view toggle */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-heading font-semibold text-foreground-950">
+            {commuteLoading ? 'Calculating distances...' : `Results for ${destination.name}`}
+          </h2>
+          <div className="flex gap-1 bg-background-100 rounded-full p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-label font-semibold cursor-pointer whitespace-nowrap transition-colors ${viewMode === 'list' ? 'bg-white text-foreground-950' : 'text-foreground-500 hover:text-foreground-700'}`}
+            >
+              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                <i className="ri-list-check-2 text-sm"></i>
+              </span>
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-label font-semibold cursor-pointer whitespace-nowrap transition-colors ${viewMode === 'map' ? 'bg-white text-foreground-950' : 'text-foreground-500 hover:text-foreground-700'}`}
+            >
+              <span className="w-3.5 h-3.5 flex items-center justify-center">
+                <i className="ri-map-pin-line text-sm"></i>
+              </span>
+              Map
+            </button>
+          </div>
+        </div>
+
+        {viewMode === 'map' ? (
+          <div className="bg-background-50 border border-background-200 rounded-lg overflow-hidden h-[62vh] min-h-[480px]">
+            <CommuteMap destination={destination} pins={mapPins} />
+          </div>
+        ) : (
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Results */}
           <div className="lg:w-[60%] xl:w-[65%]">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-heading font-semibold text-foreground-950">
-                {commuteLoading ? 'Calculating distances...' : `Results for ${destination.name}`}
-              </h2>
-            </div>
 
             {/* DB Error */}
             {error && (
@@ -478,7 +586,21 @@ export default function CommuteTime() {
                   </div>
                 )}
 
-                {filtered.map((p) => (
+                {isFallback && (
+                  <div className="flex items-start gap-3 bg-accent/10 border border-accent/25 rounded-lg p-4">
+                    <span className="w-5 h-5 flex items-center justify-center shrink-0 mt-0.5 text-accent">
+                      <i className="ri-information-line text-base"></i>
+                    </span>
+                    <div>
+                      <p className="text-sm font-roboto font-bold text-primary">No exact matches</p>
+                      <p className="text-xs font-roboto text-primary/70 mt-0.5">
+                        Nothing falls within your {TIME_RANGES[timeRangeIndex].label.toLowerCase()} window of {destination.name}. Showing the closest properties instead.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {displayProperties.map((p) => (
                   <div
                     key={p.id}
                     className="flex flex-col sm:flex-row bg-background-50 border border-background-200 rounded-lg overflow-hidden sm:h-[220px] hover:border-background-300 transition-colors duration-200 group"
@@ -486,10 +608,10 @@ export default function CommuteTime() {
                     {/* Image */}
                     <div className="relative sm:w-[260px] lg:w-[300px] h-[180px] sm:h-full flex-shrink-0 overflow-hidden">
                       <Link to={`/property/${p.slug}`} className="block w-full h-full">
-                        <img
+                        <EntityImage
                           src={p.image}
                           alt={p.title}
-                          className="w-full h-full object-cover object-top"
+                          className="w-full h-full object-cover object-center"
                           loading="lazy"
                         />
                       </Link>
@@ -512,7 +634,7 @@ export default function CommuteTime() {
                           e.stopPropagation();
                           setQuickViewProperty(p);
                         }}
-                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
+                        className="absolute bottom-3 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 cursor-pointer"
                       >
                         <span className="flex items-center gap-1 text-background-50 text-[10px] font-label font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-foreground-950/60 rounded-sm hover:bg-foreground-950/80 transition-colors">
                           <span className="w-3.5 h-3.5 flex items-center justify-center">
@@ -529,15 +651,15 @@ export default function CommuteTime() {
                         <span className="font-heading font-bold text-lg md:text-xl text-foreground-950">
                           {format(p.priceRaw, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
                         </span>
-                        {p.priceUnit && <span className="text-sm text-foreground-500 font-body ml-1">{p.priceUnit}</span>}
+                        {p.priceRaw > 0 && p.priceUnit && <span className="text-sm text-foreground-500 font-body ml-1">{p.priceUnit}</span>}
 
                         <Link to={`/property/${p.slug}`} className="block hover:underline mt-1">
-                          <h3 className="font-heading font-bold text-sm md:text-base text-foreground-950 leading-snug mb-1">{p.title}</h3>
+                          <h3 className="font-heading font-medium text-sm md:text-base text-foreground-900 leading-snug mb-1">{p.title}</h3>
                         </Link>
 
                         <p className="flex items-center gap-1.5 text-sm font-body text-foreground-500 mb-2">
                           <span className="w-4 h-4 flex items-center justify-center shrink-0">
-                            <i className="ri-map-pin-line text-primary-500 text-sm"></i>
+                            <i className="ri-map-pin-line text-foreground-500 text-sm"></i>
                           </span>
                           {p.location}
                         </p>
@@ -547,7 +669,7 @@ export default function CommuteTime() {
                           {p.beds > 0 && (
                             <span className="flex items-center gap-1 text-xs font-body text-foreground-600">
                               <span className="w-3.5 h-3.5 flex items-center justify-center">
-                                <i className="ri-hotel-bed-line text-primary-500 text-sm"></i>
+                                <i className="ri-hotel-bed-line text-foreground-500 text-sm"></i>
                               </span>
                               {p.beds}
                             </span>
@@ -555,7 +677,7 @@ export default function CommuteTime() {
                           {p.baths > 0 && (
                             <span className="flex items-center gap-1 text-xs font-body text-foreground-600">
                               <span className="w-3.5 h-3.5 flex items-center justify-center">
-                                <i className="ri-showers-line text-primary-500 text-sm"></i>
+                                <i className="ri-showers-line text-foreground-500 text-sm"></i>
                               </span>
                               {p.baths}
                             </span>
@@ -563,7 +685,7 @@ export default function CommuteTime() {
                           {p.parking > 0 && (
                             <span className="flex items-center gap-1 text-xs font-body text-foreground-600">
                               <span className="w-3.5 h-3.5 flex items-center justify-center">
-                                <i className="ri-car-line text-primary-500 text-sm"></i>
+                                <i className="ri-car-line text-foreground-500 text-sm"></i>
                               </span>
                               {p.parking}
                             </span>
@@ -573,7 +695,7 @@ export default function CommuteTime() {
                         {/* Commute detail */}
                         <div className="flex items-center gap-2 text-xs font-body">
                           <span className="w-4 h-4 flex items-center justify-center shrink-0">
-                            <i className="ri-route-line text-primary-500 text-sm"></i>
+                            <i className="ri-route-line text-foreground-500 text-sm"></i>
                           </span>
                           {p.distanceKm !== null ? (
                             <span className="text-foreground-500">
@@ -591,7 +713,7 @@ export default function CommuteTime() {
                       <div className="flex items-end justify-between gap-3 pt-3 border-t border-background-200 mt-2">
                         <span className="text-xs font-body text-foreground-400">{p.type === 'rent' ? 'To rent' : 'For sale'}</span>
                         <div className="flex items-center gap-3 shrink-0">
-                          <a href="tel:+254703712984" className="flex items-center gap-1.5 text-sm font-body text-foreground-600 hover:text-primary-500 transition-colors cursor-pointer whitespace-nowrap">
+                          <a href="tel:+254181408186" className="flex items-center gap-1.5 text-sm font-body text-foreground-600 hover:text-primary-500 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-4 h-4 flex items-center justify-center">
                               <i className="ri-phone-line text-sm"></i>
                             </span>
@@ -610,7 +732,7 @@ export default function CommuteTime() {
                 ))}
 
                 {/* Empty state */}
-                {!commuteLoading && filtered.length === 0 && (
+                {!commuteLoading && enrichedProperties.length === 0 && (
                   <div className="text-center py-16">
                     <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-background-100 rounded-full">
                       <i className="ri-route-line text-foreground-400 text-xl"></i>
@@ -630,7 +752,7 @@ export default function CommuteTime() {
               <div className="bg-background-50 border border-background-200 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-background-200">
                   <h3 className="text-sm font-heading font-semibold text-foreground-950">
-                    Map &mdash; {destination.name}
+                    Map - {destination.name}
                   </h3>
                 </div>
                 <div className="h-[300px]">
@@ -642,7 +764,7 @@ export default function CommuteTime() {
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title={`Commute map — ${destination.name}`}
+                    title={`Commute map - ${destination.name}`}
                   ></iframe>
                 </div>
                 {!anyCommuteAvailable && (
@@ -692,7 +814,7 @@ export default function CommuteTime() {
                     <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
                       <i className="ri-time-line text-primary-500 text-xs"></i>
                     </span>
-                    Morning peak hours in Nairobi are 7:00 &mdash; 9:00 AM
+                    Morning peak hours in Nairobi are 7:00 - 9:00 AM
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
@@ -711,6 +833,7 @@ export default function CommuteTime() {
             </div>
           </div>
         </div>
+        )}
       </main>
 
       <PageContactSection />

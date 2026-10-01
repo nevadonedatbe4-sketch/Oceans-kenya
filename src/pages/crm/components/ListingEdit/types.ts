@@ -24,6 +24,17 @@ export interface FeatureItem {
   checked: boolean;
 }
 
+export interface DeveloperProject {
+  id: string;
+  project_name: string;
+  property_address: string;
+  area_location: string;
+  contact_name: string;
+  contact_phone: string;
+  contact_email: string;
+  contact_address: string;
+}
+
 export interface ListingFormState {
   title: string;
   slug: string;
@@ -33,7 +44,7 @@ export interface ListingFormState {
   propertyType: string;
   propertyCategory: string;
   subType: string;
-  purpose: ListingPurpose;
+  purpose: 'sale' | 'rent' | 'joint_ventures' | 'new_development' | 'short_stay' | 'sold' | 'rented';
   price: string;
   currency: string;
   bedrooms: number;
@@ -102,6 +113,26 @@ export interface ListingFormState {
   focalPoint: { x: number; y: number };
   cropPreset: string;
   dragImage: string | null;
+  // Marketing toggles for new development
+  totalUnits: number;
+  unitsSold: number;
+  unitsReserved: number;
+  unitsRented: number;
+  unitsOccupied: number;
+  currentPrice: string;
+  previousPrice: string;
+  marketingType: 'for_sale' | 'for_rent' | 'both';
+  showUnitsRemaining: boolean;
+  showPercentSold: boolean;
+  showPercentRented: boolean;
+  showDeveloperName: boolean;
+  showUrgencyMessage: boolean;
+  // Property developer (continuity)
+  developerName: string;
+  developerPhone: string;
+  developerEmail: string;
+  developerProjects: DeveloperProject[];
+  developerProjectExpanded: boolean;
   // Final fields
   featuredNewDevelopment: boolean;
   priorityRanking: string;
@@ -116,6 +147,12 @@ export interface ListingFormState {
   isNewDevelopment: boolean;
   developmentStage: string;
 }
+
+export const MARKETING_TYPES = [
+  { value: 'for_sale', label: 'For Sale' },
+  { value: 'for_rent', label: 'For Rent' },
+  { value: 'both', label: 'Both Sale & Rent' },
+];
 
 export const STEPS = [
   { id: 'basic-info', label: 'Basic Information', desc: 'Title, type & write-up' },
@@ -144,8 +181,23 @@ export const LAND_STEPS = [
 ];
 
 // Treat every land-shaped type as land so the form switches to land-only fields.
+const LAND_DB_TYPES = new Set([
+  'land',
+  'farms_/_land',
+  'farms_land',
+  'residential_land',
+  'commercial_land',
+  'industrial_land',
+  'agricultural_land',
+  'farmland',
+  'development_land',
+  'mixed_use_land',
+  'investment_land',
+  'recreational_land',
+]);
+
 export const isLandType = (type: string): boolean =>
-  type === 'land' || type === 'farms_/_land' || type === 'farms_land';
+  LAND_DB_TYPES.has(type);
 
 export const getSteps = (propertyType: string) => {
   return isLandType(propertyType) ? LAND_STEPS : STEPS;
@@ -210,7 +262,7 @@ export const PURPOSES = ['sale', 'rent', 'joint_ventures', 'new_development', 's
 export const PURPOSE_LABELS: Record<string, string> = {
   sale: 'For Sale',
   rent: 'For Rent',
-  joint_ventures: 'Land & Joint Ventures',
+  joint_ventures: 'Joint Venture',
   new_development: 'New Development',
   short_stay: 'Short Stay',
   sold: 'Sold',
@@ -280,7 +332,22 @@ export const RESIDENTIAL_PROPERTY_TYPES = [
   'Detached',
   'Semi-detached',
   'Terraced',
+  'Condo / Condominium Apartment',
+  'Apartment Block',
+];
+
+export const LAND_PROPERTY_TYPES = [
+  'Residential Land',
+  'Commercial Land',
+  'Industrial Land',
+  'Agricultural Land',
+  'Farmland',
+  'Development Land',
+  'Mixed-Use Land',
+  'Investment Land',
+  'Recreational Land',
   'Land',
+  'Farms / Land',
 ];
 
 export const PROPERTY_TYPES = [
@@ -303,9 +370,20 @@ export const PROPERTY_TYPE_TO_DB: Record<string, string> = {
   'Detached': 'detached',
   'Semi-detached': 'semi-detached',
   'Terraced': 'terraced',
+  'Condo / Condominium Apartment': 'condominium_apartment',
+  'Apartment Block': 'apartment_block',
   'Land': 'land',
   'Farms / Land': 'farms_/_land',
   'Park Home': 'park_home',
+  'Residential Land': 'residential_land',
+  'Commercial Land': 'commercial_land',
+  'Industrial Land': 'industrial_land',
+  'Agricultural Land': 'agricultural_land',
+  'Farmland': 'farmland',
+  'Development Land': 'development_land',
+  'Mixed-Use Land': 'mixed_use_land',
+  'Investment Land': 'investment_land',
+  'Recreational Land': 'recreational_land',
   'Office': 'office',
   'Serviced Office': 'serviced_office',
   'Retail / Shop': 'retail_shop',
@@ -333,7 +411,7 @@ export const inferCategoryFromType = (type: string): string => {
   const residentialTypes = new Set([
     'house', 'apartment', 'bungalow', 'studio', 'studio_flat', 'maisonette', 'villa',
     'townhouse', 'penthouse', 'detached', 'semi-detached',
-    'terraced', 'park_home',
+    'terraced', 'park_home', 'condominium_apartment', 'apartment_block',
   ]);
   const commercialTypes = new Set([
     'office', 'serviced_office', 'retail_shop', 'warehouse',
@@ -343,7 +421,7 @@ export const inferCategoryFromType = (type: string): string => {
   ]);
   if (residentialTypes.has(type)) return 'residential';
   if (commercialTypes.has(type)) return 'commercial';
-  if (type === 'land' || type === 'farms_land' || type === 'farms_/_land') return 'land';
+  if (LAND_DB_TYPES.has(type)) return 'land';
   return '';
 };
 
@@ -371,7 +449,7 @@ export const SUB_TYPES = [
 export const PURPOSE_OPTIONS = [
   { value: 'sale', label: 'For Sale' },
   { value: 'rent', label: 'For Rent' },
-  { value: 'joint_ventures', label: 'Land & Joint Ventures' },
+  { value: 'joint_ventures', label: 'Joint Venture' },
   { value: 'short_stay', label: 'Short Stay' },
   { value: 'sold', label: 'Sold' },
   { value: 'rented', label: 'Rented' },
@@ -466,4 +544,3 @@ export const LAND_TYPES = [
   'Investment Land',
   'Industrial Land',
 ];
-export type ListingPurpose = typeof PURPOSES[number];

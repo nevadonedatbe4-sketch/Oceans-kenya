@@ -3,25 +3,18 @@ import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
-import { Link } from 'react-router-dom';
+import ImageUploadField from '@/pages/crm/components/ImageUploadField';
+import RowMoreMenu, { type RowMenuItem } from '@/pages/crm/components/RowMoreMenu';
+import { smartTitleCase } from '@/lib/location';
 import {
   FileText,
   Plus,
   Search,
-  Eye,
-  Pencil,
-  Trash2,
-  Calendar,
-  User,
   Tag,
-  ArrowUpRight,
   X,
-  Image,
   Save,
   Loader2,
 } from 'lucide-react';
-
-const perPage = 10;
 
 interface BlogPost {
   id: string;
@@ -41,19 +34,55 @@ interface BlogPost {
   updated_at: string;
 }
 
-const TABS = ['all', 'published', 'draft'] as const;
+const TABS = [
+  { key: 'all', label: 'All Posts' },
+  { key: 'published', label: 'Published' },
+  { key: 'draft', label: 'Drafts' },
+] as const;
+
+const perPage = 10;
 
 export default function BlogAdmin() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [search, setSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [authorFilter, setAuthorFilter] = useState('');
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [tabCounts, setTabCounts] = useState<{ all: number; published: number; draft: number }>({ all: 0, published: 0, draft: 0 });
+  const [categories, setCategories] = useState<string[]>([]);
+  const [authors, setAuthors] = useState<string[]>([]);
   const [editPost, setEditPost] = useState<BlogPost | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const fetchOptions = useCallback(async () => {
+    const { data } = await supabase.from('blog_posts').select('category, author');
+    const catSet = new Set<string>();
+    const authorSet = new Set<string>();
+    (data || []).forEach((row: { category: string | null; author: string | null }) => {
+      if (row.category) catSet.add(row.category);
+      if (row.author) authorSet.add(row.author);
+    });
+    setCategories(Array.from(catSet).sort((a, b) => a.localeCompare(b)));
+    setAuthors(Array.from(authorSet).sort((a, b) => a.localeCompare(b)));
+  }, []);
+
+  const fetchCounts = useCallback(async () => {
+    const { data } = await supabase.from('blog_posts').select('status');
+    let all = 0;
+    let published = 0;
+    let draft = 0;
+    (data || []).forEach((row: { status: string }) => {
+      all += 1;
+      if (row.status === 'published') published += 1;
+      else if (row.status === 'draft') draft += 1;
+    });
+    setTabCounts({ all, published, draft });
+  }, []);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -63,6 +92,12 @@ export default function BlogAdmin() {
     }
     if (search) {
       query = query.or(`title.ilike.%${search}%,slug.ilike.%${search}%,excerpt.ilike.%${search}%`);
+    }
+    if (categoryFilter) {
+      query = query.eq('category', categoryFilter);
+    }
+    if (authorFilter) {
+      query = query.eq('author', authorFilter);
     }
     const { data, error, count } = await query
       .order('created_at', { ascending: false })
@@ -74,11 +109,16 @@ export default function BlogAdmin() {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [activeTab, page, search]);
+  }, [activeTab, page, search, categoryFilter, authorFilter]);
 
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
+
+  useEffect(() => {
+    fetchOptions();
+    fetchCounts();
+  }, [fetchOptions, fetchCounts]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +155,8 @@ export default function BlogAdmin() {
       setEditPost(null);
       setIsNew(false);
       fetchPosts();
+      fetchOptions();
+      fetchCounts();
     }
     setSaving(false);
   };
@@ -127,6 +169,8 @@ export default function BlogAdmin() {
       showToast('Post deleted', 'success');
       setDeleteId(null);
       fetchPosts();
+      fetchOptions();
+      fetchCounts();
     }
   };
 
@@ -151,36 +195,40 @@ export default function BlogAdmin() {
     setIsNew(true);
   };
 
-  const getCounts = () => {
-    const counts = { all: totalCount, published: 0, draft: 0 };
-    // We don't have full counts per tab from the API, so we estimate
-    return counts;
+  const hasActiveFilters = !!search || !!categoryFilter || !!authorFilter || activeTab !== 'all';
+  const clearFilters = () => {
+    setSearch('');
+    setCategoryFilter('');
+    setAuthorFilter('');
   };
 
-  const counts = getCounts();
+  const setTab = (tab: string) => {
+    setActiveTab(tab);
+    setPage(1);
+  };
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="font-jost text-lg text-[#1a1a2e]">Blog / Insights</h2>
-          <p className="text-xs text-gray-500 font-roboto mt-0.5">Manage articles and insights</p>
+          <h2 className="font-jost text-lg text-white">Blog / Insights</h2>
+          <p className="text-[15px] text-white/70 font-roboto mt-0.5">Manage articles and published content.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search posts..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary bg-white text-[#1a1a2e]"
             />
           </div>
           <button
             onClick={handleNew}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-md text-sm font-roboto transition-all cursor-pointer whitespace-nowrap"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-md text-[15px] font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap"
           >
             <Plus size={16} />
             New Post
@@ -189,55 +237,86 @@ export default function BlogAdmin() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-[#012144] lg:bg-white border border-[#1c3a5e] lg:border-gray-200 rounded-md p-1 w-fit">
+      <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-md p-1 w-fit">
         {TABS.map((tab) => (
           <button
-            key={tab}
-            onClick={() => { setActiveTab(tab); setPage(1); }}
-            className={`px-4 py-2 rounded-md text-sm font-roboto capitalize transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === tab
+            key={tab.key}
+            onClick={() => setTab(tab.key)}
+            className={`px-4 py-2 rounded-md text-[15px] font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === tab.key
                 ? 'bg-primary text-white'
-                : 'text-[#9ca3af] lg:text-gray-500 hover:text-white lg:hover:bg-gray-50'
+                : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
-            {tab}
-            <span className={`ml-1.5 text-xs ${activeTab === tab ? 'text-white/70' : 'text-gray-400'}`}>
-              {tab === 'all' ? counts.all : ' '}
+            {tab.label}
+            <span className={`ml-1.5 text-[15px] font-medium ${activeTab === tab.key ? 'text-white/70' : 'text-gray-400'}`}>
+              {tabCounts[tab.key as keyof typeof tabCounts]}
             </span>
           </button>
         ))}
       </div>
 
+      {/* Filter bar */}
+      <div className="bg-white border border-gray-200 rounded-md px-3 py-2.5 flex flex-col lg:flex-row gap-2.5 lg:items-center">
+        <select
+          value={categoryFilter}
+          onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 border border-gray-200 bg-white rounded-md text-[15px] font-roboto font-medium text-[#1a1a2e] focus:outline-none focus:border-primary"
+        >
+          <option value="">All categories</option>
+          {categories.map((c) => <option key={c} value={c}>{smartTitleCase(c)}</option>)}
+        </select>
+        <select
+          value={authorFilter}
+          onChange={(e) => { setAuthorFilter(e.target.value); setPage(1); }}
+          className="px-3 py-2 border border-gray-200 bg-white rounded-md text-[15px] font-roboto font-medium text-[#1a1a2e] focus:outline-none focus:border-primary"
+        >
+          <option value="">All authors</option>
+          {authors.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <div className="flex-1" />
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-[15px] font-roboto font-semibold text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <i className="ri-filter-off-line" /> Clear filters
+          </button>
+        )}
+      </div>
+
       {/* List */}
       {loading ? (
         <div className="text-center py-16">
-          <Loader2 size={32} className="mx-auto text-gray-300 animate-spin mb-3" />
-          <p className="text-sm text-gray-400 font-roboto">Loading posts...</p>
+          <Loader2 size={32} className="mx-auto text-white/50 animate-spin mb-3" />
+          <p className="text-[15px] text-white/70 font-roboto">Loading posts...</p>
         </div>
       ) : posts.length === 0 ? (
-        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 py-16 text-center">
-          <FileText size={48} className="mx-auto text-gray-200 mb-3" />
-          <p className="text-sm text-[#9ca3af] font-roboto mb-1">
-            {search ? 'No posts match your search' : 'No posts yet'}
+        <div className="bg-white rounded-lg border border-gray-100 py-16 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+            <FileText size={24} className="text-gray-300" />
+          </div>
+          <p className="text-[15px] font-semibold text-gray-500 font-roboto mb-1">
+            {hasActiveFilters ? 'No posts match your filters' : 'No posts yet'}
           </p>
-          {!search && (
-            <button onClick={handleNew} className="text-primary text-sm font-roboto hover:underline cursor-pointer mt-2">
+          {!hasActiveFilters && (
+            <button onClick={handleNew} className="text-primary text-[15px] font-roboto font-semibold hover:underline cursor-pointer mt-2">
               Create your first post
             </button>
           )}
         </div>
       ) : (
-        <div className="bg-[#012144] lg:bg-white rounded-lg border border-[#1c3a5e] lg:border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-lg border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-left">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Post</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden md:table-cell">Author</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-roboto text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3 text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider">Post</th>
+                  <th className="px-4 py-3 text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                  <th className="px-4 py-3 text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Author</th>
+                  <th className="px-4 py-3 text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Date</th>
+                  <th className="px-4 py-3 text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -245,27 +324,30 @@ export default function BlogAdmin() {
                   <tr key={post.id} onClick={() => { setEditPost(post); setIsNew(false); }} className="hover:bg-gray-50/50 transition-colors cursor-pointer">
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <div className="w-11 h-11 rounded-md bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {post.featured_image ? (
-                            <img src={post.featured_image} alt="" className="w-full h-full object-cover" />
+                            <img src={post.featured_image} alt={post.title} className="w-full h-full object-cover" />
                           ) : (
                             <FileText size={16} className="text-gray-300" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-roboto font-medium text-[#1a1a2e] truncate">{post.title}</p>
-                          <p className="text-xs text-gray-400 font-roboto truncate">/{post.slug}</p>
+                          <p className="text-[15px] font-roboto font-medium text-[#1a1a2e] truncate">{smartTitleCase(post.title)}</p>
+                          <p className="text-[15px] text-gray-400 font-roboto truncate">/{post.slug}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-xs text-gray-500 font-roboto">{post.category || '—'}</span>
+                      <span className="inline-flex items-center gap-1 text-[15px] font-medium text-gray-500 font-roboto">
+                        <Tag size={12} className="text-gray-300" />
+                        {post.category ? smartTitleCase(post.category) : '—'}
+                      </span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-xs text-gray-500 font-roboto">{post.author || '—'}</span>
+                      <span className="text-[15px] font-medium text-gray-500 font-roboto">{post.author || '—'}</span>
                     </td>
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-roboto font-medium uppercase ${
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[15px] font-roboto font-semibold uppercase ${
                         post.status === 'published'
                           ? 'bg-green-50 text-green-700'
                           : 'bg-amber-50 text-amber-700'
@@ -274,40 +356,44 @@ export default function BlogAdmin() {
                       </span>
                     </td>
                     <td className="px-4 py-3 hidden sm:table-cell" onClick={(e) => e.stopPropagation()}>
-                      <span className="text-xs text-gray-400 font-roboto">
+                      <span className="text-[15px] text-gray-400 font-roboto">
                         {post.published_at ? new Date(post.published_at).toLocaleDateString() : '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setEditPost(post); setIsNew(false); }}
-                          className="p-1.5 hover:bg-gray-100 rounded-md cursor-pointer text-gray-400 hover:text-primary transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteId(post.id); }}
-                          className="p-1.5 hover:bg-red-50 rounded-md cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
+                      <RowMoreMenu
+                        label={post.title}
+                        items={[
+                          {
+                            key: 'edit',
+                            icon: 'ri-edit-line',
+                            label: 'Edit post',
+                            onSelect: () => { setEditPost(post); setIsNew(false); },
+                          },
+                          {
+                            key: 'delete',
+                            icon: 'ri-delete-bin-line',
+                            label: 'Delete post',
+                            danger: true,
+                            onSelect: () => setDeleteId(post.id),
+                          },
+                        ] satisfies RowMenuItem[]}
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <CRMPagination
-            page={page}
-            totalPages={Math.ceil(totalCount / perPage)}
-            total={totalCount}
-            pageSize={perPage}
-            onPageChange={setPage}
-          />
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-gray-100 px-4 py-3">
+            <CRMPagination
+              page={page}
+              totalPages={Math.ceil(totalCount / perPage)}
+              total={totalCount}
+              pageSize={perPage}
+              onPageChange={setPage}
+            />
+          </div>
         </div>
       )}
 
@@ -325,30 +411,30 @@ export default function BlogAdmin() {
             <form onSubmit={handleSave} className="p-6 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Title</label>
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Title</label>
                   <input
                     required
                     type="text"
                     value={editPost.title}
                     onChange={(e) => setEditPost({ ...editPost, title: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Slug</label>
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Slug</label>
                   <input
                     required
                     type="text"
                     value={editPost.slug}
                     onChange={(e) => setEditPost({ ...editPost, slug: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                     placeholder="my-blog-post"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                     <Tag size={12} className="inline mr-1" />
                     Category
                   </label>
@@ -356,27 +442,24 @@ export default function BlogAdmin() {
                     type="text"
                     value={editPost.category || ''}
                     onChange={(e) => setEditPost({ ...editPost, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    <User size={12} className="inline mr-1" />
-                    Author
-                  </label>
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Author</label>
                   <input
                     type="text"
                     value={editPost.author || ''}
                     onChange={(e) => setEditPost({ ...editPost, author: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Status</label>
                   <select
                     value={editPost.status}
                     onChange={(e) => setEditPost({ ...editPost, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary bg-white"
                   >
                     <option value="draft">Draft</option>
                     <option value="published">Published</option>
@@ -384,71 +467,76 @@ export default function BlogAdmin() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                  <Image size={12} className="inline mr-1" />
-                  Featured Image URL
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Featured Image
                 </label>
+                <ImageUploadField
+                  label="Featured Image"
+                  value={editPost.featured_image || ''}
+                  onChange={(url) => setEditPost({ ...editPost, featured_image: url })}
+                  pageKey="blog"
+                  fieldKey="featured_image"
+                  previewWidth="w-40"
+                  previewHeight="h-28"
+                />
                 <input
                   type="text"
                   value={editPost.featured_image || ''}
                   onChange={(e) => setEditPost({ ...editPost, featured_image: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary mt-2"
+                  placeholder="...or paste an image URL directly"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Excerpt</label>
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Excerpt</label>
                 <textarea
                   value={editPost.excerpt || ''}
                   onChange={(e) => setEditPost({ ...editPost, excerpt: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary resize-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary resize-none"
                   maxLength={500}
                   placeholder="Short summary for previews..."
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Body</label>
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Body</label>
                 <textarea
                   value={editPost.body || ''}
                   onChange={(e) => setEditPost({ ...editPost, body: e.target.value })}
                   rows={8}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary resize-none font-mono"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary resize-none font-mono"
                   placeholder="Write your post content here..."
                 />
               </div>
               <div className="border-t border-gray-100 pt-4">
-                <h3 className="font-jost text-sm text-[#1a1a2e] mb-3">SEO</h3>
+                <h3 className="font-jost text-[15px] text-[#1a1a2e] mb-3">SEO</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">SEO Title</label>
+                    <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">SEO Title</label>
                     <input
                       type="text"
                       value={editPost.seo_title || ''}
                       onChange={(e) => setEditPost({ ...editPost, seo_title: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">SEO Description</label>
+                    <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">SEO Description</label>
                     <input
                       type="text"
                       value={editPost.seo_description || ''}
                       onChange={(e) => setEditPost({ ...editPost, seo_description: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                     />
                   </div>
                 </div>
                 <div className="mt-3">
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    <Image size={12} className="inline mr-1" />
-                    OG Image URL
-                  </label>
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">OG Image URL</label>
                   <input
                     type="text"
                     value={editPost.og_image || ''}
                     onChange={(e) => setEditPost({ ...editPost, og_image: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary"
                     placeholder="https://..."
                   />
                 </div>
@@ -457,14 +545,14 @@ export default function BlogAdmin() {
                 <button
                   type="button"
                   onClick={() => { setEditPost(null); setIsNew(false); }}
-                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-md text-sm font-roboto text-gray-600 hover:bg-gray-50 cursor-pointer"
+                  className="flex-1 px-4 py-2.5 border border-gray-200 rounded-md text-[15px] font-roboto font-semibold text-gray-600 hover:bg-gray-50 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md text-sm font-roboto cursor-pointer disabled:opacity-50"
+                  className="flex-1 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-md text-[15px] font-roboto font-semibold cursor-pointer disabled:opacity-50"
                 >
                   {saving ? (
                     <span className="flex items-center gap-2 justify-center">

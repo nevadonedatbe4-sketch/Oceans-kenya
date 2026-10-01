@@ -24,7 +24,7 @@ export default function GlobalPageControlPage() {
 
   const Field = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">{label}</label>
+      <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">{label}</label>
       {type === 'number' ? (
         <input type="number" value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] font-mono text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white" placeholder={placeholder} />
       ) : type === 'select' ? (
@@ -67,7 +67,7 @@ export default function GlobalPageControlPage() {
               <Field label="Section V Spacing (px)" value={getSite('section_spacing')} onChange={(v) => setSite('section_spacing', v)} type="number" placeholder="80" />
               <Field label="Container Border Radius (px)" value={getSite('container_border_radius')} onChange={(v) => setSite('container_border_radius', v)} type="number" placeholder="8" />
               <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Container Type</label>
+                <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Container Type</label>
                 <select value={getSite('container_type') || 'contained'} onChange={(e) => setSite('container_type', e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">
                   {[{ value: 'wide', label: 'Wide (full width)' }, { value: 'contained', label: 'Contained (max-width)' }, { value: 'narrow', label: 'Narrow (compact)' }].map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
@@ -98,7 +98,7 @@ export default function GlobalPageControlPage() {
             <h3 className="text-sm font-semibold text-stone-700">Page Transitions</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Transition Type</label>
+                <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Transition Type</label>
                 <select value={getSite('page_transition') || 'none'} onChange={(e) => setSite('page_transition', e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">
                   {[{ value: 'none', label: 'None' }, { value: 'fade', label: 'Fade' }, { value: 'slide', label: 'Slide' }].map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>

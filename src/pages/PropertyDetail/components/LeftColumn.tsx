@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import RichTextContent from '@/components/feature/RichTextContent';
+import { descriptionToNormalizedPlainText } from '@/lib/richText';
+import type { DetailSpecRow } from '@/lib/propertyDetailSpecs';
 
 interface LeftColumnProps {
   description: string;
@@ -26,6 +29,9 @@ interface LeftColumnProps {
   country: string;
   furnished: string;
   createdAt?: string;
+  commissionApplicable?: boolean;
+  commissionDetails?: string;
+  specs?: DetailSpecRow[];
 }
 
 const featureIcons: Record<string, string> = {
@@ -78,60 +84,12 @@ const featureIcons: Record<string, string> = {
   'wheelchair': 'ri-wheelchair-line',
 };
 
-function stripHtmlToParagraphs(raw: string): string[] {
-  if (!raw) return [];
-  let text = raw
-    // turn block-level breaks into newlines so paragraphs are preserved
-    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
-    .replace(/<\s*\/\s*(p|div|li|h[1-6])\s*>/gi, '\n')
-    .replace(/<\s*(p|div|li|h[1-6])[^>]*>/gi, '\n');
-  // remove every remaining tag
-  text = text.replace(/<[^>]+>/g, '');
-  // decode the most common HTML entities
-  const entities: Record<string, string> = {
-    '&nbsp;': ' ',
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&apos;': "'",
-    '&mdash;': '—',
-    '&ndash;': '–',
-    '&hellip;': '…',
-    '&rsquo;': '’',
-    '&lsquo;': '‘',
-    '&rdquo;': '”',
-    '&ldquo;': '“',
-  };
-  text = text.replace(/&[a-zA-Z#0-9]+;/g, (m) => entities[m] ?? ' ');
-  // normalise whitespace within lines, then split into clean paragraphs
-  return text
-    .split('\n')
-    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
-    .filter((line) => line.length > 0);
-}
-
 function getFeatureIcon(label: string): string {
   const key = label.toLowerCase();
   for (const [k, v] of Object.entries(featureIcons)) {
     if (key.includes(k)) return v;
   }
   return 'ri-checkbox-circle-line';
-}
-
-function timeSince(dateStr?: string): string {
-  if (!dateStr) return 'Recently';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const weeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
-  if (weeks < 1) return 'this week';
-  if (weeks === 1) return '1 week ago';
-  if (weeks < 4) return `${weeks} weeks ago`;
-  const months = Math.floor(weeks / 4.345);
-  if (months === 1) return '1 month ago';
-  return `${months} months ago`;
 }
 
 function getStatusLabel(status: string, purpose?: string): string {
@@ -142,13 +100,17 @@ function getStatusLabel(status: string, purpose?: string): string {
 export default function PropertyLeftColumn({
   description, features, amenities, beds, baths, parking, garages, sqft,
   propertyType, status, ref, price, location, title, latitude, longitude, district, area, city, country, furnished, createdAt,
+  commissionApplicable, commissionDetails, specs,
 }: LeftColumnProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
 
-  const descParagraphs = stripHtmlToParagraphs(description);
-  const plainDescription = descParagraphs.join(' ');
-  const isLongDescription = plainDescription.length > 300;
+  const plainDescription = descriptionToNormalizedPlainText(description);
+  const descriptionLimit = 200;
+  const isLongDescription = plainDescription.length > descriptionLimit;
+  const descriptionPreview = isLongDescription
+    ? `${plainDescription.slice(0, descriptionLimit).trimEnd()}\u2026`
+    : plainDescription;
 
   const allFeatures = [...features, ...amenities];
   const visibleFeatures = featuresExpanded ? allFeatures : allFeatures.slice(0, 8);
@@ -167,18 +129,16 @@ export default function PropertyLeftColumn({
     .filter((v, i, arr) => arr.indexOf(v) === i)
     .join(', ');
   const displayPropertyType = propertyType ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) : 'N/A';
-  const displayBeds = beds != null && beds > 0 ? String(beds) : '—';
-  const displayBaths = baths != null && baths > 0 ? String(baths) : '—';
-  const displayGarage = garageTotal > 0 ? String(garageTotal) : '—';
-  const displaySqft = sqft != null && sqft > 0 ? `${sqft.toLocaleString()} sqft` : '—';
+  const displayBeds = beds != null && beds > 0 ? String(beds) : '-';
+  const displayBaths = baths != null && baths > 0 ? String(baths) : '-';
+  const displayGarage = garageTotal > 0 ? String(garageTotal) : '-';
+  const displaySqft = sqft != null && sqft > 0 ? `${sqft.toLocaleString()} sqft` : '-';
 
   const formattedDate = createdAt
-    ? `${new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} (${timeSince(createdAt)})`
+    ? new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
     : 'N/A';
 
-  type DetailRow = { label: string; value: string; isPrice?: boolean };
-
-  const detailsLeft: DetailRow[] = [
+  const detailsLeft = [
     { label: 'Property ID', value: ref || 'N/A' },
     { label: 'Price', value: price, isPrice: true },
     { label: 'Bedrooms', value: displayBeds },
@@ -187,12 +147,16 @@ export default function PropertyLeftColumn({
     { label: 'Property Size', value: displaySqft },
   ];
 
-  const detailsRight: DetailRow[] = [
+  const detailsRight = [
     { label: 'Property Type', value: displayPropertyType },
     { label: 'Furnished', value: furnished || 'Unfurnished' },
     { label: 'Property Status', value: getStatusLabel(status) },
-    { label: 'Date Listed', value: formattedDate },
     { label: 'Location', value: locationLine || location || displayCity || 'N/A' },
+    { label: 'Commission', value: commissionApplicable ? 'Yes' : 'No' },
+    ...(commissionApplicable
+      ? [{ label: 'Commission Amount', value: (commissionDetails || '').trim() || 'On request' }]
+      : []),
+    { label: 'Date Listed', value: formattedDate },
   ];
 
   return (
@@ -201,35 +165,28 @@ export default function PropertyLeftColumn({
       <section className="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#e5e5e5]">
         <div id="section-description" className="mb-3 md:mb-5 scroll-mt-24">
           <h2
-            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-primary border-[#CCCCCC]"
+            className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
           >
             Description
           </h2>
         </div>
-        <div
-          className={`relative font-roboto text-sm text-[#555555] leading-[1.8] ${descExpanded ? '' : 'max-h-[200px] overflow-hidden'}`}
-        >
-          {descParagraphs.length > 0 ? (
-            <div className="space-y-3">
-              {descParagraphs.map((para, idx) => (
-                <p key={idx}>{para}</p>
-              ))}
-            </div>
-          ) : (
+        <div className="font-copy text-[16px] text-[#0d1f2d] leading-[1.65]">
+          {!plainDescription.trim() ? (
             <p>No description available for this property.</p>
-          )}
-          {!descExpanded && isLongDescription && (
-            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-white to-transparent pointer-events-none"></div>
+          ) : descExpanded ? (
+            <RichTextContent html={description} normalizeCase />
+          ) : (
+            <p className="whitespace-pre-line">{descriptionPreview}</p>
           )}
         </div>
         {isLongDescription && (
           <button
             onClick={() => setDescExpanded(!descExpanded)}
-            className="mt-4 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
+            className="mt-4 inline-flex items-center gap-1.5 text-xs font-title font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
           >
-            {descExpanded ? 'Show less' : 'Read more'}
+            {descExpanded ? 'Show less' : 'Read full description'}
             <span className="w-4 h-4 flex items-center justify-center">
-              <i className={`text-sm ${descExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}`}></i>
+              <i className={`text-sm ${descExpanded ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'}`}></i>
             </span>
           </button>
         )}
@@ -237,14 +194,10 @@ export default function PropertyLeftColumn({
 
       {/* Property Details */}
       <section className="mb-6 md:mb-8">
-        <div className="flex items-center justify-between mb-3 md:mb-4">
-          <h2 id="section-details" className="font-roboto font-semibold text-sm md:text-base text-primary scroll-mt-24">
+        <div className="mb-3 md:mb-4">
+          <h2 id="section-details" className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb] scroll-mt-24">
             Property Details
           </h2>
-          <span className="flex items-center gap-1.5 text-[11px] font-roboto text-primary/50">
-            <i className="ri-refresh-line text-xs"></i>
-            Updated {timeSince(createdAt)}
-          </span>
         </div>
         <div className="bg-white border-2 border-stone-300 p-3 md:p-5 rounded-[2px]">
           {/* Mobile: stacked */}
@@ -288,12 +241,35 @@ export default function PropertyLeftColumn({
         </div>
       </section>
 
+      {/* Additional Details - every populated CRM field that isn't already in the grid */}
+      {specs && specs.length > 0 && (
+        <section className="mb-6 md:mb-8">
+          <div id="section-additional-details" className="mb-3 md:mb-5 scroll-mt-24">
+            <h2
+              className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
+            >
+              Additional Details
+            </h2>
+          </div>
+          <div className="bg-white border-2 border-stone-300 p-3 md:p-5 rounded-[2px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+              {specs.map((s, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-4 py-2 px-1 border-b border-stone-100">
+                  <span className="text-xs md:text-sm font-roboto font-semibold text-primary">{s.label}</span>
+                  <span className="text-xs md:text-sm font-roboto font-bold text-right text-black break-words max-w-[55%]">{s.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Features & Amenities */}
       {allFeatures.length > 0 && (
         <section className="mb-6 md:mb-8 pb-6 md:pb-8 border-b border-[#e5e5e5]">
           <div id="section-features" className="mb-3 md:mb-5 scroll-mt-24">
             <h2
-              className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-primary border-[#CCCCCC]"
+              className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
             >
               Features &amp; Amenities
             </h2>
@@ -316,11 +292,11 @@ export default function PropertyLeftColumn({
           {hasMoreFeatures && (
             <button
               onClick={() => setFeaturesExpanded(!featuresExpanded)}
-              className="mt-4 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
+              className="mt-4 inline-flex items-center gap-1.5 text-xs font-title font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
             >
               {featuresExpanded ? 'View less' : `View all ${allFeatures.length} features`}
               <span className="w-4 h-4 flex items-center justify-center">
-                <i className={`text-sm ${featuresExpanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'}`}></i>
+                <i className={`text-sm ${featuresExpanded ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'}`}></i>
               </span>
             </button>
           )}
@@ -331,7 +307,7 @@ export default function PropertyLeftColumn({
       <section>
         <div id="section-location" className="mb-3 md:mb-5 scroll-mt-24">
           <h2
-            className="font-roboto font-bold text-sm md:text-base uppercase tracking-[0.12em] md:tracking-[0.15em] pb-2 md:pb-3 border-b-2 text-primary border-[#CCCCCC]"
+            className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
           >
             Location
           </h2>
@@ -346,7 +322,7 @@ export default function PropertyLeftColumn({
           ></iframe>
         </div>
         <p className="text-primary/50 font-roboto text-xs mt-3 flex items-center gap-1.5">
-          <i className="ri-map-pin-2-line text-golden"></i>
+          <i className="ri-map-pin-2-line text-accent"></i>
           {location}
         </p>
       </section>

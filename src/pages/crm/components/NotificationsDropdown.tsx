@@ -139,7 +139,7 @@ export default function NotificationsDropdown() {
     }
     const link =
       n.link ||
-      (n.enquiry_id ? '/crm/inbox' : n.lead_id ? '/crm/leads' : n.contact_id ? '/crm/contacts' : n.deal_id ? '/crm/deals' : null);
+      (n.enquiry_id ? '/admin/inbox' : n.lead_id ? '/admin/leads' : n.contact_id ? '/admin/contacts' : n.deal_id ? '/admin/deals' : null);
     if (link) navigate(link);
   };
 

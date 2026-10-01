@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { Lead, Agent, ConversationMessage, ActivityLog } from '../types';
 import { clientTypeOptions, clientTypeLabels, clientTypeColors, statusOptions, statusLabels, statusColors } from '../types';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import { displayPersonName } from '@/lib/crmDisplay';
 
 interface LeadDetailPanelProps {
   lead: Lead;
@@ -71,7 +72,7 @@ export default function LeadDetailPanel({ lead, agents, onClose, onUpdateLead, u
         .from('conversations')
         .insert({
           lead_id: lead.id,
-          subject: `Lead: ${lead.first_name} ${lead.last_name}`,
+          subject: `Lead: ${displayPersonName(lead.first_name, lead.last_name)}`,
           status: 'active',
           agent_id: lead.agent_id,
         })
@@ -193,6 +194,18 @@ export default function LeadDetailPanel({ lead, agents, onClose, onUpdateLead, u
     return 'ri-history-line';
   };
 
+  // Read receipt indicator — dark blue (primary token) means the message has
+  // been read, double-grey means delivered, single-grey means sent.
+  const renderReadReceipt = (msg: ConversationMessage) => {
+    if (msg.delivery_status === 'read') {
+      return <i className="ri-check-double-line text-[12px] ml-1 text-primary" title="Read" />;
+    }
+    if (msg.delivery_status === 'delivered') {
+      return <i className="ri-check-double-line text-[12px] ml-1 text-white/70" title="Delivered" />;
+    }
+    return <i className="ri-check-line text-[12px] ml-1 text-white/70" title="Sent" />;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -205,7 +218,7 @@ export default function LeadDetailPanel({ lead, agents, onClose, onUpdateLead, u
             </div>
             <div>
               <h2 className="text-sm font-inter font-semibold text-[#001731]">
-                {lead.first_name} {lead.last_name}
+                {displayPersonName(lead.first_name, lead.last_name)}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-inter font-semibold capitalize ${statusColors[lead.status] || 'bg-[#f7f8fa] text-[#636363]'}`}>
@@ -489,30 +502,49 @@ export default function LeadDetailPanel({ lead, agents, onClose, onUpdateLead, u
                     <p className="text-[10px] font-inter text-[#9ca3af] mt-1">Start a conversation below.</p>
                   </div>
                 ) : (
-                  messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.sender_type === 'agent' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                        msg.sender_type === 'agent'
-                          ? 'bg-[#0d5959] text-white'
-                          : 'bg-white border border-[#f0f0f0] text-[#001731]'
-                      }`}>
-                        <p className="text-xs font-inter leading-relaxed">{msg.body}</p>
-                        <div className={`flex items-center gap-1 mt-1 ${
-                          msg.sender_type === 'agent' ? 'text-white/70' : 'text-[#9ca3af]'
+                  messages.map((msg) => {
+                    // Automated system replies (auto-response) render as a
+                    // centred pill so they're distinct from human messages.
+                    if (msg.sender_type === 'system' || msg.sender_type === 'auto') {
+                      return (
+                        <div key={msg.id} className="flex justify-center">
+                          <div className="max-w-[85%] rounded-full bg-[#f0f0f0] px-4 py-2">
+                            <div className="flex items-center justify-center gap-1 mb-0.5">
+                              <i className="ri-robot-2-line text-[10px] text-[#636363]" />
+                              <span className="text-[10px] font-inter font-semibold uppercase tracking-wide text-[#636363]">
+                                Automated reply
+                              </span>
+                            </div>
+                            <p className="text-xs font-inter text-[#001731] leading-relaxed text-center">{msg.body}</p>
+                            <p className="text-[10px] font-inter text-[#9ca3af] mt-1 text-center">{formatDate(msg.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    const isAgent = msg.sender_type === 'agent';
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isAgent ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                          isAgent
+                            ? 'bg-[#0d5959] text-white'
+                            : 'bg-white border border-[#f0f0f0] text-[#001731]'
                         }`}>
-                          <span className="text-[10px] font-inter">{msg.sender_name}</span>
-                          <span className="text-[10px] font-inter">·</span>
-                          <span className="text-[10px] font-inter">{formatDate(msg.created_at)}</span>
-                          {msg.sender_type === 'agent' && msg.delivery_status === 'sent' && (
-                            <i className="ri-check-double-line text-[10px] ml-1" />
-                          )}
+                          <p className="text-xs font-inter leading-relaxed">{msg.body}</p>
+                          <div className={`flex items-center gap-1 mt-1 ${
+                            isAgent ? 'text-white/70' : 'text-[#9ca3af]'
+                          }`}>
+                            <span className="text-[10px] font-inter">{msg.sender_name}</span>
+                            <span className="text-[10px] font-inter">·</span>
+                            <span className="text-[10px] font-inter">{formatDate(msg.created_at)}</span>
+                            {isAgent && renderReadReceipt(msg)}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
                 <div ref={messagesEndRef} />
               </div>

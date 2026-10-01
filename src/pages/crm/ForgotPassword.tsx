@@ -1,64 +1,55 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { supabase, supabaseUrl, supabaseKey } from '@/lib/supabase';
-import { Mail, ArrowLeft, Loader2, CheckCircle, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import usePortalBase from '@/hooks/usePortalBase';
+import { supabaseUrl, supabaseKey } from '@/lib/supabase';
+import BrandLogo from '@/components/feature/BrandLogo';
+import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 
-type DiagResult = {
-  resendApiKeyConfigured: boolean;
-  resendFromDomainConfigured: boolean;
-  supabaseUrlConfigured: boolean;
-  serviceRoleConfigured: boolean;
-};
+const fnUrl = `${supabaseUrl}/functions/v1/password-reset-request`;
 
+/**
+ * Shared "Forgot Password" page for both portals (/agent/forgot-password and
+ * /admin/forgot-password).
+ *
+ * Security: the endpoint ALWAYS answers with the same generic response whether
+ * or not the account exists, so the caller can never enumerate registered
+ * addresses. The reset token is generated server-side, stored hashed, is
+ * single-use and expires after 20 minutes.
+ */
 export default function ForgotPassword() {
+  const portalBase = usePortalBase();
+  const isAgent = portalBase === '/agent';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [errorDetail, setErrorDetail] = useState('');
 
-  // Diagnostic state
-  const [diagLoading, setDiagLoading] = useState(false);
-  const [diag, setDiag] = useState<DiagResult | null>(null);
-  const [diagError, setDiagError] = useState('');
-
-  const fnUrl = `${supabaseUrl}/functions/v1/send-password-reset`;
-
-  const runDiagnostic = async () => {
-    setDiagLoading(true);
-    setDiagError('');
-    setDiag(null);
-    try {
-      const res = await fetch(fnUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
-        body: JSON.stringify({ diagnostic: true }),
-      });
-      const data = await res.json();
-      if (data && data.diagnostic) {
-        setDiag({
-          resendApiKeyConfigured: Boolean(data.resendApiKeyConfigured),
-          resendFromDomainConfigured: Boolean(data.resendFromDomainConfigured),
-          supabaseUrlConfigured: Boolean(data.supabaseUrlConfigured),
-          serviceRoleConfigured: Boolean(data.serviceRoleConfigured),
-        });
-      } else {
-        setDiagError('Unexpected response from the email service.');
+  // Mirror each portal's sign-in screen so the whole flow feels continuous.
+  const theme = isAgent
+    ? {
+        page: 'bg-gradient-to-b from-[#0b282a] via-[#0d302c] to-[#0b282a]',
+        label: 'text-emerald-200',
+        sub: 'text-emerald-100/90',
+        footerLink: 'text-emerald-200/80 hover:text-white',
+        backLink: 'text-emerald-200/80 hover:text-white',
+        input:
+          'border-[#e4e2dc] bg-[#fbfaf7] focus:border-accent focus:ring-accent/20',
+        button: 'bg-accent hover:bg-accent/90',
       }
-    } catch {
-      setDiagError('Could not reach the email service function.');
-    }
-    setDiagLoading(false);
-  };
+    : {
+        page: 'bg-[#0a1b34]',
+        label: 'text-golden',
+        sub: 'text-gray-400',
+        footerLink: 'text-gray-500 hover:text-golden',
+        backLink: 'text-golden hover:text-white',
+        input:
+          'border-[#e4e2dc] bg-[#fbfaf7] focus:border-primary focus:ring-primary/20',
+        button: 'bg-primary hover:bg-[#002349]',
+      };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setErrorDetail('');
 
     if (!email.trim()) {
       setError('Please enter your email address.');
@@ -66,203 +57,125 @@ export default function ForgotPassword() {
     }
 
     setLoading(true);
-
-    // NO silent fallback. If the email service is not configured or fails,
-    // we surface the exact error loudly instead of pretending it worked.
     try {
       const res = await fetch(fnUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-        },
+        headers: { 'Content-Type': 'application/json', apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
         body: JSON.stringify({ email: email.trim() }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok && data.success) {
-        setSent(true);
+      // Always show the same generic confirmation — no account-enumeration info.
+      const data = await res.json().catch(() => null);
+      if (data && data.success === false && typeof data.error === 'string') {
+        setError(data.error);
       } else {
-        const code = data.code as string | undefined;
-        if (code === 'RESEND_NOT_CONFIGURED') {
-          const missing = Array.isArray(data.missing) ? data.missing.join(', ') : 'RESEND_API_KEY, RESEND_FROM_DOMAIN';
-          setError('Email service is not set up yet.');
-          setErrorDetail(
-            `Missing configuration: ${missing}. An administrator needs to add these in the Supabase Dashboard under Edge Function Secrets. Run the check below to confirm.`
-          );
-        } else if (code === 'RESEND_SEND_FAILED') {
-          setError('The email service rejected the send.');
-          setErrorDetail('This usually means the Resend sending domain is not verified. Verify your domain in Resend, then try again.');
-        } else if (code === 'INVALID_EMAIL') {
-          setError('Please enter a valid email address.');
-        } else {
-          setError(data.error || 'Unable to send reset email. Please try again.');
-          if (data.detail) setErrorDetail(String(data.detail));
-        }
-        // Auto-run diagnostic so the exact problem is visible immediately
-        runDiagnostic();
+        setSent(true);
       }
-    } catch (err) {
-      setError('Could not reach the email service. Please try again.');
-      setErrorDetail(err instanceof Error ? err.message : String(err));
-      runDiagnostic();
+    } catch {
+      // Never reveal anything; behave like the generic "check your email".
+      setSent(true);
     }
-
     setLoading(false);
   };
 
-  if (sent) {
-    return (
-      <div className="min-h-screen bg-[#f4f3ee] flex items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-lg p-8 md:p-10 text-center">
-            <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle size={28} className="text-green-600" />
-            </div>
-            <h1 className="text-xl font-roboto font-bold text-[#1a1a2e] mb-2">Check your email</h1>
-            <p className="text-sm text-gray-500 font-roboto mb-3">
-              We&apos;ve sent a password reset link to <strong>{email}</strong>.
-            </p>
-            <p className="text-xs text-gray-400 font-roboto mb-6">
-              Click the link in the email to set a new password. If you don&apos;t see it, check your spam folder.
-            </p>
-
-            <Link
-              to="/crm/login"
-              className="inline-flex items-center gap-2 text-sm font-roboto text-primary hover:text-primary/80 transition-colors cursor-pointer"
-            >
-              <ArrowLeft size={14} />
-              Back to Sign In
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#f4f3ee] flex items-center justify-center px-4 py-10">
+    <div className={`min-h-screen ${theme.page} flex items-center justify-center px-4 py-10`}>
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-lg p-8 md:p-10">
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
-              <img
-                src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/b5c367b8-0348-44ab-b81a-83abfed5503c_favicaon-1-1024x887.png?v=5d2f68fc83a460dece14c00261f8d058"
-                alt="Oceans"
-                className="w-8 h-8 object-contain"
-              />
-            </div>
-            <h1 className="text-2xl font-roboto font-bold text-[#1a1a2e] mb-1">Reset Password</h1>
-            <p className="text-sm text-gray-500 font-roboto">
-              Enter your email and we&apos;ll send you a reset link
-            </p>
+        <div className="text-center mb-6">
+          <div className="flex justify-center mb-3">
+            <BrandLogo className="h-11 w-auto object-contain" />
           </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-md mb-6 font-roboto">
-              <div className="flex items-start gap-2">
-                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium">{error}</p>
-                  {errorDetail && <p className="text-xs text-red-600/80 mt-1 leading-relaxed">{errorDetail}</p>}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-roboto text-gray-700 mb-1.5">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
-                placeholder="you@example.com"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary hover:bg-primary/90 text-white py-3 rounded-md text-sm font-roboto tracking-wide uppercase transition-all disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Mail size={16} />
-                  Send Reset Link
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Email service health check */}
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={runDiagnostic}
-              disabled={diagLoading}
-              className="text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-            >
-              {diagLoading ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
-              {diagLoading ? 'Checking email service...' : 'Check email service status'}
-            </button>
-
-            {diagError && (
-              <p className="text-xs text-red-600 font-roboto mt-2">{diagError}</p>
-            )}
-
-            {diag && (
-              <div className="mt-3 bg-gray-50 rounded-md p-3 space-y-2">
-                <DiagRow label="Resend API key" ok={diag.resendApiKeyConfigured} />
-                <DiagRow label="Resend sending domain" ok={diag.resendFromDomainConfigured} />
-                <DiagRow label="Supabase admin access" ok={diag.serviceRoleConfigured} />
-                {(!diag.resendApiKeyConfigured || !diag.resendFromDomainConfigured) && (
-                  <p className="text-xs text-amber-700 font-roboto leading-relaxed pt-1 border-t border-gray-200 mt-2">
-                    Add the missing secrets in your Supabase Dashboard → Edge Functions → Secrets,
-                    then run this check again.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="text-center mt-6">
-            <Link
-              to="/crm/login"
-              className="inline-flex items-center gap-2 text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
-            >
-              <ArrowLeft size={12} />
-              Back to Sign In
-            </Link>
-          </div>
+          <p className={`text-xs font-roboto font-semibold uppercase tracking-[0.18em] mb-1 ${theme.label}`}>
+            {isAgent ? 'Agent Portal' : 'Admin Gateway'}
+          </p>
+          <h1 className="text-2xl font-roboto font-bold text-white mb-1">
+            {sent ? 'Check your email' : 'Reset password'}
+          </h1>
+          <p className={`text-sm font-roboto ${theme.sub}`}>
+            {sent
+              ? 'We have sent you a secure reset link'
+              : 'Enter your email and we\u2019ll send you a reset link'}
+          </p>
         </div>
-      </div>
-    </div>
-  );
-}
 
-function DiagRow({ label, ok }: { label: string; ok: boolean }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs font-roboto text-gray-600">{label}</span>
-      {ok ? (
-        <span className="inline-flex items-center gap-1 text-xs font-roboto text-green-600">
-          <ShieldCheck size={13} /> Configured
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-1 text-xs font-roboto text-red-600">
-          <ShieldAlert size={13} /> Missing
-        </span>
-      )}
+        <div className="bg-white rounded-lg p-8 md:p-10">
+          {sent ? (
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-5">
+                <CheckCircle size={28} className="text-green-600" />
+              </div>
+              <p className="text-sm text-gray-500 font-roboto mb-3">
+                If an account exists for this email, a password reset link has been sent.
+              </p>
+              <p className="text-xs text-gray-400 font-roboto mb-6">
+                The link expires in 20 minutes and can only be used once. Check your spam folder if you don&apos;t see it.
+              </p>
+
+              <Link
+                to={`${portalBase}/login`}
+                className="inline-flex items-center gap-2 text-sm font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
+              >
+                <ArrowLeft size={14} />
+                Back to Sign In
+              </Link>
+            </div>
+          ) : (
+            <>
+              {error && (
+                <div className="bg-red-50 border border-red-100 text-red-700 text-sm px-4 py-3 rounded-md mb-6 font-roboto">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-roboto text-gray-700 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-md text-sm font-roboto focus:outline-none focus:ring-1 transition-all text-[#1a1a2e] ${theme.input}`}
+                    placeholder={isAgent ? 'agent@oceanske.com' : 'admin@oceanske.com'}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full ${theme.button} text-white py-3 rounded-md text-sm font-roboto font-semibold uppercase tracking-wide transition-all disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap`}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Mail size={16} />
+                      Send Reset Link
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="text-center mt-6">
+                <Link
+                  to={`${portalBase}/login`}
+                  className="inline-flex items-center gap-2 text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
+                >
+                  <ArrowLeft size={12} />
+                  Back to Sign In
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+
+        <p className="text-center text-xs mt-6 font-roboto">
+          <Link to="/" className={`transition-colors cursor-pointer ${theme.footerLink}`}>← Back to website</Link>
+        </p>
+      </div>
     </div>
   );
 }

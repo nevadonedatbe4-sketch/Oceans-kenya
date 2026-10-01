@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { listenForSync, getLastSyncTime } from '@/lib/syncEngine';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { clearSiteMetaCache } from '@/lib/siteMeta';
 
 export function useSyncSettings() {
   const settings = useSiteSettings();
@@ -10,6 +11,8 @@ export function useSyncSettings() {
   const handleSync = useCallback(() => {
     setLastSync(getLastSyncTime());
     setSyncCount((c) => c + 1);
+    // A save happened elsewhere - drop the cached site meta too.
+    clearSiteMetaCache();
     // Refresh all settings
     settings.refresh();
   }, [settings]);

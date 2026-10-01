@@ -774,7 +774,7 @@ export default function CacheSyncPage() {
               <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide">Activity Log</h3>
             </div>
             <Link
-              to="/crm/activities"
+              to="/admin/activities"
               className="text-xs text-[#1B4332] hover:text-[#1B4332]/70 font-medium transition-colors cursor-pointer"
             >
               View All <i className="ri-arrow-right-line ml-1"></i>

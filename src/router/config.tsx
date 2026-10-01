@@ -1,870 +1,396 @@
-import { lazy } from "react";
 import type { RouteObject } from "react-router-dom";
 import { Navigate } from "react-router-dom";
-import ProtectedRoute from "../components/feature/ProtectedRoute";
+import { lazy } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { portalHomeFor } from "@/lib/authz";
 
-// Public pages are code-split too, so a visitor downloads only the page
-// they actually landed on rather than every public route.
 const NotFound = lazy(() => import("../pages/NotFound"));
-// Public route chunks. Each loader is a named const so the *same* function
-// object backs both lazy() and the prefetch table below — they cannot drift.
-const loadHome = () => import("../pages/home/page");
-const Home = lazy(loadHome);
-const loadBuy = () => import("../pages/Buy");
-const Buy = lazy(loadBuy);
-const loadRent = () => import("../pages/Rent");
-const Rent = lazy(loadRent);
-const loadAllProperties = () => import("../pages/AllProperties");
-const AllProperties = lazy(loadAllProperties);
-const loadLandlords = () => import("../pages/Landlords");
-const Landlords = lazy(loadLandlords);
-const loadNeighbourhoods = () => import("../pages/Neighbourhoods");
-const Neighbourhoods = lazy(loadNeighbourhoods);
-const loadNeighbourhoodDetail = () => import("../pages/NeighbourhoodDetail");
-const NeighbourhoodDetail = lazy(loadNeighbourhoodDetail);
-const loadNewDevelopments = () => import("../pages/NewDevelopments");
-const NewDevelopments = lazy(loadNewDevelopments);
-const loadAbout = () => import("../pages/About");
-const About = lazy(loadAbout);
-const loadContact = () => import("../pages/Contact");
-const Contact = lazy(loadContact);
-const loadValuation = () => import("../pages/Valuation");
-const Valuation = lazy(loadValuation);
-const loadPropertyDetail = () => import("../pages/PropertyDetail");
-const PropertyDetail = lazy(loadPropertyDetail);
-const loadJointVentures = () => import("../pages/JointVentures");
-const JointVentures = lazy(loadJointVentures);
-const loadJointVentureProjectDetail = () => import("../pages/JointVentureProjectDetail");
-const JointVentureProjectDetail = lazy(loadJointVentureProjectDetail);
-const loadCommercialProperty = () => import("../pages/CommercialProperty");
-const CommercialProperty = lazy(loadCommercialProperty);
-const loadCommercialAdvertising = () => import("../pages/CommercialAdvertising");
-const CommercialAdvertising = lazy(loadCommercialAdvertising);
-const loadCommuteTime = () => import("../pages/CommuteTime");
-const CommuteTime = lazy(loadCommuteTime);
-const loadSchools = () => import("../pages/Schools");
-const Schools = lazy(loadSchools);
-const loadBlogDetail = () => import("../pages/BlogDetail");
-const BlogDetail = lazy(loadBlogDetail);
-
-// The CRM/admin console is ~62% of the source and is never used by public
-// visitors, so it is loaded on demand. Vite emits these as separate chunks
-// that are only fetched when an admin actually navigates to /crm/*.
-const CRMLogin = lazy(() => import("../pages/crm/Login"));
+const Home = lazy(() => import("../pages/home/page"));
+const Buy = lazy(() => import("../pages/Buy"));
+const Rent = lazy(() => import("../pages/Rent"));
+const AllProperties = lazy(() => import("../pages/AllProperties"));
+const Landlords = lazy(() => import("../pages/Landlords"));
+const Neighbourhoods = lazy(() => import("../pages/Neighbourhoods"));
+const NeighbourhoodDetail = lazy(() => import("../pages/NeighbourhoodDetail"));
+const AreaResults = lazy(() => import("../pages/AreaResults"));
+const NewDevelopments = lazy(() => import("../pages/NewDevelopments"));
+const About = lazy(() => import("../pages/About"));
+const Contact = lazy(() => import("../pages/Contact"));
+const Valuation = lazy(() => import("../pages/Valuation"));
+const PropertyDetail = lazy(() => import("../pages/PropertyDetail"));
+const JointVentures = lazy(() => import("../pages/JointVentures"));
+const JointVentureProjectDetail = lazy(() => import("../pages/JointVentureProjectDetail"));
 const ForgotPassword = lazy(() => import("../pages/crm/ForgotPassword"));
-const UpdatePassword = lazy(() => import("../pages/crm/UpdatePassword"));
-const DashboardLayout = lazy(() => import("../pages/crm/DashboardLayout"));
+const ResetPassword = lazy(() => import("../pages/ResetPassword"));
+
+// ── Agent Portal ──────────────────────────────────────────────
+const AgentLogin = lazy(() => import("../pages/agent/AgentLogin"));
+const AgentSignup = lazy(() => import("../pages/agent/AgentSignup"));
+const AgentPending = lazy(() => import("../pages/agent/AgentPending"));
+const AgentPortalLayout = lazy(() => import("../pages/agent/AgentPortalLayout"));
+const AgentDashboard = lazy(() => import("../pages/agent/AgentDashboard"));
+const AgentListings = lazy(() => import("../pages/agent/AgentListings"));
+const AgentDevelopments = lazy(() => import("../pages/agent/AgentDevelopments"));
+const AgentJvDesk = lazy(() => import("../pages/agent/AgentJvDesk"));
+const AgentPerformance = lazy(() => import("../pages/agent/AgentPerformance"));
+const AgentContactsPage = lazy(() => import("../pages/agent/AgentContactsPage"));
+const AgentHelp = lazy(() => import("../pages/agent/AgentHelp"));
+const OGroupMessenger = lazy(() => import("../pages/agent/ogroup/OGroupMessenger"));
+const OGroupCheckIn = lazy(() => import("../pages/agent/ogroup/OGroupCheckIn"));
+const AgentTimesheet = lazy(() => import("../pages/agent/AgentTimesheet"));
+const OGroupCalendar = lazy(() => import("../pages/agent/ogroup/OGroupCalendar"));
+const OGroupNotifications = lazy(() => import("../pages/agent/ogroup/OGroupNotifications"));
+const AgentAppointments = lazy(() => import("../pages/agent/AgentAppointments"));
+
+// ── Admin Portal ──────────────────────────────────────────────
+const AdminLogin = lazy(() => import("../pages/admin/AdminLogin"));
+const AdminPortalLayout = lazy(() => import("../pages/admin/AdminPortalLayout"));
+
+// ── Shared CRM content (admin portal) ─────────────────────────
 const Dashboard = lazy(() => import("../pages/crm/Dashboard"));
 const Listings = lazy(() => import("../pages/crm/Listings"));
 const Leads = lazy(() => import("../pages/crm/Leads"));
 const Deals = lazy(() => import("../pages/crm/Deals"));
 const Contacts = lazy(() => import("../pages/crm/Contacts"));
 const Inbox = lazy(() => import("../pages/crm/Inbox"));
-const Agents = lazy(() => import("../pages/crm/Agents"));
+const AgentDatabasePage = lazy(() => import("../pages/crm/agent-database/page"));
 const MediaLibrary = lazy(() => import("../pages/crm/MediaLibrary"));
 const ListingEdit = lazy(() => import("../pages/crm/ListingEdit"));
+const Developments = lazy(() => import("../pages/crm/Developments"));
+const DevelopmentEdit = lazy(() => import("../pages/crm/DevelopmentEdit"));
 const CRMNeighbourhoods = lazy(() => import("../pages/crm/Neighbourhoods"));
 const NeighbourhoodEdit = lazy(() => import("../pages/crm/NeighbourhoodEdit"));
+const CRMAmenities = lazy(() => import("../pages/crm/Amenities"));
+const AmenityEdit = lazy(() => import("../pages/crm/AmenityEdit"));
+const AmenityCategoryEdit = lazy(() => import("../pages/crm/AmenityCategoryEdit"));
 const Activities = lazy(() => import("../pages/crm/Activities"));
 const Insights = lazy(() => import("../pages/crm/Insights"));
 const HomeSections = lazy(() => import("../pages/crm/HomeSections"));
 const BlogAdmin = lazy(() => import("../pages/crm/BlogAdmin"));
-const SiteSettings = lazy(() => import("../pages/crm/SiteSettings"));
-const UsersAndRoles = lazy(() => import("../pages/crm/UsersAndRoles"));
-const ManagementOptions = lazy(() => import("../pages/crm/ManagementOptions"));
 const MenuManager = lazy(() => import("../pages/crm/MenuManager"));
 const Testimonials = lazy(() => import("../pages/crm/Testimonials"));
 const SyncActions = lazy(() => import("../pages/crm/SyncActions"));
 const JointVenturesCRM = lazy(() => import("../pages/crm/JointVentures"));
+const LandListings = lazy(() => import("../pages/crm/LandListings"));
+const LandListingEdit = lazy(() => import("../pages/crm/LandListingEdit"));
 const JVSubmissionEdit = lazy(() => import("../pages/crm/JVSubmissionEdit"));
 const JVProjectEdit = lazy(() => import("../pages/crm/JVProjectEdit"));
+const JVOpportunities = lazy(() => import("../pages/crm/JVOpportunities"));
+const JVOpportunityEdit = lazy(() => import("../pages/crm/JVOpportunityEdit"));
 const NavLinks = lazy(() => import("../pages/crm/NavLinks"));
 const ContactSectionsAdmin = lazy(() => import("../pages/crm/ContactSectionsAdmin"));
-const ProfilePage = lazy(() => import("../pages/crm/Profile"));
-const DashboardRedirect = lazy(() => import("../pages/crm/DashboardRedirect"));
 const PipelineView = lazy(() => import("../pages/crm/PipelineView"));
-const MgmtGeneral = lazy(() => import("../pages/crm/management/General"));
-const MgmtBranding = lazy(() => import("../pages/crm/management/Branding"));
-const MgmtCurrency = lazy(() => import("../pages/crm/management/Currency"));
-const MgmtTypography = lazy(() => import("../pages/crm/management/Typography"));
-const MgmtListingsPages = lazy(() => import("../pages/crm/management/ListingsPages"));
-const MgmtSearchFilters = lazy(() => import("../pages/crm/management/SearchFilters"));
-const MgmtPropertySettings = lazy(() => import("../pages/crm/management/PropertySettings"));
-const MgmtRequiredFields = lazy(() => import("../pages/crm/management/RequiredFields"));
-const MgmtHeroSection = lazy(() => import("../pages/crm/management/HeroSection"));
-const MgmtHomepageControls = lazy(() => import("../pages/crm/management/HomepageControls"));
-const MgmtBreadcrumbs = lazy(() => import("../pages/crm/management/Breadcrumbs"));
-const MgmtContactCompany = lazy(() => import("../pages/crm/management/ContactCompany"));
-const MgmtSocialMedia = lazy(() => import("../pages/crm/management/SocialMedia"));
-const MgmtMapsLocation = lazy(() => import("../pages/crm/management/MapsLocation"));
-const MgmtPropertyDetails = lazy(() => import("../pages/crm/management/PropertyDetails"));
-const MgmtStylingCards = lazy(() => import("../pages/crm/management/StylingCards"));
-const MgmtStylingDetails = lazy(() => import("../pages/crm/management/StylingDetails"));
-const MgmtDashboardMenu = lazy(() => import("../pages/crm/management/DashboardMenuPage"));
-const MgmtCacheSync = lazy(() => import("../pages/crm/management/CacheSync"));
-const MgmtGlobalDesign = lazy(() => import("../pages/crm/management/GlobalDesign"));
-const MgmtComponentSettings = lazy(() => import("../pages/crm/management/ComponentSettings"));
-const MgmtPageBuilder = lazy(() => import("../pages/crm/management/PageBuilder"));
-const MgmtDesignSystemHub = lazy(() => import("../pages/crm/management/DesignSystemHub"));
-const MgmtColourPalette = lazy(() => import("../pages/crm/management/ColourPalette"));
-const MgmtSpacingSizes = lazy(() => import("../pages/crm/management/SpacingSizes"));
-const MgmtCardBoxSystem = lazy(() => import("../pages/crm/management/CardBoxSystem"));
-const MgmtButtonSystem = lazy(() => import("../pages/crm/management/ButtonSystem"));
-const MgmtCardV7 = lazy(() => import("../pages/crm/management/CardV7"));
-const MgmtCarouselSystem = lazy(() => import("../pages/crm/management/CarouselSystem"));
-const MgmtGlobalPageControl = lazy(() => import("../pages/crm/management/GlobalPageControl"));
-const MgmtResponsiveControl = lazy(() => import("../pages/crm/management/ResponsiveControl"));
-const MgmtFormLayoutManager = lazy(() => import("../pages/crm/management/FormLayoutManager"));
-const MgmtPropertyDetailLayout = lazy(() => import("../pages/crm/management/PropertyDetailLayout"));
-const MgmtLandlordsPage = lazy(() => import("../pages/crm/management/LandlordsPage"));
-const MgmtLandlordsImages = lazy(() => import("../pages/crm/management/LandlordsImages"));
-const MgmtNewDevelopmentsPage = lazy(() => import("../pages/crm/management/NewDevelopmentsPage"));
-const MgmtAboutPage = lazy(() => import("../pages/crm/management/AboutPage"));
-const MgmtContactPage = lazy(() => import("../pages/crm/management/ContactPage"));
-const MgmtNeighbourhoodsPage = lazy(() => import("../pages/crm/management/NeighbourhoodsPage"));
 
-// Management sub-pages
+// ── Admin Management (design-system) content routes ──────────────
+const GlobalDesign = lazy(() => import("../pages/crm/management/GlobalDesign"));
+const ComponentSettings = lazy(() => import("../pages/crm/management/ComponentSettings"));
+const PageBuilder = lazy(() => import("../pages/crm/management/PageBuilder"));
+const DashboardMenuPage = lazy(() => import("../pages/crm/management/DashboardMenuPage"));
+const DesignSystemHub = lazy(() => import("../pages/crm/management/DesignSystemHub"));
+const ColourPalette = lazy(() => import("../pages/crm/management/ColourPalette"));
+const ManagementTypography = lazy(() => import("../pages/crm/management/Typography"));
+const SpacingSizes = lazy(() => import("../pages/crm/management/SpacingSizes"));
+const CardBoxSystem = lazy(() => import("../pages/crm/management/CardBoxSystem"));
+const ButtonSystem = lazy(() => import("../pages/crm/management/ButtonSystem"));
+const CardV7 = lazy(() => import("../pages/crm/management/CardV7"));
+const CarouselSystem = lazy(() => import("../pages/crm/management/CarouselSystem"));
+const GlobalPageControl = lazy(() => import("../pages/crm/management/GlobalPageControl"));
+const ResponsiveControl = lazy(() => import("../pages/crm/management/ResponsiveControl"));
+const ManagementGeneral = lazy(() => import("../pages/crm/management/General"));
+const ManagementBranding = lazy(() => import("../pages/crm/management/Branding"));
+const ManagementCurrency = lazy(() => import("../pages/crm/management/Currency"));
+const ManagementPropertySettings = lazy(() => import("../pages/crm/management/PropertySettings"));
+const ManagementPropertyDetails = lazy(() => import("../pages/crm/management/PropertyDetails"));
+const ListingsPages = lazy(() => import("../pages/crm/management/ListingsPages"));
+const ManagementSearchFilters = lazy(() => import("../pages/crm/management/SearchFilters"));
+const ManagementRequiredFields = lazy(() => import("../pages/crm/management/RequiredFields"));
+const FormLayoutManager = lazy(() => import("../pages/crm/management/FormLayoutManager"));
+const ManagementPropertyDetailLayout = lazy(() => import("../pages/crm/management/PropertyDetailLayout"));
+const HomepageControls = lazy(() => import("../pages/crm/management/HomepageControls"));
+const ManagementHeroSection = lazy(() => import("../pages/crm/management/HeroSection"));
+const NeighbourhoodsHomepage = lazy(() => import("../pages/crm/management/NeighbourhoodsHomepage"));
+const ManagementBreadcrumbs = lazy(() => import("../pages/crm/management/Breadcrumbs"));
+const LandlordsPage = lazy(() => import("../pages/crm/management/LandlordsPage"));
+const LandlordsImages = lazy(() => import("../pages/crm/management/LandlordsImages"));
+const NewDevelopmentsPage = lazy(() => import("../pages/crm/management/NewDevelopmentsPage"));
+const AboutPage = lazy(() => import("../pages/crm/management/AboutPage"));
+const ContactPage = lazy(() => import("../pages/crm/management/ContactPage"));
+const NeighbourhoodsPage = lazy(() => import("../pages/crm/management/NeighbourhoodsPage"));
+const ContactCompany = lazy(() => import("../pages/crm/management/ContactCompany"));
+const ManagementSocialMedia = lazy(() => import("../pages/crm/management/SocialMedia"));
+const MapsLocation = lazy(() => import("../pages/crm/management/MapsLocation"));
+const StylingCards = lazy(() => import("../pages/crm/management/StylingCards"));
+const StylingDetails = lazy(() => import("../pages/crm/management/StylingDetails"));
+const CardsCarousel = lazy(() => import("../pages/crm/management/CardsCarousel"));
+const CacheSync = lazy(() => import("../pages/crm/management/CacheSync"));
+const EmailManagement = lazy(() => import("../pages/crm/management/EmailManagement"));
+const ManagementOptions = lazy(() => import("../pages/crm/ManagementOptions"));
 
-// New management sub-pages
+// ── Portal-specific pages (distinct from CRM admin content) ──────────────
+const AgentApprovals = lazy(() => import("../pages/admin/AgentApprovals"));
+const AgentManagement = lazy(() => import("../pages/admin/AgentManagement"));
+const AgentDashboardPreview = lazy(() => import("../pages/admin/AgentDashboardPreview"));
+const AgentDashboards = lazy(() => import("../pages/admin/AgentDashboards"));
+const AgentAccountSettings = lazy(() => import("../pages/agent/AgentAccountSettings"));
+const SystemManagementOptions = lazy(() => import("../pages/admin/SystemManagementOptions"));
+const AdminAttendance = lazy(() => import("../pages/admin/AdminAttendance"));
+const AdminTeamOverview = lazy(() => import("../pages/admin/AdminTeamOverview"));
+const TeamContacts = lazy(() => import("../pages/admin/TeamContacts"));
+const AdminTeamCalendar = lazy(() => import("../pages/admin/AdminTeamCalendar"));
+const AdminTeamNotifications = lazy(() => import("../pages/admin/AdminTeamNotifications"));
 
-// Page Management CMS pages
+import PortalGuard from "../components/feature/PortalGuard";
+import SeoListingPage from "@/pages/SeoListingPage";
+import LegalPage from "@/pages/legal/page";
+import EstateAgentPage from "@/pages/EstateAgentPage";
+import PriceGuidePage from "@/pages/PriceGuidePage";
+import AreaGuidePage from "@/pages/AreaGuidePage";
+import { SEO_PAGES } from "@/lib/seoPages";
+import { ESTATE_AGENT_PAGES, PROPERTY_PRICE_PAGES } from "@/lib/seoClusters";
+import { AREA_GUIDE_PAGES } from "@/lib/areaGuides";
+import SitemapXmlPage from "@/pages/SitemapXmlPage";
+const CommercialProperty = lazy(() => import("../pages/CommercialProperty"));
+const CommercialAdvertising = lazy(() => import("../pages/CommercialAdvertising"));
+const CommuteTime = lazy(() => import("../pages/CommuteTime"));
+const Schools = lazy(() => import("../pages/Schools"));
+const LivingNairobi = lazy(() => import("../pages/LivingNairobi"));
+const Directory = lazy(() => import("../pages/Directory"));
+const DirectoryCategory = lazy(() => import("../pages/DirectoryCategory"));
+const NightLife = lazy(() => import("../pages/night-life/page"));
+const PlaceDetail = lazy(() => import("../pages/PlaceDetail"));
+const BlogDetail = lazy(() => import("../pages/BlogDetail"));
 
+// ── Admin content routes (shared with agent for listing editing) ──
+const adminChildren: RouteObject[] = [
+  { path: "", element: <Dashboard /> },
+  { path: "dashboard", element: <Dashboard /> },
+  { path: "agent-dashboards", element: <AgentDashboards /> },
+  { path: "listings", element: <Listings /> },
+  { path: "listings/new", element: <ListingEdit /> },
+  { path: "listings/edit/:id", element: <ListingEdit /> },
+  { path: "developments", element: <Developments /> },
+  { path: "developments/new", element: <DevelopmentEdit /> },
+  { path: "developments/edit/:id", element: <DevelopmentEdit /> },
+  { path: "approvals", element: <AgentApprovals /> },
+  { path: "deletions", element: <AgentApprovals /> },
+  { path: "agents", element: <AgentManagement /> },
+  { path: "agents/:agentId/preview", element: <AgentDashboardPreview /> },
+  { path: "agent-database", element: <AgentDatabasePage /> },
+  { path: "leads", element: <Leads /> },
+  { path: "pipeline", element: <PipelineView /> },
+  { path: "deals", element: <Deals /> },
+  { path: "contacts", element: <Contacts /> },
+  { path: "inbox", element: <Inbox /> },
+  { path: "messenger", element: <OGroupMessenger /> },
+  { path: "media", element: <MediaLibrary /> },
+  { path: "neighbourhoods", element: <CRMNeighbourhoods /> },
+  { path: "neighbourhoods/new", element: <NeighbourhoodEdit /> },
+  { path: "neighbourhoods/edit/:id", element: <NeighbourhoodEdit /> },
+  { path: "amenities", element: <CRMAmenities /> },
+  { path: "amenities/new", element: <AmenityEdit /> },
+  { path: "amenities/edit/:id", element: <AmenityEdit /> },
+  { path: "amenities/categories/new", element: <AmenityCategoryEdit /> },
+  { path: "amenities/categories/edit/:id", element: <AmenityCategoryEdit /> },
+  { path: "activities", element: <Activities /> },
+  { path: "insights", element: <Insights /> },
+  { path: "home-sections", element: <HomeSections /> },
+  { path: "blog", element: <BlogAdmin /> },
+  // Settings / System / Management Options now live inside the consolidated System & Management hub.
+  { path: "settings", element: <Navigate to="/admin/system-management?tab=settings" replace /> },
+  { path: "system", element: <Navigate to="/admin/system-management?tab=system" replace /> },
+  // Users & Roles / Invitations now live inside the consolidated Agents & Access page.
+  { path: "users", element: <Navigate to="/admin/agents?tab=users" replace /> },
+  { path: "system-management", element: <SystemManagementOptions /> },
+  { path: "attendance", element: <AdminAttendance /> },
+  { path: "check-in", element: <OGroupCheckIn /> },
+  { path: "team", element: <AdminTeamOverview /> },
+  { path: "team-contacts", element: <TeamContacts /> },
+  { path: "team-calendar", element: <AdminTeamCalendar /> },
+  { path: "calendar", element: <Navigate to="/admin/team-calendar" replace /> },
+  { path: "appointments", element: <Navigate to="/admin/team-calendar" replace /> },
+  { path: "team-notifications", element: <AdminTeamNotifications /> },
+  { path: "menu", element: <MenuManager /> },
+  { path: "testimonials", element: <Testimonials /> },
+  { path: "sync", element: <SyncActions /> },
+  { path: "land-listings", element: <LandListings /> },
+  { path: "land-listings/new", element: <LandListingEdit /> },
+  { path: "land-listings/edit/:id", element: <LandListingEdit /> },
+  { path: "joint-ventures", element: <JointVenturesCRM /> },
+  { path: "joint-ventures/new", element: <JVSubmissionEdit /> },
+  { path: "joint-ventures/edit/:id", element: <JVSubmissionEdit /> },
+  { path: "joint-ventures/projects/new", element: <JVProjectEdit /> },
+  { path: "joint-ventures/projects/edit/:id", element: <JVProjectEdit /> },
+  { path: "jv-opportunities", element: <JVOpportunities /> },
+  { path: "jv-opportunities/new", element: <JVOpportunityEdit /> },
+  { path: "jv-opportunities/edit/:id", element: <JVOpportunityEdit /> },
+  { path: "nav-links", element: <NavLinks /> },
+  { path: "contact-sections", element: <ContactSectionsAdmin /> },
+  { path: "profile", element: <AgentAccountSettings /> },
 
-// Public route patterns paired with their chunk loader, consumed by the hover
-// prefetcher in ./prefetch. CRM routes are deliberately excluded: an admin is
-// already inside the app, and those chunks are large (ListingEdit alone is
-// 160 kB) so speculatively fetching them would waste bandwidth.
-export const PUBLIC_ROUTE_LOADERS: ReadonlyArray<readonly [string, () => Promise<unknown>]> = [
-  ["/", loadHome],
-  ["/buy", loadBuy],
-  ["/rent", loadRent],
-  ["/all-properties", loadAllProperties],
-  ["/landlords", loadLandlords],
-  ["/neighbourhoods", loadNeighbourhoods],
-  ["/neighbourhood/:slug", loadNeighbourhoodDetail],
-  ["/blog/:slug", loadBlogDetail],
-  ["/new-developments", loadNewDevelopments],
-  ["/joint-ventures", loadJointVentures],
-  ["/joint-ventures/project/:slug", loadJointVentureProjectDetail],
-  ["/about", loadAbout],
-  ["/contact", loadContact],
-  ["/valuation", loadValuation],
-  ["/property/:slug", loadPropertyDetail],
-  ["/commercial-property", loadCommercialProperty],
-  ["/c/commercial-advertising", loadCommercialAdvertising],
-  ["/commute-time", loadCommuteTime],
-  ["/schools", loadSchools],
+  // ── Management / design-system options ──
+  { path: "management", element: <Navigate to="/admin/system-management?tab=management" replace /> },
+  { path: "management/options", element: <ManagementOptions /> },
+  { path: "management/global-design", element: <GlobalDesign /> },
+  { path: "management/component-settings", element: <ComponentSettings /> },
+  { path: "management/page-builder", element: <PageBuilder /> },
+  { path: "management/dashboard-menu", element: <DashboardMenuPage /> },
+  { path: "management/design-system-hub", element: <DesignSystemHub /> },
+  { path: "management/colour-palette", element: <ColourPalette /> },
+  { path: "management/typography", element: <ManagementTypography /> },
+  { path: "management/spacing-sizes", element: <SpacingSizes /> },
+  { path: "management/card-box", element: <CardBoxSystem /> },
+  { path: "management/button-system", element: <ButtonSystem /> },
+  { path: "management/card-v7", element: <CardV7 /> },
+  { path: "management/carousel", element: <CarouselSystem /> },
+  { path: "management/global-page-control", element: <GlobalPageControl /> },
+  { path: "management/responsive", element: <ResponsiveControl /> },
+  { path: "management/general", element: <ManagementGeneral /> },
+  { path: "management/branding", element: <ManagementBranding /> },
+  { path: "management/currency", element: <ManagementCurrency /> },
+  { path: "management/property", element: <ManagementPropertySettings /> },
+  { path: "management/property-details", element: <ManagementPropertyDetails /> },
+  { path: "management/listings-pages", element: <ListingsPages /> },
+  { path: "management/search", element: <ManagementSearchFilters /> },
+  { path: "management/required", element: <ManagementRequiredFields /> },
+  { path: "management/form-layout", element: <FormLayoutManager /> },
+  { path: "management/property-detail-layout", element: <ManagementPropertyDetailLayout /> },
+  { path: "management/homepage", element: <HomepageControls /> },
+  { path: "management/hero", element: <ManagementHeroSection /> },
+  { path: "management/neighbourhoods-homepage", element: <NeighbourhoodsHomepage /> },
+  { path: "management/breadcrumbs", element: <ManagementBreadcrumbs /> },
+  { path: "management/landlords-page", element: <LandlordsPage /> },
+  { path: "management/landlords-images", element: <LandlordsImages /> },
+  { path: "management/new-developments-page", element: <NewDevelopmentsPage /> },
+  { path: "management/about-page", element: <AboutPage /> },
+  { path: "management/contact-page", element: <ContactPage /> },
+  { path: "management/neighbourhoods-page", element: <NeighbourhoodsPage /> },
+  { path: "management/contact", element: <ContactCompany /> },
+  { path: "management/social", element: <ManagementSocialMedia /> },
+  { path: "management/maps", element: <MapsLocation /> },
+  { path: "management/styling-cards", element: <StylingCards /> },
+  { path: "management/styling-details", element: <StylingDetails /> },
+  { path: "management/cards-carousel", element: <CardsCarousel /> },
+  { path: "management/cache", element: <CacheSync /> },
+  { path: "management/email", element: <EmailManagement /> },
+];
+
+// ── Agent content routes ─────────────────────────────────────
+const agentChildren: RouteObject[] = [
+  { path: "", element: <AgentDashboard /> },
+  { path: "dashboard", element: <AgentDashboard /> },
+  { path: "listings", element: <AgentListings /> },
+  { path: "land-listings", element: <AgentJvDesk /> },
+  { path: "land-listings/new", element: <LandListingEdit /> },
+  { path: "land-listings/edit/:id", element: <LandListingEdit /> },
+  { path: "jv-desk", element: <AgentJvDesk /> },
+  { path: "listings/new", element: <ListingEdit /> },
+  { path: "listings/edit/:id", element: <ListingEdit /> },
+  { path: "developments", element: <AgentDevelopments /> },
+  { path: "developments/new", element: <DevelopmentEdit /> },
+  { path: "developments/edit/:id", element: <DevelopmentEdit /> },
+  { path: "leads", element: <Leads /> },
+  { path: "enquiries", element: <Inbox /> },
+  { path: "messenger", element: <OGroupMessenger /> },
+  { path: "check-in", element: <OGroupCheckIn /> },
+  { path: "timesheet", element: <AgentTimesheet /> },
+  { path: "calendar", element: <OGroupCalendar /> },
+  { path: "appointments", element: <AgentAppointments /> },
+  { path: "notifications", element: <OGroupNotifications /> },
+  { path: "performance", element: <AgentPerformance /> },
+  { path: "contacts", element: <AgentContactsPage /> },
+  { path: "help", element: <AgentHelp /> },
+  { path: "profile", element: <AgentAccountSettings /> },
 ];
 
 const routes: RouteObject[] = [
+  { path: "/", element: <Home /> },
+  { path: "/buy", element: <Buy /> },
+  { path: "/rent", element: <Rent /> },
+  { path: "/all-properties", element: <AllProperties /> },
+  ...Object.values(SEO_PAGES).map((p) => ({ path: p.slug, element: <SeoListingPage slug={p.slug} /> })),
+  ...Object.values(ESTATE_AGENT_PAGES).map((p) => ({ path: p.slug, element: <EstateAgentPage slug={p.slug} /> })),
+  ...Object.values(PROPERTY_PRICE_PAGES).map((p) => ({ path: p.slug, element: <PriceGuidePage slug={p.slug} /> })),
+  ...Object.values(AREA_GUIDE_PAGES).map((p) => ({ path: p.slug, element: <AreaGuidePage slug={p.slug} /> })),
+  { path: "/landlords", element: <Landlords /> },
+  { path: "/neighbourhoods", element: <Neighbourhoods /> },
+  { path: "/neighbourhood/:slug", element: <NeighbourhoodDetail /> },
+  // Dedicated area property-search view - owns the exact → nearby → broad fallback.
+  { path: "/area/:slug", element: <AreaResults /> },
+  { path: "/blog/:slug", element: <BlogDetail /> },
+  { path: "/new-developments", element: <NewDevelopments /> },
+  { path: "/joint-ventures", element: <JointVentures /> },
+  { path: "/joint-ventures/project/:slug", element: <JointVentureProjectDetail /> },
+  { path: "/about", element: <About /> },
+  { path: "/contact", element: <Contact /> },
+  { path: "/valuation", element: <Valuation /> },
+  { path: "/property/:slug", element: <PropertyDetail /> },
+  { path: "/commercial-property", element: <CommercialProperty /> },
+  { path: "/c/commercial-advertising", element: <CommercialAdvertising /> },
+  { path: "/commute-time", element: <CommuteTime /> },
+  { path: "/schools", element: <Schools /> },
+  { path: "/living-in-nairobi", element: <LivingNairobi /> },
+  { path: "/directory", element: <Directory /> },
+  { path: "/directory/:categorySlug", element: <DirectoryCategory /> },
+  { path: "/directory/place/:id", element: <PlaceDetail /> },
+  { path: "/night-life", element: <NightLife /> },
+  // ── Legal & Support (linked from the global footer) ──
+  { path: "/privacy-policy", element: <LegalPage pageKey="privacy-policy" /> },
+  { path: "/terms-conditions", element: <LegalPage pageKey="terms-conditions" /> },
+  { path: "/cookie-policy", element: <LegalPage pageKey="cookie-policy" /> },
+  { path: "/disclaimer", element: <LegalPage pageKey="disclaimer" /> },
+  { path: "/help-center", element: <LegalPage pageKey="help-center" /> },
+  { path: "/report-a-listing", element: <LegalPage pageKey="report-a-listing" /> },
+  { path: "/sitemap.xml", element: <SitemapXmlPage /> },
+
+  // ─────────────────────────────────────────────────────────────
+  // PORTAL 1 — AGENT (public signup → approval gate → agent portal)
+  // ─────────────────────────────────────────────────────────────
+  { path: "/agent/login", element: <AgentLogin /> },
+  { path: "/agent/signup", element: <AgentSignup /> },
+  { path: "/agent/approval", element: <AgentPending /> },
+  { path: "/agent/forgot-password", element: <ForgotPassword /> },
   {
-    path: "/",
-    element: <Home />,
-  },
-  {
-    path: "/buy",
-    element: <Buy />,
-  },
-  {
-    path: "/rent",
-    element: <Rent />,
-  },
-  {
-    path: "/all-properties",
-    element: <AllProperties />,
-  },
-  {
-    path: "/landlords",
-    element: <Landlords />,
-  },
-  {
-    path: "/neighbourhoods",
-    element: <Neighbourhoods />,
-  },
-  {
-    path: "/neighbourhood/:slug",
-    element: <NeighbourhoodDetail />,
-  },
-  {
-    path: "/blog/:slug",
-    element: <BlogDetail />,
-  },
-  {
-    path: "/new-developments",
-    element: <NewDevelopments />,
-  },
-  {
-    path: "/joint-ventures",
-    element: <JointVentures />,
-  },
-  {
-    path: "/joint-ventures/project/:slug",
-    element: <JointVentureProjectDetail />,
-  },
-  {
-    path: "/about",
-    element: <About />,
-  },
-  {
-    path: "/contact",
-    element: <Contact />,
-  },
-  {
-    path: "/valuation",
-    element: <Valuation />,
-  },
-  {
-    path: "/property/:slug",
-    element: <PropertyDetail />,
-  },
-  {
-    path: "/crm/login",
-    element: <CRMLogin />,
-  },
-  {
-    path: "/crm/forgot-password",
-    element: <ForgotPassword />,
-  },
-  {
-    path: "/crm/update-password",
-    element: <UpdatePassword />,
-  },
-  {
-    path: "/admin-dashboard",
+    path: "/agent",
     element: (
-      <ProtectedRoute requiredRoles={['admin', 'super_admin']}>
-        <DashboardLayout />
-      </ProtectedRoute>
+      <PortalGuard portal="agent">
+        <AgentPortalLayout />
+      </PortalGuard>
     ),
-    children: [
-      {
-        path: "",
-        element: <Dashboard />,
-      },
-    ],
+    children: agentChildren,
   },
+
+  // ─────────────────────────────────────────────────────────────
+  // PORTAL 2 — ADMIN (private gateway, no public signup)
+  // ─────────────────────────────────────────────────────────────
+  { path: "/admin/login", element: <AdminLogin /> },
+  { path: "/admin/forgot-password", element: <ForgotPassword /> },
+  // Secure token-based password reset (single-use, hashed, expiring).
+  { path: "/reset-password", element: <ResetPassword /> },
   {
-    path: "/agent-dashboard",
+    path: "/admin",
     element: (
-      <ProtectedRoute requiredRoles={['agent', 'super_admin']}>
-        <DashboardLayout />
-      </ProtectedRoute>
+      <PortalGuard portal="admin">
+        <AdminPortalLayout />
+      </PortalGuard>
     ),
-    children: [
-      {
-        path: "",
-        element: <Dashboard />,
-      },
-    ],
+    children: adminChildren,
   },
-  {
-    path: "/crm/dashboard",
-    element: <DashboardRedirect />,
-  },
-  {
-    path: "/crm/listings",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Listings />,
-      },
-    ],
-  },
-  {
-    path: "/crm/listings/new",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <ListingEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/listings/edit/:id",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <ListingEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/leads",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Leads />,
-      },
-    ],
-  },
-  {
-    path: "/crm/pipeline",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <PipelineView />,
-      },
-    ],
-  },
-  {
-    path: "/crm/deals",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Deals />,
-      },
-    ],
-  },
-  {
-    path: "/crm/agents",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Agents />,
-      },
-    ],
-  },
-  {
-    path: "/crm/contacts",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Contacts />,
-      },
-    ],
-  },
-  {
-    path: "/crm/inbox",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Inbox />,
-      },
-    ],
-  },
-  {
-    path: "/crm/enquiries",
-    element: (
-      <ProtectedRoute>
-        <Navigate to="/crm/inbox" replace />
-      </ProtectedRoute>
-    ),
-  },
-  {
-    path: "/crm/media",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <MediaLibrary />,
-      },
-    ],
-  },
-  {
-    path: "/crm/neighbourhoods",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <CRMNeighbourhoods />,
-      },
-    ],
-  },
-  {
-    path: "/crm/neighbourhoods/new",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <NeighbourhoodEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/neighbourhoods/edit/:id",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <NeighbourhoodEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/activities",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Activities />,
-      },
-    ],
-  },
-  {
-    path: "/crm/insights",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Insights />,
-      },
-    ],
-  },
-  {
-    path: "/crm/home-sections",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <HomeSections />,
-      },
-    ],
-  },
-  {
-    path: "/crm/blog",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <BlogAdmin />,
-      },
-    ],
-  },
-  {
-    path: "/crm/site-settings",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <SiteSettings />,
-      },
-    ],
-  },
-  {
-    path: "/crm/users",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <UsersAndRoles />,
-      },
-    ],
-  },
-  {
-    path: "/crm/profile",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <ProfilePage />,
-      },
-    ],
-  },
-  {
-    path: "/crm/management",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Navigate to="/crm/management/general" replace />,
-      },
-      {
-        path: "general",
-        element: <MgmtGeneral />,
-      },
-      {
-        path: "branding",
-        element: <MgmtBranding />,
-      },
-      {
-        path: "currency",
-        element: <MgmtCurrency />,
-      },
-      {
-        path: "typography",
-        element: <MgmtTypography />,
-      },
-      {
-        path: "listings-pages",
-        element: <MgmtListingsPages />,
-      },
-      {
-        path: "search",
-        element: <MgmtSearchFilters />,
-      },
-      {
-        path: "property",
-        element: <MgmtPropertySettings />,
-      },
-      {
-        path: "required",
-        element: <MgmtRequiredFields />,
-      },
-      {
-        path: "hero",
-        element: <MgmtHeroSection />,
-      },
-      {
-        path: "homepage",
-        element: <MgmtHomepageControls />,
-      },
-      {
-        path: "breadcrumbs",
-        element: <MgmtBreadcrumbs />,
-      },
-      {
-        path: "contact",
-        element: <MgmtContactCompany />,
-      },
-      {
-        path: "social",
-        element: <MgmtSocialMedia />,
-      },
-      {
-        path: "maps",
-        element: <MgmtMapsLocation />,
-      },
-      {
-        path: "property-details",
-        element: <MgmtPropertyDetails />,
-      },
-      {
-        path: "styling-cards",
-        element: <MgmtStylingCards />,
-      },
-      {
-        path: "styling-details",
-        element: <MgmtStylingDetails />,
-      },
-      {
-        path: "dashboard-menu",
-        element: <MgmtDashboardMenu />,
-      },
-      {
-        path: "cache",
-        element: <MgmtCacheSync />,
-      },
-      {
-        path: "global-design",
-        element: <MgmtGlobalDesign />,
-      },
-      {
-        path: "component-settings",
-        element: <MgmtComponentSettings />,
-      },
-      {
-        path: "page-builder",
-        element: <MgmtPageBuilder />,
-      },
-      {
-        path: "design-system-hub",
-        element: <MgmtDesignSystemHub />,
-      },
-      {
-        path: "colour-palette",
-        element: <MgmtColourPalette />,
-      },
-      {
-        path: "spacing-sizes",
-        element: <MgmtSpacingSizes />,
-      },
-      {
-        path: "card-box",
-        element: <MgmtCardBoxSystem />,
-      },
-      {
-        path: "button-system",
-        element: <MgmtButtonSystem />,
-      },
-      {
-        path: "card-v7",
-        element: <MgmtCardV7 />,
-      },
-      {
-        path: "carousel",
-        element: <MgmtCarouselSystem />,
-      },
-      {
-        path: "global-page-control",
-        element: <MgmtGlobalPageControl />,
-      },
-      {
-        path: "responsive",
-        element: <MgmtResponsiveControl />,
-      },
-      {
-        path: "form-layout",
-        element: <MgmtFormLayoutManager />,
-      },
-      {
-        path: "property-detail-layout",
-        element: <MgmtPropertyDetailLayout />,
-      },
-      {
-        path: "landlords-page",
-        element: <MgmtLandlordsPage />,
-      },
-      {
-        path: "landlords-images",
-        element: <MgmtLandlordsImages />,
-      },
-      {
-        path: "new-developments-page",
-        element: <MgmtNewDevelopmentsPage />,
-      },
-      {
-        path: "about-page",
-        element: <MgmtAboutPage />,
-      },
-      {
-        path: "contact-page",
-        element: <MgmtContactPage />,
-      },
-      {
-        path: "neighbourhoods-page",
-        element: <MgmtNeighbourhoodsPage />,
-      },
-    ],
-  },
-  {
-    path: "/crm/menu",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <MenuManager />,
-      },
-    ],
-  },
-  {
-    path: "/crm/testimonials",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <Testimonials />,
-      },
-    ],
-  },
-  {
-    path: "/crm/sync",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <SyncActions />,
-      },
-    ],
-  },
-  {
-    path: "/crm/joint-ventures",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <JointVenturesCRM />,
-      },
-    ],
-  },
-  {
-    path: "/crm/joint-ventures/new",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <JVSubmissionEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/joint-ventures/projects/new",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <JVProjectEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/joint-ventures/projects/edit/:id",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <JVProjectEdit />,
-      },
-    ],
-  },
-  {
-    path: "/crm/nav-links",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <NavLinks />,
-      },
-    ],
-  },
-  {
-    path: "/crm/contact-sections",
-    element: (
-      <ProtectedRoute>
-        <DashboardLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      {
-        path: "",
-        element: <ContactSectionsAdmin />,
-      },
-    ],
-  },
-  {
-    path: "/commercial-property",
-    element: <CommercialProperty />,
-  },
-  {
-    path: "/c/commercial-advertising",
-    element: <CommercialAdvertising />,
-  },
-  {
-    path: "/commute-time",
-    element: <CommuteTime />,
-  },
-  {
-    path: "/schools",
-    element: <Schools />,
-  },
-  {
-    path: "*",
-    element: <NotFound />,
-  },
+
+  // ─────────────────────────────────────────────────────────────
+  // LEGACY REDIRECTS REMOVED — one path per portal only.
+  // /crm/* is gone. Public gateways are /agent/login & /agent/signup,
+  // and the private gateway is /admin/login. No /crm alias remains.
+  // ─────────────────────────────────────────────────────────────
+  { path: "/admin-dashboard", element: <Navigate to="/admin/dashboard" replace /> },
+  { path: "/agent-dashboard", element: <Navigate to="/agent/dashboard" replace /> },
+  { path: "*", element: <NotFound /> },
 ];
+
+// Resolves the correct portal home for the logged-in user by role.
+export function RoleHomeRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) return <></>;
+  return <Navigate to={portalHomeFor(user)} replace />;
+}
 
 export default routes;

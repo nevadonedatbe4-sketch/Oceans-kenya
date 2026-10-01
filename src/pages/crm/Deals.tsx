@@ -7,6 +7,8 @@ import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { logDealCreated } from '@/lib/activityLogger';
+import { notifyCrm } from '@/lib/crmNotify';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 
 interface Deal {
   id: string;
@@ -79,6 +81,7 @@ export default function Deals() {
     total: 0, active: 0, won: 0, lost: 0,
     totalValue: 0, activeValue: 0, wonValue: 0, lostValue: 0,
   });
+  const [loadError, setLoadError] = useState(false);
 
   const handleAddDeal = async () => {
     if (!addForm.title.trim()) {
@@ -103,6 +106,13 @@ export default function Deals() {
       if (user) {
         logDealCreated(user.id, user.name || user.email, data.id, data.title || 'Untitled Deal');
       }
+      notifyCrm({
+        event: 'deal_created',
+        deal_id: data.id,
+        deal_title: data.title || 'Untitled Deal',
+        property_price: data.price,
+        agent_id: data.agent_id,
+      });
       addToast('Deal added successfully', 'success');
       setAddForm({ title: '', price: '', notes: '', status: 'prospect' });
       setAddModal(false);
@@ -167,9 +177,11 @@ export default function Deals() {
     if (error) {
       console.error('Error fetching deals:', error);
       addToast('Failed to load deals', 'error');
+      setLoadError(true);
     } else {
       setDeals(data || []);
       setTotal(count ?? 0);
+      setLoadError(false);
     }
     setLoading(false);
   }, [page, pageSize, stageFilter, search, isAgent, agentId, agentLoading]);
@@ -178,6 +190,15 @@ export default function Deals() {
     fetchDeals();
     fetchDealStats();
   }, [fetchDeals, fetchDealStats]);
+
+  // Live cross-CRM sync: any deal change (from Pipeline, dashboard, or another
+  // CRM) reloads this list and the stats so figures never go stale.
+  useRealtimeRefresh({
+    channelName: 'crm-deals-live',
+    tables: ['deals'],
+    enabled: !agentLoading,
+    onChange: () => { fetchDeals(); fetchDealStats(); },
+  });
 
   useEffect(() => {
     setSelectedDealIds(new Set());
@@ -234,6 +255,14 @@ export default function Deals() {
       addToast(error.message || 'Unable to update stage. Please try again.', 'error');
     } else {
       setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStage } : d)));
+      const deal = deals.find((d) => d.id === id);
+      notifyCrm({
+        event: 'deal_status',
+        deal_id: id,
+        deal_status: newStage,
+        deal_title: deal?.title || '',
+        agent_id: deal?.agent_id || null,
+      });
       addToast(`Deal moved to ${stageLabels[newStage]}`, 'success');
       fetchDealStats();
     }
@@ -297,6 +326,18 @@ export default function Deals() {
 
   return (
     <div className="space-y-5">
+      {loadError && (
+        <div className="flex items-center gap-2 rounded-lg border border-[#f58300]/20 bg-[#fff5e6] px-4 py-2.5">
+          <i className="ri-error-warning-line text-[#f58300] text-sm" />
+          <p className="text-xs sm:text-sm font-inter text-[#f58300]">Couldn&apos;t load deals. Showing the last known state.</p>
+          <button
+            onClick={() => { fetchDeals(); fetchDealStats(); }}
+            className="ml-auto text-xs font-inter font-medium text-[#f58300] underline hover:text-amber-900 cursor-pointer whitespace-nowrap"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       {/* Grouped Summary Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Deals Overview */}
@@ -393,7 +434,7 @@ export default function Deals() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Link
-              to="/crm/pipeline"
+              to="/admin/pipeline"
               className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-inter font-medium text-[#5eead4] lg:text-[#084545] hover:text-[#5eead4] lg:hover:text-[#001731] transition-colors whitespace-nowrap cursor-pointer"
             >
               <i className="ri-funds-line text-sm" />
@@ -522,7 +563,7 @@ export default function Deals() {
                 <th className="px-4 md:px-5 py-2.5 text-left text-xs font-inter font-semibold text-[#636363] uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e8edf2]/60">
+            <tbody className="divide-y divide-[#cbd5e1]">
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
@@ -651,6 +692,7 @@ export default function Deals() {
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
+            mobileLight
           />
         )}
       </div>

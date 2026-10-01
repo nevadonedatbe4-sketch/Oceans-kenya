@@ -3,6 +3,9 @@ import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import { useAuth } from '@/hooks/useAuth';
 import { broadcastSync } from '@/lib/syncEngine';
+import ImageUploadField from '@/pages/crm/components/ImageUploadField';
+import CurrencyManager from '@/pages/crm/components/CurrencyManager';
+import FooterSettingsTab from '@/pages/crm/components/FooterSettingsTab';
 import {
   Save,
   RefreshCw,
@@ -127,13 +130,13 @@ export default function SiteSettings() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="font-jost text-lg text-[#1a1a2e]">Site Settings</h2>
-          <p className="text-xs text-gray-500 font-roboto mt-0.5">Configure global site settings</p>
+          <h2 className="font-jost text-lg text-white">Site Settings</h2>
+          <p className="text-[15px] text-white/70 font-roboto mt-0.5">Configure global site settings</p>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-md text-sm font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-md text-[15px] font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
         >
           {saving ? (
             <>
@@ -155,7 +158,7 @@ export default function SiteSettings() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-sm font-roboto capitalize transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-md text-[15px] font-roboto capitalize transition-all cursor-pointer whitespace-nowrap ${
               activeTab === tab
                 ? 'bg-primary text-white'
                 : 'text-gray-500 hover:bg-gray-50'
@@ -170,77 +173,170 @@ export default function SiteSettings() {
       {loading ? (
         <div className="text-center py-16">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400 font-roboto">Loading settings...</p>
+          <p className="text-[15px] text-white/70 font-roboto">Loading settings...</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-100 p-6">
           {/* General Tab */}
           {activeTab === 'general' && (
             <div className="space-y-5">
-              <h3 className="font-jost text-sm text-[#1a1a2e] mb-4">General Settings</h3>
+              <h3 className="font-jost text-[15px] text-[#1a1a2e] mb-4">General Settings</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                     Site Name
                   </label>
                   <input
                     type="text"
                     value={getSetting('site_name')}
                     onChange={(e) => setSetting('site_name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                     placeholder="Oceans Kenya"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                     Contact Email
                   </label>
                   <input
                     type="email"
                     value={getSetting('contact_email')}
                     onChange={(e) => setSetting('contact_email', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                     placeholder="ask@oceanske.com"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                     Phone Number
                   </label>
                   <input
                     type="text"
                     value={getSetting('contact_phone')}
                     onChange={(e) => setSetting('contact_phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                     placeholder="+254 712 345 678"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                  <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                     WhatsApp Number
                   </label>
                   <input
                     type="text"
                     value={getSetting('whatsapp_number')}
                     onChange={(e) => setSetting('whatsapp_number', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                     placeholder="+254 712 345 678"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Address
                 </label>
                 <input
                   type="text"
                   value={getSetting('address')}
                   onChange={(e) => setSetting('address', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                   placeholder="Riverside Drive, Westlands, Nairobi"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Site Logo
+                </label>
+                <ImageUploadField
+                  label="Main site logo (used in the header)"
+                  value={getSetting('logo_url')}
+                  onChange={(url) => setSetting('logo_url', url)}
+                  pageKey="site-settings"
+                  fieldKey="logo_url"
+                  previewWidth="w-24"
+                  previewHeight="h-16"
+                />
+                <p className="text-[15px] text-gray-500 font-roboto mt-2">
+                  Leave empty to fall back to the logo uploaded in Brand settings.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Chat Image
+                </label>
+                <ImageUploadField
+                  label="Shown beside OCEANS CHAT in the messenger top bar"
+                  value={getSetting('chat_logo_url')}
+                  onChange={(url) => setSetting('chat_logo_url', url)}
+                  pageKey="site-settings"
+                  fieldKey="chat_logo_url"
+                  previewWidth="w-16"
+                  previewHeight="h-16"
+                />
+                <p className="text-[15px] text-gray-500 font-roboto mt-2">
+                  Leave empty to use the default chat mark.
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-gray-100">
+                <h4 className="font-jost text-[15px] text-[#1a1a2e] mb-3 mt-1">Department Emails</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      General Inquiries
+                    </label>
+                    <input
+                      type="email"
+                      value={getSetting('email_general')}
+                      onChange={(e) => setSetting('email_general', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                      placeholder="ask@oceanske.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Sales
+                    </label>
+                    <input
+                      type="email"
+                      value={getSetting('email_sales')}
+                      onChange={(e) => setSetting('email_sales', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                      placeholder="sales@oceanske.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Rentals
+                    </label>
+                    <input
+                      type="email"
+                      value={getSetting('email_rentals')}
+                      onChange={(e) => setSetting('email_rentals', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                      placeholder="rent@oceanske.com"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Ventures
+                    </label>
+                    <input
+                      type="email"
+                      value={getSetting('email_ventures')}
+                      onChange={(e) => setSetting('email_ventures', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                      placeholder="ventures@oceanske.com"
+                    />
+                  </div>
+                </div>
+                <p className="text-[15px] text-gray-500 font-roboto mt-2">
+                  These power the department email list shown on the Contact page and in the footer.
+                </p>
               </div>
             </div>
           )}
@@ -248,26 +344,26 @@ export default function SiteSettings() {
           {/* Social Tab */}
           {activeTab === 'social' && (
             <div className="space-y-5">
-              <h3 className="font-jost text-sm text-[#1a1a2e] mb-4">Social Media Links</h3>
+              <h3 className="font-jost text-[15px] text-[#1a1a2e] mb-4">Social Media Links</h3>
               <div className="space-y-3">
                 {socialLinks.map((social) => (
                   <div key={social.platform} className="border border-gray-100 rounded-md p-4">
                     <div className="flex items-center gap-2 mb-3">
-                      <span className="text-sm font-roboto font-medium text-[#1a1a2e] capitalize">{social.platform}</span>
+                      <span className="text-[15px] font-roboto font-medium text-[#1a1a2e] capitalize">{social.platform}</span>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">URL</label>
+                        <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">URL</label>
                         <input
                           type="text"
                           value={social.url || ''}
                           onChange={(e) => setSocial(social.platform, { url: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                           placeholder="https://..."
                         />
                       </div>
                       <div className="flex items-center gap-4 pt-6">
-                        <label className="flex items-center gap-1.5 text-xs font-roboto text-gray-500 cursor-pointer">
+                        <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={social.show_in_header}
@@ -276,7 +372,7 @@ export default function SiteSettings() {
                           />
                           Header
                         </label>
-                        <label className="flex items-center gap-1.5 text-xs font-roboto text-gray-500 cursor-pointer">
+                        <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={social.show_in_footer}
@@ -285,7 +381,7 @@ export default function SiteSettings() {
                           />
                           Footer
                         </label>
-                        <label className="flex items-center gap-1.5 text-xs font-roboto text-gray-500 cursor-pointer">
+                        <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={social.show_in_contact}
@@ -305,53 +401,55 @@ export default function SiteSettings() {
           {/* SEO Tab */}
           {activeTab === 'seo' && (
             <div className="space-y-5">
-              <h3 className="font-jost text-sm text-[#1a1a2e] mb-4">SEO & Meta</h3>
+              <h3 className="font-jost text-[15px] text-[#1a1a2e] mb-4">SEO & Meta</h3>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Default Meta Title
                 </label>
                 <input
                   type="text"
                   value={getSetting('default_meta_title')}
                   onChange={(e) => setSetting('default_meta_title', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                   placeholder="Oceans Kenya - Estate & Letting Agents"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Default Meta Description
                 </label>
                 <textarea
                   value={getSetting('default_meta_description')}
                   onChange={(e) => setSetting('default_meta_description', e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary resize-none"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary resize-none"
                   maxLength={500}
                   placeholder="Nairobi's leading estate and letting agents..."
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                  Default OG Image URL
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Default OG Image
                 </label>
-                <input
-                  type="text"
+                <ImageUploadField
+                  label="Default Open Graph image"
                   value={getSetting('default_og_image')}
-                  onChange={(e) => setSetting('default_og_image', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                  placeholder="https://..."
+                  onChange={(url) => setSetting('default_og_image', url)}
+                  pageKey="site-settings"
+                  fieldKey="default_og_image"
+                  previewWidth="w-24"
+                  previewHeight="h-16"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Google Analytics ID
                 </label>
                 <input
                   type="text"
                   value={getSetting('ga_id')}
                   onChange={(e) => setSetting('ga_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
                   placeholder="G-XXXXXXXXXX"
                 />
               </div>
@@ -361,81 +459,19 @@ export default function SiteSettings() {
           {/* Currency Tab */}
           {activeTab === 'currency' && (
             <div className="space-y-5">
-              <h3 className="font-jost text-sm text-[#1a1a2e] mb-4">Currency Settings</h3>
-              <p className="text-xs text-gray-500 font-roboto">
-                Set the exchange rates relative to KES (Kenyan Shilling as base). Example: if 1 USD = 130 KES, enter 130.
+              <h3 className="font-jost text-[15px] text-[#1a1a2e] mb-1">Currency Settings</h3>
+              <p className="text-[15px] text-gray-500 font-roboto">
+                Manage every currency shown across the site. KES is always the base - set each currency as 1 unit = X KES, toggle which ones appear in the frontend switcher, and add more whenever you need them.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    Default Currency
-                  </label>
-                  <select
-                    value={getSetting('currency_default')}
-                    onChange={(e) => setSetting('currency_default', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary bg-white"
-                  >
-                    <option value="KES">KES (Kenyan Shilling)</option>
-                    <option value="USD">USD (US Dollar)</option>
-                    <option value="EUR">EUR (Euro)</option>
-                    <option value="GBP">GBP (British Pound)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    1 USD = <span className="text-primary font-medium">? KES</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={getSetting('exchange_rate_usd')}
-                    onChange={(e) => setSetting('exchange_rate_usd', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="130"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    1 GBP = <span className="text-primary font-medium">? KES</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={getSetting('exchange_rate_gbp')}
-                    onChange={(e) => setSetting('exchange_rate_gbp', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="165"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    1 EUR = <span className="text-primary font-medium">? KES</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={getSetting('exchange_rate_eur')}
-                    onChange={(e) => setSetting('exchange_rate_eur', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="140"
-                  />
-                </div>
-              </div>
-              <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
-                <p className="text-xs font-roboto text-gray-500">
-                  <strong>Note:</strong> Exchange rates update live on the frontend. Visitors can switch currency using the selector in the top nav bar. Rates apply to all property cards, detail pages, and search results.
-                </p>
-              </div>
+              <CurrencyManager />
             </div>
           )}
 
           {/* Footer Tab */}
           {activeTab === 'footer' && (
             <div className="space-y-5">
-              <h3 className="font-jost text-sm text-[#1a1a2e] mb-4">Footer Settings</h3>
-              <p className="text-xs text-gray-500 font-roboto">
+              <h3 className="font-jost text-[15px] text-[#1a1a2e] mb-4">Footer Settings</h3>
+              <p className="text-[15px] text-gray-500 font-roboto">
                 These settings control the footer content. Changes save globally and appear on all pages immediately.
               </p>
               <FooterSettingsTab />
@@ -447,63 +483,3 @@ export default function SiteSettings() {
   );
 }
 
-// --- Footer Settings Tab Component ---
-function FooterSettingsTab() {
-  const [footerSettings, setFooterSettings] = useState<{key: string; value: string}[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  const fetchFooter = async () => {
-    setLoading(true);
-    const { data } = await supabase.from('footer_settings').select('key, value');
-    setFooterSettings(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchFooter(); }, []);
-
-  const getVal = (key: string) => footerSettings.find((s) => s.key === key)?.value || '';
-  const setVal = (key: string, value: string) => {
-    setFooterSettings((prev) => {
-      const existing = prev.find((s) => s.key === key);
-      if (existing) return prev.map((s) => s.key === key ? { ...s, value } : s);
-      return [...prev, { key, value }];
-    });
-  };
-
-  const saveFooter = async () => {
-    setSaving(true);
-    const updates = footerSettings.map((s) =>
-      supabase.from('footer_settings').upsert({ key: s.key, value: s.value }, { onConflict: 'key' })
-    );
-    await Promise.all(updates);
-    showToast('Footer settings saved', 'success');
-    broadcastSync();
-    setSaving(false);
-  };
-
-  if (loading) return <div className="text-center py-8"><div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" /></div>;
-
-  return (
-    <div className="space-y-4">
-      <div><label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">About Us Text</label>
-        <textarea value={getVal('about_text')} onChange={(e) => setVal('about_text', e.target.value)} rows={4} maxLength={500} className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary resize-none" placeholder="Short description about your company..." /></div>
-      <div><label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Footer Tagline</label>
-        <input type="text" value={getVal('tagline')} onChange={(e) => setVal('tagline', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary" placeholder="Your Trusted Real Estate Agents..." /></div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div><label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Footer Logo URL</label>
-          <input type="text" value={getVal('logo_url')} onChange={(e) => setVal('logo_url', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary" placeholder="https://..." /></div>
-        <div><label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">Site Logo URL (Header)</label>
-          <input type="text" value={getVal('header_logo_url')} onChange={(e) => setVal('header_logo_url', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary" placeholder="https://..." /></div>
-      </div>
-      <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
-        <p className="text-xs font-roboto text-gray-500">
-          <strong>Important Links</strong> (shown in footer) are managed through <strong>Navigation Links</strong> in the sidebar. Phone and email come from <strong>General Settings</strong> above.
-        </p>
-      </div>
-      <button onClick={saveFooter} disabled={saving} className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-md text-sm font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50">
-        {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Footer Settings</>}
-      </button>
-    </div>
-  );
-}

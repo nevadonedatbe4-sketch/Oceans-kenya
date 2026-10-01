@@ -1,3 +1,5 @@
+import { smartTitleCase } from '@/lib/location';
+
 function decodeEntities(text: string): string {
   return text
     .replace(/<[^>]*>/g, ' ')
@@ -7,19 +9,30 @@ function decodeEntities(text: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/&ndash;/g, '–')
-    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '-')
+    .replace(/&mdash;/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 /**
- * cleanListingDescription — strips the embedded title heading and any
+ * cleanListingDescription - strips the embedded title heading and any
  * "Location:" line that many listings store inside their description HTML,
  * leaving just the body copy for a clean card snippet.
+ *
+ * @param options.normalizeCase - when true, each block is run through the
+ * shared casing normaliser (smartTitleCase). The normaliser only transforms
+ * shouty ALL-CAPS / all-lowercase blocks, so a mixed description is tidied
+ * block-by-block (a CAPS headline becomes title case) while already well-cased
+ * prose is left completely untouched.
  */
-export function cleanListingDescription(html?: string | null): string {
+export function cleanListingDescription(
+  html?: string | null,
+  options?: { normalizeCase?: boolean },
+): string {
   if (!html) return '';
+
+  const normalizeCase = options?.normalizeCase === true;
 
   const blocks = html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -49,7 +62,7 @@ export function cleanListingDescription(html?: string | null): string {
     // Skip "Location:" lines
     if (/^Location\s*:/i.test(text)) continue;
 
-    out.push(text);
+    out.push(normalizeCase ? smartTitleCase(text) : text);
   }
 
   return out.join(' ');

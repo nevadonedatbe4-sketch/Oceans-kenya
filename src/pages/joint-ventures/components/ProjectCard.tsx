@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { JvImage } from '@/lib/jvImages';
+import { smartTitleCase } from '@/lib/location';
 
 interface ProjectCardProps {
   title: string;
@@ -17,7 +18,7 @@ interface ProjectCardProps {
 /**
  * A single "Projects Seeking Partners" card.
  *
- * Each card owns its image carousel state completely independently —
+ * Each card owns its image carousel state completely independently -
  * moving one project's image never touches any other project's image,
  * and the homepage card carousel (if any) is a separate concern entirely.
  *
@@ -36,6 +37,7 @@ export default function ProjectCard({
   images,
 }: ProjectCardProps) {
   const navigate = useNavigate();
+  const shownTitle = smartTitleCase(title);
   const [currentImage, setCurrentImage] = useState(0);
   const hasMultiple = images.length > 1;
   const detailUrl = slug ? `/joint-ventures/project/${slug}` : '/joint-ventures';
@@ -92,7 +94,7 @@ export default function ProjectCard({
               type="button"
               onClick={goPrev}
               aria-label="Previous image"
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-black/65"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-7 h-11 md:w-8 md:h-12 rounded-md bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-black/65"
             >
               <i className="ri-arrow-left-s-line text-base"></i>
             </button>
@@ -100,7 +102,7 @@ export default function ProjectCard({
               type="button"
               onClick={goNext}
               aria-label="Next image"
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-7 h-7 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-black/65"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-7 h-11 md:w-8 md:h-12 rounded-md bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-black/65"
             >
               <i className="ri-arrow-right-s-line text-base"></i>
             </button>
@@ -110,25 +112,25 @@ export default function ProjectCard({
 
       {/* Body */}
       <div className="p-5 md:p-6 flex flex-col flex-1">
-        <h3 className="font-roboto font-bold text-primary text-[18px] leading-snug mb-2">
+        <h3 className="font-roboto font-medium text-[#2D303D] text-[18px] leading-snug mb-2">
           <Link to={detailUrl} onClick={(e) => e.stopPropagation()} className="hover:text-primary/80 transition-colors">
-            {title}
+            {shownTitle}
           </Link>
         </h3>
         <p className="text-[#2D303D] font-roboto text-xs flex items-center gap-1.5 mb-3">
-          <i className="ri-map-pin-2-line text-golden"></i>
+          <i className="ri-map-pin-2-line text-[#6b7280]"></i>
           {location}
         </p>
         <div className="flex flex-wrap gap-2 mb-3">
           {units > 0 && (
-            <span className="text-xs font-roboto font-semibold text-primary bg-white border border-[#002349] px-2.5 py-1 rounded-sm">
-              <i className="ri-building-line mr-1 text-golden"></i>
+            <span className="text-xs font-roboto font-normal text-[#2D303D] bg-white border border-primary/15 px-2.5 py-1 rounded-sm">
+              <i className="ri-building-line mr-1 text-[#6b7280]"></i>
               {units} units
             </span>
           )}
           {priceRange && (
-            <span className="text-xs font-roboto font-semibold text-primary bg-white border border-[#002349] px-2.5 py-1 rounded-sm">
-              <i className="ri-funds-line mr-1 text-golden"></i>
+            <span className="text-xs font-roboto font-normal text-[#2D303D] bg-white border border-primary/15 px-2.5 py-1 rounded-sm">
+              <i className="ri-funds-line mr-1 text-[#6b7280]"></i>
               {priceRange}
             </span>
           )}

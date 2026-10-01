@@ -1,345 +1,166 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { smartTitleCase } from '@/lib/location';
+
+interface Tile {
+  name: string;
+  link: string;
+  image: string;
+  span: number;
+}
+
+interface SectionSettings {
+  enabled: boolean;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  cta_text: string;
+  cta_link: string;
+  accent: string;
+  card_radius: string;
+  overlay_opacity: string;
+  tiles: Tile[];
+}
+
+const DEFAULT_TILES: Tile[] = [
+  { name: 'Karen', link: '/neighbourhood/karen', span: 2, image: '' },
+  { name: 'Westlands', link: '/neighbourhood/westlands', span: 1, image: '' },
+  { name: 'Kilimani', link: '/neighbourhood/kilimani', span: 1, image: '' },
+  { name: 'Lavington', link: '/neighbourhood/lavington', span: 1, image: '' },
+  { name: 'Runda', link: '/neighbourhood/runda', span: 1, image: '' },
+  { name: 'Muthaiga', link: '/neighbourhood/muthaiga', span: 2, image: '' },
+  { name: 'Gigiri', link: '/neighbourhood/gigiri', span: 2, image: '' },
+  { name: 'Kileleshwa', link: '/neighbourhood/kileleshwa', span: 1, image: '' },
+  { name: 'Kitisuru', link: '/neighbourhood/kitisuru', span: 1, image: '' },
+];
+
+const DEFAULT_SETTINGS: SectionSettings = {
+  enabled: true,
+  eyebrow: 'Explore Our Areas',
+  title: 'Nairobi Prime Neighbourhoods',
+  subtitle: 'Premium Homes. Select Locations. Expat Representation.',
+  cta_text: 'View More Neighbourhoods',
+  cta_link: '/neighbourhoods',
+  accent: '#C9A84C',
+  card_radius: '0',
+  overlay_opacity: '58',
+  tiles: DEFAULT_TILES,
+};
+
+const colClass = (span: number) => (span >= 2 ? 'col-span-2' : 'col-span-1');
 
 export default function NeighborhoodsSection() {
+  const [settings, setSettings] = useState<SectionSettings>(DEFAULT_SETTINGS);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase.from('site_settings').select('key, value').ilike('key', 'page_neighbourhoods_homepage_%');
+        if (!active) return;
+        const map: SectionSettings = { ...DEFAULT_SETTINGS, tiles: DEFAULT_TILES };
+        if (data) {
+          data.forEach((r: { key: string; value: string | null }) => {
+            if (r.value === null) return;
+            const f = r.key.replace('page_neighbourhoods_homepage_', '');
+            if (f === 'enabled') map.enabled = r.value === 'true';
+            else if (f === 'tiles') {
+              try { const parsed = JSON.parse(r.value); if (Array.isArray(parsed)) map.tiles = parsed; } catch { /* ignore */ }
+            } else if (f in map) (map as Record<string, unknown>)[f] = r.value;
+          });
+        }
+        // Enrich tiles with each neighbourhood's real hero image so the section
+        // always shows the actual photo instead of a grey placeholder.
+        const { data: hoodRows } = await supabase
+          .from('neighbourhoods')
+          .select('name, slug, hero_image');
+        if (!active) return;
+        const hoodBySlug: Record<string, string | null> = {};
+        (hoodRows || []).forEach((h) => { hoodBySlug[h.slug] = h.hero_image; });
+        map.tiles = (map.tiles || []).map((tile) => {
+          if (tile.image) return tile;
+          const slug = (tile.link.split('/').filter(Boolean).pop() || '').toLowerCase();
+          const hero = hoodBySlug[slug] || hoodBySlug[tile.name.toLowerCase()];
+          return hero ? { ...tile, image: hero } : tile;
+        });
+        setSettings(map);
+      } catch { /* keep defaults */ }
+      setLoaded(true);
+    })();
+    return () => { active = false; };
+  }, []);
+
+  if (!settings.enabled) return null;
+
+  const radius = settings.card_radius ? `${settings.card_radius}px` : undefined;
+  const overlay = (Number(settings.overlay_opacity || 58) / 100).toFixed(2);
+
+  const renderTile = (tile: Tile, mobile = false) => (
+    <Link
+      key={`${tile.name}-${mobile ? 'm' : 'd'}`}
+      to={tile.link || '/neighbourhoods'}
+      className={`relative overflow-hidden block group cursor-pointer ${colClass(tile.span)}`}
+    >
+      {tile.image ? (
+        <img
+          alt={tile.name}
+          className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
+          src={tile.image}
+          title={`${tile.name} neighbourhoods`}
+        />
+      ) : (
+        <div className="w-full h-full bg-[#e8edf2] flex items-center justify-center">
+          <i className="ri-image-line text-[#a5b3bf] text-2xl"></i>
+        </div>
+      )}
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black to-black/12 group-hover:from-black/70 group-hover:to-black/25 transition-all duration-500"
+        style={{ opacity: Number(overlay) }}
+      />
+      <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
+        <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
+          {smartTitleCase(tile.name)}
+        </h3>
+      </div>
+    </Link>
+  );
+
   return (
     <section id="neighborhoods" className="relative bg-white">
       <div className="text-center pt-10 md:pt-16 pb-6 md:pb-8 px-4 md:px-6 lg:px-10">
+        {settings.eyebrow && (
+          <p className="text-golden text-xs sm:text-sm font-roboto font-bold uppercase tracking-[0.14em] sm:tracking-[0.18em] md:tracking-[0.22em] mb-2 md:mb-3" style={{ color: settings.accent }}>
+            {settings.eyebrow}
+          </p>
+        )}
         <h2 className="font-roboto font-bold text-2xl md:text-3xl text-primary whitespace-nowrap">
-          Nairobi Prime Neighbourhoods
+          {settings.title}
         </h2>
-        <p className="text-golden text-sm sm:text-base md:text-lg font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] mt-2 md:mt-3">
-          Premium Homes. Select Locations. Expat Representation.
+        <p className="text-golden text-sm sm:text-base md:text-lg font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] mt-2 md:mt-3" style={{ color: settings.accent }}>
+          {settings.subtitle}
         </p>
       </div>
 
       {/* Desktop grid */}
       <div className="hidden md:grid grid-cols-4 gap-0.5 auto-rows-[260px] lg:auto-rows-[300px] xl:auto-rows-[340px] px-4 md:px-8 lg:px-12 xl:px-16">
-        {/* Karen - col-span-2 */}
-        <Link
-          to="/neighbourhood/karen"
-          className="relative overflow-hidden block group cursor-pointer col-span-2"
-        >
-          <img
-            alt="Karen"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/2937cb91-6e1e-4eef-a995-39071683b32d_karen-gables-nairobi-pic-1.jpg?v=7fb2f933859005c2e8ed2d2020fa6eb8"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Karen
-            </h3>
-          </div>
-        </Link>
-
-        {/* Westlands */}
-        <Link
-          to="/neighbourhood/westlands"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Westlands"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/80654c03-86fa-4eb2-bc42-7d6b94688b6b_5016c457-f096-4879-8937-a60638aac297.jpg?v=b6390de7072f72bc8a6e882979d84f47"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Westlands
-            </h3>
-          </div>
-        </Link>
-
-        {/* Kilimani */}
-        <Link
-          to="/neighbourhood/kilimani"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Kilimani"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/07e717a3-a84c-4c91-a21e-e2130a3850ac_KILIMANI.jpg?v=db8ab8e12a29a33dea0a88ec72d0fe3e"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kilimani
-            </h3>
-          </div>
-        </Link>
-
-        {/* Lavington */}
-        <Link
-          to="/neighbourhood/lavington"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Lavington"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/190f32dc-cab6-4b31-b8a1-b2689f6d6385_caption.jpg?v=034c49ac1815c10bc5a7fb005d1c5fff"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Lavington
-            </h3>
-          </div>
-        </Link>
-
-        {/* Runda */}
-        <Link
-          to="/neighbourhood/runda"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Runda"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/f6303c35-6fde-4bcc-9713-32d21488683e_runda.jpg?v=40db2a1115a6f49bfcd9562d131d6412"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Runda
-            </h3>
-          </div>
-        </Link>
-
-        {/* Muthaiga - col-span-2 */}
-        <Link
-          to="/neighbourhood/muthaiga"
-          className="relative overflow-hidden block group cursor-pointer col-span-2"
-        >
-          <img
-            alt="Muthaiga"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/ff53cc91-3ee9-4eb3-83e8-97ec8057ffc9_muthaiga.jpg?v=95f103e2857abd04a1900fe7833cf0e5"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Muthaiga
-            </h3>
-          </div>
-        </Link>
-
-        {/* Gigiri - col-span-2 */}
-        <Link
-          to="/neighbourhood/gigiri"
-          className="relative overflow-hidden block group cursor-pointer col-span-2"
-        >
-          <img
-            alt="Gigiri"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/db08325b-8ce9-4c36-8d41-656e9e2babc7_unheads.jpg?v=43855391f7a003bdc14ea1949714b18e"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Gigiri
-            </h3>
-          </div>
-        </Link>
-
-        {/* Kileleshwa */}
-        <Link
-          to="/neighbourhood/kileleshwa"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Kileleshwa"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/016c219e-f565-43a7-8536-fd525f3ce5a4_Marquis-1.jpeg?v=3588a0ed11e75032855fe5ef4c68f43f"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kileleshwa
-            </h3>
-          </div>
-        </Link>
-
-        {/* Kitisuru */}
-        <Link
-          to="/neighbourhood/kitisuru"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Kitisuru"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/6de2ea12-18c3-4a20-a5c5-5e1c77558704_kitsuru.jpg?v=1f8fb20c35fb32bdbe92812e2f7f26a5"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kitisuru
-            </h3>
-          </div>
-        </Link>
+        {settings.tiles.map((tile) => renderTile(tile))}
       </div>
 
       {/* Mobile grid */}
       <div className="grid md:hidden grid-cols-2 gap-0.5 auto-rows-[200px] sm:auto-rows-[220px] px-0">
-        <Link
-          to="/neighbourhood/karen"
-          className="relative overflow-hidden block group cursor-pointer col-span-2"
-        >
-          <img
-            alt="Karen"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/2937cb91-6e1e-4eef-a995-39071683b32d_karen-gables-nairobi-pic-1.jpg?v=7fb2f933859005c2e8ed2d2020fa6eb8"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Karen
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/westlands"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Westlands"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/80654c03-86fa-4eb2-bc42-7d6b94688b6b_5016c457-f096-4879-8937-a60638aac297.jpg?v=b6390de7072f72bc8a6e882979d84f47"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Westlands
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/kilimani"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Kilimani"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/07e717a3-a84c-4c91-a21e-e2130a3850ac_KILIMANI.jpg?v=db8ab8e12a29a33dea0a88ec72d0fe3e"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kilimani
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/lavington"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Lavington"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/190f32dc-cab6-4b31-b8a1-b2689f6d6385_caption.jpg?v=034c49ac1815c10bc5a7fb005d1c5fff"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Lavington
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/runda"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Runda"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/f6303c35-6fde-4bcc-9713-32d21488683e_runda.jpg?v=40db2a1115a6f49bfcd9562d131d6412"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Runda
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/muthaiga"
-          className="relative overflow-hidden block group cursor-pointer col-span-2"
-        >
-          <img
-            alt="Muthaiga"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/ff53cc91-3ee9-4eb3-83e8-97ec8057ffc9_muthaiga.jpg?v=95f103e2857abd04a1900fe7833cf0e5"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Muthaiga
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/gigiri"
-          className="relative overflow-hidden block group cursor-pointer col-span-2"
-        >
-          <img
-            alt="Gigiri"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/db08325b-8ce9-4c36-8d41-656e9e2babc7_unheads.jpg?v=43855391f7a003bdc14ea1949714b18e"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Gigiri
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/kileleshwa"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Kileleshwa"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/016c219e-f565-43a7-8536-fd525f3ce5a4_Marquis-1.jpeg?v=3588a0ed11e75032855fe5ef4c68f43f"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kileleshwa
-            </h3>
-          </div>
-        </Link>
-
-        <Link
-          to="/neighbourhood/kitisuru"
-          className="relative overflow-hidden block group cursor-pointer col-span-1"
-        >
-          <img
-            alt="Kitisuru"
-            className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-            src="https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/6de2ea12-18c3-4a20-a5c5-5e1c77558704_kitsuru.jpg?v=1f8fb20c35fb32bdbe92812e2f7f26a5"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/[0.58] to-black/[0.12] group-hover:from-black/[0.68] group-hover:to-black/[0.22] transition-all duration-500"></div>
-          <div className="absolute bottom-4 left-4 md:bottom-[22px] md:left-[22px]">
-            <h3 className="font-roboto font-bold text-white text-base md:text-lg lg:text-xl font-medium leading-tight drop-shadow-[0_1px_4px_rgba(0,0,0,0.7)]">
-              Kitisuru
-            </h3>
-          </div>
-        </Link>
+        {settings.tiles.map((tile) => renderTile(tile, true))}
       </div>
 
       <div className="max-w-6xl mx-auto pt-7 pb-10 md:pt-10 md:pb-16 px-4 md:px-6 lg:px-10 text-center">
         <Link
-          to="/neighbourhoods"
-          className="group inline-flex items-center justify-center gap-2 px-12 py-3.5 border-2 border-[#002349] text-lg font-roboto font-semibold text-[#002349] hover:bg-[#002349] hover:text-white hover:border-[#002349] transition-all duration-200 whitespace-nowrap cursor-pointer"
+          to={settings.cta_link || '/neighbourhoods'}
+          className="group inline-flex w-full sm:w-auto max-w-full items-center justify-center gap-2 px-5 sm:px-12 py-2.5 border-2 border-[#002349] text-sm sm:text-base font-roboto font-semibold text-[#002349] hover:bg-[#002349] hover:text-white hover:border-[#002349] transition-all duration-200 whitespace-nowrap cursor-pointer"
+          style={{ borderRadius: settings.card_radius ? `${settings.card_radius}px` : undefined }}
         >
           <span className="relative">
-            View More Neighbourhoods
+            {settings.cta_text}
             <span className="absolute left-0 -bottom-1.5 h-[2px] w-0 bg-current transition-all duration-300 group-hover:w-full"></span>
           </span>
           <span className="w-5 h-5 flex items-center justify-center bg-[#002349]/10 group-hover:bg-white/20 transition-colors">
@@ -347,6 +168,8 @@ export default function NeighborhoodsSection() {
           </span>
         </Link>
       </div>
+
+      {!loaded && <span className="hidden" aria-hidden="true">Loading</span>}
     </section>
   );
 }

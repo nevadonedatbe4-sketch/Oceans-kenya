@@ -6,9 +6,9 @@ import { broadcastSync } from '@/lib/syncEngine';
 import JVImageManager, { type JvImageDraft } from '@/pages/crm/components/JVImageManager';
 
 const inputCls =
-  'w-full border border-[#e5e9ee] px-3.5 py-2.5 text-sm font-roboto text-[#001731] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 rounded-lg bg-white';
+  'w-full border border-[#e5e9ee] px-3.5 py-2.5 text-base font-roboto text-[#001731] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 rounded-lg bg-white';
 
-const labelCls = 'block text-[#001731] font-roboto text-sm font-medium mb-1.5';
+const labelCls = 'block text-[#001731] font-roboto text-base font-medium mb-1.5';
 
 const PROJECT_TYPE_SUGGESTIONS = [
   'Residential',
@@ -18,6 +18,7 @@ const PROJECT_TYPE_SUGGESTIONS = [
   'Land Development',
   'Industrial',
   'Apartment Block',
+  'Condo / Condominium Apartment',
   'Gated Community',
   'Hotel & Resort',
   'Commercial Complex',
@@ -185,7 +186,7 @@ export default function JVProjectEdit() {
 
       addToast(isEdit ? 'Project updated' : 'Project created', 'success');
       broadcastSync();
-      navigate('/crm/joint-ventures?tab=projects');
+      navigate('/admin/joint-ventures?tab=projects');
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Failed to save project', 'error');
       setSaving(false);
@@ -217,7 +218,7 @@ export default function JVProjectEdit() {
           </p>
         </div>
         <button
-          onClick={() => navigate('/crm/joint-ventures?tab=projects')}
+          onClick={() => navigate('/admin/joint-ventures?tab=projects')}
           className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-roboto text-[#636363] hover:text-[#0d5959] hover:border-[#0d5959]/20 transition-all cursor-pointer whitespace-nowrap"
         >
           <i className="ri-arrow-left-line" />
@@ -230,7 +231,7 @@ export default function JVProjectEdit() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">1</span>
-            <h2 className="font-jost text-sm font-semibold text-[#001731]">Basic Information</h2>
+            <h2 className="font-jost text-base font-semibold text-[#001731]">Basic Information</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
@@ -332,7 +333,7 @@ export default function JVProjectEdit() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">2</span>
-            <h2 className="font-jost text-sm font-semibold text-[#001731]">Project Images</h2>
+            <h2 className="font-jost text-base font-semibold text-[#001731]">Project Images</h2>
           </div>
           <JVImageManager images={images} onChange={setImages} />
         </div>
@@ -343,7 +344,7 @@ export default function JVProjectEdit() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <span className="w-6 h-6 rounded-full bg-[#001731] text-white text-[11px] font-bold flex items-center justify-center">3</span>
-            <h2 className="font-jost text-sm font-semibold text-[#001731]">Visibility</h2>
+            <h2 className="font-jost text-base font-semibold text-[#001731]">Visibility</h2>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <label className="inline-flex items-center gap-2 cursor-pointer">
@@ -353,7 +354,7 @@ export default function JVProjectEdit() {
                 onChange={(e) => setFeatured(e.target.checked)}
                 className="w-4 h-4 rounded border-[#c0c8d0] text-[#0d5959] focus:ring-[#0d5959]"
               />
-              <span className="text-sm font-roboto text-[#001731]">Featured</span>
+              <span className="text-base font-roboto text-[#001731]">Featured</span>
             </label>
             <label className="inline-flex items-center gap-2 cursor-pointer">
               <input
@@ -362,7 +363,7 @@ export default function JVProjectEdit() {
                 onChange={(e) => setIsPublished(e.target.checked)}
                 className="w-4 h-4 rounded border-[#c0c8d0] text-[#0d5959] focus:ring-[#0d5959]"
               />
-              <span className="text-sm font-roboto text-[#001731]">Published (visible on public site)</span>
+              <span className="text-base font-roboto text-[#001731]">Published (visible on public site)</span>
             </label>
           </div>
         </div>
@@ -371,7 +372,7 @@ export default function JVProjectEdit() {
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t border-[#f0f0f0]">
           <button
             type="button"
-            onClick={() => navigate('/crm/joint-ventures?tab=projects')}
+            onClick={() => navigate('/admin/joint-ventures?tab=projects')}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-roboto text-[#636363] border border-[#f0f0f0] hover:text-[#001731] hover:border-[#c0c8d0] transition-all cursor-pointer whitespace-nowrap"
           >
             Cancel

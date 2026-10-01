@@ -510,7 +510,7 @@ export default function Agents() {
                     className={`w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-roboto focus:outline-none focus:border-primary ${
                       editingAgent ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''
                     }`}
-                    placeholder="agent@oceans.co.ke"
+                    placeholder="agent@oceanske.com"
                   />
                   {editingAgent && (
                     <p className="text-[10px] text-gray-400 font-roboto mt-1">Email cannot be changed after creation</p>

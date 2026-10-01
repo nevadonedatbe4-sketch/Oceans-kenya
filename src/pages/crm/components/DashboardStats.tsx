@@ -38,7 +38,7 @@ const cards = [
     sub: (s: DashboardStats) => `${s.activeProperties} active · ${s.publishedProperties} published · ${s.draftProperties} draft`,
     icon: 'ri-building-line',
     accent: 'bg-accent',
-    link: '/crm/listings',
+    link: '/admin/listings',
   },
   {
     key: 'leads' as const,
@@ -47,7 +47,7 @@ const cards = [
     sub: (s: DashboardStats) => `${s.newLeadsWeek} new this week · ${s.openLeads} open · ${s.pendingFollowUps} pending follow-up`,
     icon: 'ri-user-add-line',
     accent: 'bg-primary',
-    link: '/crm/leads',
+    link: '/admin/leads',
   },
   {
     key: 'deals' as const,
@@ -56,7 +56,7 @@ const cards = [
     sub: (s: DashboardStats) => `${s.dealsInPipeline} in pipeline · ${s.wonDeals} won · ${s.winRate}% win rate`,
     icon: 'ri-briefcase-3-line',
     accent: 'bg-accent',
-    link: '/crm/deals',
+    link: '/admin/deals',
   },
   {
     key: 'pipeline' as const,
@@ -65,7 +65,7 @@ const cards = [
     sub: () => 'Expected revenue from open deals',
     icon: 'ri-line-chart-line',
     accent: 'bg-primary',
-    link: '/crm/deals',
+    link: '/admin/deals',
   },
 ];
 

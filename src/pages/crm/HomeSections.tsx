@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
+import ImageUploadField from '@/pages/crm/components/ImageUploadField';
 import { Link } from 'react-router-dom';
 import {
   LayoutGrid,
@@ -12,7 +13,6 @@ import {
   Pencil,
   Save,
   X,
-  Image,
   Link as LinkIcon,
   GripVertical,
   RefreshCw,
@@ -376,30 +376,40 @@ export default function HomeSections() {
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    <Image size={12} className="inline mr-1" />
-                    Image URL
-                  </label>
+                <div className="space-y-2">
+                  <ImageUploadField
+                    label="Image"
+                    value={editModal.image_url || ''}
+                    onChange={(url) => setEditModal({ ...editModal, image_url: url })}
+                    pageKey="home-sections"
+                    fieldKey={`${editModal.slug}-image`}
+                    previewWidth="w-32"
+                    previewHeight="h-20"
+                  />
                   <input
                     type="text"
                     value={editModal.image_url || ''}
                     onChange={(e) => setEditModal({ ...editModal, image_url: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="https://..."
+                    placeholder="...or paste an image URL directly"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-roboto text-gray-500 uppercase tracking-wider mb-1.5">
-                    <Image size={12} className="inline mr-1" />
-                    Background Image URL
-                  </label>
+                <div className="space-y-2">
+                  <ImageUploadField
+                    label="Background Image"
+                    value={editModal.background_image || ''}
+                    onChange={(url) => setEditModal({ ...editModal, background_image: url })}
+                    pageKey="home-sections"
+                    fieldKey={`${editModal.slug}-background`}
+                    previewWidth="w-32"
+                    previewHeight="h-20"
+                  />
                   <input
                     type="text"
                     value={editModal.background_image || ''}
                     onChange={(e) => setEditModal({ ...editModal, background_image: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-200 rounded-md text-sm font-roboto focus:outline-none focus:border-primary"
-                    placeholder="https://..."
+                    placeholder="...or paste an image URL directly"
                   />
                 </div>
               </div>

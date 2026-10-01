@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import usePortalBase from '@/hooks/usePortalBase';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
@@ -7,6 +8,13 @@ import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { broadcastSync } from '@/lib/syncEngine';
+import { displayLocation } from '@/lib/crmDisplay';
+import CrmTitle from '@/pages/crm/components/CrmTitle';
+import BulkEditModal, { type BulkEditOption } from '@/pages/crm/components/BulkEditModal';
+import BulkShareModal from '@/pages/crm/components/BulkShareModal';
+import BulkForwardModal from '@/pages/crm/components/BulkForwardModal';
+import ShareLinkModal from '@/pages/crm/components/ShareLinkModal';
+import { propertyPublicUrl } from '@/lib/shareLinks';
 
 interface Agent {
   id: string;
@@ -54,6 +62,21 @@ const todayStr = new Date().toLocaleDateString('en-GB', {
   year: 'numeric',
 });
 
+const BULK_EDIT_OPTIONS: BulkEditOption[] = [
+  { field: 'is_published', label: 'Publish status', choices: [{ value: 'true', label: 'Published' }, { value: 'false', label: 'Draft' }] },
+  { field: 'is_featured', label: 'Featured', choices: [{ value: 'true', label: 'Featured' }, { value: 'false', label: 'Not featured' }] },
+  { field: 'purpose', label: 'Purpose', choices: [{ value: 'sale', label: 'For Sale' }, { value: 'rent', label: 'For Rent' }] },
+  {
+    field: 'status',
+    label: 'Status',
+    choices: [
+      { value: 'available', label: 'Available' },
+      { value: 'under_offer', label: 'Under Offer' },
+      { value: 'sold', label: 'Sold' },
+    ],
+  },
+];
+
 const COLORS = {
   navy: '#001731',
   navyLight: '#002349',
@@ -69,14 +92,39 @@ const COLORS = {
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-[#6b7280] lg:text-[#88929e]">{label}</label>
+      <label className="text-xs font-semibold text-white lg:text-[#88929e]">{label}</label>
       {children}
     </div>
   );
 }
 
+// Position the Actions card relative to its button: open to the LEFT with a
+// small gap, keep it fully inside the viewport on both axes, and — crucially —
+// give it its full height by pushing it UP when there isn't enough room below,
+// instead of clipping it at the bottom of the screen.
+const ACTION_MENU_WIDTH = 240;
+const ACTION_MENU_GAP = 8;
+const ACTION_MENU_MAX_HEIGHT = 560;
+
+function computeActionMenuPosition(rect: DOMRect) {
+  let left = rect.left - ACTION_MENU_WIDTH - ACTION_MENU_GAP;
+  if (left < ACTION_MENU_GAP) left = ACTION_MENU_GAP;
+  if (left + ACTION_MENU_WIDTH > window.innerWidth - ACTION_MENU_GAP) {
+    left = window.innerWidth - ACTION_MENU_WIDTH - ACTION_MENU_GAP;
+  }
+  const maxHeight = Math.min(ACTION_MENU_MAX_HEIGHT, window.innerHeight - ACTION_MENU_GAP * 2);
+  let top = rect.top;
+  // Not enough room below the row? Push the card higher so it stays fully visible.
+  if (top + maxHeight > window.innerHeight - ACTION_MENU_GAP) {
+    top = window.innerHeight - ACTION_MENU_GAP - maxHeight;
+  }
+  if (top < ACTION_MENU_GAP) top = ACTION_MENU_GAP;
+  return { top, left, maxHeight };
+}
+
 export default function Listings() {
   const navigate = useNavigate();
+  const portalBase = usePortalBase();
   const { user } = useAuth();
   const { agentId } = useAgentProfile();
   const isAgent = user?.role === 'agent';
@@ -91,6 +139,11 @@ export default function Listings() {
   const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || 'all');
   const [filterBedrooms, setFilterBedrooms] = useState(searchParams.get('bedrooms') || 'all');
   const [filterBathrooms, setFilterBathrooms] = useState(searchParams.get('bathrooms') || 'all');
+  const [filterMissingCoords, setFilterMissingCoords] = useState(false);
+  // Deep-link support: the Super Admin agent preview links here with ?agent=<id>
+  // so the list lands pre-filtered to that agent's listings.
+  const [filterAgent, setFilterAgent] = useState(searchParams.get('agent') || 'all');
+  const [missingCoordsCount, setMissingCoordsCount] = useState(0);
   const [priceMin, setPriceMin] = useState(searchParams.get('price_min') || '');
   const [priceMax, setPriceMax] = useState(searchParams.get('price_max') || '');
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -103,11 +156,17 @@ export default function Listings() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<string>('');
   const [bulkActionOpen, setBulkActionOpen] = useState(false);
+  const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [actionMenu, setActionMenu] = useState<string | null>(null);
-  const [actionMenuPos, setActionMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const [actionMenuPos, setActionMenuPos] = useState<{ top: number; left: number; maxHeight: number }>({ top: 0, left: 0, maxHeight: 420 });
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkShareOpen, setBulkShareOpen] = useState(false);
+  const [bulkForwardOpen, setBulkForwardOpen] = useState(false);
+  const [shareListing, setShareListing] = useState<Listing | null>(null);
   const actionButtonRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bulkDropdownRef = useRef<HTMLDivElement>(null);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
   const fetchListings = useCallback(async () => {
     setLoading(true);
@@ -121,6 +180,11 @@ export default function Listings() {
     if (isAgent && agentId) {
       countQuery = countQuery.eq('agent_id', agentId);
       dataQuery = dataQuery.eq('agent_id', agentId);
+    }
+    // Admin deep-link filter — scope to one agent when arriving from a preview.
+    if (!isAgent && filterAgent !== 'all') {
+      countQuery = countQuery.eq('agent_id', filterAgent);
+      dataQuery = dataQuery.eq('agent_id', filterAgent);
     }
 
     if (filterStatus !== 'all') {
@@ -152,12 +216,6 @@ export default function Listings() {
     } else if (filterCategory === 'commercial') {
       countQuery = countQuery.eq('property_category', 'commercial');
       dataQuery = dataQuery.eq('property_category', 'commercial');
-    } else if (filterCategory === 'land') {
-      countQuery = countQuery.eq('property_type', 'land');
-      dataQuery = dataQuery.eq('property_type', 'land');
-    } else if (filterCategory === 'joint-ventures') {
-      countQuery = countQuery.eq('sub_type', 'joint_venture');
-      dataQuery = dataQuery.eq('sub_type', 'joint_venture');
     } else if (filterCategory === 'new-developments') {
       countQuery = countQuery.eq('featured_new_development', true);
       dataQuery = dataQuery.eq('featured_new_development', true);
@@ -182,6 +240,10 @@ export default function Listings() {
       const term = search.trim();
       countQuery = countQuery.or(`title.ilike.%${term}%,location.ilike.%${term}%`);
       dataQuery = dataQuery.or(`title.ilike.%${term}%,location.ilike.%${term}%`);
+    }
+    if (filterMissingCoords) {
+      countQuery = countQuery.or('latitude.is.null,longitude.is.null');
+      dataQuery = dataQuery.or('latitude.is.null,longitude.is.null');
     }
 
     // Sort
@@ -217,27 +279,42 @@ export default function Listings() {
       }
       setListings(listingsData.map((l) => ({ ...l, agent_name: l.agent_id ? agentMap[l.agent_id] : undefined })));
       setTotal(count ?? 0);
-      setSelectedIds(new Set());
+      // Keep valid selections, drop any record no longer in the result set.
+      setSelectedIds((prev) => {
+        if (prev.size === 0) return prev;
+        const visible = new Set(listingsData.map((l) => l.id));
+        const pruned = new Set(Array.from(prev).filter((id) => visible.has(id)));
+        return pruned.size === prev.size ? prev : pruned;
+      });
     }
 
-    // Fetch stats
-    const { data: statsData } = agentId && isAgent
-      ? await supabase.from('listings').select('is_published, is_pending, is_featured').eq('agent_id', agentId)
-      : await supabase.from('listings').select('is_published, is_pending, is_featured');
-
-    const s = statsData || [];
-    const published = s.filter((x) => x.is_published).length;
-    const pending = s.filter((x) => !x.is_published && x.is_pending).length;
-    const draft = s.filter((x) => !x.is_published && !x.is_pending).length;
-    setStats({
-      total: s.length,
-      published,
-      draft,
-      pending,
-    });
-
+    // Release the skeleton the moment the current page is ready. The heavier
+    // stats / coverage scans below then stream in without blocking the table.
     setLoading(false);
-  }, [page, pageSize, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, search, sortBy, isAgent, agentId]);
+
+    // Stats & map coverage — lightweight COUNT queries (head: true) instead of
+    // downloading every listing row just to tally them.
+    const statsBase = () => {
+      const q = supabase.from('listings').select('id', { count: 'exact', head: true });
+      if (agentId && isAgent) return q.eq('agent_id', agentId);
+      if (!isAgent && filterAgent !== 'all') return q.eq('agent_id', filterAgent);
+      return q;
+    };
+    const [allRes, pubRes, pendRes, draftRes, missRes] = await Promise.all([
+      statsBase(),
+      statsBase().eq('is_published', true),
+      statsBase().eq('is_published', false).eq('is_pending', true),
+      statsBase().eq('is_published', false).eq('is_pending', false),
+      statsBase().or('latitude.is.null,longitude.is.null'),
+    ]);
+    setStats({
+      total: allRes.count ?? 0,
+      published: pubRes.count ?? 0,
+      draft: draftRes.count ?? 0,
+      pending: pendRes.count ?? 0,
+    });
+    setMissingCoordsCount(missRes.count ?? 0);
+  }, [page, pageSize, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, search, sortBy, isAgent, agentId, filterMissingCoords, filterAgent]);
 
   useEffect(() => {
     fetchListings();
@@ -256,25 +333,42 @@ export default function Listings() {
       if (bulkDropdownRef.current && !bulkDropdownRef.current.contains(target)) {
         setBulkActionOpen(false);
       }
+      if (createMenuRef.current && !createMenuRef.current.contains(target)) {
+        setCreateMenuOpen(false);
+      }
     };
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setActionMenu(null);
         setBulkActionOpen(false);
+        setCreateMenuOpen(false);
       }
-    };
-    const handleScroll = () => {
-      setActionMenu(null);
     };
     document.addEventListener('mousedown', handleClick);
     document.addEventListener('keydown', handleKey);
-    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('keydown', handleKey);
-      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
+  // Keep the open Actions card glued to its row while the page (or the card
+  // itself) is scrolled — it stays open until a real action / outside click
+  // closes it, instead of disappearing on the first scroll.
+  useEffect(() => {
+    if (!actionMenu) return;
+    const reposition = () => {
+      const btn = actionButtonRef.current;
+      if (!btn) return;
+      setActionMenuPos(computeActionMenuPosition(btn.getBoundingClientRect()));
+    };
+    window.addEventListener('scroll', reposition, { passive: true });
+    window.addEventListener('resize', reposition);
+    return () => {
+      window.removeEventListener('scroll', reposition);
+      window.removeEventListener('resize', reposition);
+    };
+  }, [actionMenu]);
 
   const handleTogglePublish = async (id: string, current: boolean) => {
     setTogglingId(id);
@@ -401,7 +495,7 @@ export default function Listings() {
       addToast('Failed to duplicate listing', 'error');
     } else {
       addToast('Listing duplicated', 'success');
-      navigate(`/crm/listings/edit/${insertData.id}`);
+      navigate(`${portalBase}/listings/edit/${insertData.id}`);
     }
     setActionMenu(null);
   };
@@ -473,6 +567,29 @@ export default function Listings() {
     setBulkActionOpen(false);
   };
 
+  const handleBulkApplyEdit = async (field: string, value: string) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    let patch: Record<string, unknown> = {};
+    if (field === 'is_published') {
+      patch = { is_published: value === 'true', is_pending: false };
+    } else if (field === 'is_featured') {
+      patch = { is_featured: value === 'true' };
+    } else {
+      patch = { [field]: value };
+    }
+    const { error } = await supabase.from('listings').update(patch).in('id', ids);
+    if (error) {
+      addToast('Failed to update selected properties', 'error');
+      return;
+    }
+    addToast(`${ids.length} propert${ids.length === 1 ? 'y' : 'ies'} updated`, 'success');
+    broadcastSync();
+    setBulkEditOpen(false);
+    setSelectedIds(new Set());
+    fetchListings();
+  };
+
   const handleBulkFeature = async (feature: boolean) => {
     const ids = Array.from(selectedIds);
     const { error } = await supabase.from('listings').update({ is_featured: feature }).in('id', ids);
@@ -528,7 +645,7 @@ export default function Listings() {
       return;
     }
     const rect = btn.getBoundingClientRect();
-    setActionMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.left - 200) });
+    setActionMenuPos(computeActionMenuPosition(rect));
     setActionMenu(id);
   };
 
@@ -569,10 +686,15 @@ export default function Listings() {
     return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
+  // Consistent CRM location label — "[Area], Nairobi" (map-pin line, caps).
+  const formatArea = (value?: string | null) => {
+    if (!value || !value.trim()) return '—';
+    return displayLocation(value, null, { upper: true });
+  };
+
   const CATEGORY_TYPES: Record<string, string[]> = {
     residential: ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse'],
     commercial: ['office', 'guest_house', 'commercial'],
-    land: ['land'],
     'new-developments': [],
   };
 
@@ -596,9 +718,9 @@ export default function Listings() {
   const selectCls = 'w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer';
 
   const typeOptions = (() => {
-    if (filterCategory === 'land' || filterCategory === 'joint-ventures' || filterCategory === 'new-developments') return [];
+    if (filterCategory === 'new-developments') return [];
     const list = filterCategory === 'all'
-      ? ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse', 'office', 'guest_house', 'commercial', 'land', 'single_family_home', 'condo']
+      ? ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse', 'office', 'guest_house', 'commercial', 'single_family_home', 'condo']
       : CATEGORY_TYPES[filterCategory] || [];
     return [{ value: 'all', label: 'All Types' }, ...list.map((t) => ({ value: t, label: TYPE_LABELS[t] || t }))];
   })();
@@ -631,6 +753,8 @@ export default function Listings() {
     setPage(1);
   };
 
+  const selectedListings = listings.filter((l) => selectedIds.has(l.id));
+
   const statCards = [
     { label: 'Total Properties', value: stats.total, icon: 'ri-bar-chart-line', color: 'text-[#9ca3af]', bg: 'bg-[#f7f8fa]', border: 'border-[#e5e7eb]' },
     { label: 'Published', value: stats.published, icon: 'ri-check-double-line', color: 'text-[#088135]', bg: 'bg-[#e6f4ea]', border: 'border-[#088135]/20' },
@@ -644,17 +768,49 @@ export default function Listings() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-[#001731]">All Properties</h1>
-          <p className="text-sm mt-0.5 text-[#6b7280] lg:text-[#88929e]">Manage every property on the Oceans Kenya platform</p>
+          <p className="text-sm mt-0.5 text-white lg:text-[#88929e]">Manage every property on the Oceans Kenya platform</p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/crm/listings/new')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer"
-            style={{ backgroundColor: '#0d5959', color: '#ffffff' }}
+            onClick={() => navigate(`${portalBase}/developments`)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors bg-[#00ddb4] text-[#001731] hover:bg-[#00c9a5] whitespace-nowrap cursor-pointer"
           >
-            <i className="ri-add-line text-sm" />
-            Add Property
+            <i className="ri-building-2-line text-sm" />
+            New Developments
           </button>
+          <div className="relative" ref={createMenuRef}>
+            <button
+              onClick={() => setCreateMenuOpen((p) => !p)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer"
+              style={{ backgroundColor: '#0d5959', color: '#ffffff' }}
+            >
+              <i className="ri-add-line text-sm" />
+              Create Listing
+              <i className={`ri-arrow-down-s-line text-sm ${createMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {createMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-lg overflow-hidden bg-white border border-[#e5e7eb] shadow-xl py-1">
+                <button
+                  onClick={() => { setCreateMenuOpen(false); navigate(`${portalBase}/listings/new`); }}
+                  className="w-full text-left px-3 py-2.5 text-sm font-semibold text-[#0d1f2d] hover:bg-[#f7f8fa] cursor-pointer flex items-center gap-2"
+                >
+                  <i className="ri-home-4-line text-[#0d5959]" /> Property Listing
+                </button>
+                <button
+                  onClick={() => { setCreateMenuOpen(false); navigate(`${portalBase}/developments/new`); }}
+                  className="w-full text-left px-3 py-2.5 text-sm font-semibold text-[#0d1f2d] hover:bg-[#f7f8fa] cursor-pointer flex items-center gap-2"
+                >
+                  <i className="ri-building-2-line text-[#f58300]" /> New Development
+                </button>
+                <button
+                  onClick={() => { setCreateMenuOpen(false); navigate(`${portalBase}/land-listings/new`); }}
+                  className="w-full text-left px-3 py-2.5 text-sm font-semibold text-[#0d1f2d] hover:bg-[#f7f8fa] cursor-pointer flex items-center gap-2"
+                >
+                  <i className="ri-map-2-line text-[#088135]" /> Land / Plot
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -667,7 +823,7 @@ export default function Listings() {
             </div>
             <div>
               <p className="text-xl font-bold text-white lg:text-[#001731]">{stat.value}</p>
-              <p className="text-xs font-medium text-[#6b7280] lg:text-[#88929e]">{stat.label}</p>
+              <p className="text-xs font-medium text-white/80 lg:text-[#88929e]">{stat.label}</p>
             </div>
           </div>
         ))}
@@ -677,13 +833,13 @@ export default function Listings() {
       <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 space-y-3">
         <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
           <div className="relative flex-1 max-w-md w-full">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6b7280] lg:text-[#88929e]" />
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/70 lg:text-[#88929e]" />
             <input
               type="text"
               placeholder="Search title or location..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+              className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-white/60 lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-white/50 lg:placeholder:text-[#88929e] focus:border-white lg:focus:border-[#0d5959]"
             />
           </div>
           <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
@@ -695,10 +851,24 @@ export default function Listings() {
               <option value="all">All Categories</option>
               <option value="residential">Residential</option>
               <option value="commercial">Commercial</option>
-              <option value="land">Land</option>
-              <option value="joint-ventures">Joint Ventures</option>
               <option value="new-developments">New Developments</option>
             </select>
+            <button
+              onClick={() => { setFilterMissingCoords(!filterMissingCoords); setPage(1); }}
+              className={`inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium cursor-pointer transition-colors whitespace-nowrap ${
+                filterMissingCoords
+                  ? 'bg-[#f58300] border-[#f58300] text-white'
+                  : 'bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]'
+              }`}
+            >
+              <i className="ri-map-pin-line text-sm" />
+              Missing coords
+              {missingCoordsCount > 0 && (
+                <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold ${filterMissingCoords ? 'bg-white text-[#f58300]' : 'bg-[#f58300] text-white'}`}>
+                  {missingCoordsCount}
+                </span>
+              )}
+            </button>
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
               className="inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium cursor-pointer transition-colors whitespace-nowrap bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]"
@@ -710,7 +880,7 @@ export default function Listings() {
                   {activeFilterCount}
                 </span>
               )}
-              <i className={`${showAdvanced ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'} text-sm`} />
+              <i className={`${showAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'} text-sm`} />
             </button>
           </div>
         </div>
@@ -760,15 +930,15 @@ export default function Listings() {
                     placeholder="Min"
                     value={priceMin}
                     onChange={(e) => { setPriceMin(e.target.value); setPage(1); }}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-white/50 lg:placeholder:text-[#88929e]"
                   />
-                  <span className="text-xs text-[#6b7280] lg:text-[#88929e]">—</span>
+                  <span className="text-xs text-white/70 lg:text-[#88929e]">—</span>
                   <input
                     type="number"
                     placeholder="Max"
                     value={priceMax}
                     onChange={(e) => { setPriceMax(e.target.value); setPage(1); }}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-white/50 lg:placeholder:text-[#88929e]"
                   />
                 </div>
               </FilterField>
@@ -793,8 +963,7 @@ export default function Listings() {
             {activeFilterCount > 0 && (
               <button
                 onClick={clearFilters}
-                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold cursor-pointer hover:underline"
-                style={{ color: COLORS.gray }}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold cursor-pointer hover:underline text-white/80 lg:text-[#88929e]"
               >
                 <i className="ri-close-circle-line" />
                 Clear all filters
@@ -802,10 +971,23 @@ export default function Listings() {
             )}
           </div>
         )}
-        <div className="flex items-center justify-between text-xs font-medium text-[#6b7280] lg:text-[#88929e]">
+        <div className="flex items-center justify-between text-xs font-medium text-white lg:text-[#88929e]">
           <span>{total} listings</span>
           <span>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
         </div>
+        {filterMissingCoords && (
+          <div className="flex items-center gap-2 text-xs font-medium text-[#f58300]">
+            <i className="ri-map-pin-line" />
+            Showing {total} listing{total === 1 ? '' : 's'} missing map coordinates — open each one to add a location pin.
+          </div>
+        )}
+        {!isAgent && filterAgent !== 'all' && (
+          <div className="flex items-center gap-2 text-xs font-medium text-[#5eead4] lg:text-[#0d5959]">
+            <i className="ri-user-line" />
+            Filtered to a single agent&apos;s listings
+            <button onClick={() => setFilterAgent('all')} className="underline cursor-pointer whitespace-nowrap">Clear filter</button>
+          </div>
+        )}
       </div>
 
       {/* Bulk Actions */}
@@ -818,7 +1000,7 @@ export default function Listings() {
               onClick={() => setBulkActionOpen(!bulkActionOpen)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium cursor-pointer hover:bg-[#0d5959]/10 lg:hover:bg-[#f7f8fa] whitespace-nowrap border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731]"
             >
-              <i className="ri-arrow-down-s-line" />
+              <i className="ri-arrow-down-wide-fill" />
               {bulkAction ? bulkAction.charAt(0).toUpperCase() + bulkAction.slice(1) : 'Bulk Actions'}
             </button>
             {bulkActionOpen && (
@@ -893,7 +1075,25 @@ export default function Listings() {
               <i className="ri-check-line" /> Apply
             </button>
           )}
-          <button onClick={() => setSelectedIds(new Set())} className="text-xs font-medium ml-auto cursor-pointer hover:underline" style={{ color: COLORS.gray }}>
+          <button
+            onClick={() => setBulkEditOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium cursor-pointer hover:bg-[#0d5959]/10 lg:hover:bg-[#f7f8fa] whitespace-nowrap border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731]"
+          >
+            <i className="ri-edit-box-line" /> Edit
+          </button>
+          <button
+            onClick={() => setBulkShareOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium cursor-pointer hover:bg-[#0d5959]/10 lg:hover:bg-[#f7f8fa] whitespace-nowrap border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731]"
+          >
+            <i className="ri-share-line" /> Share
+          </button>
+          <button
+            onClick={() => setBulkForwardOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-medium cursor-pointer hover:bg-[#0d5959]/10 lg:hover:bg-[#f7f8fa] whitespace-nowrap border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731]"
+          >
+            <i className="ri-send-plane-line" /> Forward
+          </button>
+          <button onClick={() => setSelectedIds(new Set())} className="text-xs font-medium ml-auto cursor-pointer hover:underline text-white/80 lg:text-[#88929e]">
             Clear selection
           </button>
         </div>
@@ -920,11 +1120,11 @@ export default function Listings() {
               <div className="w-12 h-12 rounded-xl bg-[#0d5959]/20 flex items-center justify-center mx-auto mb-3">
                 <i className="ri-building-line text-[#5eead4] text-xl" />
               </div>
-              <p className="text-sm font-medium text-[#6b7280]">
+              <p className="text-sm font-medium text-white/80">
                 {total === 0 ? 'No properties yet. Add your first property.' : 'No properties match your filters.'}
               </p>
               {total === 0 && (
-                <button onClick={() => navigate('/crm/listings/new')} className="text-sm text-[#5eead4] mt-2 cursor-pointer">
+                <button onClick={() => navigate(`${portalBase}/listings/new`)} className="text-sm text-[#5eead4] mt-2 cursor-pointer">
                   Create a property
                 </button>
               )}
@@ -935,10 +1135,18 @@ export default function Listings() {
               return (
                 <div
                   key={listing.id}
-                  onClick={() => navigate(`/crm/listings/edit/${listing.id}`)}
-                  className="bg-[#001731] border border-[#1c3a5e] rounded-xl p-4 space-y-2.5 cursor-pointer"
+                  onClick={() => navigate(`${portalBase}/listings/edit/${listing.id}`)}
+                  className={`bg-[#001731] border rounded-xl p-4 space-y-2.5 cursor-pointer transition-colors ${selectedIds.has(listing.id) ? 'border-[#5eead4]' : 'border-[#1c3a5e]'}`}
                 >
                   <div className="flex items-start gap-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleSelect(listing.id); }}
+                      className="w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 cursor-pointer"
+                      style={{ borderColor: selectedIds.has(listing.id) ? '#0d5959' : '#3a5570', backgroundColor: selectedIds.has(listing.id) ? '#0d5959' : 'transparent', color: '#ffffff' }}
+                      aria-label="Select property"
+                    >
+                      {selectedIds.has(listing.id) && <i className="ri-check-line text-xs" />}
+                    </button>
                     {listing.main_image ? (
                       <img src={listing.main_image} alt="" className="w-14 h-10 rounded object-cover flex-shrink-0" />
                     ) : listing.images && listing.images.length > 0 ? (
@@ -949,15 +1157,12 @@ export default function Listings() {
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-white leading-snug truncate">
-                        {(() => {
-                          const words = (listing.title || 'Untitled Draft').split(/\s+/);
-                          return words.length > 6 ? words.slice(0, 6).join(' ') + '...' : listing.title || 'Untitled Draft';
-                        })()}
+                      <p className="text-[14px] font-semibold text-white leading-snug break-words">
+                        <CrmTitle title={listing.title} fallback="Untitled Draft" />
                       </p>
-                      <p className="text-[11px] font-semibold text-[#6b7280] truncate flex items-center gap-1">
-                        <i className="ri-map-pin-line text-[10px]" />
-                        {listing.neighbourhood || '—'}
+                      <p className="text-[12px] font-semibold text-white/80 leading-snug flex items-center gap-1">
+                        <i className="ri-map-pin-line text-[11px]" />
+                        {formatArea(listing.neighbourhood || listing.location)}
                       </p>
                     </div>
                     <button
@@ -1005,13 +1210,13 @@ export default function Listings() {
                     )}
                   </button>
                 </th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Property</th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: COLORS.gray }}>Property Type</th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Price</th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Purpose</th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Status</th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: COLORS.gray }}>Date</th>
-                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: COLORS.gray }}>Edit</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: COLORS.gray }}>Property</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap hidden sm:table-cell" style={{ color: COLORS.gray }}>Property Type</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: COLORS.gray }}>Price</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: COLORS.gray }}>Purpose</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap hidden md:table-cell" style={{ color: COLORS.gray }}>Status</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap hidden md:table-cell" style={{ color: COLORS.gray }}>Date</th>
+                <th className="px-4 md:px-5 py-3.5 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap" style={{ color: COLORS.gray }}>Edit</th>
               </tr>
             </thead>
             <tbody className="divide-y" style={{ borderColor: '#f0f0f0' }}>
@@ -1049,7 +1254,7 @@ export default function Listings() {
                         {total === 0 ? 'No properties yet. Add your first property.' : 'No properties match your filters.'}
                       </p>
                       {total === 0 && (
-                        <button onClick={() => navigate('/crm/listings/new')} className="text-sm font-medium hover:underline cursor-pointer" style={{ color: COLORS.navy }}>
+                        <button onClick={() => navigate(`${portalBase}/listings/new`)} className="text-sm font-medium hover:underline cursor-pointer" style={{ color: COLORS.navy }}>
                           Create a property
                         </button>
                       )}
@@ -1060,7 +1265,7 @@ export default function Listings() {
                 listings.map((listing) => {
                   const status = getPublishStatus(listing);
                   return (
-                    <tr key={listing.id} onClick={() => navigate(`/crm/listings/edit/${listing.id}`)} className="hover:bg-[#f7f8fa]/80 transition-colors group cursor-pointer">
+                    <tr key={listing.id} onClick={() => navigate(`${portalBase}/listings/edit/${listing.id}`)} className="hover:bg-[#f7f8fa]/80 transition-colors group cursor-pointer">
                       <td className="px-3 md:px-5 py-4">
                         <button
                           onClick={(e) => { e.stopPropagation(); toggleSelect(listing.id); }}
@@ -1074,7 +1279,7 @@ export default function Listings() {
                           {selectedIds.has(listing.id) && <i className="ri-check-line text-xs" />}
                         </button>
                       </td>
-                      <td className="px-4 md:px-5 py-4 max-w-[260px]">
+                      <td className="px-4 md:px-5 py-4">
                         <div className="flex items-start gap-3">
                           {listing.main_image ? (
                             <img src={listing.main_image} alt="" className="w-[72px] h-[52px] rounded object-cover flex-shrink-0 mt-0.5" />
@@ -1085,30 +1290,28 @@ export default function Listings() {
                               <i className="ri-building-line text-[#001731] text-sm" />
                             </div>
                           )}
-                          <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                          <div className="flex-1 flex flex-col gap-0.5">
                             <button
-                              onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}`); }}
-                              className="text-[13px] font-semibold block w-full text-left hover:underline cursor-pointer transition-colors leading-snug"
+                              onClick={(e) => { e.stopPropagation(); navigate(`${portalBase}/listings/edit/${listing.id}`); }}
+                              className="text-[14px] font-semibold block text-left hover:underline cursor-pointer transition-colors leading-snug break-words w-full"
                               style={{ color: '#001731' }}
                             >
-                              {(() => {
-                                const base = listing.title || 'Untitled Draft';
-                                const words = base.split(/\s+/);
-                                return words.length > 6 ? words.slice(0, 6).join(' ') + '...' : base;
-                              })()}
+                              <CrmTitle title={listing.title} fallback="Untitled Draft" />
                             </button>
-                            <p className="text-[11px] font-semibold truncate leading-snug flex items-center gap-1" style={{ color: '#1a1a1a' }}>
-                              <i className="ri-map-pin-line text-[10px]" style={{ color: '#636363' }} />
-                              {listing.neighbourhood || '—'}
+                            <p className="text-[12px] font-semibold whitespace-nowrap leading-snug flex items-center gap-1" style={{ color: '#1a1a1a' }}>
+                              <i className="ri-map-pin-line text-[11px]" style={{ color: '#636363' }} />
+                              {formatArea(listing.neighbourhood || listing.location)}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 md:px-5 py-4 hidden sm:table-cell">
-                        <span className="text-xs capitalize" style={{ color: COLORS.gray }}>{listing.property_type?.replace(/_/g, ' ')}</span>
-                        {listing.sub_type && <p className="text-xs capitalize opacity-70" style={{ color: COLORS.gray }}>{listing.sub_type}</p>}
+                      <td className="px-4 md:px-5 py-4 hidden sm:table-cell whitespace-nowrap">
+                        <span className="text-xs capitalize" style={{ color: COLORS.gray }}>
+                          {listing.property_type?.replace(/_/g, ' ') || '—'}
+                          {listing.sub_type ? ` · ${listing.sub_type.replace(/_/g, ' ')}` : ''}
+                        </span>
                       </td>
-                      <td className="px-4 md:px-5 py-4">
+                      <td className="px-4 md:px-5 py-4 whitespace-nowrap">
                         <p className="text-sm font-semibold" style={{ color: COLORS.navy }}>{formatPrice(Number(listing.price), listing.currency)}</p>
                       </td>
                       <td className="px-4 md:px-5 py-4">
@@ -1129,14 +1332,14 @@ export default function Listings() {
                           <button
                             onClick={(e) => openActionMenu(listing.id, e)}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold border transition-colors cursor-pointer hover:bg-[#001731]/5 whitespace-nowrap"
-                            style={{ borderColor: 'rgba(13,89,89,0.3)', color: '#0d5959', backgroundColor: 'rgba(13,89,89,0.06)' }}
+                            style={{ borderColor: 'rgba(0,23,49,0.3)', color: '#001731', backgroundColor: 'rgba(0,23,49,0.06)' }}
                             title="More actions"
                           >
                             <i className="ri-more-fill text-xs" />
                             Actions
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/crm/listings/edit/${listing.id}?tab=contact`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`${portalBase}/listings/edit/${listing.id}?tab=contact`); }}
                             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold cursor-pointer hover:underline whitespace-nowrap transition-colors"
                             style={{ color: '#088135' }}
                             title="Open Source & Contact (team only)"
@@ -1161,6 +1364,7 @@ export default function Listings() {
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
+            mobileLight
           />
         )}
       </div>
@@ -1168,11 +1372,12 @@ export default function Listings() {
       {actionMenu && (
         <div
           ref={menuRef}
-          className="fixed z-50 rounded-xl overflow-hidden animate-dropdown-enter"
+          className="fixed z-[60] rounded-xl overflow-y-auto overflow-x-hidden animate-dropdown-enter"
           style={{
             top: actionMenuPos.top,
-            left: Math.min(actionMenuPos.left, window.innerWidth - 260),
+            left: actionMenuPos.left,
             width: 240,
+            maxHeight: actionMenuPos.maxHeight,
             backgroundColor: '#001731',
             border: '1px solid rgba(13,89,89,0.35)',
             boxShadow: '0 16px 48px rgba(0,0,0,0.45), 0 0 0 1px rgba(13,89,89,0.15)',
@@ -1198,14 +1403,10 @@ export default function Listings() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-[12px] font-semibold text-white leading-snug truncate">
-                      {(() => {
-                        const base = listing.title || 'Untitled Draft';
-                        const words = base.split(/\s+/);
-                        return words.length > 6 ? words.slice(0, 6).join(' ') + '...' : base;
-                      })()}
+                    <p className="text-[12px] font-semibold text-white leading-snug break-words">
+                      <CrmTitle title={listing.title} fallback="Untitled Draft" />
                     </p>
-                    <p className="text-[10px] text-[#6b8fa8] mt-0.5 truncate">{listing.neighbourhood || '—'}</p>
+                    <p className="text-[10px] text-[#6b8fa8] mt-0.5 leading-snug">{formatArea(listing.neighbourhood || listing.location)}</p>
                   </div>
                 </div>
 
@@ -1215,7 +1416,7 @@ export default function Listings() {
                     Quick Actions
                   </p>
                   <button
-                    onClick={() => { navigate(`/crm/listings/edit/${listing.id}`); setActionMenu(null); }}
+                    onClick={() => { navigate(`${portalBase}/listings/edit/${listing.id}`); setActionMenu(null); }}
                     className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
                     style={{ color: '#e2e8f0' }}
                   >
@@ -1225,7 +1426,7 @@ export default function Listings() {
                     Edit Property
                   </button>
                   <button
-                    onClick={() => { navigate(`/crm/listings/edit/${listing.id}?tab=media`); setActionMenu(null); }}
+                    onClick={() => { navigate(`${portalBase}/listings/edit/${listing.id}?tab=media`); setActionMenu(null); }}
                     className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
                     style={{ color: '#e2e8f0' }}
                   >
@@ -1235,7 +1436,7 @@ export default function Listings() {
                     Update Media
                   </button>
                   <button
-                    onClick={() => { navigate(`/crm/listings/edit/${listing.id}?tab=details`); setActionMenu(null); }}
+                    onClick={() => { navigate(`${portalBase}/listings/edit/${listing.id}?tab=details`); setActionMenu(null); }}
                     className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
                     style={{ color: '#e2e8f0' }}
                   >
@@ -1365,7 +1566,17 @@ export default function Listings() {
                     Copy Link
                   </button>
                   <button
-                    onClick={() => { navigate(`/crm/leads?listing=${listing.id}`); setActionMenu(null); }}
+                    onClick={() => { setShareListing(listing); setActionMenu(null); }}
+                    className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
+                    style={{ color: '#e2e8f0' }}
+                  >
+                    <span className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(13,89,89,0.2)' }}>
+                      <i className="ri-share-line text-[#94a3b8] text-xs" />
+                    </span>
+                    Share Link…
+                  </button>
+                  <button
+                    onClick={() => { navigate(`${portalBase}/leads?listing=${listing.id}`); setActionMenu(null); }}
                     className="w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-semibold transition-all duration-150 cursor-pointer flex items-center gap-2.5 hover:bg-[#0d5959]/25"
                     style={{ color: '#e2e8f0' }}
                   >
@@ -1457,6 +1668,45 @@ export default function Listings() {
           else if (bulkAction === 'unpublish') handleBulkPublish(false);
         }}
         onCancel={() => { setBulkAction(''); setBulkActionOpen(false); }}
+      />
+
+      <BulkEditModal
+        open={bulkEditOpen}
+        count={selectedIds.size}
+        entityLabel="property"
+        options={BULK_EDIT_OPTIONS}
+        onApply={handleBulkApplyEdit}
+        onClose={() => setBulkEditOpen(false)}
+      />
+
+      <BulkShareModal
+        open={bulkShareOpen}
+        heading="properties"
+        items={selectedListings.map((l) => ({ id: l.id, title: l.title || 'Untitled Draft', url: `${window.location.origin}/property/${l.slug || l.id}` }))}
+        onClose={() => setBulkShareOpen(false)}
+      />
+
+      <BulkForwardModal
+        open={bulkForwardOpen}
+        heading="properties"
+        senderName={user?.name || user?.email || 'Agent'}
+        items={selectedListings.map((l) => ({
+          id: l.id,
+          title: l.title || 'Untitled Draft',
+          location: formatArea(l.neighbourhood || l.location) || undefined,
+          priceLabel: formatPrice(Number(l.price), l.currency),
+          url: `${window.location.origin}/property/${l.slug || l.id}`,
+        }))}
+        onClose={() => setBulkForwardOpen(false)}
+      />
+
+      <ShareLinkModal
+        open={!!shareListing}
+        title={shareListing?.title || 'Property'}
+        subtitle={shareListing ? formatArea(shareListing.neighbourhood || shareListing.location) : 'Property'}
+        url={propertyPublicUrl(shareListing?.slug, shareListing?.id)}
+        icon="ri-home-4-line"
+        onClose={() => setShareListing(null)}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -8,7 +9,7 @@ import PageLoader from '@/components/feature/PageLoader';
 
 const services = [
   { icon: 'ri-user-search-line', title: 'Tenant Finding', desc: 'We market your property across all major platforms and our own database of pre-qualified tenants.' },
-  { icon: 'ri-home-gear-line', title: 'Full Management', desc: 'We handle everything — from tenant vetting to maintenance coordination and rent collection.' },
+  { icon: 'ri-home-gear-line', title: 'Full Management', desc: 'We handle everything - from tenant vetting to maintenance coordination and rent collection.' },
   { icon: 'ri-money-dollar-circle-line', title: 'Rent Collection', desc: 'Reliable monthly rent collection with detailed statements and direct bank transfers.' },
   { icon: 'ri-tools-line', title: 'Property Maintenance', desc: 'Trusted contractor network for repairs, inspections, and property upkeep.' },
 ];
@@ -30,14 +31,14 @@ const faqs = [
   { q: 'How much does it cost to let my property?', a: 'Our fees vary depending on the service level. For Let Only, we charge a one-time fee equivalent to one month\'s rent. For Full Management, we charge a monthly percentage of the rental income. Contact us for a bespoke quote.' },
   { q: 'How long does it take to find a tenant?', a: 'On average, we find a qualified tenant within 21 days of listing. This can vary based on property type, location, and rental price.' },
   { q: 'Do you handle maintenance and repairs?', a: 'Yes, under our Full Management service we coordinate all maintenance and repairs using our trusted contractor network. You\'ll be notified and have approval for all significant works.' },
-  { q: 'What happens if a tenant doesn\'t pay rent?', a: 'We have robust procedures to chase outstanding rent. We also offer a Rent Guarantee scheme — ask us for details on this additional protection.' },
+  { q: 'What happens if a tenant doesn\'t pay rent?', a: 'We have robust procedures to chase outstanding rent. We also offer a Rent Guarantee scheme - ask us for details on this additional protection.' },
   { q: 'Can I use your tenant-finding service only?', a: 'Absolutely. Our Let Only service covers everything up to finding and placing the tenant. After that, you take over management yourself.' },
 ];
 
 const guarantees = [
   { icon: 'ri-calendar-check-line', title: 'No Let, No Fee', desc: 'You only pay when we successfully place a tenant. Zero risk, zero upfront cost.' },
   { icon: 'ri-shield-check-line', title: 'Fully Vetted Tenants', desc: 'Every applicant undergoes background checks, employment verification, and reference screening.' },
-  { icon: 'ri-money-dollar-circle-line', title: 'Rent Guarantee Option', desc: 'Ask about our rent guarantee scheme — we pay you whether or not the tenant does.' },
+  { icon: 'ri-money-dollar-circle-line', title: 'Rent Guarantee Option', desc: 'Ask about our rent guarantee scheme - we pay you whether or not the tenant does.' },
 ];
 
 export default function Landlords() {
@@ -90,7 +91,7 @@ ${message}`;
   };
 
   return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero */}
@@ -99,18 +100,18 @@ ${message}`;
         <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/80 to-primary/50"></div>
         <div className="relative z-10 w-full max-w-6xl mx-auto px-6">
           <div className="max-w-2xl">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-4">For Landlords &amp; Property Owners</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-4">For Landlords &amp; Property Owners</p>
             <h1 className="font-roboto font-bold text-white text-3xl md:text-5xl mb-6 leading-tight">
               Let or Sell Your<br />Property With<br />Confidence
             </h1>
-            <p className="text-white/80 font-roboto text-base md:text-lg leading-relaxed mb-10 max-w-lg">
+            <p className="text-white/80 font-roboto font-medium text-base md:text-lg leading-relaxed mb-10 max-w-lg">
               Nairobi&apos;s most trusted letting and management agency. We find quality tenants fast, collect your rent reliably, and protect your investment for the long term.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <a href="#landlord-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-golden text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
+              <a href="#landlord-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-golden text-white font-roboto font-medium text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
                 <i className="ri-home-heart-line"></i>List My Property
               </a>
-              <a href="#landlord-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-white/50 text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors">
+              <a href="#landlord-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-white/50 text-white font-roboto font-medium text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors">
                 <i className="ri-bar-chart-2-line"></i>Free Valuation
               </a>
             </div>
@@ -127,7 +128,7 @@ ${message}`;
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - sits directly under the banner so the blue flows straight through */}
       <div className="bg-primary">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-8 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 text-center">
           {[
@@ -144,14 +145,17 @@ ${message}`;
         </div>
       </div>
 
+      {/* Breadcrumb - placed below the blue band so the blue is never broken */}
+      <PageBreadcrumbs />
+
       {/* Priority section */}
       <section className="py-10 md:py-16 px-4 md:px-6 border-b-2 border-primary/12">
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
           <div>
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Commitment</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">Our Commitment</p>
             <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary mb-4 md:mb-5 leading-snug">Your Property Is Our Priority</h2>
             <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed mb-4 md:mb-5">
-              At Oceans Kenya, we understand that your property is more than an asset — it&apos;s a significant investment. Our dedicated landlord team treats every property as if it were their own: maximising returns, minimising voids, and ensuring every tenancy runs smoothly.
+              At Oceans Kenya, we understand that your property is more than an asset - it&apos;s a significant investment. Our dedicated landlord team treats every property as if it were their own: maximising returns, minimising voids, and ensuring every tenancy runs smoothly.
             </p>
             <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">
               With deep roots in Nairobi&apos;s premium property market, we have the network, experience, and systems to consistently deliver outstanding results for landlords across Karen, Westlands, Kilimani, and beyond.
@@ -159,7 +163,7 @@ ${message}`;
           </div>
           <div className="relative">
             <div className="w-full h-56 md:h-72 overflow-hidden">
-              <img alt="Oceans Kenya agent consulting a landlord client" className="w-full h-full object-cover object-bottom" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/032138db-4dc5-4351-aec1-dd314054e4f1_compressed_1eddba3ee07e2d149416c3f58cbb60cc.webp" />
+              <img alt="Oceans Kenya agent consulting a landlord client" className="w-full h-full object-cover object-center" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/032138db-4dc5-4351-aec1-dd314054e4f1_compressed_1eddba3ee07e2d149416c3f58cbb60cc.webp" />
             </div>
             <div className="absolute -bottom-4 -left-4 px-4 py-3 md:px-6 md:py-4 bg-accent">
               <p className="text-white font-roboto font-bold text-base md:text-xl">98%</p>
@@ -173,7 +177,7 @@ ${message}`;
       <section className="py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Our Services</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">Our Services</p>
             <h2 className="text-xl md:text-4xl font-roboto font-bold text-primary mb-3 md:mb-4">Our Landlord Services</h2>
             <p className="text-stone-500 font-roboto text-xs md:text-sm max-w-xl mx-auto leading-relaxed">Everything you need to let and manage your property with confidence.</p>
           </div>
@@ -195,7 +199,7 @@ ${message}`;
       <section className="py-12 md:py-20 px-4 md:px-6 bg-white">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Service Options</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">Service Options</p>
             <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary mb-3 md:mb-4">Choose the Right Service for You</h2>
             <p className="text-stone-500 font-roboto text-xs md:text-sm max-w-lg mx-auto leading-relaxed">Whether you want us to find the tenant and step back, or have us manage everything end-to-end, we have a package that fits.</p>
           </div>
@@ -221,7 +225,7 @@ ${message}`;
                   ))}
                 </ul>
                 <a href="#landlord-form" className="mt-6 md:mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white border-2 border-primary font-roboto font-semibold text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden5 transition-all">
-                  <i className="ri-arrow-right-line"></i>Enquire About Let Only
+                  <i className="ri-arrow-right-line"></i>Request Let Only
                 </a>
               </div>
             </div>
@@ -236,7 +240,7 @@ ${message}`;
                   <i className="ri-building-4-line text-base md:text-lg text-white"></i>
                 </div>
                 <h3 className="text-white font-roboto font-bold text-lg md:text-2xl mb-1">Full Management</h3>
-                <p className="text-white/60 font-roboto text-xs md:text-sm">Complete peace of mind — we handle everything from first listing to ongoing tenancy.</p>
+                <p className="text-white/60 font-roboto text-xs md:text-sm">Complete peace of mind - we handle everything from first listing to ongoing tenancy.</p>
               </div>
               <div className="px-5 md:px-8 py-5 md:py-7">
                 <ul className="space-y-2 md:space-y-3">
@@ -250,7 +254,7 @@ ${message}`;
                   ))}
                 </ul>
                 <a href="#landlord-form" className="mt-6 md:mt-8 flex items-center justify-center gap-2 w-full py-3 bg-golden text-white font-roboto font-semibold text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
-                  <i className="ri-arrow-right-line"></i>Enquire About Full Management
+                  <i className="ri-arrow-right-line"></i>Request Full Management
                 </a>
               </div>
             </div>
@@ -262,7 +266,7 @@ ${message}`;
       <section className="py-12 md:py-20 px-4 md:px-6 bg-white border-t border-gray-50">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">How It Works</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">How It Works</p>
             <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary">How It Works</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-8">
@@ -289,7 +293,7 @@ ${message}`;
       <section className="py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Why Us</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">Why Us</p>
             <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary">Why Landlords Choose Us</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
@@ -310,7 +314,7 @@ ${message}`;
       <section className="py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
-            <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Common Questions</p>
+            <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">Common Questions</p>
             <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary">Frequently Asked Questions</h2>
           </div>
           <div className="space-y-2 md:space-y-3">
@@ -342,7 +346,7 @@ ${message}`;
           {guarantees.map((g) => (
             <div key={g.title} className="flex flex-col items-center">
               <div className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-white/10 rounded-full mb-3 md:mb-4">
-                <i className={`${g.icon} text-xl md:text-2xl text-golden`}></i>
+                <i className={`${g.icon} text-xl md:text-2xl text-white`}></i>
               </div>
               <h3 className="text-white font-roboto font-bold text-base md:text-lg mb-2">{g.title}</h3>
               <p className="text-white/60 font-roboto text-xs md:text-sm leading-relaxed">{g.desc}</p>
@@ -358,19 +362,19 @@ ${message}`;
             {/* Left info */}
             <div className="lg:col-span-2">
               <div className="w-full aspect-square overflow-hidden mb-6 md:mb-8">
-                <img alt="Oceans Kenya" className="w-full h-full object-cover object-top" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp" />
+                <img alt="Oceans Kenya" className="w-full h-full object-cover object-center" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp" />
               </div>
-              <p className="text-golden text-xs font-roboto font-semibold tracking-widest uppercase mb-3">Get Started</p>
+              <p className="text-golden text-xs font-roboto font-bold tracking-widest uppercase mb-3">Get Started</p>
               <h2 className="text-xl md:text-3xl font-roboto font-bold text-primary mb-4 md:mb-5 leading-snug">Let's Talk About Your Property</h2>
               <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed mb-8 md:mb-10">
                 Fill in the short form and one of our dedicated landlord specialists will be in touch within 24 hours to discuss how we can maximise your rental return.
               </p>
               <div className="space-y-4 md:space-y-6">
                 {[
-                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254703712984' },
+                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254 181 408 186' },
                   { icon: 'ri-mail-line', label: 'Email Us', value: 'ask@oceanske.com' },
-                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Plot 9, Riverside Drive, Westlands, Nairobi' },
-                  { icon: 'ri-time-line', label: 'Office Hours', value: 'Mon – Fri: 8:30am – 5:30pm' },
+                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Plot 9, Mandera Rd, Nairobi' },
+                  { icon: 'ri-time-line', label: 'Office Hours', value: 'Mon - Fri: 8:30am - 5:30pm' },
                 ].map((item) => (
                   <div key={item.label} className="flex gap-3 md:gap-4">
                     <div className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center bg-primary rounded-full flex-shrink-0">
@@ -473,7 +477,7 @@ ${message}`;
 
                 <button
                   type="submit"
-                  disabled={formStatus === 'submitting'}
+                  disabled={formStatus === 'submitting' || formStatus === 'success'}
                   className="w-full px-5 py-2.5 bg-primary hover:bg-golden text-white border-2 border-primary font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {formStatus === 'submitting' ? (
@@ -491,7 +495,15 @@ ${message}`;
                   )}
                 </button>
                 {formStatus === 'success' && (
-                  <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll be in touch within 24 hours.</p>
+                  <div className="flex items-start gap-3 p-4 bg-green-50 border-2 border-green-200 rounded-lg" role="status">
+                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-green-100 shrink-0">
+                      <i className="ri-check-line text-green-600"></i>
+                    </span>
+                    <div className="text-left">
+                      <p className="text-green-700 font-roboto font-semibold text-sm">Enquiry sent successfully!</p>
+                      <p className="text-green-600 font-roboto text-xs mt-0.5">Thank you - we&apos;ll be in touch within 24 hours. No need to send it again.</p>
+                    </div>
+                  </div>
                 )}
                 {formStatus === 'error' && (
                   <p className="text-red-500 text-sm font-roboto text-center">{formError}</p>

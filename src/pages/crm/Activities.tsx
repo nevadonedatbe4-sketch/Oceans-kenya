@@ -128,13 +128,13 @@ export default function Activities() {
               placeholder="Search activity..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border border-[#1c3a5e] lg:border-[#f0f0f0] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#636363] focus:outline-none focus:border-[#5eead4] lg:focus:border-[#0d5959]"
+              className="w-full pl-9 pr-4 py-2.5 border border-[#2a5688] lg:border-[#cbd5e1] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#636363] focus:outline-none focus:border-[#5eead4] lg:focus:border-[#0d5959]"
             />
           </div>
           <select
             value={moduleFilter}
             onChange={(e) => { setModuleFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2.5 border border-[#1c3a5e] lg:border-[#f0f0f0] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] focus:outline-none cursor-pointer"
+            className="px-3 py-2.5 border border-[#2a5688] lg:border-[#cbd5e1] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] focus:outline-none cursor-pointer"
           >
             {modules.map((m) => (
               <option key={m} value={m} className="capitalize">{m === 'all' ? 'All Modules' : m}</option>
@@ -143,7 +143,7 @@ export default function Activities() {
           <select
             value={actionFilter}
             onChange={(e) => { setActionFilter(e.target.value); setPage(1); }}
-            className="px-3 py-2.5 border border-[#1c3a5e] lg:border-[#f0f0f0] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] focus:outline-none cursor-pointer"
+            className="px-3 py-2.5 border border-[#2a5688] lg:border-[#cbd5e1] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] focus:outline-none cursor-pointer"
           >
             {actions.map((a) => (
               <option key={a} value={a} className="capitalize">{a === 'all' ? 'All Actions' : a}</option>
@@ -152,7 +152,7 @@ export default function Activities() {
           <select
             value={dateRange}
             onChange={(e) => { setDateRange(e.target.value); setPage(1); }}
-            className="px-3 py-2.5 border border-[#1c3a5e] lg:border-[#f0f0f0] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] focus:outline-none cursor-pointer"
+            className="px-3 py-2.5 border border-[#2a5688] lg:border-[#cbd5e1] bg-[#012144] lg:bg-white rounded-lg text-sm font-roboto text-white lg:text-[#001731] focus:outline-none cursor-pointer"
           >
             <option value="all">All Time</option>
             <option value="today">Today</option>
@@ -165,11 +165,11 @@ export default function Activities() {
       </div>
 
       {/* Activity List */}
-      <div className="bg-[#012144] lg:bg-white rounded-xl overflow-hidden">
+      <div className="bg-[#012144] lg:bg-white rounded-xl overflow-hidden border border-[#2a5688] lg:border-[#cbd5e1]">
         {loading ? (
           <div className="space-y-0">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="px-4 md:px-5 py-4 border-b border-[#f0f0f0]/60 flex items-center gap-4">
+              <div key={i} className="px-4 md:px-5 py-4 border-b border-[#2a5688]/60 lg:border-[#e2e8f0] flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-[#f8fafc] animate-pulse flex-shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-3.5 w-48 bg-[#f8fafc] rounded animate-pulse" />
@@ -191,7 +191,7 @@ export default function Activities() {
             </div>
           </div>
         ) : (
-          <div className="divide-y divide-[#1c3a5e]/60 lg:divide-[#e8edf2]/60">
+          <div className="divide-y divide-[#2a5688] lg:divide-[#cbd5e1]">
             {logs.map((log) => {
               const isExpanded = expandedId === log.id;
               return (
@@ -225,18 +225,18 @@ export default function Activities() {
                           {formatDate(log.created_at)}
                         </span>
                         {(log.before_value || log.after_value || log.metadata) && (
-                          <i className={`ri-arrow-down-s-line text-[#6b7280] lg:text-[#636363] text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                          <i className={`ri-arrow-down-wide-fill text-[#6b7280] lg:text-[#636363] text-xs transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                         )}
                       </div>
                     </div>
                   </div>
                   {isExpanded && (log.before_value || log.after_value || log.metadata) && (
                     <div className="px-4 md:px-5 pb-4 pl-16 md:pl-20">
-                      <div className="bg-[#001731] lg:bg-[#f8fafc] rounded-lg p-4 space-y-3">
+                      <div className="bg-[#001731] lg:bg-[#f8fafc] rounded-lg p-4 space-y-3 border border-[#2a5688] lg:border-[#cbd5e1]">
                         {log.before_value && (
                           <div>
                             <p className="text-xs font-roboto text-[#636363] uppercase tracking-wider mb-1">Before</p>
-                            <pre className="text-xs font-roboto text-[#9ca3af] lg:text-[#001731] bg-[#012144] lg:bg-white rounded p-2 overflow-x-auto">
+                            <pre className="text-xs font-roboto text-[#9ca3af] lg:text-[#001731] bg-[#012144] lg:bg-white rounded p-2 overflow-x-auto border border-[#2a5688]/70 lg:border-[#e2e8f0]">
                               {JSON.stringify(log.before_value, null, 2)}
                             </pre>
                           </div>
@@ -244,7 +244,7 @@ export default function Activities() {
                         {log.after_value && (
                           <div>
                             <p className="text-xs font-roboto text-[#636363] uppercase tracking-wider mb-1">After</p>
-                            <pre className="text-xs font-roboto text-[#9ca3af] lg:text-[#001731] bg-[#012144] lg:bg-white rounded p-2 overflow-x-auto">
+                            <pre className="text-xs font-roboto text-[#9ca3af] lg:text-[#001731] bg-[#012144] lg:bg-white rounded p-2 overflow-x-auto border border-[#2a5688]/70 lg:border-[#e2e8f0]">
                               {JSON.stringify(log.after_value, null, 2)}
                             </pre>
                           </div>
@@ -252,7 +252,7 @@ export default function Activities() {
                         {log.metadata && (
                           <div>
                             <p className="text-xs font-roboto text-[#636363] uppercase tracking-wider mb-1">Metadata</p>
-                            <pre className="text-xs font-roboto text-[#9ca3af] lg:text-[#001731] bg-[#012144] lg:bg-white rounded p-2 overflow-x-auto">
+                            <pre className="text-xs font-roboto text-[#9ca3af] lg:text-[#001731] bg-[#012144] lg:bg-white rounded p-2 overflow-x-auto border border-[#2a5688]/70 lg:border-[#e2e8f0]">
                               {JSON.stringify(log.metadata, null, 2)}
                             </pre>
                           </div>
@@ -272,6 +272,7 @@ export default function Activities() {
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
+            mobileLight
           />
         )}
       </div>

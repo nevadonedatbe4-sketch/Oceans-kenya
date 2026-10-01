@@ -3,19 +3,43 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
+import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
 import { supabase } from '@/lib/supabase';
 import { normalizeJvProjectImages, type JvImage } from '@/lib/jvImages';
+import { smartTitleCase } from '@/lib/location';
+import ProjectPlansRequest from '@/pages/joint-ventures/components/ProjectPlansRequest';
+
+interface JvProjectAgent {
+  name: string;
+  role: string;
+  phone: string;
+  email: string;
+  avatar?: string;
+}
 
 interface JvProjectDetail {
   id: string;
   title: string;
+  slug: string;
   location: string;
   type: string;
   units: number;
   status: string;
   priceRange: string;
   description: string;
+  featured: boolean;
+  createdAt: string;
+  updatedAt: string;
+  agent: JvProjectAgent | null;
   images: JvImage[];
+}
+
+/** Format an ISO timestamp as a friendly "26 Jul 2026" date, or '' when invalid. */
+function formatJvDate(value: string): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function JointVentureProjectDetail() {
@@ -38,7 +62,7 @@ export default function JointVentureProjectDetail() {
 
       const { data, error: dbError } = await supabase
         .from('jv_projects')
-        .select('id, title, slug, location, type, units, status, price_range, description, image, jv_project_images(id, image_url, storage_path, alt_text, sort_order, is_cover)')
+        .select('id, title, slug, location, type, units, status, price_range, description, image, featured, created_at, updated_at, agent_id, jv_project_images(id, image_url, storage_path, alt_text, sort_order, is_cover)')
         .eq('slug', slug)
         .eq('is_published', true)
         .maybeSingle();
@@ -57,18 +81,50 @@ export default function JointVentureProjectDetail() {
         return;
       }
 
-      const title = String(data.title || '');
+      const title = smartTitleCase(String(data.title || ''));
       const legacyImage = String(data.image || '') || null;
+
+      // Managing partner - only surfaced when the project is assigned to an agent.
+      let agent: JvProjectAgent | null = null;
+      const agentId = data.agent_id ? String(data.agent_id) : '';
+      if (agentId) {
+        try {
+          const { data: agentRow } = await supabase
+            .from('agents')
+            .select('name,title,phone,email,avatar_url')
+            .eq('id', agentId)
+            .maybeSingle();
+          const row = agentRow as Record<string, unknown> | null;
+          if (!cancelled && row) {
+            agent = {
+              name: String(row.name || 'Joint Ventures Desk'),
+              role: String(row.title || 'Partner Manager'),
+              phone: String(row.phone || ''),
+              email: String(row.email || ''),
+              avatar: row.avatar_url ? String(row.avatar_url) : undefined,
+            };
+          }
+        } catch {
+          agent = null;
+        }
+      }
+
+      if (cancelled) return;
 
       setProject({
         id: String(data.id),
         title,
+        slug: String(data.slug || ''),
         location: String(data.location || ''),
         type: String(data.type || ''),
         units: Number(data.units) || 0,
         status: String(data.status || ''),
         priceRange: String(data.price_range || ''),
         description: String(data.description || ''),
+        featured: Boolean(data.featured),
+        createdAt: String(data.created_at || ''),
+        updatedAt: String(data.updated_at || ''),
+        agent,
         images: normalizeJvProjectImages(data.jv_project_images, legacyImage, title),
       });
       setActiveIdx(0);
@@ -88,7 +144,7 @@ export default function JointVentureProjectDetail() {
   const goPrev = () => setActiveIdx((prev) => (prev - 1 < 0 ? images.length - 1 : prev - 1));
 
   return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Loading */}
@@ -155,12 +211,14 @@ export default function JointVentureProjectDetail() {
         <>
           {/* Breadcrumb band */}
           <section className="border-b border-primary/10">
-            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-2 text-xs font-roboto text-primary/60">
-              <Link to="/" className="hover:text-primary transition-colors">Home</Link>
-              <i className="ri-arrow-right-s-line" />
-              <Link to="/joint-ventures" className="hover:text-primary transition-colors">Joint Ventures</Link>
-              <i className="ri-arrow-right-s-line" />
-              <span className="text-primary font-medium truncate max-w-[260px]">{project.title}</span>
+            <div className="max-w-6xl mx-auto px-6 py-4">
+              <PageBreadcrumbTrail
+                items={[
+                  { label: 'Home', to: '/' },
+                  { label: 'Joint Ventures', to: '/joint-ventures' },
+                  { label: project.title },
+                ]}
+              />
             </div>
           </section>
 
@@ -211,7 +269,7 @@ export default function JointVentureProjectDetail() {
                         type="button"
                         onClick={goPrev}
                         aria-label="Previous image"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 text-white flex items-center justify-center cursor-pointer hover:bg-black/65 transition-colors"
+                        className="absolute left-3 top-1/2 -translate-y-1/2 w-7 h-11 md:w-8 md:h-12 rounded-md bg-black/45 text-white flex items-center justify-center cursor-pointer hover:bg-black/65 transition-colors"
                       >
                         <i className="ri-arrow-left-s-line text-lg"></i>
                       </button>
@@ -219,7 +277,7 @@ export default function JointVentureProjectDetail() {
                         type="button"
                         onClick={goNext}
                         aria-label="Next image"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black/45 text-white flex items-center justify-center cursor-pointer hover:bg-black/65 transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 w-7 h-11 md:w-8 md:h-12 rounded-md bg-black/45 text-white flex items-center justify-center cursor-pointer hover:bg-black/65 transition-colors"
                       >
                         <i className="ri-arrow-right-s-line text-lg"></i>
                       </button>
@@ -247,47 +305,71 @@ export default function JointVentureProjectDetail() {
                 )}
               </div>
 
-              {/* Info panel */}
+              {/* Project at a glance */}
               <div className="lg:col-span-1">
                 <div className="border-2 border-primary/12 bg-white p-6 md:p-7 sticky top-24">
-                  <h2 className="font-roboto font-bold text-primary text-sm uppercase tracking-widest mb-5">
-                    Project Details
-                  </h2>
-
-                  <div className="space-y-4 mb-6">
-                    {project.units > 0 && (
-                      <div className="flex items-center justify-between py-3 border-b border-primary/10">
-                        <span className="text-primary/60 font-roboto text-sm flex items-center gap-2">
-                          <i className="ri-building-line text-golden" /> Units
-                        </span>
-                        <span className="font-roboto font-bold text-primary text-sm">{project.units}</span>
-                      </div>
-                    )}
-                    {project.priceRange && (
-                      <div className="flex items-center justify-between py-3 border-b border-primary/10">
-                        <span className="text-primary/60 font-roboto text-sm flex items-center gap-2">
-                          <i className="ri-funds-line text-golden" /> Price Range
-                        </span>
-                        <span className="font-roboto font-bold text-primary text-sm">{project.priceRange}</span>
-                      </div>
-                    )}
-                    {project.type && (
-                      <div className="flex items-center justify-between py-3 border-b border-primary/10">
-                        <span className="text-primary/60 font-roboto text-sm flex items-center gap-2">
-                          <i className="ri-layout-grid-line text-golden" /> Type
-                        </span>
-                        <span className="font-roboto font-bold text-primary text-sm">{project.type}</span>
-                      </div>
-                    )}
-                    {project.status && (
-                      <div className="flex items-center justify-between py-3 border-b border-primary/10">
-                        <span className="text-primary/60 font-roboto text-sm flex items-center gap-2">
-                          <i className="ri-pulse-line text-golden" /> Status
-                        </span>
-                        <span className="font-roboto font-bold text-accent text-sm">{project.status}</span>
-                      </div>
+                  <div className="flex items-center justify-between gap-2 mb-5">
+                    <h2 className="font-roboto font-bold text-primary text-sm uppercase tracking-widest">
+                      Project at a glance
+                    </h2>
+                    {project.featured && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-golden/15 text-golden text-[10px] uppercase tracking-wider font-bold font-roboto">
+                        <i className="ri-star-fill text-[10px]" /> Featured
+                      </span>
                     )}
                   </div>
+
+                  <div className="space-y-3 mb-6">
+                    {([
+                      { icon: 'ri-layout-grid-line', label: 'Project type', value: project.type, accent: false },
+                      { icon: 'ri-pulse-line', label: 'Status', value: project.status, accent: true },
+                      { icon: 'ri-building-line', label: 'Units', value: project.units > 0 ? String(project.units) : '', accent: false },
+                      { icon: 'ri-funds-line', label: 'Price range', value: project.priceRange, accent: false },
+                      { icon: 'ri-map-pin-2-line', label: 'Location', value: project.location, accent: false },
+                      { icon: 'ri-calendar-line', label: 'Listed on', value: formatJvDate(project.createdAt), accent: false },
+                      { icon: 'ri-refresh-line', label: 'Last updated', value: formatJvDate(project.updatedAt), accent: false },
+                    ] as { icon: string; label: string; value: string; accent: boolean }[])
+                      .filter((f) => f.value)
+                      .map((f) => (
+                        <div key={f.label} className="flex items-start justify-between gap-3 pb-3 border-b border-primary/10 last:border-0 last:pb-0">
+                          <span className="text-primary/60 font-roboto text-sm flex items-center gap-2">
+                            <i className={`${f.icon} text-golden`} /> {f.label}
+                          </span>
+                          <span className={`font-roboto font-bold text-sm text-right ${f.accent ? 'text-accent' : 'text-primary'}`}>
+                            {f.value}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+
+                  {project.agent && (
+                    <div className="border-t border-primary/10 pt-4 mb-5">
+                      <p className="text-primary/50 font-roboto text-[10px] uppercase tracking-widest mb-2.5">
+                        Managed by
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-primary text-white text-sm font-bold font-roboto overflow-hidden">
+                          {project.agent.avatar ? (
+                            <img src={project.agent.avatar} alt={project.agent.name} className="w-full h-full object-cover" />
+                          ) : (
+                            project.agent.name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-roboto font-bold text-primary text-sm truncate">{project.agent.name}</p>
+                          <p className="font-roboto text-primary/50 text-xs truncate">{project.agent.role}</p>
+                        </div>
+                        {project.agent.phone && (
+                          <a
+                            href={`tel:${project.agent.phone}`}
+                            className="ml-auto inline-flex items-center gap-1 text-xs font-roboto font-semibold text-accent hover:opacity-70 transition-opacity cursor-pointer whitespace-nowrap shrink-0"
+                          >
+                            <i className="ri-phone-line text-sm" /> Call
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <Link
                     to="/joint-ventures"
@@ -295,6 +377,12 @@ export default function JointVentureProjectDetail() {
                   >
                     <i className="ri-group-line" /> Partner with this project
                   </Link>
+                  <a
+                    href="#project-plans"
+                    className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 bg-golden text-white border-2 border-golden font-roboto text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors mb-3"
+                  >
+                    <i className="ri-file-download-line" /> Request blueprints &amp; plans
+                  </a>
                   <button
                     onClick={() => navigate('/joint-ventures')}
                     className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 border border-primary/20 text-primary font-roboto text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-stone-50 transition-colors"
@@ -316,6 +404,17 @@ export default function JointVentureProjectDetail() {
                 </p>
               </div>
             )}
+
+            {/* Request blueprints & plans */}
+            <div id="project-plans" className="mt-10 md:mt-12 scroll-mt-24">
+              <ProjectPlansRequest
+                projectTitle={project.title}
+                projectSlug={project.slug}
+                projectType={project.type}
+                projectLocation={project.location}
+                agentName={project.agent?.name}
+              />
+            </div>
           </section>
         </>
       )}

@@ -5,6 +5,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { logNeighbourhoodCreated, logNeighbourhoodEdited } from '@/lib/activityLogger';
 import { broadcastSync } from '@/lib/syncEngine';
+import { persistImageColumns } from '@/lib/imagePersistence';
+import ImageEditor from '@/pages/crm/components/ImageEditor';
+import NeighbourhoodLifeTab from '@/pages/crm/components/NeighbourhoodLifeTab';
+import { useDragDropUpload } from '@/hooks/useDragDropUpload';
 
 interface NeighbourhoodForm {
   name: string;
@@ -78,8 +82,10 @@ const tabs = [
   { key: 'expat', label: 'Expat Guide', icon: 'ri-globe-line' },
   { key: 'practical', label: 'Practical Info', icon: 'ri-information-line' },
   { key: 'gallery', label: 'Gallery', icon: 'ri-image-line' },
+  { key: 'image', label: 'Image', icon: 'ri-crop-2-line' },
   { key: 'faqs', label: 'FAQs', icon: 'ri-question-answer-line' },
   { key: 'seo', label: 'SEO', icon: 'ri-search-line' },
+  { key: 'life', label: 'Life Around Here', icon: 'ri-map-pin-user-line' },
 ];
 
 export default function NeighbourhoodEdit() {
@@ -96,6 +102,7 @@ export default function NeighbourhoodEdit() {
   const [uploading, setUploading] = useState(false);
   const [storageReady, setStorageReady] = useState<boolean | null>(null);
   const [newFAQ, setNewFAQ] = useState({ question: '', answer: '' });
+  const [editingHero, setEditingHero] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const ogInputRef = useRef<HTMLInputElement>(null);
@@ -224,16 +231,15 @@ export default function NeighbourhoodEdit() {
         if (user && insertData) {
           logNeighbourhoodCreated(user.id, user.name || user.email, insertData.id, form.name);
         }
-        navigate(`/crm/neighbourhoods/edit/${insertData.id}`, { replace: true });
+        navigate(`/admin/neighbourhoods/edit/${insertData.id}`, { replace: true });
       }
     }
 
     setSaving(false);
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'gallery' | 'hero' | 'og') => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !id) return;
+  const processImageFiles = async (files: File[], type: 'gallery' | 'hero' | 'og') => {
+    if (!files.length || !id) return;
 
     if (type === 'gallery') {
       setUploading(true);
@@ -287,12 +293,14 @@ export default function NeighbourhoodEdit() {
 
       if (type === 'hero') {
         setForm((prev) => ({ ...prev, hero_image: url }));
-        await supabase.from('neighbourhoods').update({ hero_image: url }).eq('id', id);
-        addToast('Hero image updated', 'success');
+        const result = await persistImageColumns('neighbourhoods', id, { hero_image: url });
+        if (result.ok) addToast('Hero image updated', 'success');
+        else addToast(result.error || 'Failed to save hero image', 'error');
       } else if (type === 'og') {
         setForm((prev) => ({ ...prev, og_image: url }));
-        await supabase.from('neighbourhoods').update({ og_image: url }).eq('id', id);
-        addToast('OG image updated', 'success');
+        const result = await persistImageColumns('neighbourhoods', id, { og_image: url });
+        if (result.ok) addToast('OG image updated', 'success');
+        else addToast(result.error || 'Failed to save OG image', 'error');
       }
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -304,11 +312,32 @@ export default function NeighbourhoodEdit() {
     if (ogInputRef.current) ogInputRef.current.value = '';
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'gallery' | 'hero' | 'og') => {
+    processImageFiles(Array.from(e.target.files || []), type);
+    e.target.value = '';
+  };
+
+  // Drag & drop zones for the three neighbourhood image areas.
+  const heroDrop = useDragDropUpload((files) => processImageFiles(files, 'hero'));
+  const galleryDrop = useDragDropUpload((files) => processImageFiles(files, 'gallery'));
+  const ogDrop = useDragDropUpload((files) => processImageFiles(files, 'og'));
+
+  const handleHeroEditorSave = async (url: string) => {
+    setForm((prev) => ({ ...prev, hero_image: url }));
+    if (id) {
+      const result = await persistImageColumns('neighbourhoods', id, { hero_image: url });
+      if (result.ok) addToast('Hero image updated', 'success');
+      else addToast(result.error || 'Failed to save hero image', 'error');
+    }
+    setEditingHero(false);
+  };
+
   const handleSetAsHero = async (imageUrl: string) => {
     if (!id) return;
     setForm((prev) => ({ ...prev, hero_image: imageUrl }));
-    await supabase.from('neighbourhoods').update({ hero_image: imageUrl }).eq('id', id);
-    addToast('Hero image updated', 'success');
+    const result = await persistImageColumns('neighbourhoods', id, { hero_image: imageUrl });
+    if (result.ok) addToast('Hero image updated', 'success');
+    else addToast(result.error || 'Failed to save hero image', 'error');
   };
 
   const handleMoveGalleryImage = async (index: number, direction: 'up' | 'down') => {
@@ -409,12 +438,12 @@ export default function NeighbourhoodEdit() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/crm/neighbourhoods')}
+            onClick={() => navigate('/admin/neighbourhoods')}
             className="p-2 hover:bg-[#f8fafc] rounded-lg cursor-pointer text-[#7a8a99] transition-colors"
           >
             <i className="ri-arrow-left-line text-lg" />
           </button>
-          <h1 className="font-jost text-lg font-medium text-[#001731]">
+          <h1 className="text-xl font-semibold text-white">
             {isEdit ? 'Edit Neighbourhood' : 'New Neighbourhood'}
           </h1>
         </div>
@@ -422,7 +451,7 @@ export default function NeighbourhoodEdit() {
           <button
             onClick={() => handleSubmit()}
             disabled={saving || uploading}
-            className="flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-5 py-2.5 rounded-lg text-sm font-roboto transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-5 py-2.5 rounded-lg text-sm font-roboto font-medium transition-all cursor-pointer disabled:opacity-50"
           >
             <i className={`${saving ? 'ri-loader-4-line animate-spin' : 'ri-save-line'}`} />
             {saving ? 'Saving...' : 'Save'}
@@ -436,10 +465,10 @@ export default function NeighbourhoodEdit() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-roboto transition-all cursor-pointer whitespace-nowrap border-b-2 ${
+            className={`flex items-center gap-1.5 px-4 py-3 transition-all cursor-pointer whitespace-nowrap border-b-2 text-[15px] font-roboto font-semibold ${
               activeTab === tab.key
-                ? 'border-[#0d5959] text-[#0d5959]'
-                : 'border-transparent text-[#7a8a99] hover:text-[#001731]'
+                ? 'mgmt-tab-active border-[#0d5959] text-[#0d5959]'
+                : 'mgmt-tab border-transparent text-[#7a8a99] hover:bg-white hover:text-[#001731]'
             }`}
           >
             <i className={tab.icon} />
@@ -453,115 +482,115 @@ export default function NeighbourhoodEdit() {
         {/* Details Tab */}
         {activeTab === 'details' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">Details</h3>
+            <h3 className="management-section-title text-[#001731] mb-4">Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Neighbourhood Name *</label>
+                <label className="block management-label text-[#374151] mb-2">Neighbourhood Name *</label>
                 <input
                   type="text"
                   required
                   value={form.name}
                   onChange={(e) => handleChange('name', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20"
                   placeholder="e.g. Lavington"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">URL Slug</label>
+                <label className="block management-label text-[#374151] mb-2">URL Slug</label>
                 <input
                   type="text"
                   value={form.slug}
                   onChange={(e) => handleChange('slug', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="url-friendly-name"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">City</label>
+                <label className="block management-label text-[#374151] mb-2">City</label>
                 <input
                   type="text"
                   value={form.city}
                   onChange={(e) => handleChange('city', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="Nairobi"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Country</label>
+                <label className="block management-label text-[#374151] mb-2">Country</label>
                 <input
                   type="text"
                   value={form.country}
                   onChange={(e) => handleChange('country', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="Kenya"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Target Market</label>
+                <label className="block management-label text-[#374151] mb-2">Target Market</label>
                 <input
                   type="text"
                   value={form.target_market}
                   onChange={(e) => handleChange('target_market', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="e.g. Families, Expats"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Vibe / Character</label>
+                <label className="block management-label text-[#374151] mb-2">Vibe / Character</label>
                 <input
                   type="text"
                   value={form.vibe}
                   onChange={(e) => handleChange('vibe', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="e.g. Quiet, Green, Upscale"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Average Sale Price</label>
+                <label className="block management-label text-[#374151] mb-2">Average Sale Price</label>
                 <input
                   type="number"
                   value={form.average_sale_price}
                   onChange={(e) => handleChange('average_sale_price', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="e.g. 45000000"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Sort Order</label>
+                <label className="block management-label text-[#374151] mb-2">Sort Order</label>
                 <input
                   type="number"
                   value={form.sort_order}
                   onChange={(e) => handleChange('sort_order', Number(e.target.value))}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Rental Range (USD/month)</label>
+                <label className="block management-label text-[#374151] mb-2">Rental Range (USD/month)</label>
                 <input
                   type="text"
                   value={form.rental_range_usd}
                   onChange={(e) => handleChange('rental_range_usd', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="e.g. $1,500 - $3,000"
                 />
               </div>
               <div>
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Rental Range (KES/month)</label>
+                <label className="block management-label text-[#374151] mb-2">Rental Range (KES/month)</label>
                 <input
                   type="text"
                   value={form.rental_range_kes}
                   onChange={(e) => handleChange('rental_range_kes', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="e.g. KSh 150,000 - 300,000"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Tags (comma separated)</label>
+                <label className="block management-label text-[#374151] mb-2">Tags (comma separated)</label>
                 <input
                   type="text"
                   value={form.tags}
                   onChange={(e) => handleChange('tags', e.target.value)}
-                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                  className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                   placeholder="e.g. Family-friendly, Quiet, Green"
                 />
               </div>
@@ -573,7 +602,7 @@ export default function NeighbourhoodEdit() {
                     onChange={(e) => handleChange('is_featured', e.target.checked)}
                     className="w-4 h-4 text-[#0d5959] border-[#e8edf2] rounded focus:ring-[#0d5959]"
                   />
-                  <span className="text-sm font-roboto text-[#001731]">Featured</span>
+                  <span className="text-base font-roboto text-[#001731]">Featured</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -582,7 +611,7 @@ export default function NeighbourhoodEdit() {
                     onChange={(e) => handleChange('is_published', e.target.checked)}
                     className="w-4 h-4 text-[#0d5959] border-[#e8edf2] rounded focus:ring-[#0d5959]"
                   />
-                  <span className="text-sm font-roboto text-[#001731]">Published</span>
+                  <span className="text-base font-roboto text-[#001731]">Published</span>
                 </label>
               </div>
             </div>
@@ -592,35 +621,35 @@ export default function NeighbourhoodEdit() {
         {/* Content Tab */}
         {activeTab === 'content' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">Content</h3>
+            <h3 className="management-section-title text-[#001731] mb-4">Content</h3>
             <div>
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Summary</label>
+              <label className="block management-label text-[#374151] mb-2">Summary</label>
               <textarea
                 value={form.summary}
                 onChange={(e) => handleChange('summary', e.target.value)}
-                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[80px] resize-none"
+                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[80px] resize-none"
                 placeholder="Short summary for cards..."
                 maxLength={500}
               />
-              <p className="text-[10px] text-[#7a8a99] font-roboto mt-1 text-right">{form.summary.length}/500</p>
+              <p className="text-sm text-[#7a8a99] font-roboto mt-1 text-right">{form.summary.length}/500</p>
             </div>
             <div>
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Description</label>
+              <label className="block management-label text-[#374151] mb-2">Description</label>
               <textarea
                 value={form.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[120px] resize-none"
+                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[120px] resize-none"
                 placeholder="Full description..."
                 maxLength={5000}
               />
-              <p className="text-[10px] text-[#7a8a99] font-roboto mt-1 text-right">{form.description.length}/5000</p>
+              <p className="text-sm text-[#7a8a99] font-roboto mt-1 text-right">{form.description.length}/5000</p>
             </div>
             <div>
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Content HTML</label>
+              <label className="block management-label text-[#374151] mb-2">Content HTML</label>
               <textarea
                 value={form.content_html}
                 onChange={(e) => handleChange('content_html', e.target.value)}
-                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[200px] resize-none font-mono"
+                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[200px] resize-none font-mono"
                 placeholder="HTML content for the neighbourhood page..."
                 maxLength={50000}
               />
@@ -631,11 +660,11 @@ export default function NeighbourhoodEdit() {
         {/* Expat Guide Tab */}
         {activeTab === 'expat' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">Expat Guide</h3>
+            <h3 className="management-section-title text-[#001731] mb-4">Expat Guide</h3>
             <textarea
               value={form.expat_guide}
               onChange={(e) => handleChange('expat_guide', e.target.value)}
-              className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[300px] resize-none"
+              className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[300px] resize-none"
               placeholder="Information for expats about this neighbourhood..."
               maxLength={50000}
             />
@@ -645,11 +674,11 @@ export default function NeighbourhoodEdit() {
         {/* Practical Info Tab */}
         {activeTab === 'practical' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">Practical Info</h3>
+            <h3 className="management-section-title text-[#001731] mb-4">Practical Info</h3>
             <textarea
               value={form.practical_info}
               onChange={(e) => handleChange('practical_info', e.target.value)}
-              className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[300px] resize-none"
+              className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[300px] resize-none"
               placeholder="Practical information about this neighbourhood..."
               maxLength={50000}
             />
@@ -659,10 +688,13 @@ export default function NeighbourhoodEdit() {
         {/* Gallery Tab */}
         {activeTab === 'gallery' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">Gallery</h3>
-            <div className="bg-[#f8fafc] rounded-lg p-4 border border-[#e8edf2]">
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Hero Image (Front-end Display)</label>
-              <p className="text-[10px] font-roboto text-[#7a8a99] mb-3">This is the single image shown on the neighbourhood card and detail page on the website.</p>
+            <h3 className="management-section-title text-[#001731] mb-4">Gallery</h3>
+            <div
+              {...heroDrop.handlers}
+              className={`rounded-lg p-4 border border-dashed transition-colors ${heroDrop.isDragging ? 'border-[#0d5959] bg-[#eef7f5]' : 'border-[#e8edf2] bg-[#f8fafc]'}`}
+            >
+              <label className="block management-label text-[#374151] mb-2">Hero Image (Front-end Display)</label>
+              <p className="text-sm font-roboto text-[#7a8a99] mb-3">Drag &amp; drop an image here, or click Upload. This is the single image shown on the neighbourhood card and detail page.</p>
               <div className="flex items-center gap-3">
                 {form.hero_image ? (
                   <img src={form.hero_image} alt="" className="w-24 h-16 object-cover rounded-lg" />
@@ -672,13 +704,11 @@ export default function NeighbourhoodEdit() {
                   </div>
                 )}
                 <div className="flex-1">
-                  <input
-                    type="text"
-                    value={form.hero_image}
-                    onChange={(e) => handleChange('hero_image', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
-                    placeholder="https://..."
-                  />
+                  {form.hero_image ? (
+                    <p className="text-sm font-roboto text-[#0d5959] flex items-center gap-1.5"><i className="ri-checkbox-circle-line"></i>Uploaded from your device</p>
+                  ) : (
+                    <p className="text-sm font-roboto text-[#7a8a99] flex items-center gap-1.5"><i className="ri-upload-cloud-line"></i>No image yet — click Upload to add one from your device</p>
+                  )}
                 </div>
                 {isEdit && (
                   <>
@@ -686,21 +716,33 @@ export default function NeighbourhoodEdit() {
                     <button
                       onClick={() => heroInputRef.current?.click()}
                       disabled={uploading || storageReady === false}
-                      className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#e8edf2] rounded-lg text-xs font-roboto text-[#7a8a99] hover:text-[#001731] hover:bg-[#f8fafc] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto text-[#7a8a99] hover:text-[#001731] hover:bg-[#f8fafc] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
                     >
                       <i className="ri-upload-line" />
                       {uploading ? '...' : 'Upload'}
                     </button>
+                    {form.hero_image && (
+                      <button
+                        onClick={() => setActiveTab('image')}
+                        className="inline-flex items-center gap-1.5 px-3 py-2.5 bg-[#0d5959] text-white rounded-lg text-sm font-roboto font-medium transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        <i className="ri-crop-2-line" />
+                        Crop &amp; Edit
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             </div>
 
-            <div className="pt-4 border-t border-[#e8edf2]">
+            <div
+              {...galleryDrop.handlers}
+              className={`pt-4 border-t rounded-lg transition-colors ${galleryDrop.isDragging ? 'border-[#0d5959] bg-[#eef7f5]' : 'border-[#e8edf2]'}`}
+            >
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h4 className="text-sm font-roboto text-[#001731] font-medium">Gallery Images</h4>
-                  <p className="text-[10px] font-roboto text-[#7a8a99]">Click the star icon on any image below to set it as the front-end hero image.</p>
+                  <h4 className="text-base font-roboto text-[#001731] font-medium">Gallery Images</h4>
+                  <p className="text-sm font-roboto text-[#7a8a99]">Drag &amp; drop images here to upload, or click the star icon on any image to set it as the front-end hero image.</p>
                 </div>
                 {isEdit && (
                   <>
@@ -708,7 +750,7 @@ export default function NeighbourhoodEdit() {
                     <button
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploading || storageReady === false}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0d5959] text-white rounded-lg text-xs font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0d5959] text-white rounded-lg text-sm font-roboto font-medium transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
                     >
                       <i className="ri-add-line" />
                       {uploading ? 'Uploading...' : 'Add Images'}
@@ -723,7 +765,7 @@ export default function NeighbourhoodEdit() {
                       <img src={img.url} alt={img.alt_text || ''} className="w-full aspect-[4/3] object-cover" />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all" />
                       {form.hero_image === img.url && (
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-[#0d5959] text-white text-[10px] font-roboto font-medium rounded-md">
+                        <div className="absolute top-2 left-2 px-2 py-1 bg-[#0d5959] text-white text-sm font-roboto font-medium rounded-md">
                           Current Hero
                         </div>
                       )}
@@ -767,7 +809,7 @@ export default function NeighbourhoodEdit() {
                             await supabase.from('neighbourhood_images').update({ alt_text: e.target.value }).eq('id', img.id);
                             setGallery((prev) => prev.map((g) => (g.id === img.id ? { ...g, alt_text: e.target.value } : g)));
                           }}
-                          className="w-full text-[10px] font-roboto text-white bg-black/50 px-2 py-1 rounded border-0 placeholder-white/60"
+                          className="w-full text-sm font-roboto text-white bg-black/50 px-2 py-1 rounded border-0 placeholder-white/60"
                           placeholder="Alt text"
                         />
                       </div>
@@ -788,28 +830,81 @@ export default function NeighbourhoodEdit() {
           </div>
         )}
 
+        {/* Image Tab */}
+        {activeTab === 'image' && (
+          <div className="space-y-4">
+            <div className="bg-white rounded-xl border border-[#e8edf2] p-4">
+              <p className="text-sm font-roboto text-[#7a8a99] leading-relaxed">
+                Crop, position, zoom, rotate, flip and adjust the main hero image. Upload from your device, then edit — no URL needed. Changes are saved automatically as a new image.
+              </p>
+            </div>
+            {form.hero_image ? (
+              editingHero ? (
+                <ImageEditor
+                  src={form.hero_image}
+                  uploadPath={`neighbourhoods/${id || 'new'}-hero-edited-${Date.now()}.jpg`}
+                  aspect={16 / 9}
+                  title="Edit Hero Image"
+                  onCancel={() => setEditingHero(false)}
+                  onSave={handleHeroEditorSave}
+                />
+              ) : (
+                <div className="bg-white rounded-xl border border-[#e8edf2] p-5">
+                  <p className="text-base font-roboto text-[#001731] font-medium mb-3">Current Hero Image</p>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                    <img src={form.hero_image} alt="" className="w-full sm:w-64 h-40 object-cover rounded-lg" />
+                    <div className="space-y-2 sm:ml-2">
+                      <button
+                        onClick={() => setEditingHero(true)}
+                        className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto font-medium transition-all cursor-pointer whitespace-nowrap"
+                      >
+                        <i className="ri-crop-2-line" />
+                        Crop &amp; Edit Image
+                      </button>
+                      <p className="text-sm font-roboto text-[#7a8a99] max-w-xs leading-relaxed">
+                        Open the editor to crop, reposition, zoom, rotate, flip and apply filters.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="bg-white rounded-xl border border-dashed border-[#e8edf2] p-10 text-center">
+                <i className="ri-image-line text-[#e8edf2] text-4xl mb-2" />
+                <p className="text-sm font-roboto text-[#7a8a99]">No hero image yet. Upload one from the Gallery tab first.</p>
+                <button
+                  onClick={() => setActiveTab('gallery')}
+                  className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 border border-[#e8edf2] rounded-lg text-sm font-roboto text-[#7a8a99] hover:text-[#001731] hover:bg-[#f8fafc] transition-colors cursor-pointer"
+                >
+                  <i className="ri-image-line" /> Go to Gallery
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* FAQs Tab */}
         {activeTab === 'faqs' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">FAQs</h3>
+            <h3 className="management-section-title text-[#001731] mb-4">FAQs</h3>
             {isEdit && (
               <div className="bg-[#f8fafc] rounded-lg p-4 space-y-3">
                 <div>
-                  <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Question</label>
+                  <label className="block management-label text-[#374151] mb-2">Question</label>
                   <input
                     type="text"
                     value={newFAQ.question}
                     onChange={(e) => setNewFAQ((prev) => ({ ...prev, question: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                    className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                     placeholder="Enter question..."
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Answer</label>
+                  <label className="block management-label text-[#374151] mb-2">Answer</label>
                   <textarea
                     value={newFAQ.answer}
                     onChange={(e) => setNewFAQ((prev) => ({ ...prev, answer: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[80px] resize-none"
+                    className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[80px] resize-none"
                     placeholder="Enter answer..."
                     maxLength={500}
                   />
@@ -817,7 +912,7 @@ export default function NeighbourhoodEdit() {
                 <button
                   onClick={handleAddFAQ}
                   disabled={!newFAQ.question.trim() || !newFAQ.answer.trim()}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0d5959] text-white rounded-lg text-sm font-roboto transition-all cursor-pointer disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0d5959] text-white rounded-lg text-sm font-roboto font-medium transition-all cursor-pointer disabled:opacity-50"
                 >
                   <i className="ri-add-line" /> Add FAQ
                 </button>
@@ -832,8 +927,8 @@ export default function NeighbourhoodEdit() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-roboto text-[#7a8a99] font-medium">Q{index + 1}</span>
-                          <p className="text-sm font-roboto text-[#001731] font-medium">{faq.question}</p>
+                          <span className="text-sm font-roboto text-[#7a8a99] font-medium">Q{index + 1}</span>
+                          <p className="text-base font-roboto text-[#001731] font-medium">{faq.question}</p>
                         </div>
                         <p className="text-sm font-roboto text-[#7a8a99] mt-2 leading-relaxed">{faq.answer}</p>
                       </div>
@@ -869,46 +964,66 @@ export default function NeighbourhoodEdit() {
           </div>
         )}
 
+        {/* Life Around Here Tab */}
+        {activeTab === 'life' && (
+          id ? (
+            <NeighbourhoodLifeTab neighbourhoodId={id} neighbourhoodName={form.name || 'this area'} />
+          ) : (
+            <div className="bg-white rounded-xl border border-[#e8edf2] p-8 text-center">
+              <i className="ri-map-pin-user-line text-[#e8edf2] text-4xl mb-2" />
+              <p className="text-sm font-roboto text-[#7a8a99]">Save the neighbourhood first to manage its Life Around Here content.</p>
+              <button
+                onClick={() => handleSubmit()}
+                disabled={saving || !form.name.trim()}
+                className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-[#0d5959] text-white rounded-lg text-sm font-roboto font-medium transition-all cursor-pointer disabled:opacity-50"
+              >
+                <i className="ri-save-line" /> Save &amp; Continue
+              </button>
+            </div>
+          )
+        )}
+
         {/* SEO Tab */}
         {activeTab === 'seo' && (
           <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
-            <h3 className="font-jost text-sm font-medium text-[#001731] mb-4">SEO</h3>
+            <h3 className="management-section-title text-[#001731] mb-4">SEO</h3>
             <div>
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Meta Title</label>
+              <label className="block management-label text-[#374151] mb-2">Meta Title</label>
               <input
                 type="text"
                 value={form.seo_title}
                 onChange={(e) => handleChange('seo_title', e.target.value)}
-                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
+                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959]"
                 placeholder="Page title for search engines"
               />
-              <p className="text-[10px] text-[#7a8a99] font-roboto mt-1 text-right">{form.seo_title.length}/60</p>
+              <p className="text-sm text-[#7a8a99] font-roboto mt-1 text-right">{form.seo_title.length}/60</p>
             </div>
             <div>
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">Meta Description</label>
+              <label className="block management-label text-[#374151] mb-2">Meta Description</label>
               <textarea
                 value={form.seo_description}
                 onChange={(e) => handleChange('seo_description', e.target.value)}
-                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] min-h-[80px] resize-none"
+                className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-base font-roboto focus:outline-none focus:border-[#0d5959] min-h-[80px] resize-none"
                 placeholder="Meta description for search engines"
                 maxLength={160}
               />
-              <p className="text-[10px] text-[#7a8a99] font-roboto mt-1 text-right">{form.seo_description.length}/160</p>
+              <p className="text-sm text-[#7a8a99] font-roboto mt-1 text-right">{form.seo_description.length}/160</p>
             </div>
             <div>
-              <label className="block text-xs font-roboto text-[#7a8a99] uppercase tracking-wider mb-1.5">OG Image</label>
-              <div className="flex items-center gap-3">
+              <label className="block management-label text-[#374151] mb-2">OG Image</label>
+              <div
+                {...ogDrop.handlers}
+                className={`flex items-center gap-3 rounded-lg border border-dashed p-3 transition-colors ${ogDrop.isDragging ? 'border-[#0d5959] bg-[#eef7f5]' : 'border-transparent'}`}
+              >
                 {form.og_image && (
                   <img src={form.og_image} alt="" className="w-24 h-16 object-cover rounded-lg" />
                 )}
                 <div className="flex-1">
-                  <input
-                    type="text"
-                    value={form.og_image}
-                    onChange={(e) => handleChange('og_image', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959]"
-                    placeholder="https://..."
-                  />
+                  {form.og_image ? (
+                    <p className="text-sm font-roboto text-[#0d5959] flex items-center gap-1.5"><i className="ri-checkbox-circle-line"></i>Uploaded from your device</p>
+                  ) : (
+                    <p className="text-sm font-roboto text-[#7a8a99] flex items-center gap-1.5"><i className="ri-upload-cloud-line"></i>No image yet — click Upload to add one from your device</p>
+                  )}
                 </div>
                 {isEdit && (
                   <>
@@ -916,7 +1031,7 @@ export default function NeighbourhoodEdit() {
                     <button
                       onClick={() => ogInputRef.current?.click()}
                       disabled={uploading || storageReady === false}
-                      className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#e8edf2] rounded-lg text-xs font-roboto text-[#7a8a99] hover:text-[#001731] hover:bg-[#f8fafc] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#e8edf2] rounded-lg text-sm font-roboto text-[#7a8a99] hover:text-[#001731] hover:bg-[#f8fafc] transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
                     >
                       <i className="ri-upload-line" />
                       {uploading ? '...' : 'Upload'}

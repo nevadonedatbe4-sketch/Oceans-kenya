@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
+import { smartTitleCase } from '@/lib/location';
 
 // ── DB row shapes ─────────────────────────────────────────────
 export interface DBNeighbourhood {
@@ -21,6 +23,8 @@ export interface DBNeighbourhood {
   practical_info: string | null;
   average_sale_price: number | null;
   rental_range_kes: string | null;
+  latitude: number | null;
+  longitude: number | null;
   propertyCount: number;
 }
 
@@ -77,22 +81,25 @@ export function useNeighbourhoods(): UseNeighbourhoodsReturn {
       const { data: dbHoods, error: hoodError } = await supabase
         .from('neighbourhoods')
         .select(
-          'id, name, slug, sort_order, city, country, hero_image, summary, description, tags, vibe, target_market, content_html, expat_guide, practical_info, average_sale_price, rental_range_kes, is_published'
+          'id, name, slug, sort_order, city, country, hero_image, summary, description, tags, vibe, target_market, content_html, expat_guide, practical_info, average_sale_price, rental_range_kes, latitude, longitude, is_published'
         )
         .eq('is_published', true)
-        .order('sort_order', { ascending: true });
+        .order('name', { ascending: true });
 
       if (hoodError) throw hoodError;
       if (controller.signal.aborted) return;
 
       const hoodList = dbHoods || [];
 
-      // Step 2: Fetch listings for property counts
+      // Step 2: Fetch listings for property counts.
+      // Visibility rules MUST match the search engine (is_published, non-sold,
+      // not a new-development row) so the page count equals what a search shows.
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('neighbourhood, purpose, location')
         .eq('is_published', true)
-        .eq('status', 'available');
+        .not('status', 'in', NON_PUBLIC_STATUS_LIST)
+        .or('is_new_development.eq.false,is_new_development.is.null');
 
       if (listingsError) throw listingsError;
       if (controller.signal.aborted) return;
@@ -109,6 +116,12 @@ export function useNeighbourhoods(): UseNeighbourhoodsReturn {
         );
         return {
           ...(h as unknown as DBNeighbourhood),
+          // Normalise the display name through the shared casing normaliser so
+          // neighbourhood titles stay consistent with the rest of the site.
+          name: smartTitleCase(name),
+          // Run the tag badges through the same normaliser so filter pills and
+          // badges read consistently alongside titles across the whole site.
+          tags: (h.tags || []).map((t) => smartTitleCase(t)).filter(Boolean),
           propertyCount: areaListings.length,
         };
       });
@@ -127,13 +140,23 @@ export function useNeighbourhoods(): UseNeighbourhoodsReturn {
         .select('id, title, slug, category, author, featured_image, excerpt, published_at')
         .eq('status', 'published')
         .order('published_at', { ascending: false })
-        .limit(6);
+        .limit(24);
 
       if (controller.signal.aborted) return;
 
       if (blogError) throw blogError;
 
-      setBlogPosts((posts || []) as BlogPost[]);
+      // Run every blog title through the same shared casing normaliser as
+      // neighbourhoods and listings for site-wide uniformity.
+      setBlogPosts(
+        ((posts || []) as BlogPost[]).map((p) => ({
+          ...p,
+          title: smartTitleCase(p.title),
+          // Same normaliser over the blog category so the filter pills and the
+          // category badge read consistently with neighbourhoods and listings.
+          category: p.category ? smartTitleCase(p.category) : p.category,
+        })),
+      );
     } catch (err: unknown) {
       if (controller.signal.aborted) return;
       const message = err instanceof Error ? err.message : 'Failed to load neighbourhoods';

@@ -1,8 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import type { NormalizedImage } from '@/lib/propertyImages';
 import { getPropertySpecs } from '@/lib/propertySpecs';
 import { useCurrency } from '@/hooks/useCurrency';
-import { formatTimeAgo } from '@/lib/timeAgo';
+import { formatListingAge } from '@/lib/listingMeta';
+import { withReturnFrom } from '@/lib/navigation';
 import PropertyBadge from '@/components/feature/PropertyBadge';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import PropertyImageCarousel from './PropertyImageCarousel';
@@ -56,10 +57,12 @@ export default function PropertyCard({
   onQuickView,
 }: PropertyCardProps) {
   const { format } = useCurrency();
-  const href = `/property/${property.slug}`;
+  const { pathname, search } = useLocation();
+  const href = withReturnFrom(`/property/${property.slug}`, `${pathname}${search}`);
+  const listedAgo = formatListingAge(property.createdAt);
 
   return (
-    <div className={`bg-white overflow-hidden transition-all duration-300 group flex flex-col w-full h-full ${shadowClass} ${hoverClass}`}>
+    <div className={`bg-[var(--card-bg)] overflow-hidden transition-all duration-300 group flex flex-col w-full h-full ${shadowClass} ${hoverClass}`}>
       <div className="relative flex-shrink-0">
         <PropertyImageCarousel
           images={property.images}
@@ -103,21 +106,21 @@ export default function PropertyCard({
           propertyOfTheWeek={property.propertyOfTheWeek}
           className="mb-2"
         />
-        <p className="text-[11px] font-semibold uppercase tracking-widest mb-1 text-[#636363]">
+        <p className="text-[13px] font-medium uppercase tracking-[0.1em] mb-1 text-[color:var(--card-category-text)]">
           {property.category}
         </p>
         <Link to={href} className="block group/title">
-          <h3 className="leading-snug line-clamp-2 transition-colors duration-200 text-[#011328] text-[18px] md:text-[19px] font-semibold mb-2 break-words hover:text-primary cursor-pointer">
+          <h3 className="leading-snug line-clamp-2 transition-colors duration-200 text-[color:var(--card-title-text)] text-[18px] md:text-[19px] font-medium mb-2 break-words hover:text-primary cursor-pointer">
             {property.title}
           </h3>
         </Link>
-        <p className="flex items-center gap-1 truncate text-[#636363] text-[14px] md:text-[15px] mb-2">
+        <p className="flex items-center gap-1 truncate font-medium text-[color:var(--card-location-text)] text-[14px] md:text-[15px] mb-2">
           <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
-            <i className="ri-map-pin-line text-xs text-[#636363]"></i>
+            <i className="ri-map-pin-line text-xs text-accent"></i>
           </span>
           <span className="truncate">{property.area}</span>
         </p>
-        <div className="flex items-center gap-2 sm:gap-4 text-[13px] sm:text-[15px] flex-wrap mb-2 text-[#363535]">
+        <div className="flex items-center gap-2 sm:gap-4 text-[13px] sm:text-[15px] flex-wrap font-normal mb-2 text-[color:var(--card-specs-text)]">
           {getPropertySpecs(property.propertyType, {
             beds: property.beds,
             baths: property.baths,
@@ -129,23 +132,23 @@ export default function PropertyCard({
           }).map((spec) => (
             <span key={spec.key} className="flex items-center gap-1">
               <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
-                <i className={`${spec.icon} text-xs text-[#636363]`}></i>
+                <i className={`${spec.icon} text-xs text-[color:var(--card-specs-text)]`}></i>
               </span>
               <span className="whitespace-nowrap">{spec.label}</span>
             </span>
           ))}
         </div>
-        <p className="text-[12px] sm:text-[15px] font-roboto font-bold text-[#00703c] normal-case tracking-normal whitespace-nowrap pr-1 mb-2">
-          {formatTimeAgo(property.createdAt)}
+        <p className="text-[12px] sm:text-[15px] font-roboto font-medium text-[color:var(--card-time-text)] normal-case tracking-normal whitespace-nowrap pr-1 mb-2">
+          {listedAgo}
         </p>
 
         <div className="mt-auto pt-2 flex items-end justify-between gap-2 border-t border-[#d6d6d6] min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">
-            <span className="font-bold leading-tight text-primary text-[19px] sm:text-[21px] md:text-[23px] lg:text-[25px] font-medium whitespace-nowrap">
+            <span className="font-bold leading-tight text-[color:var(--card-price-text)] text-[19px] sm:text-[21px] md:text-[23px] lg:text-[25px] whitespace-nowrap">
               {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
             </span>
-            {property.priceUnit ? (
-              <span className="inline-flex items-baseline gap-0.5 text-[#636363] text-[15px] font-medium">
+            {property.priceRaw > 0 && (property.priceUnit ? (
+              <span className="inline-flex items-baseline gap-0.5 text-[#2D303D] text-[15px] font-normal">
                 <span className="whitespace-nowrap">Pm</span>
                 <span className="relative inline-flex items-center cursor-help group text-[#636363] opacity-40">
                   <i className="ri-information-line text-[10px]"></i>
@@ -155,10 +158,10 @@ export default function PropertyCard({
                 </span>
               </span>
             ) : (
-              <span className="text-[15px] font-roboto font-medium text-[#636363] whitespace-nowrap">
+              <span className="text-[15px] font-roboto font-normal text-[#2D303D] whitespace-nowrap">
                 Guide Price
               </span>
-            )}
+            ))}
           </div>
         </div>
       </div>

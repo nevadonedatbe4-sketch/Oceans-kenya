@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import RecentLeads from './components/RecentLeads';
 import RecentDeals from './components/RecentDeals';
 import RecentProperties from './components/RecentProperties';
@@ -55,6 +56,9 @@ interface RecentProperty {
   property_type: string | null;
   is_published: boolean;
   created_at: string;
+  main_image: string | null;
+  cover_image: string | null;
+  images: string[] | null;
 }
 
 interface PipelineStage {
@@ -106,8 +110,8 @@ export default function Dashboard() {
     setSearchParams(next, { replace: true });
   };
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
@@ -183,8 +187,8 @@ export default function Dashboard() {
           ? supabase.from('deals').select('id, title, status, price, created_at').eq('agent_id', agentFilter.agent_id).order('created_at', { ascending: false }).limit(5)
           : supabase.from('deals').select('id, title, status, price, created_at').order('created_at', { ascending: false }).limit(5),
         agentFilter
-          ? supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at').eq('agent_id', agentFilter.agent_id).order('created_at', { ascending: false }).limit(4)
-          : supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at').order('created_at', { ascending: false }).limit(4),
+          ? supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at, main_image, cover_image, images').eq('agent_id', agentFilter.agent_id).order('created_at', { ascending: false }).limit(4)
+          : supabase.from('listings').select('id, title, location, price, status, property_type, is_published, created_at, main_image, cover_image, images').order('created_at', { ascending: false }).limit(4),
       ]);
 
       const totalDeals = totalDealsRes.count ?? 0;
@@ -235,7 +239,7 @@ export default function Dashboard() {
       setError('Failed to load dashboard data. Showing cached data.');
       addToast('Failed to load dashboard data', 'error');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
       setRefreshing(false);
     }
   }, [isAgentView, agentId]);
@@ -243,6 +247,15 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Live dashboard: a new lead, a deal stage change or a new listing anywhere in
+  // the CRM refreshes the stats and recent lists without a manual reload.
+  // Realtime refreshes are silent so the page never flashes its skeletons.
+  useRealtimeRefresh({
+    channelName: 'crm-dashboard-live',
+    tables: ['deals', 'leads', 'listings'],
+    onChange: () => fetchData(true),
+  });
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -287,7 +300,7 @@ export default function Dashboard() {
             </div>
           </div>
           <Link
-            to="/admin-dashboard"
+            to="/admin/dashboard"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f58300] text-white rounded-lg text-xs font-inter font-medium hover:bg-[#f58300]/90 transition-colors whitespace-nowrap cursor-pointer shrink-0"
           >
             <i className="ri-arrow-go-back-line text-sm" />
@@ -344,7 +357,7 @@ export default function Dashboard() {
                   {isAgentView ? (
                     <>
                       <Link
-                        to="/crm/listings"
+                        to="/admin/listings"
                         onClick={dismissWelcome}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#0d5959] rounded-lg text-xs font-inter font-semibold hover:bg-white/90 transition-colors whitespace-nowrap cursor-pointer"
                       >
@@ -352,7 +365,7 @@ export default function Dashboard() {
                         View Listings
                       </Link>
                       <Link
-                        to="/crm/leads"
+                        to="/admin/leads"
                         onClick={dismissWelcome}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs font-inter font-medium hover:bg-white/20 transition-colors whitespace-nowrap cursor-pointer"
                       >
@@ -363,7 +376,7 @@ export default function Dashboard() {
                   ) : (
                     <>
                       <Link
-                        to="/crm/listings/new"
+                        to="/admin/listings/new"
                         onClick={dismissWelcome}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white text-[#0d5959] rounded-lg text-xs font-inter font-semibold hover:bg-white/90 transition-colors whitespace-nowrap cursor-pointer"
                       >
@@ -371,7 +384,7 @@ export default function Dashboard() {
                         Add First Listing
                       </Link>
                       <Link
-                        to="/crm/users"
+                        to="/admin/agents?tab=invitations"
                         onClick={dismissWelcome}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white rounded-lg text-xs font-inter font-medium hover:bg-white/20 transition-colors whitespace-nowrap cursor-pointer"
                       >
@@ -493,7 +506,7 @@ export default function Dashboard() {
                     <i className="ri-funds-line text-[#636363] text-2xl mb-2 block" />
                     <p className="text-sm font-inter text-[#636363]">No active pipeline data</p>
                     <Link
-                      to="/crm/deals"
+                      to="/admin/deals"
                       className="text-xs font-inter text-[#0d5959] hover:text-[#001731] mt-1 inline-block cursor-pointer"
                     >
                       Add your first deal

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 
 interface ContactAgentModalProps {
@@ -9,6 +9,14 @@ interface ContactAgentModalProps {
   propertySlug: string;
   propertyPrice: string;
   propertyLocation: string;
+  /** Inquiry reason, e.g. "Request Brochure". Sent with the enquiry metadata. */
+  reason?: string;
+  /** Message pre-filled into the textarea (still fully editable by the user). */
+  initialMessage?: string;
+  /** Listing reference / ID included in the enquiry metadata. */
+  listingRef?: string;
+  /** Extra property details included in the enquiry metadata. */
+  details?: string;
 }
 
 export default function ContactAgentModal({
@@ -19,12 +27,25 @@ export default function ContactAgentModal({
   propertySlug,
   propertyPrice,
   propertyLocation,
+  reason,
+  initialMessage,
+  listingRef,
+  details,
 }: ContactAgentModalProps) {
   const { status, error, submitToContacts, reset } = useFormSubmit();
   const [showSuccess, setShowSuccess] = useState(false);
   const [message, setMessage] = useState(
-    `I'm interested in ${propertyTitle}. Please send me more details about this property.`
+    initialMessage || `I'm interested in ${propertyTitle}. Please send me more details about this property.`
   );
+
+  // Refresh the pre-filled message and reset transient state each time the
+  // modal is opened, so a brochure request always arrives pre-filled.
+  useEffect(() => {
+    if (isOpen) {
+      setShowSuccess(false);
+      setMessage(initialMessage || `I'm interested in ${propertyTitle}. Please send me more details about this property.`);
+    }
+  }, [isOpen, initialMessage, propertyTitle]);
 
   if (!isOpen) return null;
 
@@ -43,19 +64,28 @@ export default function ContactAgentModal({
     const email = (formData.get('email') as string || '').trim();
     const phone = (formData.get('phone') as string || '').trim();
 
+    const metaLines = [
+      `Property: ${propertyTitle}`,
+      `Listing ID: ${listingRef || propertySlug || propertyId}`,
+      `Price: ${propertyPrice || 'On request'}`,
+      `Location: ${propertyLocation || '-'}`,
+    ];
+    if (reason) metaLines.push(`Reason: ${reason}`);
+    if (details) metaLines.push(`Details: ${details}`);
+
     const success = await submitToContacts({
       name,
       email,
       phone: phone || undefined,
-      type: 'property_enquiry',
-      notes: `Enquiry about: ${propertyTitle} (${propertySlug})\nPrice: ${propertyPrice}\nLocation: ${propertyLocation}\n\nMessage: ${message}`,
-      tags: ['property_enquiry', propertyId],
+      type: reason ? 'property_brochure_request' : 'property_enquiry',
+      notes: `${metaLines.join('\n')}\n\nMessage: ${message}`,
+      tags: reason ? ['property_brochure_request', propertyId] : ['property_enquiry', propertyId],
     });
 
     if (success) {
       setShowSuccess(true);
       form.reset();
-      setMessage(`I'm interested in ${propertyTitle}. Please send me more details about this property.`);
+      setMessage(initialMessage || `I'm interested in ${propertyTitle}. Please send me more details about this property.`);
       setTimeout(() => {
         setShowSuccess(false);
         onClose();
@@ -68,14 +98,18 @@ export default function ContactAgentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
       <div
-        className="relative bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="relative bg-white rounded-xl border border-gray-200 shadow-[0_12px_40px_rgba(17,24,39,0.14)] w-full max-w-md max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-3">
+        <div className="flex items-center justify-between px-6 pt-6 pb-3 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-roboto font-bold text-primary">Enquire about this property</h3>
-            <p className="text-xs font-roboto text-gray-500 mt-0.5 line-clamp-1">{propertyTitle}</p>
+            <h3 className="text-lg font-roboto font-bold text-primary">
+              {reason ? 'Message Listing Agent' : 'Enquire about this property'}
+            </h3>
+            <p className="text-xs font-roboto text-gray-500 mt-0.5 line-clamp-1">
+              {reason ? `${reason} - ` : ''}{propertyTitle}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -86,7 +120,7 @@ export default function ContactAgentModal({
         </div>
 
         {/* Property summary */}
-        <div className="mx-6 mb-4 p-3 bg-white rounded-lg flex items-center gap-3 border border-gray-100">
+        <div className="mx-6 mt-4 mb-4 p-3 bg-white rounded-lg flex items-center gap-3 border border-gray-200">
           <span className="w-10 h-10 flex items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
             <i className="ri-home-4-line text-lg"></i>
           </span>
@@ -114,7 +148,7 @@ export default function ContactAgentModal({
                 type="text"
                 required
                 placeholder="Enter your full name"
-                className="w-full h-12 px-4 text-base font-roboto font-normal border-2 border-primary/40 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400"
+                className="w-full h-12 px-4 text-base font-roboto font-normal border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400"
               />
             </div>
             <div>
@@ -124,7 +158,7 @@ export default function ContactAgentModal({
                 type="email"
                 required
                 placeholder="you@example.com"
-                className="w-full h-12 px-4 text-base font-roboto font-normal border-2 border-primary/40 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400"
+                className="w-full h-12 px-4 text-base font-roboto font-normal border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400"
               />
             </div>
             <div>
@@ -133,7 +167,7 @@ export default function ContactAgentModal({
                 name="phone"
                 type="tel"
                 placeholder="+254 700 000 000"
-                className="w-full h-12 px-4 text-base font-roboto font-normal border-2 border-primary/40 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400"
+                className="w-full h-12 px-4 text-base font-roboto font-normal border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400"
               />
             </div>
             <div>
@@ -146,7 +180,7 @@ export default function ContactAgentModal({
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="I'm interested in this property. Please send me more details..."
-                className="w-full px-4 py-3 text-base font-roboto font-normal border-2 border-primary/40 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400 resize-none"
+                className="w-full px-4 py-3 text-base font-roboto font-normal border border-gray-300 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 placeholder:text-stone-400 resize-none"
               ></textarea>
               <p className="text-sm font-roboto text-stone-400 mt-1">Max 500 characters</p>
             </div>

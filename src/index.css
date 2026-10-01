@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Prata&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Prata&family=Roboto:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Open+Sans:wght@400;500;600;700;800&family=Orbitron:wght@500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,19 +15,126 @@
   /* Public site brand */
   --color-primary: 0 23 49;      /* #001731 — navy */
   --color-golden: 176 141 42;    /* #B08D2A — brand golden accent */
+  --color-teal: 44 222 190;       /* #2CDEBE — teal accent */
   --color-accent: 13 89 89;      /* #0D5959 — teal accent */
-  /* CRM admin brand (green) */
-  --color-crm: 0 23 49;          /* #001731 — brand primary */
-  --color-crm-navy: 0 23 49;     /* #001731 — brand primary */
+  /* CRM admin brand — bound to the admin "Primary" colour from the
+     Colour Palette (brand_settings.primary_color → useBrandTheme), so the
+     administrator can retheme the CRM navigation globally from one place.
+     Defaults to #001731 when no override is set. */
+  --color-crm: var(--color-primary);
+  --color-crm-navy: var(--color-primary);
   /* CRM typography tokens */
   --font-display: 'Space Grotesk', sans-serif;
   --font-body: 'Inter', sans-serif;
+  /* Luxury digital clock face (punch-clock card) */
+  --font-digital: 'Orbitron', 'Space Grotesk', sans-serif;
+
+  /* Listing card text / label colours (overridden at runtime from
+     property_cards_style via useCardTheme) */
+  --card-title-text: #2D303D;
+  --card-price-text: #011328;
+  --card-category-text: #2D303D;
+  --card-location-text: #2D303D;
+  --card-specs-text: #2D303D;
+  --card-time-text: #007054;
+
+  /* Listing card badge / label colours (overridden at runtime from
+     property_cards_style via useCardTheme). Values are hex strings. */
+  --badge-potw-bg: #B08D2A;
+  --badge-potw-text: #ffffff;
+  --badge-just-listed-bg: #C2410C;
+  --badge-just-listed-text: #ffffff;
+  --badge-featured-bg: #c8a45c;
+  --badge-featured-text: #ffffff;
+  --badge-back-market-bg: #0F766E;
+  --badge-back-market-text: #ffffff;
+  --badge-reduced-bg: #E63946;
+  --badge-reduced-text: #E63946;
+  --badge-new-home-bg: #0D5959;
+  --badge-new-home-text: #0D5959;
+  --badge-refurbished-bg: #B45309;
+  --badge-refurbished-text: #B45309;
+  --badge-jv-bg: #2B5B3C;
+  --badge-jv-text: #ffffff;
+  --badge-house-share-bg: #ffffff;
+  --badge-house-share-text: #001731;
+  --badge-tour-bg: #001731;
+  --badge-tour-text: #001731;
+  --badge-sale-bg: #c8a45c;
+  --badge-sale-text: #1a1a2e;
+  --badge-rent-bg: #0d5959;
+  --badge-rent-text: #ffffff;
+  --badge-new-dev-bg: #2d5a27;
+  --badge-new-dev-text: #ffffff;
+  --badge-completed-bg: #28a745;
+  --badge-completed-text: #ffffff;
+  --badge-offplan-bg: #fd7e14;
+  --badge-offplan-text: #ffffff;
+  --badge-under-construction-bg: #f59e0b;
+  --badge-under-construction-text: #ffffff;
+  --badge-sold-off-plan-bg: #6c757d;
+  --badge-sold-off-plan-text: #ffffff;
+  --badge-sold-out-bg: #dc3545;
+  --badge-sold-out-text: #ffffff;
+  --badge-investment-bg: #2B5B3C;
+  --badge-investment-text: #ffffff;
+
+  /* Card surface & action-button colours (overridden at runtime from
+     property_cards_style via useCardTheme) */
+  --card-bg: #ffffff;
+  --card-btn-bg: #ffffff;
+  --card-btn-text: #001731;
+  --card-btn-hover: #2d4a7a;
 }
 
 @layer base {
   html,
   body {
     overflow-x: clip;
+  }
+  img,
+  video,
+  canvas,
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+  /* Prevent long tokens / emails from forcing any container wider than the viewport */
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
+  /* Buttons never wrap: a button label (icon + text) must always stay on a
+     single line on every screen size, in every table/layout. Also neutralise
+     mid-word breaking so a squeezed button shrinks the layout instead of
+     splitting words like "Publi / shed". */
+  button,
+  [role='button'],
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'] {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+    hyphens: none;
+  }
+  /* ...but block content inside a clickable row is NOT a button label.
+     Paragraphs / headings inside a button must wrap normally instead of
+     inheriting the nowrap above and overflowing their container. */
+  button p,
+  button h1,
+  button h2,
+  button h3,
+  button h4,
+  button h5,
+  button h6,
+  button li,
+  [role='button'] p,
+  [role='button'] li {
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
   }
   body {
     color: #2D303D;
@@ -96,13 +203,82 @@
   .stagger-7 { transition-delay: 0.56s; }
   .stagger-8 { transition-delay: 0.64s; }
 
+  /* Luxury digital clock face — the big time on the punch-clock card.
+     Declared with !important so the admin `.crm-dashboard p { font-size:16px }`
+     baseline can never shrink it back down. */
+  .digital-lux {
+    font-family: var(--font-digital);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    line-height: 1 !important;
+    font-size: 64px !important;
+  }
+  @media (min-width: 768px) {
+    .digital-lux {
+      font-size: 80px !important;
+    }
+  }
+
   /* Hide scrollbar while keeping scroll (used by image carousels & tab rows) */
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Scrollable pill-tab rows: swipe sideways, no visible scrollbar */
+  .tab-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .tab-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Slim visible horizontal scrollbar for filter/tab rows */
+  .visible-scroll-x {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(201, 168, 76, 0.6) transparent;
+  }
+  .visible-scroll-x::-webkit-scrollbar {
+    height: 6px;
+  }
+  .visible-scroll-x::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .visible-scroll-x::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, rgba(201, 168, 76, 0.85), rgba(201, 168, 76, 0.45));
+    border-radius: 9999px;
+  }
+  .visible-scroll-x::-webkit-scrollbar-thumb:hover {
+    background: rgba(201, 168, 76, 1);
+  }
+
+  /* Chunky 18px horizontal scrollbar for wide dashboard tables */
+  .big-scroll-x {
+    scrollbar-width: auto;
+    scrollbar-color: rgba(13, 89, 89, 0.55) rgba(0, 23, 49, 0.06);
+  }
+  .big-scroll-x::-webkit-scrollbar {
+    height: 18px;
+  }
+  .big-scroll-x::-webkit-scrollbar-track {
+    background: rgba(0, 23, 49, 0.06);
+    border-radius: 9999px;
+  }
+  .big-scroll-x::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, rgba(13, 89, 89, 0.85), rgba(13, 89, 89, 0.5));
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 9999px;
+  }
+  .big-scroll-x::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, rgba(13, 89, 89, 1), rgba(13, 89, 89, 0.7));
+    background-clip: padding-box;
   }
 }
 
@@ -118,6 +294,30 @@
   overflow: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
+}
+
+/* ============================================================
+   RICH TEXT EDITOR — WORD-STYLE LIST MARKERS
+   Tailwind Preflight resets ol/ul to `list-style: none`, so a
+   freshly-created list had no visible bullet at all — only indent.
+   Restore a solid BLACK disc for bullets and black numbers for
+   ordered lists, matching Microsoft Word's default look.
+   A tool-specific list-style-type chosen from the toolbar's
+   Disc / Circle / Square menu is applied inline and still wins.
+   ============================================================ */
+.rich-text-editor ul {
+  list-style-type: disc;
+}
+.rich-text-editor ul li::marker {
+  color: #000000;
+  font-size: 1em;
+}
+.rich-text-editor ol {
+  list-style-type: decimal;
+}
+.rich-text-editor ol li::marker {
+  color: #000000;
+  font-weight: 500;
 }
 
 /* ============================================================
@@ -141,6 +341,25 @@
   background-color: rgb(0 35 73);
 }
 
+/* ============================================================
+   DIRECTORY CATEGORY — "What are you after?" FILTER CHIPS
+   Every chip background is a soft tint ("shade") built from the
+   page's OWN category colour, injected as --dir-chip-bg from the
+   component. The active chip keeps the solid category colour; the
+   unselected chips sit on lighter shades of the same hue, so each
+   category page reads as one on-theme palette instead of grey.
+   ============================================================ */
+.dir-chip {
+  background-color: var(--dir-chip-bg);
+  color: var(--dir-chip-fg);
+  border: 1px solid var(--dir-chip-border);
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.dir-chip:hover {
+  background-color: var(--dir-chip-bg-hover);
+  border-color: var(--dir-chip-border-hover);
+}
+
 @keyframes dropdown-enter {
   from { opacity: 0; transform: translateY(-6px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -148,6 +367,27 @@
 
 .animate-dropdown-enter {
   animation: dropdown-enter 160ms ease-out forwards;
+}
+
+/* Success checkmark — pops in with a friendly overshoot, then settles.
+   Used by the "Alert set!" confirmation states. */
+@keyframes check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  55% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-check-pop {
+  animation: check-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes check-ring {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+.animate-check-ring {
+  animation: check-ring 0.7s ease-out 0.1s both;
 }
 
 @keyframes slideDown {
@@ -167,18 +407,25 @@
    consistent 15px+ baseline for readability.
    ============================================================ */
 
-/* --- Typography: headings → Prata --- */
+/* --- Typography: heading hierarchy ---
+   Sans headings (not Prata) so weight reads as confident/semibold.
+   Weights use their own scoped rules so utility overrides like
+   font-semibold still win where a page needs them. --- */
 .crm-dashboard h1,
 .crm-dashboard h2,
 .crm-dashboard h3,
 .crm-dashboard h4,
 .crm-dashboard h5,
 .crm-dashboard h6 {
-  font-family: 'Prata', serif !important;
-  font-weight: 400;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
+.crm-dashboard h1 { font-size: 24px; font-weight: 700; }
+.crm-dashboard h2 { font-size: 20px; font-weight: 600; }
+.crm-dashboard h3 { font-size: 18px; font-weight: 600; }
+.crm-dashboard h4 { font-size: 16px; font-weight: 600; }
+.crm-dashboard h5 { font-size: 16px; font-weight: 500; }
+.crm-dashboard h6 { font-size: 15px; font-weight: 500; }
 
 /* --- Typography: body → Roboto --- */
 .crm-dashboard,
@@ -195,37 +442,62 @@
   font-family: 'Roboto', sans-serif !important;
 }
 
-/* --- Baseline minimum: nothing below 14px --- */
-.crm-dashboard .text-\[10px\] { font-size: 14px; }
-.crm-dashboard .text-\[11px\] { font-size: 14px; }
-.crm-dashboard .text-\[12px\] { font-size: 14px; }
+/* ============================================================
+   GLOBAL CRM TYPOGRAPHY SYSTEM — single source of truth
+   Base body 16px/400, labels 16px/500, inputs 16px, active
+   controls 500-600. Utility overrides below are scoped with
+   .crm-dashboard so they carry (0,2,0)+ specificity and win
+   over the element baselines.
+   ============================================================ */
+
+/* --- Body baseline: 16px / 400 / 1.5 --- */
+.crm-dashboard,
+.crm-dashboard p,
+.crm-dashboard span,
+.crm-dashboard li,
+.crm-dashboard div {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+/* --- Utility size mappings (nothing below 15px) ---
+   Scoped double-class so intentional small text still shrinks,
+   and text-base/lg/xl still win over element baselines. --- */
+.crm-dashboard .text-\[10px\] { font-size: 15px; }
+.crm-dashboard .text-\[11px\] { font-size: 15px; }
+.crm-dashboard .text-\[12px\] { font-size: 15px; }
 .crm-dashboard .text-\[13px\] { font-size: 15px; }
 .crm-dashboard .text-xs {
-  font-size: 0.875rem; /* 14px */
-  line-height: 1.25rem;
+  font-size: 0.9375rem; /* 15px — supporting metadata */
+  line-height: 1.45rem;
 }
 .crm-dashboard .text-sm {
-  font-size: 0.9375rem; /* 15px */
-  line-height: 1.4rem;
+  font-size: 0.9375rem; /* 15px — labels / controls */
+  line-height: 1.45rem;
 }
 .crm-dashboard .text-base {
-  font-size: 1rem; /* 16px */
+  font-size: 1rem; /* 16px — body */
   line-height: 1.5rem;
 }
 .crm-dashboard .text-lg {
-  font-size: 1.125rem; /* 18px */
+  font-size: 1.125rem; /* 18px — subsection */
   line-height: 1.6rem;
 }
 .crm-dashboard .text-xl {
-  font-size: 1.25rem; /* 20px */
+  font-size: 1.25rem; /* 20px — major section */
   line-height: 1.7rem;
 }
 .crm-dashboard .text-2xl {
-  font-size: 1.5rem; /* 24px */
+  font-size: 1.5rem; /* 24px — page title */
   line-height: 1.35;
 }
+.crm-dashboard .text-3xl {
+  font-size: 1.875rem; /* 30px — large page title */
+  line-height: 1.25;
+}
 
-/* --- Input baseline — 15px minimum --- */
+/* --- Input / select / textarea baseline: 16px ---
+   16px prevents mobile Safari auto-zoom AND matches labels. --- */
 .crm-dashboard input[type="text"],
 .crm-dashboard input[type="email"],
 .crm-dashboard input[type="password"],
@@ -236,29 +508,46 @@
 .crm-dashboard input[type="tel"],
 .crm-dashboard textarea,
 .crm-dashboard select {
-  font-size: 0.9375rem; /* 15px */
+  font-size: 16px;
+  font-weight: 400;
+}
+.crm-dashboard input::placeholder,
+.crm-dashboard textarea::placeholder {
+  font-size: 16px;
+  font-weight: 400;
 }
 
-/* --- Table text baseline --- */
+/* --- Table text baseline (information-dense but readable) --- */
 .crm-dashboard table,
 .crm-dashboard th,
 .crm-dashboard td {
   font-size: 0.9375rem; /* 15px */
 }
+.crm-dashboard th {
+  font-weight: 600;
+}
 
-/* --- Sidebar / nav text baseline --- */
+/* --- Sidebar / nav text baseline ---
+   Bumped to 16px / weight 500 (active 600) per admin readability spec. --- */
 .crm-dashboard nav a,
 .crm-dashboard nav button,
 .crm-dashboard nav span,
 .crm-dashboard aside a,
 .crm-dashboard aside button,
 .crm-dashboard aside span {
-  font-size: 0.9375rem; /* 15px */
+  font-size: 1rem; /* 16px */
+  font-weight: 500;
+}
+.crm-dashboard nav button.active,
+.crm-dashboard aside button.active,
+.crm-dashboard nav a[aria-current='page'],
+.crm-dashboard aside a[aria-current='page'] {
+  font-weight: 600;
 }
 
 /* --- Dropdown text --- */
 .crm-dashboard select option {
-  font-size: 0.9375rem;
+  font-size: 16px;
 }
 
 /* --- Darken faint text colors --- */
@@ -282,26 +571,118 @@
   color: #a8a29e; /* stone-400 */
 }
 
-/* --- Form label baseline --- */
+/* --- Form label baseline: 16px / 500 / sentence-case ---
+   text-transform:none + letter-spacing:normal are element-level
+   (0,1,1) so they neutralise the old `uppercase tracking-wider`
+   fine-print look on EVERY CRM label without touching each page.
+   Default colour is a readable slate; pages can still override. --- */
 .crm-dashboard label {
-  font-size: 0.9375rem; /* 15px */
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #374151;
+}
+/* Checkbox/radio labels keep normal weight so the control reads as body */
+.crm-dashboard label.font-normal {
+  font-weight: 400;
 }
 
 /* ============================================================
-   PUBLIC SITE TYPOGRAPHY BASELINE
-   Body copy never drops below 14px on the public storefront.
-   Badges / micro-labels (text-[10px], text-[11px]) stay compact.
+   SHARED MANAGEMENT TYPOGRAPHY HELPERS
+   Reusable classes so CRM pages don't reinvent typography.
    ============================================================ */
-body .text-xs {
+.management-body { font-size: 16px; font-weight: 400; line-height: 1.5; }
+.management-label { font-size: 16px; font-weight: 500; line-height: 1.4; }
+.management-input { font-size: 16px; font-weight: 400; }
+.management-section-title { font-size: 18px; font-weight: 600; line-height: 1.3; }
+.management-page-title { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.management-helper { font-size: 15px; font-weight: 400; line-height: 1.5; }
+.management-meta { font-size: 15px; font-weight: 500; line-height: 1.4; }
+
+/* --- Management tab controls: 15-16px / 500, active 600 ---
+   .mgmt-tab is opt-in; pages tag their tab buttons with it so
+   the whole CRM shares one tab weight/size rule. --- */
+.crm-dashboard .mgmt-tab {
+  font-size: 15px;
+  font-weight: 500;
+}
+.crm-dashboard .mgmt-tab-active {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* --- Mobile: keep inputs at 16px to avoid Safari auto-zoom --- */
+@media (max-width: 640px) {
+  .crm-dashboard input,
+  .crm-dashboard textarea,
+  .crm-dashboard select {
+    font-size: 16px;
+  }
+  .crm-dashboard label {
+    font-size: 16px;
+  }
+}
+
+/* ============================================================
+   PUBLIC SITE TYPOGRAPHY BASELINE — 14px ABSOLUTE FLOOR
+   No visible text on the public storefront may render below 14px.
+   This neutralises every sub-14px arbitrary size used across the
+   site (text-[7px] … text-[13px]) plus Tailwind's own 12px text-xs,
+   so badges, meta lines, card captions and helper text stay legible
+   everywhere. Deliberately scoped away from the CRM dashboard, which
+   keeps its own stricter 15px floor (see .crm-dashboard rules above).
+   ============================================================ */
+body .text-xs,
+body :is(
+    .text-\[7px\],
+    .text-\[8px\],
+    .text-\[9px\],
+    .text-\[10px\],
+    .text-\[11px\],
+    .text-\[12px\],
+    .text-\[13px\]
+  ) {
   font-size: 0.875rem; /* 14px */
   line-height: 1.25rem;
 }
 
-/* Public site button text baseline — 13px */
+/* Public site button text baseline — 14px (minimum readable size) */
 :where(:not(.crm-dashboard) button),
 :where(:not(.crm-dashboard) a.btn-primary),
 :where(:not(.crm-dashboard) a.btn-secondary) {
-  font-size: 13px;
+  font-size: 14px;
+}
+
+/* ============================================================
+   PUBLIC SITE BUTTON TEXT WEIGHT — never lighter than 500
+   Any storefront button/control reads as medium or heavier so
+   no action label ever renders in a light weight. Kept inside
+   the components layer so intentional font-semibold / font-bold
+   utilities still win and preserve button hierarchy.
+   ============================================================ */
+@layer components {
+  :where(:not(.crm-dashboard)) button,
+  :where(:not(.crm-dashboard)) [role='button'],
+  :where(:not(.crm-dashboard)) a.btn-primary,
+  :where(:not(.crm-dashboard)) a.btn-secondary {
+    font-weight: 500;
+  }
+
+  /* ============================================================
+     EYEBROW LABELS — small uppercase letter-spaced kickers
+     (e.g. "Own a Property?", section eyebrows, and uppercase
+     tracking CTAs such as "Get Free Valuation") render at a solid
+     weight 600 everywhere on the public site so they never look
+     thin or washed out. Kept inside the components layer, so an
+     explicit font-bold utility on a specific label still wins.
+     ============================================================ */
+  :where(:not(.crm-dashboard)) .uppercase.tracking-wide,
+  :where(:not(.crm-dashboard)) .uppercase.tracking-wider,
+  :where(:not(.crm-dashboard)) .uppercase.tracking-widest {
+    font-weight: 600;
+  }
 }
 
 /* ============================================================
@@ -315,4 +696,170 @@ body .text-xs {
 :where(:not(.crm-dashboard)) .text-primary\/50,
 :where(:not(.crm-dashboard)) .text-primary\/40 {
   color: #2D303D;
+}
+
+/* ============================================================
+   NEW DEVELOPMENTS PAGE — SHARED SITE TYPOGRAPHY (scoped)
+   The /new-developments surface now follows the SAME global
+   type system as the rest of the site instead of its own
+   typeface: Roboto body, Prata display headings (h1/h2) and
+   Jost sub-headings (h3-h6), all inherited from the base rules,
+   so the page no longer reads as a separate font island.
+   Only the small uppercase accent labels / status badges keep
+   the Open Sans voice (see the scoped rule below). The 14px base
+   is retained for the compact card layout.
+   ============================================================ */
+.newdev-ui {
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+/* Accent voice — decorative uppercase kicker labels and status
+   badges only. Functional copy, headings, prices, specs, buttons
+   and form text all follow the shared site fonts above. */
+.newdev-ui :is(p, span).uppercase.tracking-wide,
+.newdev-ui :is(p, span).uppercase.tracking-wider,
+.newdev-ui :is(p, span).uppercase.tracking-widest {
+  font-family: 'Open Sans', 'Roboto', sans-serif;
+}
+
+/* ============================================================
+   ADMIN / CRM DESIGN-SYSTEM TYPOGRAPHY TOKENS — SINGLE SOURCE OF TRUTH
+   Global requirement that applies EQUALLY to desktop and mobile.
+   Activated by the `crm-dashboard` scope class placed on the portal
+   shells (AdminPortalLayout / AgentPortalLayout).
+
+   Rules:
+   - 15px is the ABSOLUTE floor for any visible text.
+   - Body / labels / nav / forms / tables default to 16px+.
+   - Mobile reduces spacing, never type size below the floor.
+   - Text wraps before the page border instead of overflowing.
+   ============================================================ */
+:root {
+  --admin-text-min: 15px;         /* absolute floor for any visible text */
+  --admin-text-body: 16px;        /* standard body copy */
+  --admin-text-label: 16px;       /* labels, controls, nav, table text */
+  --admin-text-subheading: 18px;  /* subsection titles */
+  --admin-text-heading: 20px;     /* section titles */
+  --admin-text-page-title: 24px;  /* page titles */
+  --admin-weight-body: 400;
+  --admin-weight-label: 500;
+  --admin-weight-strong: 600;
+  --admin-weight-heading: 700;
+}
+
+/* --- Semantic token classes. Scoped with .crm-dashboard so they
+   reliably win over the element baselines. Size-only (weights stay
+   controllable with font-* utilities) so bold/medium still work. --- */
+.crm-dashboard .admin-body { font-size: var(--admin-text-body); line-height: 1.5; }
+.crm-dashboard .admin-label { font-size: var(--admin-text-label); line-height: 1.4; }
+.crm-dashboard .admin-meta { font-size: var(--admin-text-min); line-height: 1.4; }
+.crm-dashboard .admin-subheading { font-size: var(--admin-text-subheading); font-weight: var(--admin-weight-strong); line-height: 1.35; }
+.crm-dashboard .admin-heading { font-size: var(--admin-text-heading); font-weight: var(--admin-weight-heading); line-height: 1.3; }
+.crm-dashboard .admin-page-title { font-size: var(--admin-text-page-title); font-weight: var(--admin-weight-heading); line-height: 1.2; }
+
+/* --- Hard floor: neutralise ANY sub-15px arbitrary size so no page
+   can ever render 9px-14px text, even from a stray utility. --- */
+.crm-dashboard .text-\[7px\],
+.crm-dashboard .text-\[8px\],
+.crm-dashboard .text-\[9px\],
+.crm-dashboard .text-\[10px\],
+.crm-dashboard .text-\[11px\],
+.crm-dashboard .text-\[12px\],
+.crm-dashboard .text-\[13px\] {
+  font-size: var(--admin-text-min) !important;
+  line-height: 1.35;
+}
+
+/* --- Wrap before the border: long words (emails, URLs, references)
+   wrap instead of pushing past the page/panel edge. Controls keep
+   their no-wrap behaviour so buttons/badges never break. --- */
+.crm-dashboard p,
+.crm-dashboard li,
+.crm-dashboard td,
+.crm-dashboard th,
+.crm-dashboard dd {
+  overflow-wrap: break-word;
+}
+.crm-dashboard button,
+.crm-dashboard [role='button'],
+.crm-dashboard .admin-meta {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* --- Same floor + tokens for a mobile viewport (explicit, so no
+   breakpoint rule can drop type below the minimum). --- */
+@media (max-width: 640px) {
+  .crm-dashboard .admin-body { font-size: var(--admin-text-body); }
+  .crm-dashboard .admin-label { font-size: var(--admin-text-label); }
+  .crm-dashboard .admin-meta { font-size: var(--admin-text-min); }
+}
+
+/* ============================================================
+   MOBILE LISTING EXPERIENCE — overflow & touch hardening
+   Applies to the public property surfaces (Buy / Rent / All
+   Properties / listing cards). Desktop & tablet are unaffected.
+   ============================================================ */
+@media (max-width: 639px) {
+  /* Stop iOS from auto-inflating body text and breaking card layouts.
+     (User pinch-zoom is still fully allowed — this only disables the
+     automatic text inflation that caused inconsistent phone rendering.) */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  /* Long, unbroken titles / locations wrap instead of widening a card */
+  body {
+    overflow-wrap: break-word;
+  }
+  /* Every flex / grid child may shrink below its content width so long
+     prices, titles or button labels can never push a card past the edge */
+  .listing-safe,
+  .listing-safe * {
+    min-width: 0;
+  }
+}
+
+/* ============================================================
+   MOBILE CONTENT HEADINGS — FLAT 16px
+   On phones, section titles and rich description headings inside
+   these content areas drop to a single 16px size so long titles
+   stop dominating the narrow column. Only headings that are
+   explicitly sized large (text-lg and up) are capped, so small
+   card / meta headings keep their intended size. Desktop and
+   tablet (>= 768px) are completely untouched.
+   ============================================================ */
+@media (max-width: 767px) {
+  .mobile-flat-headings :is(h1, h2, h3, h4, h5, h6):is(
+      .text-lg,
+      .text-xl,
+      .text-2xl,
+      .text-3xl,
+      .text-4xl,
+      .text-5xl
+    ) {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Rich description bodies (blog article content): every heading
+     level collapses to 16px on mobile. */
+  .mobile-flat-rich :is(h1, h2, h3, h4, h5, h6) {
+    font-size: 16px !important;
+    line-height: 1.45 !important;
+  }
+}
+
+/* Tapping a control should never flash a grey box on mobile browsers */
+a,
+button,
+[role='button'],
+select,
+input,
+textarea {
+  -webkit-tap-highlight-color: transparent;
 }

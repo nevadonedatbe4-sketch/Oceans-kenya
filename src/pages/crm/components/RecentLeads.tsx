@@ -51,7 +51,7 @@ export default function RecentLeads({ leads, loading }: RecentLeadsProps) {
           </div>
         </div>
         <Link
-          to="/crm/leads"
+          to="/admin/leads"
           className="text-xs sm:text-sm font-inter text-[#0d5959] hover:text-[#001731] transition-colors whitespace-nowrap cursor-pointer"
         >
           View all
@@ -59,7 +59,7 @@ export default function RecentLeads({ leads, loading }: RecentLeadsProps) {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden sm:block overflow-x-auto">
+      <div className="hidden sm:block overflow-x-auto big-scroll-x">
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#f0f0f0]">
@@ -77,7 +77,7 @@ export default function RecentLeads({ leads, loading }: RecentLeadsProps) {
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#f0f0f0]/60">
+          <tbody className="divide-y divide-[#cbd5e1]">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
@@ -135,7 +135,7 @@ export default function RecentLeads({ leads, loading }: RecentLeadsProps) {
       </div>
 
       {/* Mobile cards */}
-      <div className="sm:hidden divide-y divide-[#f0f0f0]/60">
+      <div className="sm:hidden divide-y divide-[#cbd5e1]">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="px-4 py-3 space-y-2">
@@ -155,7 +155,7 @@ export default function RecentLeads({ leads, loading }: RecentLeadsProps) {
           leads.map((lead) => (
             <Link
               key={lead.id}
-              to={`/crm/leads`}
+              to={`/admin/leads`}
               className="block px-4 py-3 hover:bg-[#f7f8fa]/60 transition-colors"
             >
               <div className="flex items-start justify-between gap-2">

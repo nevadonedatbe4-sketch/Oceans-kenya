@@ -8,7 +8,7 @@ const defaultSocialLinks = [
   { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
   { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
   { icon: 'ri-youtube-fill', href: 'https://www.youtube.com/@oceanskenya', label: 'YouTube' },
-  { icon: 'ri-whatsapp-line', href: 'https://wa.me/254703712984', label: 'WhatsApp' },
+  { icon: 'ri-whatsapp-line', href: 'https://wa.me/254181408186', label: 'WhatsApp' },
 ];
 
 interface HeroSectionProps {
@@ -49,10 +49,10 @@ export default function HeroSection({ onSearch, initialQuery = '' }: HeroSection
       )}
 
       <div className="relative z-10 w-full px-4 md:px-8 lg:px-16 flex flex-col items-center text-center pt-20 md:pt-32">
-        <h1 className="text-white text-4xl sm:text-5xl md:text-7xl lg:text-8xl mb-2 md:mb-3 font-[Prata,serif] font-normal tracking-[0] leading-[1.2]">
-          Oceans
+        <h1 className="text-white text-[31px] sm:text-[43px] md:text-[52px] lg:text-[60px] mb-2 md:mb-3 font-[Prata,serif] font-normal tracking-[0] leading-[1.2]">
+          Oceans Kenya
         </h1>
-        <p className="mb-3 md:mb-4 font-roboto text-sm sm:text-base md:text-lg font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-white"
+        <p className="mb-3 md:mb-4 font-roboto text-[12.6px] sm:text-[14.4px] md:text-[16.2px] font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] whitespace-nowrap text-white"
           style={{ textShadow: '0 1px 12px rgba(0,0,0,0.45), 0 0 2px rgba(255,255,255,0.15)' }}
         >
           Estate &amp; Letting Agent
@@ -93,27 +93,27 @@ export default function HeroSection({ onSearch, initialQuery = '' }: HeroSection
           </form>
         )}
 
-        {/* === Hero CTA Buttons — Oceans reference style === */}
+        {/* === Hero CTA Buttons - Oceans reference style === */}
         <div className="flex flex-col items-center gap-2 sm:gap-3 w-full max-w-[380px] sm:max-w-[460px]">
           <div className="flex w-full gap-2 sm:gap-3">
             <Link
               to="/rent"
-              className="flex-1 text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-golden hover:border-golden hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
+              className="flex-1 text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-primary/70 hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
             >
               Rent
             </Link>
             <Link
               to="/buy"
-              className="flex-1 text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-golden hover:border-golden hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
+              className="flex-1 text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-primary/70 hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
             >
               Buy
             </Link>
           </div>
           <Link
-            to="/valuation"
-            className="w-full text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-golden hover:border-golden hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
+            to="/new-developments"
+            className="w-full text-center whitespace-nowrap cursor-pointer bg-black/45 text-white border-[3px] border-white hover:bg-primary/70 hover:text-white transition-all duration-300 py-2 sm:py-2.5 px-2 text-sm sm:text-base font-roboto font-bold tracking-[0.3em] uppercase"
           >
-            Evaluation
+            New Developments
           </Link>
         </div>
       </div>

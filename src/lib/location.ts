@@ -1,5 +1,5 @@
 /**
- * smartTitleCase — normalise casing for property titles & locations.
+ * smartTitleCase - normalise casing for property titles & locations.
  *
  * Only transforms strings that are predominantly UPPERCASE (typed in ALL
  * CAPS, or near-ALL CAPS like a caps title containing a stray lowercase
@@ -16,7 +16,7 @@ const MINOR_WORDS = new Set([
 // This catches genuine ALL CAPS data while ignoring a stray lowercase
 // character (e.g. "DSQs") that would otherwise defeat a naive check.
 function isMostlyUpperCase(str: string): boolean {
-  const letters: string[] = str.match(/[A-Za-z]/g) || [];
+  const letters = str.match(/[A-Za-z]/g) || [];
   if (letters.length === 0) return false;
   const upperCount = letters.filter((c) => c >= 'A' && c <= 'Z').length;
   return upperCount / letters.length >= 0.7;
@@ -25,8 +25,15 @@ function isMostlyUpperCase(str: string): boolean {
 export function smartTitleCase(input?: string | null): string {
   const str = (input || '').trim();
   if (!str) return '';
-  // Leave correctly-cased text untouched; only normalise shouty ALL-CAPS data.
-  if (!isMostlyUpperCase(str)) return str;
+
+  const hasUpper = /[A-Z]/.test(str);
+  const hasLower = /[a-z]/.test(str);
+
+  // Preserve text a human intentionally mixed-cased for readability
+  // (e.g. "Riverside Apartments", "Nairobi West"). We only normalise data
+  // that is purely lowercase, purely uppercase, or shouty near-ALL-CAPS
+  // (e.g. "2 DSQs") - that is what produced the messy, inconsistent titles.
+  if (hasUpper && hasLower && !isMostlyUpperCase(str)) return str;
 
   const tokens = str.toLowerCase().split(/(\s+|-)/); // keep separators
   let wordIndex = 0;
@@ -43,13 +50,13 @@ export function smartTitleCase(input?: string | null): string {
 }
 
 /**
- * formatLocation — smart location hierarchy for Oceans property cards.
+ * formatLocation - smart location hierarchy for Oceans property cards.
  *
  * Priority order (highest → fallback):
  *   1. address   (street address, e.g. "23 Luthuli Drive")
  *   2. neighbourhood  (e.g. "Bugolobi", "Westlands", "Kilimani")
  *   3. location  (free-text field, already set on older listings)
- *   4. city      (e.g. "Nairobi" — last resort only)
+ *   4. city      (e.g. "Nairobi" - last resort only)
  *
  * Rules:
  * - Never show a bare city (Nairobi / Kampala) when more specific info exists.
@@ -93,7 +100,7 @@ export function formatLocation(params: {
   // Case 3: neighbourhood alone
   if (nb) return nb;
 
-  // Case 4: location field — use unless it's just a generic city
+  // Case 4: location field - use unless it's just a generic city
   if (loc && !isGeneric(loc)) return loc;
 
   // Case 5: location field even if generic (at least show something)
@@ -114,7 +121,7 @@ export interface LocationParts {
 }
 
 /**
- * formatLocationParts — two-line location hierarchy for property cards.
+ * formatLocationParts - two-line location hierarchy for property cards.
  *
  * Line 1: full street address (fallback → neighbourhood / location / city)
  * Line 2: "Area, City, Country" on a single line
@@ -142,11 +149,11 @@ export function formatLocationParts(params: {
 
   const area = nb || loc || '';
 
-  // Line 1 — full street address; fall back to area / city / region / country
+  // Line 1 - full street address; fall back to area / city / region / country
   let line1 = addr;
   if (!line1) line1 = area || cty || st || country;
 
-  // Line 2 — "Area, City, Country" (drop the area if it duplicates line 1)
+  // Line 2 - "Area, City, Country" (drop the area if it duplicates line 1)
   const areaForLine2 = area && area.toLowerCase() !== line1.toLowerCase() ? area : '';
   const line2 = [areaForLine2, cty || st, country].filter(Boolean).join(', ');
 
@@ -154,7 +161,7 @@ export function formatLocationParts(params: {
 }
 
 /**
- * formatAreaName — returns the primary area / neighbourhood name for a listing.
+ * formatAreaName - returns the primary area / neighbourhood name for a listing.
  *
  * Used on property cards where we want a single, clean, consistent location
  * label (e.g. "Kilimani") rather than a full address hierarchy.

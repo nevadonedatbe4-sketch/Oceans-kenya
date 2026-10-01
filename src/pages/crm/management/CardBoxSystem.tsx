@@ -25,7 +25,7 @@ export default function CardBoxSystemPage() {
 
   const Field = ({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: string }) => (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">{label}</label>
+      <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">{label}</label>
       {type === 'color' ? (
         <div className="flex items-center gap-2">
           <input type="color" value={value || '#000000'} onChange={(e) => onChange(e.target.value)} className="w-9 h-9 border border-stone-200 rounded cursor-pointer p-0.5" />
@@ -131,13 +131,13 @@ export default function CardBoxSystemPage() {
           <div className="bg-white rounded-lg border border-stone-100 p-5 space-y-4">
             <h3 className="text-sm font-semibold text-stone-700">Hover & Animation</h3>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Hover Effect</label>
+              <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Hover Effect</label>
               <select value={getCard('hover_effect') || 'none'} onChange={(e) => setCard('hover_effect', e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">
                 {hoverOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Card Shadow</label>
+              <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Card Shadow</label>
               <select value={getCard('card_shadow') || 'none'} onChange={(e) => setCard('card_shadow', e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">
                 {[{ value: 'none', label: 'None' }, { value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }].map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>

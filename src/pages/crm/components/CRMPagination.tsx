@@ -5,6 +5,14 @@ interface CRMPaginationProps {
   total?: number;
   onPageChange: (page: number) => void;
   onPageSizeChange?: (pageSize: number) => void;
+  /** Visual tone. Use 'light' when the control sits on a dark background. */
+  tone?: 'dark' | 'light';
+  /**
+   * When true (with the default 'dark' tone), renders light text on small screens
+   * and dark text at lg+. Use when the control's container is dark on mobile but
+   * white on desktop.
+   */
+  mobileLight?: boolean;
 }
 
 export default function CRMPagination({
@@ -14,10 +22,14 @@ export default function CRMPagination({
   total = 0,
   onPageChange,
   onPageSizeChange,
+  tone = 'dark',
+  mobileLight = false,
 }: CRMPaginationProps) {
   const totalPages = totalPagesProp ?? Math.max(1, Math.ceil(total / pageSize));
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
+  const isLight = tone === 'light';
+  const isMobileLight = !isLight && mobileLight;
 
   const pages = Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
     if (totalPages <= 5) return i + 1;
@@ -26,55 +38,63 @@ export default function CRMPagination({
     return page - 2 + i;
   });
 
+  const pageBtn = (isActive: boolean) =>
+    `w-9 h-9 flex items-center justify-center rounded-lg border text-sm font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+      isActive
+        ? 'bg-[#001731] text-white border-[#001731] font-bold'
+        : isLight
+          ? 'border-white/25 text-white hover:bg-white/10 hover:border-white/40'
+          : isMobileLight
+            ? 'border-white/25 text-white hover:bg-white/10 lg:border-[#001731] lg:text-[#001731] lg:hover:bg-[#001731]/10 lg:hover:border-[#001731]'
+            : 'border-[#001731] text-[#001731] hover:bg-[#001731]/10 hover:border-[#001731]'
+    }`;
+
+  const navBtn = isLight
+    ? 'border-white/25 text-white hover:bg-white/10'
+    : isMobileLight
+      ? 'border-white/25 text-white hover:bg-white/10 lg:border-[#001731] lg:text-[#001731] lg:hover:bg-[#001731]/10'
+      : 'border-[#001731] text-[#001731] hover:bg-[#001731]/10';
+
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-5 py-3.5 border-t border-stone-100">
-      <div className="flex items-center gap-2.5">
-        <span className="text-sm text-stone-600">
-          Showing {total === 0 ? 0 : start}–{end} of {total}
-        </span>
-        {onPageSizeChange && (
-          <select
-            value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="text-sm text-stone-600 border border-stone-200 rounded-lg px-2.5 py-1.5 bg-white cursor-pointer"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-          </select>
-        )}
-      </div>
+    <div className="flex flex-col sm:flex-row items-center gap-4 justify-between">
+      <span className={`text-sm font-semibold ${isLight ? 'text-white/70' : isMobileLight ? 'text-white/70 lg:text-[#001731]' : 'text-[#001731]'}`}>
+        Showing {total === 0 ? 0 : start}–{end} of {total}
+      </span>
 
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-800 transition-colors disabled:opacity-40 cursor-pointer"
-        >
-          <i className="ri-arrow-left-s-line" />
-        </button>
-
-        {pages.map((p) => (
-          <button
-            key={p}
-            onClick={() => onPageChange(p)}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm transition-colors cursor-pointer ${
-              p === page
-                ? 'bg-accent text-white'
-                : 'text-stone-600 hover:bg-stone-50 hover:text-stone-800'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-
-        <button
-          onClick={() => onPageChange(Math.min(totalPages, page + 1))}
-          disabled={page >= totalPages}
-          className="w-9 h-9 flex items-center justify-center rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 hover:text-stone-800 transition-colors disabled:opacity-40 cursor-pointer"
-        >
-          <i className="ri-arrow-right-s-line" />
-        </button>
+      <div className="flex items-center justify-center">
+        <ul className="flex items-center justify-center gap-1.5 list-none m-0 p-0">
+          <li>
+            <button
+              onClick={() => onPageChange(Math.max(1, page - 1))}
+              disabled={page <= 1}
+              aria-label="Previous"
+              className={`w-9 h-9 flex items-center justify-center rounded-lg border font-semibold transition-colors disabled:opacity-40 cursor-pointer ${navBtn}`}
+            >
+              <i className="ri-arrow-left-s-line text-base" />
+            </button>
+          </li>
+          {pages.map((p) => (
+            <li key={p}>
+              <button
+                onClick={() => onPageChange(p)}
+                aria-current={p === page ? 'page' : undefined}
+                className={pageBtn(p === page)}
+              >
+                {p}
+              </button>
+            </li>
+          ))}
+          <li>
+            <button
+              onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              aria-label="Next"
+              className={`w-9 h-9 flex items-center justify-center rounded-lg border font-semibold transition-colors disabled:opacity-40 cursor-pointer ${navBtn}`}
+            >
+              <i className="ri-arrow-right-s-line text-base" />
+            </button>
+          </li>
+        </ul>
       </div>
     </div>
   );

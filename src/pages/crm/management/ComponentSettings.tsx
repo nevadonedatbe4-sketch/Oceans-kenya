@@ -411,7 +411,7 @@ export default function ComponentSettingsPage() {
                             <i className="ri-arrow-up-s-line text-sm"></i>
                           </button>
                           <button onClick={() => moveSearchDown(idx)} disabled={idx === searchFilters.length - 1} className="w-6 h-6 flex items-center justify-center rounded text-stone-400 hover:text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
-                            <i className="ri-arrow-down-s-line text-sm"></i>
+                            <i className="ri-arrow-down-wide-fill text-sm"></i>
                           </button>
                         </div>
                       </div>
@@ -475,7 +475,7 @@ export default function ComponentSettingsPage() {
                             <i className="ri-arrow-up-s-line text-sm"></i>
                           </button>
                           <button onClick={() => moveDetailDown(idx)} disabled={idx === detailLayout.length - 1} className="w-6 h-6 flex items-center justify-center rounded text-stone-400 hover:text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">
-                            <i className="ri-arrow-down-s-line text-sm"></i>
+                            <i className="ri-arrow-down-wide-fill text-sm"></i>
                           </button>
                         </div>
                       </div>

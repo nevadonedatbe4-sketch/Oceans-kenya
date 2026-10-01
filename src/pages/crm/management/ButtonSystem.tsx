@@ -38,14 +38,14 @@ export default function ButtonSystemPage() {
 
   const Field = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">{label}</label>
+      <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">{label}</label>
       <input type="number" value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] font-mono text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white" />
     </div>
   );
 
   const ColorField = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">{label}</label>
+      <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">{label}</label>
       <div className="flex items-center gap-2">
         <input type="color" value={value || '#000000'} onChange={(e) => onChange(e.target.value)} className="w-9 h-9 border border-stone-200 rounded cursor-pointer p-0.5" />
         <input type="text" value={value || ''} onChange={(e) => onChange(e.target.value)} className="flex-1 px-2.5 py-1.5 border border-stone-200 rounded text-[11px] font-mono text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white" />

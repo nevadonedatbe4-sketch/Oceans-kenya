@@ -24,7 +24,7 @@ export default function CarouselSystemPage() {
 
   const Field = ({ label, value, onChange, type = 'text', placeholder = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
     <div className="space-y-1.5">
-      <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">{label}</label>
+      <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">{label}</label>
       {type === 'select' ? (
         <select value={value || ''} onChange={(e) => onChange(e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">
           {(type === 'select' ? [{ value: 'fade', label: 'Fade' }, { value: 'slide', label: 'Slide' }] : []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -96,7 +96,7 @@ export default function CarouselSystemPage() {
               <Toggle label="Show Dots" desc="Display pagination dots" value={getSite('carousel_show_dots') === 'true'} onToggle={() => setSite('carousel_show_dots', getSite('carousel_show_dots') === 'true' ? 'false' : 'true')} />
               <Toggle label="Show Arrows" desc="Display prev/next arrows" value={getSite('carousel_show_arrows') === 'true'} onToggle={() => setSite('carousel_show_arrows', getSite('carousel_show_arrows') === 'true' ? 'false' : 'true')} />
               <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-stone-500 uppercase tracking-wider">Transition Effect</label>
+                <label className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Transition Effect</label>
                 <select value={getSite('carousel_effect') || 'slide'} onChange={(e) => setSite('carousel_effect', e.target.value)} className="w-full px-2.5 py-1.5 border border-stone-200 rounded text-[11px] text-stone-600 focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">
                   {[{ value: 'slide', label: 'Slide' }, { value: 'fade', label: 'Fade' }].map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>

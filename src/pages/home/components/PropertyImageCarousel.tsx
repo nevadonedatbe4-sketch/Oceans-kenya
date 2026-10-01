@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { NormalizedImage } from '@/lib/propertyImages';
+import NoImagePlaceholder from '@/components/feature/NoImagePlaceholder';
 
 interface PropertyImageCarouselProps {
   images: NormalizedImage[];
@@ -40,9 +41,17 @@ export default function PropertyImageCarousel({
     setCurrent(index);
   };
 
+  if (total === 0) {
+    return (
+      <div className={`relative w-full overflow-hidden ${aspectClass}`}>
+        <NoImagePlaceholder className="absolute inset-0" />
+      </div>
+    );
+  }
+
   return (
     <div className={`group relative w-full overflow-hidden ${aspectClass}`}>
-      {/* Clickable image area — opens the property detail page */}
+      {/* Clickable image area - opens the property detail page */}
       <Link to={detailHref} className="absolute inset-0 block" aria-label="View property details">
         {images.map((img, i) => (
           <img
@@ -64,7 +73,7 @@ export default function PropertyImageCarousel({
           <button
             type="button"
             onClick={goPrev}
-            className="absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer whitespace-nowrap rounded-md"
+            className="absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer whitespace-nowrap rounded-md"
             aria-label="Previous image"
           >
             <i className="ri-arrow-left-s-line text-base md:text-lg"></i>
@@ -72,7 +81,7 @@ export default function PropertyImageCarousel({
           <button
             type="button"
             onClick={goNext}
-            className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-7 md:w-8 md:h-8 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer whitespace-nowrap rounded-md"
+            className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer whitespace-nowrap rounded-md"
             aria-label="Next image"
           >
             <i className="ri-arrow-right-s-line text-base md:text-lg"></i>

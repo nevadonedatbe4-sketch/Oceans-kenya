@@ -1,8 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { useNavLinks } from '@/hooks/useNavLinks';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useCurrency } from '@/hooks/useCurrency';
+import { DEFAULT_CONTACT, formatPhoneDisplay, toTelHref } from '@/lib/contactDefaults';
+import { FALLBACK_LOGO, HEADER_LOGO } from '@/lib/brandDefaults';
 
 type Currency = 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR';
 const FALLBACK_CURRENCIES: { code: Currency; label: string }[] = [
@@ -58,10 +61,10 @@ function CurrencyDropdown({
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { links: navLinks, loading: navLoading } = useNavLinks();
-  const { site, getSite } = useSiteSettings();
+  const { site, getSite, getBrand } = useSiteSettings();
   const { currency, setCurrency, currencies } = useCurrency();
 
-  // Build dropdown list — use DB-enabled currencies, fallback to hardcoded list while loading
+  // Build dropdown list - use DB-enabled currencies, fallback to hardcoded list while loading
   const dropdownCurrencies: { code: Currency; label: string }[] = currencies.length > 0
     ? currencies.map((c) => ({
         code: c.code as Currency,
@@ -73,11 +76,18 @@ export default function Header() {
   const [mobileCurrencyOpen, setMobileCurrencyOpen] = useState(false);
   const desktopCurrencyRef = useRef<HTMLDivElement>(null);
   const mobileCurrencyRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const [scrolled, setScrolled] = useState(false);
   const [openDropdowns, setOpenDropdowns] = useState<Record<string, boolean>>({});
   const dropdownRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const location = useLocation();
+
+  // Bulletproof: auto-close mobile menu on any navigation
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setOpenDropdowns({});
+  }, [location.pathname]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -85,8 +95,22 @@ export default function Header() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  // Lock body scroll + close on Escape when the mobile menu is open
+  useBodyScrollLock(mobileMenuOpen);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [mobileMenuOpen]);
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
+      // Skip if mobile menu is open - mobile handles its own dropdowns
+      if (mobileMenuOpen) return;
       // Close any open dynamic dropdowns when clicking outside
       Object.entries(dropdownRefs.current).forEach(([id, ref]) => {
         if (ref && !ref.contains(e.target as Node)) {
@@ -96,12 +120,12 @@ export default function Header() {
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  }, [mobileMenuOpen]);
 
   const siteName = site.site_name || 'Oceans Kenya';
-  const contactPhone = site.contact_phone || '+254703712984';
-  const contactEmail = site.contact_email || 'ask@oceanske.com';
-  const logoUrl = site.logo_url || 'https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/b5c367b8-0348-44ab-b81a-83abfed5503c_favicaon-1-1024x887.png?v=5d2f68fc83a460dece14c00261f8d058';
+  const contactPhone = site.contact_phone || DEFAULT_CONTACT.phone;
+  const contactEmail = site.contact_email || DEFAULT_CONTACT.email;
+  const logoUrl = HEADER_LOGO || site.logo_url || getBrand('main_logo') || FALLBACK_LOGO;
 
   // Component settings
   const stickyNavbar = getSite('sticky_navbar') !== 'false';
@@ -138,13 +162,13 @@ export default function Header() {
             <div className="flex items-center gap-6">
               {showPhone && (
                 <a
-                  href={`tel:${contactPhone}`}
+                  href={toTelHref(contactPhone)}
                   className="flex items-center gap-1.5 text-white/75 hover:text-golden text-sm font-roboto font-bold transition-colors cursor-pointer whitespace-nowrap leading-[1.5] tracking-[0]"
                 >
                   <span className="w-5 h-5 flex items-center justify-center">
                     <i className="ri-phone-line text-sm"></i>
                   </span>
-                  {contactPhone}
+                  {formatPhoneDisplay(contactPhone)}
                 </a>
               )}
               <a
@@ -164,7 +188,7 @@ export default function Header() {
                 aria-label={`Current currency: ${currency}. Click to switch.`}
               >
                 <span className="font-bold text-sm">{currency}</span>
-                <span className={`text-base text-white transition-transform duration-300 ${desktopCurrencyOpen ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
+                <span className={`text-base text-white transition-transform duration-300 ${desktopCurrencyOpen ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
               </button>
               <CurrencyDropdown
                 currency={currency}
@@ -225,7 +249,7 @@ export default function Header() {
                           className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
                         >
                           {link.label}
-                          <span className={`text-base ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
+                          <span className={`text-2xl ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
                         </Link>
                       ) : (
                         <button
@@ -233,7 +257,7 @@ export default function Header() {
                           className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
                         >
                           {link.label}
-                          <span className={`text-base ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
+                          <span className={`text-2xl ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
                         </button>
                       )}
                       {openDropdowns[link.id] && (
@@ -294,7 +318,7 @@ export default function Header() {
                 aria-label={`Current currency: ${currency}. Click to switch.`}
               >
                 <span className="font-bold text-sm">{currency}</span>
-                <span className={`text-base text-white transition-transform duration-300 ${mobileCurrencyOpen ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
+                <span className={`text-base text-white transition-transform duration-300 ${mobileCurrencyOpen ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
               </button>
               <CurrencyDropdown
                 currency={currency}
@@ -306,7 +330,7 @@ export default function Header() {
               />
             </div>
             <button
-              className="flex items-center justify-center w-11 h-11 rounded-md cursor-pointer text-white"
+              className="flex items-center justify-center w-11 h-11 rounded-md cursor-pointer text-white touch-manipulation"
               aria-label="Toggle menu"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
@@ -316,76 +340,137 @@ export default function Header() {
         </div>
 
         {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className={`lg:hidden border-t border-white/10 px-4 pb-4 ${navBgClass}`}>
-            <nav className="flex flex-col gap-1">
-              {mainLinks.map((link) => (
-                <Link
-                  key={link.id}
-                  to={link.href}
-                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] border-b border-white/5"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              {dropdownLinks.map((link) => (
-                <div key={link.id} className="border-b border-white/5">
-                  <button
-                    onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
-                    className="w-full px-4 py-3 flex items-center justify-between cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em]"
+        <div className={`lg:hidden fixed inset-0 z-[70] transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} role="dialog" aria-modal="true" aria-label="Site navigation" aria-hidden={!mobileMenuOpen}>
+          <div className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setMobileMenuOpen(false)}></div>
+          <div className={`absolute inset-y-0 left-0 w-full max-w-sm bg-primary flex flex-col overflow-hidden shadow-2xl transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+              <span className="text-white font-roboto font-semibold text-base">Menu</span>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-11 h-11 flex items-center justify-center rounded-md text-white cursor-pointer hover:text-golden transition-colors touch-manipulation"
+                aria-label="Close menu"
+              >
+                <i className="ri-close-line text-2xl"></i>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+              <nav className="flex flex-col gap-1 py-2">
+                {mainLinks.map((link) => (
+                  <Link
+                    key={link.id}
+                    to={link.href}
+                    className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] border-b border-white/5 touch-manipulation"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      setOpenDropdowns({});
+                      navigate(link.href);
+                    }}
                   >
                     {link.label}
-                    <span className={`text-base text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-s-line"></i></span>
-                  </button>
-                  {openDropdowns[link.id] && (
-                    <div className="pb-2 pl-6 flex flex-col gap-1">
-                      {link.children.map((child) => (
-                        <Link
-                          key={child.id}
-                          to={child.href}
-                          className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/70 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em]"
-                          onClick={() => { setMobileMenuOpen(false); setOpenDropdowns((prev) => ({ ...prev, [link.id]: false })); }}
+                  </Link>
+                ))}
+                {dropdownLinks.map((link) => {
+                  const hasRealHref = !!link.href && link.href !== '#' && link.href !== '';
+                  return (
+                    <div key={link.id} className="border-b border-white/5">
+                      <div className="flex items-center">
+                        {hasRealHref ? (
+                          <Link
+                            to={link.href}
+                            className="flex-1 px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] touch-manipulation"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setMobileMenuOpen(false);
+                              setOpenDropdowns({});
+                              navigate(link.href);
+                            }}
+                          >
+                            {link.label}
+                          </Link>
+                        ) : (
+                          <span className="flex-1 px-4 py-3 whitespace-nowrap text-white/85 text-[17px] font-medium capitalize tracking-[0.05em]">
+                            {link.label}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
+                          className="px-4 py-3 cursor-pointer touch-manipulation"
+                          aria-label={`Toggle ${link.label} submenu`}
                         >
-                          {child.label}
-                        </Link>
-                      ))}
+                          <span className={`text-2xl text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
+                        </button>
+                      </div>
+                      {openDropdowns[link.id] && (
+                        <div className="pb-2 pl-6 flex flex-col gap-1">
+                          {link.children.map((child) => (
+                            <Link
+                              key={child.id}
+                              to={child.href}
+                              className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/70 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] touch-manipulation"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setMobileMenuOpen(false);
+                                setOpenDropdowns({});
+                                navigate(child.href);
+                              }}
+                            >
+                              {child.label}
+                            </Link>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-              {aboutLinks.map((link) => (
-                <Link
-                  key={link.id}
-                  to={link.href}
-                  className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium tracking-[0.05em] border-b border-white/5"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  About us
-                </Link>
-              ))}
-              {contactLinks.map((link) => (
-                <Link
-                  key={link.id}
-                  to={link.href}
-                  className="px-4 py-3 mt-2 bg-accent text-white text-center text-[17px] font-semibold tracking-[0.05em] cursor-pointer whitespace-nowrap rounded-md"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Let's talk
-                </Link>
-              ))}
-              {showCTA && (
-                <Link
-                  to={ctaLink}
-                  className="px-4 py-3 bg-golden text-white text-[15px] font-semibold capitalize tracking-wider text-center mt-2 cursor-pointer whitespace-nowrap"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {ctaLabel}
-                </Link>
-              )}
-            </nav>
+                  );
+                })}
+                {aboutLinks.map((link) => (
+                  <Link
+                    key={link.id}
+                    to={link.href}
+                    className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium tracking-[0.05em] border-b border-white/5 touch-manipulation"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      setOpenDropdowns({});
+                      navigate(link.href);
+                    }}
+                  >
+                    About us
+                  </Link>
+                ))}
+                {contactLinks.map((link) => (
+                  <Link
+                    key={link.id}
+                    to={link.href}
+                    className="px-4 py-3 mt-2 bg-accent text-white text-center text-[17px] font-semibold tracking-[0.05em] cursor-pointer whitespace-nowrap rounded-md touch-manipulation"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      setOpenDropdowns({});
+                      navigate(link.href);
+                    }}
+                  >
+                    Let's talk
+                  </Link>
+                ))}
+                {showCTA && (
+                  <Link
+                    to={ctaLink}
+                    className="px-4 py-3 bg-golden text-white text-[15px] font-semibold capitalize tracking-wider text-center mt-2 cursor-pointer whitespace-nowrap touch-manipulation"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      setOpenDropdowns({});
+                      navigate(ctaLink);
+                    }}
+                  >
+                    {ctaLabel}
+                  </Link>
+                )}
+              </nav>
+            </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

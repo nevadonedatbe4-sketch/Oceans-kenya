@@ -6,6 +6,10 @@ import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { broadcastSync } from '@/lib/syncEngine';
 import { normalizeJvProjectImages, type JvImage } from '@/lib/jvImages';
+import { displayLocation } from '@/lib/crmDisplay';
+import CrmTitle from '@/pages/crm/components/CrmTitle';
+import ShareLinkModal from '@/pages/crm/components/ShareLinkModal';
+import { jvProjectPublicUrl } from '@/lib/shareLinks';
 
 interface JvProjectRow {
   id: string;
@@ -45,6 +49,7 @@ export default function JVProjects() {
   const [allStatuses, setAllStatuses] = useState<string[]>([]);
   const [allTypes, setAllTypes] = useState<string[]>([]);
   const [deleteConfirm, setDeleteConfirm] = useState<JvProjectRow | null>(null);
+  const [shareProject, setShareProject] = useState<JvProjectRow | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const fetchProjects = useCallback(async () => {
@@ -230,7 +235,7 @@ export default function JVProjects() {
           {total} project{total === 1 ? '' : 's'} seeking partners
         </p>
         <button
-          onClick={() => navigate('/crm/joint-ventures/projects/new')}
+          onClick={() => navigate('/admin/joint-ventures/projects/new')}
           className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto transition-all whitespace-nowrap cursor-pointer"
         >
           <i className="ri-add-line" />
@@ -324,7 +329,7 @@ export default function JVProjects() {
             </p>
             {total === 0 && (
               <button
-                onClick={() => navigate('/crm/joint-ventures/projects/new')}
+                onClick={() => navigate('/admin/joint-ventures/projects/new')}
                 className="inline-flex items-center gap-2 text-sm font-roboto text-[#0d5959] hover:text-[#001731] cursor-pointer mt-1"
               >
                 <i className="ri-add-line" /> Add a project
@@ -353,7 +358,7 @@ export default function JVProjects() {
                   <th className="px-4 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f0f0f0]/60">
+              <tbody className="divide-y divide-[#cbd5e1]">
                 {projects.map((project) => (
                   <tr key={project.id} className="hover:bg-[#f7f8fa]/50 transition-colors">
                     <td className="px-4 py-3">
@@ -371,9 +376,9 @@ export default function JVProjects() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-jost text-sm font-medium text-[#001731] leading-snug">{project.title}</p>
+                      <p className="font-jost text-sm font-medium text-[#001731] leading-snug break-words"><CrmTitle title={project.title} fallback="Untitled Project" /></p>
                     </td>
-                    <td className="px-4 py-3 text-[#636363] font-roboto">{project.location || '—'}</td>
+                    <td className="px-4 py-3 text-[#636363] font-roboto whitespace-nowrap">{displayLocation(project.location, null, { upper: true }) || '—'}</td>
                     <td className="px-4 py-3 text-[#636363] font-roboto">{project.type || '—'}</td>
                     <td className="px-4 py-3 text-[#636363] font-roboto">{project.units ?? '—'}</td>
                     <td className="px-4 py-3 text-[#636363] font-roboto whitespace-nowrap">{project.price_range || '—'}</td>
@@ -404,7 +409,7 @@ export default function JVProjects() {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => navigate(`/crm/joint-ventures/projects/edit/${project.id}`)}
+                          onClick={() => navigate(`/admin/joint-ventures/projects/edit/${project.id}`)}
                           title="Edit"
                           className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#0d5959] hover:bg-[#0d5959]/8 cursor-pointer transition-colors"
                         >
@@ -419,7 +424,7 @@ export default function JVProjects() {
                           <i className="ri-file-copy-line text-sm" />
                         </button>
                         <a
-                          href="/joint-ventures"
+                          href={jvProjectPublicUrl(project.slug, project.id)}
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Preview (public site)"
@@ -427,6 +432,13 @@ export default function JVProjects() {
                         >
                           <i className="ri-eye-line text-sm" />
                         </a>
+                        <button
+                          onClick={() => setShareProject(project)}
+                          title="Share link"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#0d5959] hover:bg-[#0d5959]/8 cursor-pointer transition-colors"
+                        >
+                          <i className="ri-share-line text-sm" />
+                        </button>
                         <button
                           onClick={() => setDeleteConfirm(project)}
                           title="Delete"
@@ -445,7 +457,7 @@ export default function JVProjects() {
       )}
 
       {!loading && !error && projects.length > 0 && (
-        <CRMPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} />
+        <CRMPagination page={page} pageSize={pageSize} total={total} onPageChange={setPage} tone="light" />
       )}
 
       <ConfirmModal
@@ -456,6 +468,15 @@ export default function JVProjects() {
         confirmVariant="danger"
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirm(null)}
+      />
+
+      <ShareLinkModal
+        open={!!shareProject}
+        title={shareProject?.title || 'JV Project'}
+        subtitle={displayLocation(shareProject?.location, null, { upper: true }) || 'Project Seeking Partners'}
+        url={jvProjectPublicUrl(shareProject?.slug, shareProject?.id)}
+        icon="ri-building-2-line"
+        onClose={() => setShareProject(null)}
       />
     </div>
   );

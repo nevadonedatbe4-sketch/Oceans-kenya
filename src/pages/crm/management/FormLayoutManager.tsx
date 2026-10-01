@@ -254,7 +254,7 @@ export default function FormLayoutManagerPage() {
                       disabled={index === enabledModules.length - 1}
                       className="w-5 h-4 flex items-center justify-center text-stone-300 hover:text-stone-600 disabled:opacity-20 disabled:cursor-not-allowed cursor-pointer transition-colors"
                     >
-                      <i className="ri-arrow-down-s-line text-sm"></i>
+                      <i className="ri-arrow-down-wide-fill text-sm"></i>
                     </button>
                   </div>
                   <button

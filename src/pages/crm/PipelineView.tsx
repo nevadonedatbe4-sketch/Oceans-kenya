@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import { notifyCrm } from '@/lib/crmNotify';
+import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 
 interface Deal {
@@ -136,9 +138,9 @@ export default function PipelineView() {
     }
   }, []);
 
-  const fetchDeals = useCallback(async () => {
+  const fetchDeals = useCallback(async (silent = false) => {
     if (isAgent && agentLoading) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     let query = supabase
       .from('deals')
       .select('*')
@@ -162,16 +164,25 @@ export default function PipelineView() {
     } else {
       setDeals(data || []);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [isAgent, agentId, search, filterAgentId, agentLoading]);
 
   useEffect(() => {
     fetchDeals();
   }, [fetchDeals]);
 
+  // Live cross-CRM sync: a deal moved in Deals, the dashboard, or anywhere else
+  // (and any agent assignment change) reloads the board without a manual refresh.
+  useRealtimeRefresh({
+    channelName: 'crm-pipeline-live',
+    tables: ['deals', 'agents'],
+    enabled: !agentLoading,
+    onChange: () => { fetchDeals(true); fetchAgents(); },
+  });
+
   useEffect(() => {
     fetchAgents();
-  }, [fetchAgents]);
+  }, []);
 
   const getAgentById = (id: string | null) => {
     if (!id) return null;
@@ -187,6 +198,14 @@ export default function PipelineView() {
         addToast(error.message || 'Unable to update stage. Please try again.', 'error');
       } else {
         setDeals((prev) => prev.map((d) => (d.id === id ? { ...d, status: newStage } : d)));
+        const deal = deals.find((d) => d.id === id);
+        notifyCrm({
+          event: 'deal_status',
+          deal_id: id,
+          deal_status: newStage,
+          deal_title: deal?.title || '',
+          agent_id: deal?.agent_id || null,
+        });
         const stageLabel = stages.find((s) => s.key === newStage)?.label || newStage;
         addToast(`Deal moved to ${stageLabel}`, 'success');
       }
@@ -259,6 +278,13 @@ export default function PipelineView() {
       addToast(error.message || 'Unable to create deal. Please check the required fields and try again.', 'error');
     } else {
       setDeals((prev) => [data, ...prev]);
+      notifyCrm({
+        event: 'deal_created',
+        deal_id: data.id,
+        deal_title: data.title || 'Untitled Deal',
+        property_price: data.price,
+        agent_id: data.agent_id,
+      });
       addToast('Deal added successfully', 'success');
       setAddForm({ title: '', price: '', notes: '', status: 'prospect', assignedAgentId: '' });
       setAddModal(false);
@@ -397,7 +423,7 @@ export default function PipelineView() {
           >
             <p className="text-xs font-inter text-[#6b7280] lg:text-[#636363] flex items-center gap-1">
               Team Members
-              <i className={showWorkload ? 'ri-arrow-up-s-line text-[10px]' : 'ri-arrow-down-s-line text-[10px]'} />
+              <i className={showWorkload ? 'ri-arrow-up-wide-fill text-[10px]' : 'ri-arrow-down-wide-fill text-[10px]'} />
             </p>
             <p className="text-xl font-inter font-bold text-white lg:text-[#001731] mt-1">{agentsWithDeals}</p>
           </button>
@@ -478,7 +504,7 @@ export default function PipelineView() {
                   </option>
                 ))}
               </select>
-              <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6b7280] lg:text-[#636363] text-xs pointer-events-none" />
+              <i className="ri-arrow-down-wide-fill absolute right-2.5 top-1/2 -translate-y-1/2 text-[#6b7280] lg:text-[#636363] text-xs pointer-events-none" />
               {filterAgentId && (
                 <button
                   onClick={() => setFilterAgentId('')}
@@ -504,7 +530,7 @@ export default function PipelineView() {
 
         <div className="flex items-center gap-2">
           <Link
-            to="/crm/deals"
+            to="/admin/deals"
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-inter font-medium text-[#5eead4] lg:text-[#084545] hover:text-[#5eead4] lg:hover:text-[#001731] transition-colors whitespace-nowrap cursor-pointer"
           >
             <i className="ri-list-check text-sm" />
@@ -612,7 +638,7 @@ export default function PipelineView() {
                                   <span className="truncate max-w-[100px]">
                                     {assignedAgent?.name || 'Unassigned'}
                                   </span>
-                                  <i className="ri-arrow-down-s-line text-[10px] ml-auto opacity-0 group-hover/agent:opacity-100 transition-opacity" />
+                                  <i className="ri-arrow-down-wide-fill text-[10px] ml-auto opacity-0 group-hover/agent:opacity-100 transition-opacity" />
                                 </button>
                               ) : (
                                 <div className="flex items-center gap-1.5 text-[10px] text-[#6b7280] lg:text-[#636363]">
@@ -795,7 +821,7 @@ export default function PipelineView() {
                   <button
                     onClick={() => {
                       setSelectedDeal(null);
-                      navigate(`/crm/deals`);
+                      navigate(`/admin/deals`);
                     }}
                     className="flex-1 px-4 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-inter text-[#636363] hover:bg-[#f7f8fa] transition-all cursor-pointer"
                   >

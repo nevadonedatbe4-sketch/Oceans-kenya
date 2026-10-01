@@ -177,7 +177,7 @@ export default function PropertyDetailLayoutPage() {
                           disabled={index === enabledSections.length - 1}
                           className="w-4 h-4 flex items-center justify-center text-stone-300 hover:text-stone-600 disabled:opacity-20 cursor-pointer"
                         >
-                          <i className="ri-arrow-down-s-line text-xs"></i>
+                          <i className="ri-arrow-down-wide-fill text-xs"></i>
                         </button>
                       </div>
                       <button

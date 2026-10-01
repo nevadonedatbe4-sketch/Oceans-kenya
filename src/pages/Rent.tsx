@@ -1,33 +1,36 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import PropertyBadge from '@/components/feature/PropertyBadge';
-import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import CompareToolbar from '@/components/feature/CompareToolbar';
 import CompareModal from '@/components/feature/CompareModal';
 import ContactAgentModal from '@/components/feature/ContactAgentModal';
+import PropertyCardBody from '@/components/feature/PropertyCardBody';
 import Pagination from '@/components/feature/Pagination';
+import EntityImage from '@/components/feature/EntityImage';
+import ShareButton from '@/components/feature/ShareButton';
+import CommuteMap from '@/components/feature/CommuteMap';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, ListingFilters, type MappedListing } from '@/hooks/useListings';
-import AdvancedFilters from './Rent/components/AdvancedFilters';
-import { defaultFilters, type FilterState } from './Rent/components/filterState';
+import AdvancedFilters, { defaultFilters, FilterState } from './Rent/components/AdvancedFilters';
 import { geocodeLocation } from '@/lib/geocode';
 import { radiusLabelToMeters } from '@/lib/distance';
+import { withReturnFrom } from '@/lib/navigation';
 import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
 import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
+import PropertySearchBar from '@/components/feature/PropertySearchBar';
 import MobileFilterPills from '@/components/feature/MobileFilterPills';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { useCurrency, type CurrencyCode, type ExchangeRates } from '@/hooks/useCurrency';
+import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
-import { getPropertySpecs } from '@/lib/propertySpecs';
-import { formatTimeAgo } from '@/lib/timeAgo';
+import { parsePropertySearch, parseSearchClauses, clauseSummary, intentToChips, withoutIntent } from '@/lib/propertySearch';
 import { smartTitleCase } from '@/lib/location';
-import { cleanListingDescription } from '@/lib/description';
 import PageLoader from '@/components/feature/PageLoader';
 
 function toDisplayType(category: string): string {
@@ -40,7 +43,7 @@ function toDisplayType(category: string): string {
 
 const ITEMS_PER_PAGE = 10;
 
-// KES base ranges for rent — labels generated dynamically per currency
+// KES base ranges for rent - labels generated dynamically per currency
 const KES_RENT_RANGES: { key: string; min?: number; max?: number }[] = [
   { key: 'any' },
   { key: 'under_300k', max: 300_000 },
@@ -51,7 +54,7 @@ const KES_RENT_RANGES: { key: string; min?: number; max?: number }[] = [
   { key: 'over_5m', min: 5_000_000 },
 ];
 
-function fmtPriceKes(kes: number, curr: CurrencyCode, rates: ExchangeRates): string {
+function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): string {
   const SYMS: Record<string, string> = { KES: 'KES', USD: '$', GBP: '£', EUR: '€', UGX: 'UGX', AED: 'AED', ZAR: 'R' };
   const sym = SYMS[curr] || curr;
   const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
@@ -61,7 +64,7 @@ function fmtPriceKes(kes: number, curr: CurrencyCode, rates: ExchangeRates): str
 const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
 const propTypeOptions = ['Any type', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
 const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
-const sortOptions = ['Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
+const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 const nearbyAreas = [
@@ -83,26 +86,66 @@ const relatedSearches = [
 
 export default function Rent() {
   const { hero } = usePropertyPageSettings('rent');
+  const { pathname, search } = useLocation();
+  const currentPath = `${pathname}${search}`;
   const handleLocationChange = (value: string, suggestion?: LocationSuggestion) => {
     setSearchQuery(value);
     setAppliedSearchQuery(value);
+    setCurrentPage(1);
     if (suggestion) {
-      setSearchCenter({ lat: suggestion.lat, lng: suggestion.lng });
-      setGeocodedName(suggestion.name);
-      setCurrentPage(1);
+      const hasCoords = typeof suggestion.lat === 'number' && typeof suggestion.lng === 'number' && (suggestion.lat !== 0 || suggestion.lng !== 0);
+      if (hasCoords) {
+        // Only pin a geocode centre when real coordinates are available; when an
+        // area from the registry has no coords, fall back to location-filtering only.
+        setSearchCenter({ lat: suggestion.lat, lng: suggestion.lng });
+        setGeocodedName(suggestion.name);
+      } else {
+        setSearchCenter(null);
+        setGeocodedName(suggestion.name);
+      }
+      // A "Near me" (geolocation) result should trigger a real radius search
+      // around the visitor's actual position. Default to a sensible radius so
+      // the distance filter runs, unless the user already picked one.
+      if (suggestion.source === 'geolocation') {
+        setSelectedRadius((prev) => (prev === 'This area only' ? '5 miles' : prev));
+      }
+    } else if (!value.trim()) {
+      setSearchCenter(null);
+      setGeocodedName('');
+    } else {
+      // Free-text search - geocode so the radius filter still works.
+      geocodeLocation(value)
+        .then((result) => {
+          setSearchCenter({ lat: result.lat, lng: result.lng });
+          setGeocodedName(result.formattedAddress);
+        })
+        .catch(() => { setSearchCenter(null); setGeocodedName(''); });
     }
   };
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState(() => { try { return localStorage.getItem('rent_search') || ''; } catch { return ''; } });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlLocation = searchParams.get('location') || '';
+  const urlType = searchParams.get('type') || '';
+  const urlBeds = searchParams.get('beds') || '';
+  const [searchQuery, setSearchQuery] = useState(() => urlLocation || (() => { try { return localStorage.getItem('rent_search') || ''; } catch { return ''; } })());
   const [selectedRadius, setSelectedRadius] = useState(() => { try { return localStorage.getItem('rent_radius') || 'This area only'; } catch { return 'This area only'; } });
   const [selectedPrice, setSelectedPrice] = useState(() => { try { return localStorage.getItem('rent_price') || 'Any price'; } catch { return 'Any price'; } });
-  const [selectedBeds, setSelectedBeds] = useState(() => { try { return localStorage.getItem('rent_beds') || 'Any beds'; } catch { return 'Any beds'; } });
-  const [selectedType, setSelectedType] = useState(() => { try { return localStorage.getItem('rent_type') || 'Any type'; } catch { return 'Any type'; } });
+  const [selectedBeds, setSelectedBeds] = useState(() => urlBeds || (() => { try { return localStorage.getItem('rent_beds') || 'Any beds'; } catch { return 'Any beds'; } })());
+  const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('rent_type') || 'Any type'; } catch { return 'Any type'; } })());
   const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('rent_added') || 'Anytime'; } catch { return 'Anytime'; } });
-  const [sortBy, setSortBy] = useState(() => { try { return localStorage.getItem('rent_sort') || 'Most recent'; } catch { return 'Most recent'; } });
+  const [sortBy, setSortBy] = useState(() => {
+    try {
+      const saved = localStorage.getItem('rent_sort');
+      return saved && saved !== 'Most recent' ? saved : 'A - Z';
+    } catch { return 'A - Z'; }
+  });
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const p = Number(searchParams.get('page'));
+    return Number.isFinite(p) && p > 1 ? p : 1;
+  });
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [savedSearch, setSavedSearch] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
@@ -118,6 +161,9 @@ export default function Rent() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  // On touch devices there is no real hover, so the first tap on a card image
+  // reveals the prev/next arrows instead of jumping straight to the listing.
+  const [revealedCards, setRevealedCards] = useState<Set<string>>(new Set());
   const [quickViewProperty, setQuickViewProperty] = useState<MappedListing | null>(null);
   const [contactProperty, setContactProperty] = useState<MappedListing | null>(null);
   const [recentlyViewed, setRecentlyViewed] = useState<MappedListing[]>([]);
@@ -125,17 +171,23 @@ export default function Rent() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [activeMapMarker, setActiveMapMarker] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const resultsTopRef = useRef<HTMLDivElement>(null);
+  const alertFormRef = useRef<HTMLDivElement>(null);
+  const resultsScrollInit = useRef(false);
+  const filtersResetInit = useRef(false);
   const { status: alertStatus, error: alertError, submitToContacts, reset: resetAlert } = useFormSubmit();
+  const [alertEmailError, setAlertEmailError] = useState('');
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
   const { format, currency, rates } = useCurrency();
 
-  // Dynamic price labels — auto-convert KES rent ranges to selected currency
+  // Dynamic price labels - auto-convert KES rent ranges to selected currency
   const priceOptions = useMemo(() => [
     'Any price',
     `Under ${fmtPriceKes(300_000, currency, rates)}`,
-    `${fmtPriceKes(300_000, currency, rates)} – ${fmtPriceKes(500_000, currency, rates)}`,
-    `${fmtPriceKes(500_000, currency, rates)} – ${fmtPriceKes(1_000_000, currency, rates)}`,
-    `${fmtPriceKes(1_000_000, currency, rates)} – ${fmtPriceKes(2_000_000, currency, rates)}`,
-    `${fmtPriceKes(2_000_000, currency, rates)} – ${fmtPriceKes(5_000_000, currency, rates)}`,
+    `${fmtPriceKes(300_000, currency, rates)} - ${fmtPriceKes(500_000, currency, rates)}`,
+    `${fmtPriceKes(500_000, currency, rates)} - ${fmtPriceKes(1_000_000, currency, rates)}`,
+    `${fmtPriceKes(1_000_000, currency, rates)} - ${fmtPriceKes(2_000_000, currency, rates)}`,
+    `${fmtPriceKes(2_000_000, currency, rates)} - ${fmtPriceKes(5_000_000, currency, rates)}`,
     `Over ${fmtPriceKes(5_000_000, currency, rates)}`,
   ], [currency, rates]);
 
@@ -166,7 +218,7 @@ export default function Rent() {
       centerLng: searchCenter?.lng ?? null,
       radiusMeters: radiusMeters ?? null,
     };
-    // Price — map selected dynamic label back to KES range via index
+    // Price - map selected dynamic label back to KES range via index
     const priceIdx = priceOptions.indexOf(selectedPrice);
     const selectedRange = priceIdx > 0 ? KES_RENT_RANGES[priceIdx] : null;
     if (selectedRange?.min !== undefined) filters.priceMin = selectedRange.min;
@@ -179,11 +231,27 @@ export default function Rent() {
     else if (selectedBeds === '4+') { filters.bedsMin = 4; }
     else if (selectedBeds === '5+') { filters.bedsMin = 5; }
     return filters;
-  }, [appliedSearchQuery, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters, priceOptions]);
+  }, [appliedSearchQuery, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
 
   const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
 
   const paginated = rentListings;
+
+  // Map pins for the live price-pin map view
+  const mapPins = useMemo(() => {
+    return paginated
+      .filter((p) => typeof p.latitude === 'number' && typeof p.longitude === 'number')
+      .map((p) => ({
+        id: p.id,
+        slug: p.slug,
+        lat: p.latitude as number,
+        lng: p.longitude as number,
+        title: p.title,
+        priceLabel: format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR'),
+        commuteLabel: p.area || p.location || '',
+        image: p.image,
+      }));
+  }, [paginated, format]);
 
   const executeSearch = useCallback(async () => {
     setAppliedSearchQuery(searchQuery);
@@ -251,12 +319,25 @@ export default function Rent() {
     appliedFilters.advanced.keywords !== '' ||
     appliedFilters.advanced.keywordsExclude !== '';
 
-  // Reset pagination when quick filters change
+  // Reset pagination when quick filters change (skipping the first mount so a
+  // page restored from the URL survives).
   useEffect(() => {
+    if (!filtersResetInit.current) { filtersResetInit.current = true; return; }
     setCurrentPage(1);
   }, [selectedPrice, selectedBeds, selectedType, selectedAdded]);
 
-  // Load recently viewed from localStorage — try stored objects first, then Supabase for real listings
+  // Changing the results page must never dump the visitor at the footer. The
+  // listings keep their previous height while the next page loads (no collapse),
+  // so we simply bring the top of the results section back into view.
+  useEffect(() => {
+    if (!resultsScrollInit.current) { resultsScrollInit.current = true; return; }
+    const el = resultsTopRef.current;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 96;
+    window.scrollTo({ top: Math.max(0, top) });
+  }, [currentPage]);
+
+  // Load recently viewed from localStorage - try stored objects first, then Supabase for real listings
   useEffect(() => {
     const mapStoredObj = (obj: Record<string, unknown>): MappedListing => ({
       id: String(obj.id || ''),
@@ -269,11 +350,6 @@ export default function Rent() {
       baths: 0,
       parking: 0,
       receptions: 0,
-      propertyType: '',
-      landSize: 0,
-      acreage: 0,
-      isLand: false,
-      isJointVenture: false,
       sqft: 0,
       sqm: 0,
       price: '',
@@ -293,7 +369,7 @@ export default function Rent() {
 
     let cancelled = false;
 
-    // First try: stored full-object entries (recently_viewed_devs) — instant, no network needed
+    // First try: stored full-object entries (recently_viewed_devs) - instant, no network needed
     try {
       const devsRaw = localStorage.getItem('recently_viewed_devs');
       if (devsRaw) {
@@ -310,11 +386,11 @@ export default function Rent() {
       const idsRaw = localStorage.getItem('recently_viewed_properties');
       if (idsRaw) {
         const ids: string[] = JSON.parse(idsRaw);
-        // Filter out mock IDs — Supabase can't resolve those
+        // Filter out mock IDs - Supabase can't resolve those
         const realIds = ids.filter((id) => !id.startsWith('mock-')).slice(0, 6);
         if (realIds.length > 0) {
           supabase
-            .from('listings')
+            .from('all_listings')
             .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,parking,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email')
             .in('id', realIds)
             .then(({ data }) => {
@@ -330,11 +406,6 @@ export default function Rent() {
                   baths: Number(row.bathrooms ?? 0),
                   parking: Number(row.parking ?? 0),
                   receptions: 0,
-                  propertyType: String(row.property_type || ''),
-                  landSize: 0,
-                  acreage: 0,
-                  isLand: false,
-                  isJointVenture: false,
                   sqft: 0,
                   sqm: 0,
                   price: '',
@@ -353,7 +424,8 @@ export default function Rent() {
                 }));
                 setRecentlyViewed(mapped);
               }
-            }, () => {});
+            })
+            .catch(() => {});
         }
       }
     } catch { /* ignore */ }
@@ -371,6 +443,18 @@ export default function Rent() {
     try { localStorage.setItem('rent_added', selectedAdded); } catch { /* ignore */ }
     try { localStorage.setItem('rent_sort', sortBy); } catch { /* ignore */ }
   }, [searchQuery, selectedRadius, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy]);
+
+  // Sync search criteria to the URL (replaceState) so a search survives refresh,
+  // back/forward and can be shared: /rent?location=...&type=...&beds=...
+  useEffect(() => {
+    const nextParams = new URLSearchParams();
+    if (searchQuery) nextParams.set('location', searchQuery);
+    if (selectedType !== 'Any type') nextParams.set('type', selectedType);
+    if (selectedBeds !== 'Any beds') nextParams.set('beds', selectedBeds);
+    if (currentPage > 1) nextParams.set('page', String(currentPage));
+    setSearchParams(nextParams.toString(), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, selectedType, selectedBeds, currentPage]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
@@ -416,6 +500,17 @@ export default function Rent() {
     const email = (formData.get('email') as string || '').trim();
     const phone = (formData.get('phone') as string || '').trim();
 
+    // Inline validation - catch invalid emails before we submit anything.
+    if (!email) {
+      setAlertEmailError('Please enter your email address.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setAlertEmailError('Please enter a valid email address, e.g. name@example.com.');
+      return;
+    }
+    setAlertEmailError('');
+
     const success = await submitToContacts({
       name: fullName,
       email,
@@ -431,13 +526,23 @@ export default function Rent() {
   };
 
   const activeCount = totalCount;
-  const agentCount = useMemo(() => {
-    const uniqueAgents = new Set(rentListings.map((p) => p.agent).filter(Boolean));
-    return uniqueAgents.size || 0;
-  }, [rentListings]);
+
+  // Understood search criteria - derived from the same string the query engine parses
+  const parsedIntent = useMemo(() => parsePropertySearch(appliedSearchQuery), [appliedSearchQuery]);
+  const intentChips = intentToChips(parsedIntent);
+  const hasSearch = appliedSearchQuery.trim() !== '';
+  const searchClauses = useMemo(() => parseSearchClauses(appliedSearchQuery), [appliedSearchQuery]);
+  const isCompound = searchClauses.length > 1;
+  const removeIntentChip = (key: 'transaction' | 'propertyType' | 'location' | 'bedrooms' | 'price' | 'furnished') => {
+    const next = withoutIntent(appliedSearchQuery, key);
+    setSearchQuery(next);
+    setAppliedSearchQuery(next);
+    setCurrentPage(1);
+  };
+
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[116px] md:pt-[120px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero Section */}
@@ -448,122 +553,45 @@ export default function Rent() {
         defaultSubtitle="Explore exceptional rental properties across Kenya's finest neighbourhoods."
       />
 
+      {/* Breadcrumb below the banner - keeps the blue flow intact */}
+      <PageBreadcrumbs />
+
       {/* === SEARCH + FILTER BAR === */}
       <div className="z-40 bg-white border-b border-primary/12 shadow-sm mt-6">
-        {/* Search bar */}
-        <div className="px-4 md:px-6 lg:px-10 py-3">
-          <div className="flex items-stretch gap-[2px] max-w-[1400px] mx-auto">
-            <LocationSearch
-              value={searchQuery}
-              onChange={handleLocationChange}
-              className="flex-1 min-w-0"
-              placeholderCycle={[
-                "Looking for a rental in a leafy suburb...",
-                "Looking for an apartment with a view...",
-                "Looking for a studio with great amenities...",
-                "Looking for a furnished spacious home...",
-                "Looking for a townhouse in Gigiri...",
-              ]}
-            />
-            <div className="hidden md:flex items-center gap-[2px]">
-              <div className="relative">
-                <select value={selectedRadius} onChange={(e) => setSelectedRadius(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {radiusOptions.map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
-              </div>
-              <div className="relative">
-                <select value={selectedBeds} onChange={(e) => setSelectedBeds(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {bedOptions.map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
-              </div>
-              <div className="relative">
-                <select value={selectedPrice} onChange={(e) => setSelectedPrice(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {priceOptions.map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
-              </div>
-              <div className="relative">
-                <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="appearance-none h-11 px-4 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {propTypeOptions.map((o) => <option key={o}>{o}</option>)}
-                </select>
-                <i className="ri-arrow-down-s-line absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/60 text-sm pointer-events-none"></i>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className={`hidden md:flex items-center gap-2 h-11 px-4 text-sm font-roboto font-medium border rounded-lg transition-colors cursor-pointer whitespace-nowrap ${showAdvancedFilters ? 'text-accent border-accent bg-accent/5' : 'text-accent border-accent/20 hover:bg-accent hover:text-white hover:border-accent'}`}
-            >
-              <span className="w-4 h-4 flex items-center justify-center">
-                <i className="ri-equalizer-line text-sm"></i>
-              </span>
-              Advanced Filters
-            </button>
-            <button
-              onClick={executeSearch}
-              disabled={isSearching}
-              className="hidden md:flex items-center gap-2 h-11 px-5 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60"
-            >
-              <span className="w-4 h-4 flex items-center justify-center">
-                {isSearching ? <PageLoader size={18} /> : <i className="ri-search-line text-sm"></i>}
-              </span>
-              {isSearching ? 'Searching...' : 'Search'}
-            </button>
-            <button className="hidden md:flex items-center gap-2 h-11 px-4 border border-primary/50 text-sm font-roboto font-medium text-primary rounded-lg hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap">
-              <span className="w-4 h-4 flex items-center justify-center">
-                <i className="ri-heart-line text-sm"></i>
-              </span>
-              Save
-            </button>
-            <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className={`md:hidden flex items-center justify-center w-11 h-11 border rounded-lg cursor-pointer transition-colors ${showAdvancedFilters ? 'text-accent border-accent bg-accent/5' : 'text-accent/60 border-accent/20'}`}>
-              <i className="ri-equalizer-line text-lg"></i>
-            </button>
-            <button
-              onClick={executeSearch}
-              disabled={isSearching}
-              className="md:hidden flex items-center justify-center w-11 h-11 bg-primary text-white border-2 border-primary rounded-lg cursor-pointer disabled:opacity-60"
-            >
-              {isSearching ? <PageLoader size={18} /> : <i className="ri-search-line text-lg"></i>}
-            </button>
-          </div>
+        {/* Shared property search bar (desktop / tablet / mobile) */}
+        <div className="px-4 md:px-6 lg:px-10 pt-4 pb-3">
+          <PropertySearchBar
+            className="max-w-[1400px] mx-auto"
+            searchQuery={searchQuery}
+            onLocationChange={handleLocationChange}
+            placeholderCycle={[
+              "Looking for a rental in a leafy suburb...",
+              "Looking for an apartment with a view...",
+              "Looking for a studio with great amenities...",
+              "Looking for a furnished spacious home...",
+              "Looking for a townhouse in Gigiri...",
+            ]}
+            radiusValue={selectedRadius}
+            onRadiusChange={setSelectedRadius}
+            radiusOptions={radiusOptions}
+            bedsValue={selectedBeds}
+            onBedsChange={setSelectedBeds}
+            priceValue={selectedPrice}
+            onPriceChange={setSelectedPrice}
+            priceOptions={priceOptions}
+            typeValue={selectedType}
+            onTypeChange={setSelectedType}
+            typeOptions={propTypeOptions}
+            onFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            filtersActive={showAdvancedFilters}
+            saved={savedSearch}
+            onToggleSave={() => setSavedSearch(!savedSearch)}
+            onSearch={() => executeSearch()}
+            onMapView={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
+            mapActive={viewMode === 'map'}
+            onCreateAlert={() => alertFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+          />
         </div>
-
-        {/* Mobile filters */}
-        {showFilters && (
-          <div className="md:hidden px-4 pb-3 flex flex-wrap gap-2">
-            <div className="relative">
-              <select value={selectedRadius} onChange={(e) => setSelectedRadius(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
-                {radiusOptions.map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
-            </div>
-            <div className="relative">
-              <select value={selectedPrice} onChange={(e) => setSelectedPrice(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
-                {priceOptions.map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
-            </div>
-            <div className="relative">
-              <select value={selectedBeds} onChange={(e) => setSelectedBeds(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
-                {bedOptions.map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
-            </div>
-            <div className="relative">
-              <select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
-                {propTypeOptions.map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
-            </div>
-            <div className="relative">
-              <select value={selectedAdded} onChange={(e) => setSelectedAdded(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/50 rounded-lg focus:outline-none cursor-pointer">
-                {addedOptions.map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
-            </div>
-          </div>
-        )}
 
         {/* Advanced Filters Panel */}
         <AdvancedFilters
@@ -593,12 +621,12 @@ export default function Rent() {
             ...(selectedType !== 'Any type' ? [{ key: 'type', label: selectedType, onRemove: () => setSelectedType('Any type') }] : []),
             ...(selectedAdded !== 'Anytime' ? [{ key: 'added', label: selectedAdded, onRemove: () => setSelectedAdded('Anytime') }] : []),
             ...(selectedRadius !== 'This area only' ? [{ key: 'radius', label: selectedRadius, onRemove: () => setSelectedRadius('This area only') }] : []),
-            ...(sortBy !== 'Most recent' ? [{ key: 'sort', label: sortBy, onRemove: () => setSortBy('Most recent') }] : []),
+            ...(sortBy !== 'A - Z' ? [{ key: 'sort', label: sortBy, onRemove: () => setSortBy('A - Z') }] : []),
           ]}
           onClearAll={clearSearch}
         />
 
-        {/* Secondary filter bar — underline style */}
+        {/* Secondary filter bar - underline style */}
         <div className="hidden md:flex items-center justify-between px-4 md:px-6 lg:px-10 pb-0 max-w-[1400px] mx-auto">
           <div className="flex items-center gap-6">
             <div className="relative">
@@ -607,7 +635,7 @@ export default function Rent() {
                 className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${openDropdown === 'added' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
               >
                 {selectedAdded}
-                <span className="w-3 h-3 flex items-center justify-center text-primary/60"><i className={`ri-arrow-down-s-line text-xs transition-transform ${openDropdown === 'added' ? 'rotate-180' : ''}`}></i></span>
+                <span className="w-3 h-3 flex items-center justify-center text-primary/60"><i className={`ri-arrow-down-wide-fill text-xs transition-transform ${openDropdown === 'added' ? 'rotate-180' : ''}`}></i></span>
               </button>
               {openDropdown === 'added' && (
                 <>
@@ -632,7 +660,7 @@ export default function Rent() {
                 className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${openDropdown === 'sort' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
               >
                 {sortBy}
-                <span className="w-3 h-3 flex items-center justify-center text-primary/60"><i className={`ri-arrow-down-s-line text-xs transition-transform ${openDropdown === 'sort' ? 'rotate-180' : ''}`}></i></span>
+                <span className="w-3 h-3 flex items-center justify-center text-primary/60"><i className={`ri-arrow-down-wide-fill text-xs transition-transform ${openDropdown === 'sort' ? 'rotate-180' : ''}`}></i></span>
               </button>
               {openDropdown === 'sort' && (
                 <>
@@ -660,31 +688,11 @@ export default function Rent() {
               Schools
             </Link>
           </div>
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${viewMode === 'list' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
-            >
-              <i className="ri-list-check text-xs"></i>
-              List
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap ${viewMode === 'map' ? 'text-primary border-primary' : 'text-primary/70 border-primary/30 hover:text-primary'}`}
-            >
-              <i className="ri-map-2-line text-xs"></i>
-              Map
-            </button>
-            <button className="flex items-center gap-1.5 py-2 text-xs font-roboto font-semibold text-primary border-b-2 border-transparent hover:text-primary hover:border-primary/40 transition-colors cursor-pointer whitespace-nowrap">
-              <i className="ri-bookmark-line text-xs"></i>
-              Save search
-            </button>
-          </div>
         </div>
       </div>
 
       {/* === RESULTS HEADER === */}
-      <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
+      <div ref={resultsTopRef} className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">Properties to rent</h1>
@@ -697,7 +705,7 @@ export default function Rent() {
               </p>
             )}
             <p className="text-xs font-roboto text-primary/50 mt-0.5">
-              <span className="text-primary font-semibold">{activeCount}</span> properties &middot; <span className="text-primary font-semibold">{agentCount}</span> agents
+              <span className="text-primary font-semibold">{activeCount}</span> properties
               {hasActiveFilters && <span className="text-primary/50"> &middot; filtered</span>}
             </p>
           </div>
@@ -718,7 +726,7 @@ export default function Rent() {
                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-8 px-3 pr-7 text-xs font-roboto font-medium text-primary/60 bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer">
                   {sortOptions.map((o) => <option key={o}>{o}</option>)}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
+                <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-primary/60 text-xs pointer-events-none"></i>
               </div>
               <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-8 h-8 flex items-center justify-center border border-primary/12 rounded-lg text-primary/60 cursor-pointer">
                 <i className={viewMode === 'list' ? 'ri-map-2-line text-xs' : 'ri-list-check text-xs'}></i>
@@ -726,6 +734,36 @@ export default function Rent() {
             </div>
           </div>
         </div>
+
+        {/* Understood search criteria - the system shows what it parsed */}
+        {hasSearch && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">You searched for</span>
+            {isCompound ? (
+              searchClauses.map((cl, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
+                  <span className="w-4 h-4 flex items-center justify-center text-primary/40"><i className="ri-arrow-right-s-line text-xs"></i></span>
+                  {clauseSummary(cl)}
+                </span>
+              ))
+            ) : intentChips.length === 0 ? (
+              <span className="text-xs font-roboto text-primary/60 bg-primary/5 border border-primary/15 rounded-full px-3 py-1">"{appliedSearchQuery}"</span>
+            ) : (
+              intentChips.map((chip) => (
+                <span key={`${chip.key}-${chip.label}`} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
+                  {chip.label}
+                  <button
+                    onClick={() => removeIntentChip(chip.key)}
+                    className="w-4 h-4 flex items-center justify-center text-primary/50 hover:text-accent hover:bg-accent/10 rounded-full transition-colors cursor-pointer"
+                    aria-label={`Remove ${chip.label}`}
+                  >
+                    <i className="ri-close-line text-sm"></i>
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* === MAIN CONTENT === */}
@@ -733,16 +771,6 @@ export default function Rent() {
         <div className={`flex gap-6 ${viewMode === 'map' ? 'flex-col lg:flex-row' : 'flex-col lg:flex-row'}`}>
           {/* Listings */}
           <div className={`${viewMode === 'map' ? 'lg:w-[55%] xl:w-[60%]' : 'lg:w-[75%] xl:w-[78%]'}`}>
-            {/* Map view / Create alert tab bar */}
-            <div className="flex items-center gap-2 mb-4">
-              <button className="flex items-center gap-1.5 h-9 px-4 text-xs font-roboto font-medium text-primary/60 border border-primary/12 rounded-lg hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
-                <span className="w-4 h-4 flex items-center justify-center">
-                  <i className="ri-notification-3-line text-xs"></i>
-                </span>
-                Create alert
-              </button>
-            </div>
-
             {/* Featured label */}
             {paginated.some((p) => p.featured) && (
               <div className="mb-3">
@@ -752,7 +780,15 @@ export default function Rent() {
             )}
 
             <div className="space-y-4">
-              {loading ? (
+              {/* Lightweight indicator while the NEXT page loads - the previous
+                  results stay on screen so the page never collapses. */}
+              {loading && paginated.length > 0 && (
+                <div className="flex items-center justify-center gap-2 py-2" aria-live="polite">
+                  <i className="ri-loader-4-line animate-spin text-primary text-base"></i>
+                  <span className="text-xs font-roboto text-primary/60">Updating results\u2026</span>
+                </div>
+              )}
+              {loading && rentListings.length === 0 ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex flex-col sm:flex-row bg-white border-2 border-primary/12 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden md:h-[300px] animate-pulse">
@@ -805,8 +841,8 @@ export default function Rent() {
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
                     <i className="ri-search-line text-primary/50 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties match your filters</h3>
-                  <p className="text-sm font-roboto text-primary/60 mb-4">Try adjusting your search criteria or clearing filters.</p>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties match your search</h3>
+                  <p className="text-sm font-roboto text-primary/60 mb-4">{hasSearch ? 'There are no matching rental properties for your search criteria. Try adjusting your search.' : 'Try adjusting your search criteria or clearing filters.'}</p>
                   <button
                     onClick={clearSearch}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
@@ -823,12 +859,21 @@ export default function Rent() {
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col sm:flex-row bg-white rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden md:h-[300px] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-all duration-200"
+                    className="listing-safe flex flex-col sm:flex-row bg-[var(--card-bg)] rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden md:h-[300px] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-all duration-200"
                     onMouseEnter={() => setHoveredCard(p.id)}
                     onMouseLeave={() => setHoveredCard(null)}
                   >
                     {/* Image area */}
                     <div className="relative w-full sm:w-[280px] md:w-[360px] lg:w-[400px] xl:w-[440px] h-[220px] sm:h-full flex-shrink-0 overflow-hidden group"
+                      onClickCapture={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.closest('button')) return;
+                        if (window.matchMedia('(hover: none)').matches && !revealedCards.has(p.id)) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setRevealedCards((prev) => new Set(prev).add(p.id));
+                        }
+                      }}
                       onTouchStart={(e) => { const t = e.touches[0].clientX; (e.currentTarget as HTMLElement).dataset.tsX = String(t); }}
                       onTouchMove={(e) => { (e.currentTarget as HTMLElement).dataset.teX = String(e.touches[0].clientX); }}
                       onTouchEnd={(e) => {
@@ -842,16 +887,16 @@ export default function Rent() {
                       }}
                     >
                       <Link
-                        to={`/property/${p.slug}`}
+                        to={withReturnFrom(`/property/${p.slug}`, currentPath)}
                         className="flex h-full transition-transform duration-200 ease-out will-change-transform"
                         style={{ transform: `translateX(-${imgIdx * 100}%)` }}
                       >
-                        {p.images.map((src, i) => (
-                          <img
+                        {(p.images.length > 0 ? p.images : ['']).map((src, i) => (
+                          <EntityImage
                             key={i}
                             src={src}
                             alt={p.title}
-                            loading={i === 0 ? undefined : "lazy"}
+                            loading={i === 0 ? undefined : 'lazy'}
                             className="w-full h-full object-cover object-center flex-shrink-0 transition-transform duration-700 group-hover:scale-105 pointer-events-none select-none"
                           />
                         ))}
@@ -864,7 +909,7 @@ export default function Rent() {
                           e.stopPropagation();
                           setQuickViewProperty(p);
                         }}
-                        className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                        className="absolute bottom-3 left-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                       >
                         <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm cursor-pointer hover:bg-black/80 transition-colors">
                           <span className="w-3.5 h-3.5 flex items-center justify-center">
@@ -879,14 +924,14 @@ export default function Rent() {
                         <>
                           <button
                             onClick={(e) => prevImage(p.id, e)}
-                            className="absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white transition-all duration-150 cursor-pointer whitespace-nowrap opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            className={`absolute left-1.5 md:left-2 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/90 text-[#002349] hover:bg-white transition-opacity duration-150 cursor-pointer whitespace-nowrap md:opacity-100 ${revealedCards.has(p.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                             aria-label="Previous image"
                           >
                             <i className="ri-arrow-left-s-line text-base md:text-lg"></i>
                           </button>
                           <button
                             onClick={(e) => nextImage(p.id, e)}
-                            className="absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-8 h-8 md:w-9 md:h-9 flex items-center justify-center bg-white/90 text-[#002349] hover:bg-white transition-all duration-150 cursor-pointer whitespace-nowrap opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                            className={`absolute right-1.5 md:right-2 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/90 text-[#002349] hover:bg-white transition-opacity duration-150 cursor-pointer whitespace-nowrap md:opacity-100 ${revealedCards.has(p.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                             aria-label="Next image"
                           >
                             <i className="ri-arrow-right-s-line text-base md:text-lg"></i>
@@ -894,7 +939,19 @@ export default function Rent() {
                         </>
                       )}
 
-                      {/* Status badge — SALE / RENT only */}
+                      {/* Image counter - 1/N (Zoopla style) */}
+                      {p.images.length > 1 && (
+                        <div className="absolute bottom-2 right-2 z-10">
+                          <span className="flex items-center gap-1 text-white text-[10px] font-semibold tracking-wide px-2 py-1 whitespace-nowrap bg-black/60 rounded-sm">
+                            <span className="w-3.5 h-3.5 flex items-center justify-center">
+                              <i className="ri-image-line text-xs"></i>
+                            </span>
+                            {imgIdx + 1}/{p.images.length}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Status badge - SALE / RENT only */}
                       <div className="absolute top-2 left-2 flex flex-wrap gap-1.5">
                         <PropertyBadge variant={p.type === 'rent' ? 'rent' : 'sale'} />
                       </div>
@@ -907,110 +964,25 @@ export default function Rent() {
                         >
                           <i className={`${isSaved ? 'ri-heart-fill' : 'ri-heart-line'} text-sm`}></i>
                         </button>
-                        <button className="w-8 h-8 flex items-center justify-center bg-black/40 hover:bg-black/60 text-white rounded-full cursor-pointer transition-colors">
-                          <i className="ri-share-forward-line text-sm"></i>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Content area */}
-                    <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
-                      <div>
-                        <PropertyMetaBadges
-                          featured={p.featured}
-                          justListed={p.justAdded}
-                          jointVenture={p.isJointVenture}
-                          newHome={p.newHome}
-                          reduced={p.reduced}
-                          videoTour={p.videoTour}
-                          virtualTour={p.virtualTour}
-                          floorPlan={p.floorPlan}
-                          houseShare={p.houseShare}
-                          propertyOfTheWeek={p.propertyOfTheWeek}
-                          backOnMarket={p.backOnMarket}
-                          refurbished={p.refurbished}
-                          className="mb-2"
+                        <ShareButton
+                          title={p.title}
+                          slug={p.slug}
+                          id={p.id}
+                          priceLabel={format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+                          className="w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors bg-black/40 hover:bg-black/60 text-white"
+                          activeClassName="bg-primary text-white"
+                          iconClassName="text-sm"
                         />
-                        {/* Price — Rightmove style: value + pcm same size + info icon */}
-                        <div className="mb-1">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="font-roboto font-semibold text-primary text-sm md:text-base lg:text-lg">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</span>
-                            <span className="font-roboto font-semibold text-primary text-sm md:text-base lg:text-lg">pcm</span>
-                            <span className="relative inline-flex items-center cursor-help group text-[#636363] opacity-40">
-                              <i className="ri-information-line text-[10px]"></i>
-                              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 bg-stone-800 text-white text-[10px] whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none font-normal">
-                                Per calendar month
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Meta badges — Rightmove bold style */}
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
-                          {getPropertySpecs(p.propertyType, {
-                            beds: p.beds,
-                            baths: p.baths,
-                            parking: p.parking,
-                            sqft: p.sqft,
-                            acreage: p.acreage,
-                            landSize: p.landSize,
-                            landUnit: p.landUnit,
-                          }).map((spec) => (
-                            <span key={spec.key} className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#222222]">
-                              <i className={`${spec.icon} text-[#555555] text-xs`}></i>
-                              {spec.label}
-                            </span>
-                          ))}
-                          {p.beds === 0 && p.baths === 0 && p.parking === 0 && p.sqft === 0 && p.acreage === 0 && p.landSize === 0 && (
-                            <span className="text-xs font-roboto text-primary/50 italic">Details on request</span>
-                          )}
-                        </div>
-
-                        <Link to={`/property/${p.slug}`} className="block mb-3">
-                          <h3 className="text-sm md:text-base font-roboto font-bold text-primary leading-snug mb-1 line-clamp-2 transition-colors hover:text-[#2d4a7a]">{p.title}</h3><address className="not-italic flex items-start gap-1.5">
-                            <span className="w-3 h-3 flex items-center justify-center shrink-0 mt-0.5">
-                              <i className="ri-map-pin-line text-golden text-[10px]"></i>
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block text-xs md:text-sm font-roboto font-medium text-primary/70 leading-snug">
-                                {p.area || p.location}
-                              </span>
-                            </span>
-                            {searchCenter && p.distanceKm != null && (
-                              <span className="ml-1.5 mt-0.5 text-[10px] font-roboto font-semibold text-primary bg-primary/5 px-1.5 py-0.5 rounded whitespace-nowrap">
-                                {p.distanceKm < 1
-                                  ? `${Math.round(p.distanceKm * 1000)}m away`
-                                  : `${p.distanceKm.toFixed(1)}km away`}
-                              </span>
-                            )}
-                          </address>
-                        </Link>
-
-                        {/* Description */}
-                        <p className="text-xs md:text-sm font-roboto text-[#555555] leading-relaxed line-clamp-2 mb-3">{cleanListingDescription(p.description)}</p>
-                      </div>
-
-                      {/* Agent footer — Rightmove style: Added today green bold */}
-                      <div className="flex items-end justify-between gap-3 pt-2.5 border-t-2 border-primary/12">
-                        <span className="text-xs font-roboto font-bold text-[#00703c] whitespace-nowrap shrink-0">
-                            {formatTimeAgo(p.createdAt)}
-                          </span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <a href={`tel:${p.agentPhone || '+2547111393806'}`} className="flex items-center gap-1 text-xs font-roboto font-semibold text-primary hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3.5 h-3.5 flex items-center justify-center">
-                              <i className="ri-phone-line text-xs"></i>
-                            </span>
-                            Call
-                          </a>
-                          <button onClick={(e) => { e.preventDefault(); setContactProperty(p); }} className="flex items-center gap-1 text-xs font-roboto font-semibold text-primary hover:text-[#2d4a7a] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap">
-                            <span className="w-3.5 h-3.5 flex items-center justify-center">
-                              <i className="ri-mail-line text-xs"></i>
-                            </span>
-                            Message
-                          </button>
-                        </div>
                       </div>
                     </div>
+
+                    {/* Content area - shared Sale/Rent card body */}
+                    <PropertyCardBody
+                      property={p}
+                      format={format}
+                      onMessage={() => setContactProperty(p)}
+                      variant="rent"
+                    />
                   </div>
                 );
               }))}
@@ -1024,19 +996,54 @@ export default function Rent() {
             />
 
             {/* Bottom CTA */}
-            <div className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
+            <div ref={alertFormRef} className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
               <h3 className="text-lg font-roboto font-bold text-primary mb-2">Can't find what you're looking for?</h3>
               <p className="text-sm font-roboto text-primary/60 mb-4 max-w-md mx-auto">Register for property alerts and be the first to know about new rentals in your area.</p>
-              <form data-readdy-form="true" id="rent-alert-form" onSubmit={handleEnquiry} className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
-                <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-primary/12 rounded-lg focus:outline-none focus:border-primary" />
+              <form data-readdy-form="true" id="rent-alert-form" onSubmit={handleEnquiry} noValidate className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
+                <div className="flex-1 w-full">
+                  <input
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                    aria-invalid={alertEmailError ? true : undefined}
+                    aria-describedby={alertEmailError ? 'rent-alert-email-error' : undefined}
+                    onChange={(e) => { if (alertEmailError && isValidEmail(e.target.value)) setAlertEmailError(''); }}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (v && !isValidEmail(v)) setAlertEmailError('Please enter a valid email address, e.g. name@example.com.');
+                    }}
+                    className={`w-full h-16 px-4 text-base font-roboto text-primary bg-white border-2 rounded-lg placeholder:text-primary/40 focus:outline-none focus:ring-2 ${alertEmailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500/15' : 'border-primary/30 focus:border-primary focus:ring-primary/15'}`}
+                  />
+                  {alertEmailError && (
+                    <p id="rent-alert-email-error" className="mt-1.5 flex items-center gap-1 text-xs font-roboto text-red-500 text-left">
+                      <span className="w-3.5 h-3.5 flex items-center justify-center flex-shrink-0">
+                        <i className="ri-error-warning-line"></i>
+                      </span>
+                      {alertEmailError}
+                    </p>
+                  )}
+                </div>
                 <input type="hidden" name="type" value="rent_alert" />
                 <input type="hidden" name="location" value="" />
-                <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white border-2 border-primary text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
-                  {alertStatus === 'success' ? 'Alert set!' : 'Get alerts'}
+                <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto h-11 px-6 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
+                  {alertStatus === 'success' ? (
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center animate-check-pop">
+                        <i className="ri-checkbox-circle-fill"></i>
+                      </span>
+                      Alert set!
+                    </span>
+                  ) : 'Get alerts'}
                 </button>
               </form>
               {alertStatus === 'success' && (
-                <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll respond within 24 hours.</p>
+                <p className="mt-3 inline-flex items-center justify-center gap-1.5 text-green-600 text-sm font-roboto text-center animate-check-pop">
+                  <span className="w-4 h-4 flex items-center justify-center">
+                    <i className="ri-checkbox-circle-fill"></i>
+                  </span>
+                  Thank you! We&apos;ll respond within 24 hours.
+                </p>
               )}
               {alertStatus === 'error' && (
                 <p className="text-red-500 text-sm font-roboto text-center">{alertError}</p>
@@ -1069,13 +1076,14 @@ export default function Rent() {
                       {recentlyViewed.slice(0, 4).map((p) => (
                         <div key={p.id} className="group">
                           <Link
-                            to={`/property/${p.slug}`}
+                            to={withReturnFrom(`/property/${p.slug}`, currentPath)}
                             className="flex items-center gap-2.5 cursor-pointer"
                           >
                             <div className="w-14 h-10 flex-shrink-0 overflow-hidden rounded">
-                              <img
+                              <EntityImage
                                 src={p.image || p.images[0]}
                                 alt={p.title}
+                                compact
                                 className="w-full h-full object-cover object-center"
                               />
                             </div>
@@ -1117,18 +1125,18 @@ export default function Rent() {
 
                 {/* Refine search */}
                 <div className="bg-white border border-primary/20 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
-                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Refine your search</h3>
+                  <div className="px-4 py-3 border-b border-primary/15 mb-2">
+                    <h3 className="text-base font-roboto font-bold text-primary uppercase tracking-wide">Refine your search</h3>
                   </div>
-                  <div className="px-4 py-3 space-y-2">
-                    <p className="text-[11px] font-roboto text-primary/70 leading-relaxed">
+                  <div className="px-4 py-3 space-y-2.5">
+                    <p className="text-base font-roboto text-primary/70 leading-relaxed">
                       {geocodedName && radiusMeters
                         ? `Showing properties within ${selectedRadius} of ${geocodedName}`
                         : appliedSearchQuery
                         ? `Showing results for "${appliedSearchQuery}"`
                         : 'Rental properties across surrounding areas'}
                     </p>
-                    <div className="flex flex-wrap gap-1.5 pt-1">
+                    <div className="flex flex-wrap gap-2 pt-1">
                       {['Studio', '1 Bed', '2 Bed', '3 Bed', 'Furnished', 'Pet Friendly', 'Parking'].map((tag) => (
                         <button
                           key={tag}
@@ -1153,7 +1161,7 @@ export default function Rent() {
                             }
                             setCurrentPage(1);
                           }}
-                          className="px-2.5 py-1 text-[10px] font-roboto font-medium text-primary/85 bg-background-100 border border-primary/12 rounded-full hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap"
+                          className="px-3 py-1.5 text-base font-roboto font-medium text-primary/85 bg-background-100 border border-primary/12 rounded-md hover:bg-primary hover:text-white hover:border-primary transition-colors cursor-pointer whitespace-nowrap"
                         >
                           {tag}
                         </button>
@@ -1162,10 +1170,10 @@ export default function Rent() {
                     {hasActiveFilters && (
                       <button
                         onClick={clearSearch}
-                        className="flex items-center gap-1 text-[11px] font-roboto font-medium text-red-500 hover:text-red-600 transition-colors cursor-pointer pt-1"
+                        className="flex items-center gap-1.5 text-base font-roboto font-medium text-red-500 hover:text-red-600 transition-colors cursor-pointer pt-1"
                       >
-                        <span className="w-3.5 h-3.5 flex items-center justify-center">
-                          <i className="ri-close-circle-line text-xs"></i>
+                        <span className="w-4 h-4 flex items-center justify-center">
+                          <i className="ri-close-circle-line text-base"></i>
                         </span>
                         Clear all filters
                       </button>
@@ -1293,17 +1301,7 @@ export default function Rent() {
           {viewMode === 'map' && (
             <div className="lg:w-[45%] xl:w-[40%] lg:sticky lg:top-[180px] lg:h-[calc(100vh-200px)]" ref={mapRef}>
               <div className="w-full h-[400px] lg:h-full rounded-lg overflow-hidden border border-primary/12">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d255281.1989180463!2d36.68258773125!3d-1.302861050000005!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f1172d84d49a7%3A0xf7cf0254b297924c!2sNairobi%2C%20Kenya!5e0!3m2!1sen!2sus!4v1717000000000!5m2!1sen!2sus"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Property map - Nairobi"
-                  className="w-full h-full"
-                ></iframe>
+                <CommuteMap pins={mapPins} />
               </div>
               {/* Map overlay cards */}
               <div className="hidden lg:block mt-3 space-y-2">
@@ -1313,7 +1311,7 @@ export default function Rent() {
                     className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-colors ${activeMapMarker === p.id ? 'border-primary bg-primary/5' : 'border-primary/12 hover:border-primary/20'}`}
                     onClick={() => setActiveMapMarker(activeMapMarker === p.id ? null : p.id)}
                   >
-                    <img src={p.image} alt={p.title} className="w-16 h-12 object-cover rounded" />
+                    <EntityImage src={p.image} alt={p.title} compact className="w-16 h-12 object-cover rounded" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-roboto font-semibold text-primary truncate">{format(p.rawPrice, p.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}</p>
                       <p className="text-[10px] font-roboto text-primary/50 truncate">{p.title}</p>

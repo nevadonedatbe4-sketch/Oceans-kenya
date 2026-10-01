@@ -10,9 +10,6 @@ export interface JvImage {
   isCover: boolean;
 }
 
-const FALLBACK_IMAGE =
-  'https://readdy.ai/api/search-image?query=Modern%20architectural%20development%20site%20with%20construction%20cranes%20and%20concrete%20structure%20warm%20golden%20hour%20light%20clean%20urban%20real%20estate%20photography%20professional%20composition&width=800&height=600&seq=jv-fallback&orientation=landscape';
-
 interface RawImageRow {
   id?: string;
   image_url?: string | null;
@@ -54,7 +51,7 @@ export function normalizeJvProjectImages(
     result.push({
       id: id || `img-${result.length + 1}`,
       url: clean,
-      alt: alt || (title ? `${title} — image ${result.length + 1}` : `Image ${result.length + 1}`),
+      alt: alt || (title ? `${title} - image ${result.length + 1}` : `Image ${result.length + 1}`),
       sortOrder,
       isCover,
     });
@@ -85,10 +82,7 @@ export function normalizeJvProjectImages(
     push(legacyImage, title, 1, true);
   }
 
-  // Ultimate fallback so a card never renders a broken/empty image.
-  if (result.length === 0) {
-    push(FALLBACK_IMAGE, title, 1, true);
-  }
-
+  // No generated fallback: a project without real images yields an empty list,
+  // and the UI renders an honest placeholder instead of a fake picture.
   return result;
 }

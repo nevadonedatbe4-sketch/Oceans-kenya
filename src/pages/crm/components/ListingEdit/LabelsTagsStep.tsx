@@ -11,7 +11,7 @@ export type TagCategory = 'status' | 'development' | 'lifestyle' | 'community' |
 
 const ONE_COLOR = '#0d1f2d';
 
-const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string }> = {
+export const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string }> = {
   status:      { label: 'Status',       icon: 'ri-flag-line' },
   development: { label: 'Development',  icon: 'ri-building-line' },
   lifestyle:   { label: 'Lifestyle',    icon: 'ri-heart-line' },
@@ -20,7 +20,7 @@ const TAG_CATEGORY_META: Record<TagCategory, { label: string; icon: string }> = 
   service:     { label: 'Service',      icon: 'ri-service-line' },
 };
 
-const PREDEFINED_TAGS: TagDef[] = [
+export const PREDEFINED_TAGS: TagDef[] = [
   { label: 'New Listing',          category: 'status' },
   { label: 'Featured',             category: 'status' },
   { label: 'Hot Deal',             category: 'status' },
@@ -66,6 +66,8 @@ interface Props {
   setBackOnMarket: (v: boolean) => void;
   commissionApplicable: boolean;
   setCommissionApplicable: (v: boolean) => void;
+  commissionDetails: string;
+  setCommissionDetails: (v: string) => void;
 }
 
 function getCategoryMeta(label: string) {
@@ -75,7 +77,7 @@ function getCategoryMeta(label: string) {
 
 /* ── Shared chip style tokens ── */
 const chipBase =
-  'inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold border rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed';
+  'inline-flex items-center gap-1.5 px-3 py-1.5 text-[16px] font-semibold border rounded-lg transition-all cursor-pointer whitespace-nowrap disabled:opacity-30 disabled:cursor-not-allowed';
 const chipStyle = `${chipBase} text-[#0d1f2d] bg-[#0d1f2d]/6 border-[#0d1f2d]/25 hover:bg-[#0d1f2d]/12`;
 
 const Toggle = ({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) => (
@@ -124,6 +126,8 @@ export default function LabelsTagsStep({
   setBackOnMarket,
   commissionApplicable,
   setCommissionApplicable,
+  commissionDetails,
+  setCommissionDetails,
 }: Props) {
   const quickLabelState: Record<string, { value: boolean; set: (v: boolean) => void }> = {
     propertyOfTheWeek: { value: propertyOfTheWeek, set: setPropertyOfTheWeek },
@@ -238,7 +242,7 @@ export default function LabelsTagsStep({
                       <i className={`${l.icon} text-sm`} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold text-[#0d1f2d]">{l.label}</p>
+                      <p className="text-[16px] font-semibold text-[#0d1f2d]">{l.label}</p>
                       <p className="text-[12px] text-[#7a8a99]">{l.desc}</p>
                     </div>
                   </div>
@@ -256,12 +260,30 @@ export default function LabelsTagsStep({
                   <i className="ri-hand-coin-line text-sm" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-[#0d1f2d]">Commission applies</p>
+                  <p className="text-[16px] font-semibold text-[#0d1f2d]">Commission applies</p>
                   <p className="text-[12px] text-[#7a8a99]">Shown on the property detail page</p>
                 </div>
               </div>
               <Toggle enabled={commissionApplicable} onChange={setCommissionApplicable} />
             </div>
+
+            {commissionApplicable && (
+              <div className="px-3 pb-3">
+                <label className="block text-[12px] font-semibold tracking-wide text-[#6b7280] uppercase mb-2 leading-none">
+                  Commission details
+                </label>
+                <input
+                  type="text"
+                  value={commissionDetails}
+                  onChange={(e) => setCommissionDetails(e.target.value)}
+                  placeholder="e.g. 5% of sale price, or KES 150,000"
+                  className="w-full text-[15px] font-medium text-[#0d1f2d] bg-white border-2 border-[#e8edf2] rounded-md px-3 py-2.5 outline-none transition-all placeholder:text-[#b0bec5] focus:border-[#0d1f2d] focus:ring-4 focus:ring-[#0d1f2d]/10"
+                />
+                <p className="text-[12px] text-[#9ba5b1] mt-1.5 leading-relaxed">
+                  Free text — enter a percentage or a fixed amount. Leave blank to show just &ldquo;Yes&rdquo;.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -279,7 +301,7 @@ export default function LabelsTagsStep({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="flex-1 text-[13px] font-medium text-[#0d1f2d] outline-none bg-transparent py-2 placeholder:text-[#b0bec5]"
+              className="flex-1 text-[16px] font-medium text-[#0d1f2d] outline-none bg-transparent py-2 placeholder:text-[#b0bec5]"
             />
             {search.trim() && (
               <button
@@ -337,7 +359,7 @@ export default function LabelsTagsStep({
                       onDragOver={(e) => handleDragOver(e, idx)}
                       onDrop={handleDrop}
                       onDragEnd={handleDragEnd}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-semibold border rounded-lg transition-all cursor-grab active:cursor-grabbing select-none whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[16px] font-semibold border rounded-lg transition-all cursor-grab active:cursor-grabbing select-none whitespace-nowrap ${
                         isPrimary
                           ? 'bg-[#0d1f2d] text-white border-[#0d1f2d]'
                           : 'text-[#0d1f2d] bg-[#0d1f2d]/6 border-[#0d1f2d]/25'

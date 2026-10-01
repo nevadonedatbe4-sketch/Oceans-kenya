@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -10,11 +11,11 @@ const services = [
   { icon: 'ri-building-2-line', title: 'Commercial Sales', desc: 'We market your commercial property to qualified investors and businesses across Kenya and East Africa.' },
   { icon: 'ri-store-2-line', title: 'Commercial Lettings', desc: 'Find reliable corporate tenants for your office, retail, or industrial space with our extensive network.' },
   { icon: 'ri-bar-chart-box-line', title: 'Market Valuation', desc: 'Expert commercial property valuation based on current market data, comparable evidence, and local expertise.' },
-  { icon: 'ri-file-list-3-line', title: 'Transaction Management', desc: 'Full support through the entire transaction — from heads of terms to completion and handover.' },
+  { icon: 'ri-file-list-3-line', title: 'Transaction Management', desc: 'Full support through the entire transaction - from heads of terms to completion and handover.' },
 ];
 
 const howItWorks = [
-  { icon: 'ri-phone-line', step: 1, title: 'Initial Consultation', desc: 'We discuss your commercial property, goals, and timeline — free, no obligation.' },
+  { icon: 'ri-phone-line', step: 1, title: 'Initial Consultation', desc: 'We discuss your commercial property, goals, and timeline - free, no obligation.' },
   { icon: 'ri-search-eye-line', step: 2, title: 'Professional Marketing', desc: 'Professional photography, floor plans, and listing across all major commercial property platforms.' },
   { icon: 'ri-user-received-2-line', step: 3, title: 'Tenant & Buyer Matching', desc: 'We match your property with our database of pre-qualified corporate tenants and investors.' },
   { icon: 'ri-hand-coin-line', step: 4, title: 'Close the Deal', desc: 'Negotiation support, lease or sale agreement, and smooth handover coordination.' },
@@ -29,7 +30,7 @@ const whyUs = [
 const faqs = [
   { q: 'What types of commercial property do you handle?', a: 'We handle all commercial property types including offices, retail shops, warehouses, industrial units, mixed-use buildings, and commercial land across Nairobi and surrounding areas.' },
   { q: 'How much does it cost to advertise my commercial property?', a: 'Our fees vary depending on the service. For commercial lettings, we charge a percentage of the annual rent. For sales, a competitive commission based on the sale price. Contact us for a tailored quote.' },
-  { q: 'How long does it take to let or sell a commercial property?', a: 'Timescales vary by property type and market conditions, but our average time to let a commercial property is 45–60 days. Sales typically complete within 90–120 days.' },
+  { q: 'How long does it take to let or sell a commercial property?', a: 'Timescales vary by property type and market conditions, but our average time to let a commercial property is 45-60 days. Sales typically complete within 90-120 days.' },
   { q: 'Do you handle lease negotiations?', a: 'Yes, we manage the full leasing process including heads of terms, lease negotiations, rent reviews, and break clauses to ensure the best outcome for you.' },
   { q: 'Can you value my commercial property?', a: 'Absolutely. We provide free, no-obligation commercial property valuations based on thorough market analysis and comparable evidence.' },
 ];
@@ -87,16 +88,12 @@ ${message}`;
   };
 
   return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero */}
       <div className="relative flex flex-col justify-center overflow-hidden pt-16 pb-16 min-h-[420px] md:min-h-[480px]">
-        <img
-          src="https://readdy.ai/api/search-image?query=Modern%20glass%20commercial%20office%20tower%20with%20reflective%20facade%20standing%20tall%20against%20dramatic%20twilight%20sky%2C%20Nairobi%20city%20skyline%20silhouette%20in%20background%20with%20warm%20amber%20lights%2C%20professional%20architectural%20photography%2C%20luxury%20corporate%20aesthetic%2C%20high%20contrast%2C%20cinematic%20atmosphere&width=1600&height=800&seq=comm-adv-hero-01&orientation=landscape"
-          alt="Commercial property advertising"
-          className="absolute inset-0 w-full h-full object-cover object-center"
-        />
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-accent/70"></div>
         <div className="absolute inset-0 bg-gradient-to-r from-primary/90 via-primary/80 to-primary/50"></div>
         <div className="relative z-10 w-full max-w-6xl mx-auto px-6">
           <div className="max-w-2xl">
@@ -105,13 +102,13 @@ ${message}`;
               Advertise Your<br />Commercial Property<br />With Us
             </h1>
             <p className="text-white/80 font-roboto text-base md:text-lg leading-relaxed mb-10 max-w-lg">
-              Nairobi&apos;s leading commercial property agency. We connect office, retail, and industrial properties with the right tenants and investors — fast.
+              Nairobi&apos;s leading commercial property agency. We connect office, retail, and industrial properties with the right tenants and investors - fast.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              <a href="#advertising-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-golden text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
+              <a href="#advertising-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-golden text-white font-roboto font-semibold text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
                 <i className="ri-building-2-line"></i>Advertise Now
               </a>
-              <a href="#advertising-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-white/50 text-white font-roboto text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors">
+              <a href="#advertising-form" className="inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-white/50 text-white font-roboto font-semibold text-sm tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors">
                 <i className="ri-bar-chart-2-line"></i>Free Valuation
               </a>
             </div>
@@ -128,7 +125,7 @@ ${message}`;
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - sits directly under the banner so the blue flows straight through */}
       <div className="bg-primary">
         <div className="max-w-5xl mx-auto px-6 py-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {[
@@ -145,6 +142,9 @@ ${message}`;
         </div>
       </div>
 
+      {/* Breadcrumb - placed below the blue band so the blue is never broken */}
+      <PageBreadcrumbs />
+
       {/* Priority section */}
       <section className="py-16 px-6 border-b-2 border-primary/12">
         <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -152,7 +152,7 @@ ${message}`;
             <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">Our Commitment</p>
             <h2 className="text-3xl font-roboto font-bold text-primary mb-5 leading-snug">Your Commercial Property Is Our Business</h2>
             <p className="text-stone-500 font-roboto text-sm leading-relaxed mb-5">
-              At Oceans Kenya, we understand commercial real estate. From prime office space in Westlands to retail units in Kilimani and industrial warehouses on Mombasa Road — our dedicated commercial team knows the market inside out.
+              At Oceans Kenya, we understand commercial real estate. From prime office space in Westlands to retail units in Kilimani and industrial warehouses on Mombasa Road - our dedicated commercial team knows the market inside out.
             </p>
             <p className="text-stone-500 font-roboto text-sm leading-relaxed">
               With extensive connections across Nairobi&apos;s business community and multinational occupiers, we have the reach to connect your property with the right buyer or tenant at the right price.
@@ -225,7 +225,7 @@ ${message}`;
                     </li>
                   ))}
                 </ul>
-                <a href="#advertising-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-primary text-white border-2 border-primary font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-all">
+                <a href="#advertising-form" className="mt-8 flex items-center justify-center gap-2 w-full px-4 py-3 bg-primary text-white border border-primary font-roboto font-semibold text-[11px] leading-none tracking-wide uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-all">
                   <i className="ri-arrow-right-line"></i>Enquire About Let Only
                 </a>
               </div>
@@ -241,7 +241,7 @@ ${message}`;
                   <i className="ri-building-4-line text-lg text-white"></i>
                 </div>
                 <h3 className="text-white font-roboto font-bold text-2xl mb-1">Full Sale / Let Management</h3>
-                <p className="text-white/60 font-roboto text-sm">Complete peace of mind — we handle everything from marketing to transaction completion.</p>
+                <p className="text-white/60 font-roboto text-sm">Complete peace of mind - we handle everything from marketing to transaction completion.</p>
               </div>
               <div className="px-8 py-7">
                 <ul className="space-y-3">
@@ -254,7 +254,7 @@ ${message}`;
                     </li>
                   ))}
                 </ul>
-                <a href="#advertising-form" className="mt-8 flex items-center justify-center gap-2 w-full py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
+                <a href="#advertising-form" className="mt-8 flex items-center justify-center gap-2 w-full px-4 py-3 bg-golden text-white font-roboto font-semibold text-[11px] leading-none tracking-wide uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity">
                   <i className="ri-arrow-right-line"></i>Enquire About Full Management
                 </a>
               </div>
@@ -277,7 +277,7 @@ ${message}`;
                   <div className="hidden lg:block absolute top-8 left-[calc(50%+2.5rem)] w-[calc(100%-5rem)] h-px bg-gray-200"></div>
                 )}
                 <div className="relative inline-flex items-center justify-center mb-5">
-                  <div className="w-16 h-16 flex items-center justify-center rounded-full bg-primary mx-auto">
+                  <div className="w-16 h-16 flex items-center justify-center rounded-full bg-accent mx-auto">
                     <i className={`${step.icon} text-white text-xl`}></i>
                   </div>
                   <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center rounded-full bg-[#002349] text-white font-roboto text-xs font-bold">{step.step}</span>
@@ -360,9 +360,9 @@ ${message}`;
       <section className="py-12 px-6 bg-white text-center border-b-2 border-primary/12">
         <div className="max-w-3xl mx-auto">
           <h2 className="text-2xl font-roboto font-bold text-primary mb-3">Looking for Commercial Property?</h2>
-          <p className="text-stone-500 font-roboto text-sm mb-6 max-w-lg mx-auto">Browse our current commercial property listings — offices, retail spaces, warehouses, and more.</p>
+          <p className="text-stone-500 font-roboto text-sm mb-6 max-w-lg mx-auto">Browse our current commercial property listings - offices, retail spaces, warehouses, and more.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link to="/commercial-property" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
+            <Link to="/commercial-property?buy=false" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
               <i className="ri-building-2-line"></i>
               Commercial To Rent
             </Link>
@@ -394,10 +394,10 @@ ${message}`;
               </p>
               <div className="space-y-6">
                 {[
-                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254703712984' },
+                  { icon: 'ri-phone-line', label: 'Call Us Directly', value: '+254 181 408 186' },
                   { icon: 'ri-mail-line', label: 'Email Us', value: 'sales@oceanske.com' },
-                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Plot 9, Riverside Drive, Westlands, Nairobi' },
-                  { icon: 'ri-time-line', label: 'Office Hours', value: 'Mon – Fri: 8:30am – 5:30pm' },
+                  { icon: 'ri-map-pin-2-line', label: 'Visit Our Office', value: 'Plot 9, Mandera Rd, Nairobi' },
+                  { icon: 'ri-time-line', label: 'Office Hours', value: 'Mon - Fri: 8:30am - 5:30pm' },
                 ].map((item) => (
                   <div key={item.label} className="flex gap-4">
                     <div className="w-10 h-10 flex items-center justify-center bg-primary rounded-full flex-shrink-0">
@@ -413,7 +413,7 @@ ${message}`;
             </div>
 
             {/* Form */}
-            <div className="lg:col-span-3 bg-white border-2 border-primary/20 p-8 md:p-10">
+            <div className="lg:col-span-3 bg-white border border-gray-200 p-8 md:p-10 shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)]">
               <form
                 data-readdy-form="true"
                 id="commercial-advertising-form"
@@ -423,16 +423,16 @@ ${message}`;
                 className="space-y-6"
               >
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-primary/20">About Your Property</p>
+                  <p className="text-primary font-roboto font-semibold text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b border-gray-200">About Your Property</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Address <span className="text-red-400">*</span></label>
-                      <input required name="property_address" placeholder="e.g. 14 Riverside Drive, Westlands" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                      <input required name="property_address" placeholder="e.g. 14 Riverside Drive, Westlands" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 transition-colors" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Property Type</label>
-                        <select name="property_type" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="property_type" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 cursor-pointer bg-white">
                           <option>Office</option>
                           <option>Retail Shop</option>
                           <option>Warehouse</option>
@@ -445,12 +445,12 @@ ${message}`;
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Size (sqft)</label>
-                        <select name="property_size" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="property_size" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 cursor-pointer bg-white">
                           <option>Under 500</option>
-                          <option>500 – 1,000</option>
-                          <option>1,000 – 2,500</option>
-                          <option>2,500 – 5,000</option>
-                          <option>5,000 – 10,000</option>
+                          <option>500 - 1,000</option>
+                          <option>1,000 - 2,500</option>
+                          <option>2,500 - 5,000</option>
+                          <option>5,000 - 10,000</option>
                           <option>10,000+</option>
                         </select>
                       </div>
@@ -458,7 +458,7 @@ ${message}`;
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">I Want To</label>
-                        <select name="purpose" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="purpose" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 cursor-pointer bg-white">
                           <option value="let">Let the Property</option>
                           <option value="sell">Sell the Property</option>
                           <option value="both">Let or Sell</option>
@@ -467,7 +467,7 @@ ${message}`;
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Current Status</label>
-                        <select name="current_status" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                        <select name="current_status" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 cursor-pointer bg-white">
                           <option value="vacant">Currently Vacant</option>
                           <option value="occupied">Currently Tenanted</option>
                           <option value="owner_occupied">Owner Occupied</option>
@@ -479,25 +479,25 @@ ${message}`;
                   </div>
                 </div>
                 <div>
-                  <p className="text-primary font-roboto text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b-2 border-primary/20">Your Details</p>
+                  <p className="text-primary font-roboto font-semibold text-xs tracking-widest uppercase font-semibold mb-4 pb-2 border-b border-gray-200">Your Details</p>
                   <div className="space-y-4">
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full Name <span className="text-red-400">*</span></label>
-                      <input required name="full_name" placeholder="Your full name" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                      <input required name="full_name" placeholder="Your full name" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 transition-colors" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email <span className="text-red-400">*</span></label>
-                        <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                        <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 transition-colors" />
                       </div>
                       <div>
                         <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone <span className="text-red-400">*</span></label>
-                        <input required type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                        <input required type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 transition-colors" />
                       </div>
                     </div>
                     <div>
                       <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Message / Additional Details</label>
-                      <textarea name="message" rows={3} maxLength={500} placeholder="Tell us anything else about your commercial property or requirements..." className="w-full border border-primary/20 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                      <textarea name="message" rows={3} maxLength={500} placeholder="Tell us anything else about your commercial property or requirements..." className="w-full border border-gray-300 px-4 py-2.5 text-sm font-roboto text-primary placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/15 transition-colors resize-none"></textarea>
                     </div>
                   </div>
                 </div>

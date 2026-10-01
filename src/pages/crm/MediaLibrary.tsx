@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { displayTitle } from '@/lib/crmDisplay';
 import {
   Search,
   Upload,
@@ -997,7 +998,7 @@ export default function MediaLibrary() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#f7f8fa] transition-colors cursor-pointer border-b border-gray-50 last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-roboto text-[#1a1a1a]">{listing.title}</p>
+                        <p className="text-sm font-roboto text-[#1a1a1a]">{displayTitle(listing.title)}</p>
                         <p className="text-xs text-[#9ca3af] font-roboto">/{listing.slug}</p>
                       </div>
                       <Link size={14} className="text-[#9ca3af]" />

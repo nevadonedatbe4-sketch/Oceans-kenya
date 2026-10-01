@@ -23,6 +23,9 @@ export interface Lead {
   is_read: boolean;
   is_archived: boolean;
   is_spam: boolean;
+  labels: string[] | null;
+  is_trashed: boolean;
+  trashed_at: string | null;
 }
 
 export interface Agent {

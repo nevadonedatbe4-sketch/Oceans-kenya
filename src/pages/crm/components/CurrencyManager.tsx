@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Loader2, Save, RefreshCw } from 'lucide-react';
+import { addToast as showToast } from '@/pages/crm/components/CRMToast';
+import { Loader2, Save, RefreshCw, Plus, Trash2, X } from 'lucide-react';
 
 interface CurrencyRow {
   id: string;
@@ -19,6 +20,9 @@ export default function CurrencyManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAdd, setShowAdd] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [newCurrency, setNewCurrency] = useState({ code: '', label: '', symbol: '', rate: '' });
 
   const fetchCurrencies = useCallback(async () => {
     setLoading(true);
@@ -94,10 +98,10 @@ export default function CurrencyManager() {
         }
       }
 
-      alert('Currency settings saved successfully.');
+      showToast('Currency settings saved successfully.', 'success');
     } catch (err) {
       console.error('Save currencies error:', err);
-      alert('Failed to save. Check console for details.');
+      showToast('Failed to save currency settings.', 'error');
     } finally {
       setSaving(false);
     }
@@ -107,6 +111,54 @@ export default function CurrencyManager() {
     setRefreshing(true);
     await fetchCurrencies();
     setRefreshing(false);
+  };
+
+  const handleAddCurrency = async () => {
+    const code = newCurrency.code.trim().toUpperCase();
+    if (!code || code.length > 6) {
+      showToast('Enter a valid currency code, e.g. UGX.', 'error');
+      return;
+    }
+    if (currencies.some((c) => c.code.toUpperCase() === code)) {
+      showToast(`${code} already exists.`, 'error');
+      return;
+    }
+    const rate = parseFloat(newCurrency.rate);
+    if (!rate || rate <= 0) {
+      showToast('Enter a rate greater than 0 (1 unit = X KES).', 'error');
+      return;
+    }
+    setAdding(true);
+    const nextOrder = currencies.reduce((max, c) => Math.max(max, c.display_order ?? 0), 0) + 1;
+    const { error } = await supabase.from('currency_settings').insert({
+      code,
+      label: newCurrency.label.trim() || code,
+      symbol: newCurrency.symbol.trim() || code,
+      rate,
+      enabled: true,
+      rate_mode: 'manual',
+      display_order: nextOrder,
+      last_updated: new Date().toISOString(),
+    });
+    setAdding(false);
+    if (error) {
+      showToast(error.message || 'Could not add currency.', 'error');
+      return;
+    }
+    setNewCurrency({ code: '', label: '', symbol: '', rate: '' });
+    setShowAdd(false);
+    showToast(`${code} added.`, 'success');
+    fetchCurrencies();
+  };
+
+  const handleDeleteCurrency = async (code: string) => {
+    const { error } = await supabase.from('currency_settings').delete().eq('code', code);
+    if (error) {
+      showToast(error.message || 'Could not remove currency.', 'error');
+      return;
+    }
+    showToast(`${code} removed.`, 'success');
+    fetchCurrencies();
   };
 
   const samplePriceKes = 15000000;
@@ -122,23 +174,95 @@ export default function CurrencyManager() {
   return (
     <div className="space-y-5">
       {/* Save Bar */}
-      <div className="flex items-center justify-end gap-2 mb-4">
+      <div className="flex items-center justify-between gap-2 mb-4">
         <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 bg-white border border-stone-200/70 hover:bg-stone-50 text-stone-600 px-3 py-2 rounded-lg text-[13px] font-roboto transition-all cursor-pointer whitespace-nowrap"
+          onClick={() => setShowAdd((v) => !v)}
+          className="flex items-center gap-2 bg-white border border-stone-200/70 hover:bg-stone-50 text-stone-700 px-3 py-2 rounded-lg text-[13px] font-roboto transition-all cursor-pointer whitespace-nowrap"
         >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
+          {showAdd ? <X size={16} /> : <Plus size={16} />}
+          {showAdd ? 'Cancel' : 'Add Currency'}
         </button>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-2 bg-[#1B4332] hover:bg-[#15382A] text-white px-4 py-2 rounded-lg text-[13px] font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
-        >
-          {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Changes</>}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-white border border-stone-200/70 hover:bg-stone-50 text-stone-600 px-3 py-2 rounded-lg text-[13px] font-roboto transition-all cursor-pointer whitespace-nowrap"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 bg-[#1B4332] hover:bg-[#15382A] text-white px-4 py-2 rounded-lg text-[13px] font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+          >
+            {saving ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Save size={16} /> Save Changes</>}
+          </button>
+        </div>
       </div>
+
+      {showAdd && (
+        <div className="bg-white rounded-xl border border-[#1B4332]/20 p-5 space-y-4">
+          <h3 className="text-[13px] font-jost font-semibold text-stone-800 uppercase tracking-[0.12em]">
+            Add a currency
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Code</label>
+              <input
+                type="text"
+                value={newCurrency.code}
+                onChange={(e) => setNewCurrency((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                placeholder="e.g. UGX"
+                maxLength={6}
+                className="w-full px-3 py-2 border border-stone-200 rounded-md text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Name</label>
+              <input
+                type="text"
+                value={newCurrency.label}
+                onChange={(e) => setNewCurrency((p) => ({ ...p, label: e.target.value }))}
+                placeholder="e.g. Ugandan Shilling"
+                className="w-full px-3 py-2 border border-stone-200 rounded-md text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">Symbol</label>
+              <input
+                type="text"
+                value={newCurrency.symbol}
+                onChange={(e) => setNewCurrency((p) => ({ ...p, symbol: e.target.value }))}
+                placeholder="e.g. UGX"
+                maxLength={6}
+                className="w-full px-3 py-2 border border-stone-200 rounded-md text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-1.5">1 unit = X KES</label>
+              <input
+                type="number"
+                step="any"
+                min="0"
+                value={newCurrency.rate}
+                onChange={(e) => setNewCurrency((p) => ({ ...p, rate: e.target.value }))}
+                placeholder="e.g. 33"
+                className="w-full px-3 py-2 border border-stone-200 rounded-md text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] bg-white"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={handleAddCurrency}
+              disabled={adding}
+              className="flex items-center gap-2 bg-[#1B4332] hover:bg-[#15382A] text-white px-4 py-2 rounded-lg text-[13px] font-roboto transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"
+            >
+              {adding ? <><Loader2 size={16} className="animate-spin" /> Adding...</> : <><Plus size={16} /> Add Currency</>}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Live Preview */}
       <div className="bg-[#1B4332] rounded-xl p-5 text-white">
@@ -238,23 +362,34 @@ export default function CurrencyManager() {
                     )}
                   </td>
                   <td className="py-3 px-3">
-                    <button
-                      onClick={() => toggleEnabled(c.code)}
-                      disabled={c.code === 'KES'}
-                      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
-                        c.code === 'KES'
-                          ? 'bg-stone-200 cursor-not-allowed'
-                          : c.enabled
-                          ? 'bg-[#1B4332]'
-                          : 'bg-stone-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                          c.enabled ? 'translate-x-6' : 'translate-x-1'
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => toggleEnabled(c.code)}
+                        disabled={c.code === 'KES'}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                          c.code === 'KES'
+                            ? 'bg-stone-200 cursor-not-allowed'
+                            : c.enabled
+                            ? 'bg-[#1B4332]'
+                            : 'bg-stone-300'
                         }`}
-                      ></span>
-                    </button>
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                            c.enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        ></span>
+                      </button>
+                      {c.code !== 'KES' && (
+                        <button
+                          onClick={() => handleDeleteCurrency(c.code)}
+                          title={`Remove ${c.code}`}
+                          className="text-stone-300 hover:text-red-500 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

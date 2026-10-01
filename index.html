@@ -31,9 +31,57 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Jost:wght@300;400;500;600;700&family=Prata&family=Roboto:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/remixicon/4.5.0/remixicon.min.css">
-    <!-- No Google Maps JS SDK: map embeds are plain iframes and geocoding
-         goes through the REST API in src/lib/geocode.ts, so nothing here
-         needs window.google. -->
+    <!-- Google Maps JavaScript API — loaded when key is configured -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=%VITE_PUBLIC_GOOGLE_MAPS_API_KEY%&libraries=places"></script>
+    <!-- Global Organization + WebSite structured data (Sitewide SEO) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "RealEstateAgent",
+        "name": "Oceans Kenya",
+        "url": "https://www.oceanske.com/",
+        "logo": "https://storage.readdy-site.link/project_files/842d3b8a-5d73-416c-bead-c20132299a10/55202c71-05ff-4d5d-a3e9-edf3986c0610_ceans-logo-main.webp",
+        "image": "https://readdy.ai/api/search-image?query=Luxury%20real%20estate%20brand%20banner%20with%20golden%20accents%20on%20dark%20navy%20background%2C%20elegant%20minimal%20design%2C%20premium%20property%20marketing%20header%2C%20Nairobi%20Kenya%20real%20estate&width=1200&height=630&seq=og-brand-2026&orientation=landscape",
+        "description": "Oceans Kenya is a premium estate agency in Nairobi offering houses, apartments, villas, land, commercial property and joint venture opportunities for sale and rent.",
+        "areaServed": {
+          "@type": "City",
+          "name": "Nairobi",
+          "containedInPlace": { "@type": "Country", "name": "Kenya" }
+        },
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Plot 9, Mandera Rd",
+          "addressLocality": "Nairobi",
+          "addressCountry": "KE"
+        },
+        "geo": { "@type": "GeoCoordinates", "latitude": -1.2921, "longitude": 36.8219 },
+        "telephone": "+254181408186",
+        "email": "ask@oceanske.com",
+        "priceRange": "KES",
+        "sameAs": [
+          "https://www.facebook.com/oceanskenya",
+          "https://www.instagram.com/oceans_estateagents",
+          "https://www.linkedin.com/company/oceans-estate-agents",
+          "https://www.youtube.com/@oceanskenya"
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Oceans Kenya",
+        "url": "https://www.oceanske.com/",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://www.oceanske.com/buy?location={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

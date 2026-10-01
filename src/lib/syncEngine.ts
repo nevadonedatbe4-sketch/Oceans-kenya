@@ -1,9 +1,15 @@
+import { clearSiteMetaCache } from '@/lib/siteMeta';
+
 export const SYNC_CHANNEL = 'oceans_sync';
 export const SYNC_KEY = 'oceans_sync_timestamp';
 
 export function broadcastSync() {
   const timestamp = Date.now().toString();
   localStorage.setItem(SYNC_KEY, timestamp);
+
+  // Settings changed - drop the cached public site meta so the next read
+  // (SEO tags, listing agency name, etc.) reflects the new values.
+  clearSiteMetaCache();
 
   try {
     const bc = new BroadcastChannel(SYNC_CHANNEL);

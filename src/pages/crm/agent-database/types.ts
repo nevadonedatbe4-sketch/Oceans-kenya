@@ -1,0 +1,67 @@
+export interface AgentDatabaseRecord {
+  id: string;
+  full_name: string;
+  trading_name: string | null;
+  agency: string | null;
+  job_title: string | null;
+  agent_type: string | null;
+  profile_photo: string | null;
+  gender: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  secondary_email: string | null;
+  website: string | null;
+  social_links: Record<string, string> | null;
+  county: string | null;
+  city: string | null;
+  primary_area: string | null;
+  office_location: string | null;
+  physical_address: string | null;
+  areas_served: string[] | null;
+  geographic_coverage: string | null;
+  specialisations: string[] | null;
+  strengths: string[] | null;
+  area_expertise: Record<string, string> | null;
+  quality_score: number | null;
+  reputation_score: number | null;
+  market_knowledge: number | null;
+  listing_quality: number | null;
+  responsiveness: number | null;
+  professionalism: number | null;
+  negotiation_strength: number | null;
+  network_strength: number | null;
+  digital_presence: number | null;
+  overall_potential: number | null;
+  super_admin_notes: string | null;
+  relationship_status: string;
+  first_contact_date: string | null;
+  last_contact_date: string | null;
+  next_follow_up_date: string | null;
+  contact_method: string | null;
+  contacted_by: string | null;
+  preferred_contact_method: string | null;
+  outreach_notes: string | null;
+  follow_up_notes: string | null;
+  source: string | null;
+  source_url: string | null;
+  referral_by: string | null;
+  event: string | null;
+  publication: string | null;
+  how_found: string | null;
+  why_valuable: string | null;
+  agent_account_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  agent_database_id: string | null;
+  action: string;
+  actor_id: string | null;
+  actor_email: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}

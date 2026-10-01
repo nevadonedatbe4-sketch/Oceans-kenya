@@ -1,273 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
+import {
+  TabLoading,
+  TabInfoBanner,
+  SaveBar,
+  FieldLabel,
+  ColorInput,
+  SelectField,
+  ToggleSwitch,
+  FieldRow,
+} from './DesignShared';
 
-/* ================================================================== */
-/*  Shared Helpers                                                      */
-/* ================================================================== */
-
-function TabLoading() {
-  return (
-    <div className="bg-white rounded-xl border border-stone-100 p-10 text-center">
-      <i className="ri-loader-4-line animate-spin text-stone-300 text-2xl"></i>
-      <p className="text-xs text-stone-400 mt-2">Loading settings...</p>
-    </div>
-  );
-}
-
-function TabInfoBanner({ icon, title, description, tags }: { icon: string; title: string; description: string; tags: string[] }) {
-  return (
-    <div className="bg-white rounded-xl border border-stone-100 p-5">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-5 h-5 flex items-center justify-center">
-          <i className={`${icon} text-[#1B4332] text-sm`}></i>
-        </span>
-        <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide">{title}</h3>
-      </div>
-      <p className="text-xs text-stone-500 mb-4">{description}</p>
-      <div className="flex flex-wrap gap-2">
-        {tags.map((t) => (
-          <span key={t} className="px-2.5 py-1 bg-[#1B4332]/8 text-[#1B4332] text-[10px] font-semibold rounded-full uppercase tracking-wide">{t}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SaveBar({ count, saving, onSave }: { count: number; saving: boolean; onSave: () => void }) {
-  return (
-    <div className="sticky bottom-0 z-10">
-      <div className="bg-white border border-stone-200 rounded-xl shadow-sm px-5 py-3 flex items-center justify-between gap-4 mx-1 mb-1">
-        <p className="text-xs text-stone-400">
-          <span className="font-medium text-stone-600">{count}</span> tokens configured
-        </p>
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className="px-5 py-2 text-sm font-medium bg-[#1B4332] text-white rounded-lg hover:bg-[#1B4332]/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
-        >
-          {saving ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : <><i className="ri-save-3-line text-sm"></i>Save Changes</>}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function FieldLabel({ label, cssVar }: { label: string; cssVar: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <label className="text-xs font-medium text-stone-600 uppercase tracking-widest">{label}</label>
-      <span className="text-[9px] font-mono text-stone-300 bg-[#f5f5f5] px-1.5 py-0.5 rounded">{cssVar}</span>
-    </div>
-  );
-}
-
-function TextInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
-  return (
-    <input
-      className="w-full border border-stone-200 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-[#1B4332] font-mono rounded-md bg-white"
-      placeholder={placeholder}
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
-}
-
-function ColorInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="flex items-center gap-3">
-      <input className="w-10 h-10 border border-stone-200 cursor-pointer p-0.5 rounded shrink-0" type="color" value={value} onChange={(e) => onChange(e.target.value)} />
-      <input className="flex-1 border border-stone-200 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-[#1B4332] font-mono rounded-md uppercase" type="text" value={value} onChange={(e) => onChange(e.target.value)} />
-    </div>
-  );
-}
-
-function SelectField({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: { label: string; value: string }[] }) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full border border-stone-200 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-[#1B4332] rounded-md cursor-pointer bg-white"
-    >
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
-  );
-}
-
-function ToggleSwitch({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${value ? 'bg-[#1B4332]' : 'bg-stone-200'}`}
-    >
-      <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${value ? 'translate-x-6' : 'translate-x-1'}`}></span>
-    </button>
-  );
-}
-
-function FieldRow({ label, cssVar, description, children }: { label: string; cssVar: string; description: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <FieldLabel label={label} cssVar={cssVar} />
-      {children}
-      <p className="text-[11px] text-stone-400">{description}</p>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Image Settings                                                     */
-/* ------------------------------------------------------------------ */
-
-interface ImageSettings {
-  border_radius: string;
-  object_fit: string;
-  card_height: string;
-  focal_point: string;
-  hover_effect: string;
-  overlay_opacity: string;
-  lazy_loading: string;
-}
-
-const IMAGE_DEFAULTS: ImageSettings = {
-  border_radius: '8px',
-  object_fit: 'cover',
-  card_height: '280px',
-  focal_point: 'center',
-  hover_effect: 'scale',
-  overlay_opacity: '0',
-  lazy_loading: 'true',
-};
-
-const IMAGE_FIELD_META: { key: keyof ImageSettings; label: string; cssVar: string; description: string }[] = [
-  { key: 'border_radius', label: 'Border Radius', cssVar: '--img-border-radius', description: 'Rounded corners on all images — cards, galleries, thumbnails.' },
-  { key: 'object_fit', label: 'Object Fit', cssVar: '--img-object-fit', description: 'How images fill their container — cover crops, contain shows full image.' },
-  { key: 'card_height', label: 'Card Image Height', cssVar: '--img-card-height', description: 'Default height of property card images across listing grids.' },
-  { key: 'focal_point', label: 'Focal Point', cssVar: '--img-focal-point', description: 'Which part of the image stays visible when cropping (cover mode).' },
-  { key: 'hover_effect', label: 'Hover Effect', cssVar: '--img-hover-effect', description: 'Effect applied when hovering over card images — scale, brightness, none.' },
-  { key: 'overlay_opacity', label: 'Overlay Opacity', cssVar: '--img-overlay-opacity', description: 'Dark overlay intensity for images with text overlays (0–1).' },
-  { key: 'lazy_loading', label: 'Lazy Loading', cssVar: '--img-lazy-loading', description: 'Defer loading off-screen images for better page speed.' },
-];
-
-const OBJECT_FIT_OPTIONS = [
-  { label: 'Cover (crop to fill)', value: 'cover' },
-  { label: 'Contain (show full image)', value: 'contain' },
-  { label: 'Fill (stretch)', value: 'fill' },
-  { label: 'None (natural size)', value: 'none' },
-];
-
-const FOCAL_POINT_OPTIONS = [
-  { label: 'Center', value: 'center' },
-  { label: 'Top', value: 'top' },
-  { label: 'Top Right', value: 'top right' },
-  { label: 'Right', value: 'right' },
-  { label: 'Bottom Right', value: 'bottom right' },
-  { label: 'Bottom', value: 'bottom' },
-  { label: 'Bottom Left', value: 'bottom left' },
-  { label: 'Left', value: 'left' },
-  { label: 'Top Left', value: 'top left' },
-];
-
-const HOVER_EFFECT_OPTIONS = [
-  { label: 'None', value: 'none' },
-  { label: 'Slight Zoom (1.05x)', value: 'scale-sm' },
-  { label: 'Zoom (1.1x)', value: 'scale' },
-  { label: 'Brightness boost', value: 'brightness' },
-  { label: 'Zoom + Brightness', value: 'scale-brightness' },
-];
-
-export function ImageSettingsTab() {
-  const [settings, setSettings] = useState<ImageSettings>({ ...IMAGE_DEFAULTS });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  const fetchSettings = useCallback(async () => {
-    setLoading(true);
-    const { data } = await supabase.from('site_settings').select('key, value').ilike('key', 'design_image_%');
-    if (data) {
-      const map = { ...IMAGE_DEFAULTS };
-      data.forEach((row: { key: string; value: string | null }) => {
-        const shortKey = row.key.replace('design_image_', '') as keyof ImageSettings;
-        if (row.value && shortKey in map) (map as Record<string, string>)[shortKey] = row.value;
-      });
-      setSettings(map);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchSettings(); }, [fetchSettings]);
-
-  const updateField = (key: keyof ImageSettings, value: string) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    const upserts = IMAGE_FIELD_META.map((f) =>
-      supabase.from('site_settings').upsert({ key: `design_image_${f.key}`, value: settings[f.key] }, { onConflict: 'key' })
-    );
-    const results = await Promise.all(upserts);
-    const errors = results.filter((r) => r.error);
-    showToast(errors.length ? 'Some image settings failed to save' : 'Image settings saved successfully', errors.length ? 'error' : 'success');
-    setSaving(false);
-  };
-
-  if (loading) return <TabLoading />;
-
-  return (
-    <div className="space-y-6">
-      <TabInfoBanner icon="ri-image-2-line" title="Global Image Settings" description="These image tokens cascade across Property Cards, Gallery Images, Hero Backgrounds, Thumbnails and all pages — homepage, listing pages, property detail pages and neighbourhood pages." tags={['Cards', 'Galleries', 'Hero', 'Thumbnails', 'Listings', 'Detail Pages']} />
-
-      <div className="bg-white rounded-xl border border-stone-100 p-5 space-y-5">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-5 h-5 flex items-center justify-center">
-            <i className="ri-image-2-line text-[#1B4332] text-sm"></i>
-          </span>
-          <div>
-            <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide">Image Display</h3>
-            <p className="text-[11px] text-stone-400 mt-0.5">Border radius, fit mode, card height and focal point.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div className="space-y-2">
-            <FieldLabel label="Border Radius" cssVar="--img-border-radius" />
-            <input className="w-full border border-stone-200 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-[#1B4332] font-mono rounded-md" placeholder="8px" type="text" value={settings.border_radius} onChange={(e) => updateField('border_radius', e.target.value)} />
-            <p className="text-[11px] text-stone-400">Rounded corners on all images — cards, galleries, thumbnails.</p>
-          </div>
-          <div className="space-y-2">
-            <FieldLabel label="Object Fit" cssVar="--img-object-fit" />
-            <SelectField value={settings.object_fit} onChange={(v) => updateField('object_fit', v)} options={OBJECT_FIT_OPTIONS} />
-            <p className="text-[11px] text-stone-400">How images fill their container — cover crops, contain shows full image.</p>
-          </div>
-          <div className="space-y-2">
-            <FieldLabel label="Card Image Height" cssVar="--img-card-height" />
-            <input className="w-full border border-stone-200 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-[#1B4332] font-mono rounded-md" placeholder="280px" type="text" value={settings.card_height} onChange={(e) => updateField('card_height', e.target.value)} />
-            <p className="text-[11px] text-stone-400">Default height of property card images across listing grids.</p>
-          </div>
-          <div className="space-y-2">
-            <FieldLabel label="Focal Point" cssVar="--img-focal-point" />
-            <SelectField value={settings.focal_point} onChange={(v) => updateField('focal_point', v)} options={FOCAL_POINT_OPTIONS} />
-            <p className="text-[11px] text-stone-400">Which part of the image stays visible when cropping (cover mode).</p>
-          </div>
-          <div className="space-y-2">
-            <FieldLabel label="Hover Effect" cssVar="--img-hover-effect" />
-            <SelectField value={settings.hover_effect} onChange={(v) => updateField('hover_effect', v)} options={HOVER_EFFECT_OPTIONS} />
-            <p className="text-[11px] text-stone-400">Effect applied when hovering over card images — scale, brightness, none.</p>
-          </div>
-          <div className="space-y-2">
-            <FieldLabel label="Overlay Opacity" cssVar="--img-overlay-opacity" />
-            <input className="w-full border border-stone-200 px-3 py-2 text-sm text-stone-700 focus:outline-none focus:border-[#1B4332] font-mono rounded-md" placeholder="0" type="text" value={settings.overlay_opacity} onChange={(e) => updateField('overlay_opacity', e.target.value)} />
-            <p className="text-[11px] text-stone-400">Dark overlay intensity for images with text overlays (0–1).</p>
-          </div>
-        </div>
-      </div>
-
-      <SaveBar count={IMAGE_FIELD_META.length} saving={saving} onSave={handleSave} />
-    </div>
-  );
-}
+/* Image settings live in ./ImageSettingsTab */
+export { ImageSettingsTab } from './ImageSettingsTab';
 
 /* ------------------------------------------------------------------ */
 /*  Spacing Settings                                                   */
@@ -741,11 +487,9 @@ export function CardBoxTab() {
           }}
         >
           <div className="w-full h-36 bg-stone-100 overflow-hidden">
-            <img
-              alt="preview"
-              className="w-full h-full object-cover object-top"
-              src="https://readdy.ai/api/search-image?query=modern%20luxury%20apartment%20interior%20living%20room%20elegant%20minimal%20design%20bright%20natural%20light%20Nairobi%20Kenya&width=480&height=288&seq=card-box-preview-2&orientation=landscape&nocache=true"
-            />
+            <div className="w-full h-full bg-gradient-to-br from-primary/25 via-accent/15 to-secondary/25 flex items-center justify-center" aria-hidden="true">
+              <i className="ri-image-line text-white/80 text-2xl"></i>
+            </div>
           </div>
           <div style={{ padding: `${structureSettings.card_padding_y}px ${structureSettings.card_padding_x}px` }}>
             <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: colorSettings.normal_labels_color }}>For Sale · Featured</p>
@@ -952,7 +696,7 @@ export function CardContentTab() {
                     onClick={() => moveField(index, 1)}
                     className="w-6 h-6 flex items-center justify-center rounded text-stone-400 hover:text-stone-700 hover:bg-stone-200 disabled:opacity-20 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   >
-                    <i className="ri-arrow-down-s-line text-sm"></i>
+                    <i className="ri-arrow-down-wide-fill text-sm"></i>
                   </button>
                 </div>
                 <button
@@ -977,7 +721,9 @@ export function CardContentTab() {
         <h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide mb-4">Card Field Order Preview</h3>
         <div className="max-w-[220px] border border-stone-100 rounded-lg overflow-hidden">
           <div className="w-full h-28 bg-stone-100">
-            <img alt="preview" className="w-full h-full object-cover object-top" src="https://readdy.ai/api/search-image?query=modern%20luxury%20apartment%20interior%20living%20room%20elegant%20minimal%20design%20bright%20natural%20light%20Nairobi&width=440&height=224&seq=card-content-preview-1&orientation=landscape&nocache=true" />
+            <div className="w-full h-full bg-gradient-to-br from-primary/25 via-accent/15 to-secondary/25 flex items-center justify-center" aria-hidden="true">
+              <i className="ri-image-line text-white/80 text-xl"></i>
+            </div>
           </div>
           <div className="p-3 space-y-1">
             {fieldOrder.map((key) => {
@@ -1882,7 +1628,7 @@ export function ResponsiveTab() {
         if (match && row.value) {
           const [, viewport, field] = match;
           if (viewport in map && field in map[viewport as ViewportKey]) {
-            (map[viewport as ViewportKey] as unknown as Record<string, string>)[field] = row.value;
+            (map[viewport as ViewportKey] as Record<string, string>)[field] = row.value;
           }
         }
       });
@@ -1902,7 +1648,7 @@ export function ResponsiveTab() {
 
   const handleSave = async () => {
     setSaving(true);
-    const upserts: PromiseLike<{ error: unknown }>[] = [];
+    const upserts: Promise<{ error: unknown }>[] = [];
     (Object.keys(settings) as ViewportKey[]).forEach((vp) => {
       (Object.keys(settings[vp]) as (keyof ResponsiveDefaults)[]).forEach((field) => {
         upserts.push(

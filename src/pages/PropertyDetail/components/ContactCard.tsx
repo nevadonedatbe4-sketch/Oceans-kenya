@@ -1,4 +1,5 @@
 import { useState, FormEvent, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 
 interface Agent {
@@ -10,7 +11,7 @@ interface Agent {
 }
 
 interface ContactCardProps {
-  agent: Agent | null;
+  agents: Agent[];
   propertyTitle: string;
   propertyRef: string;
   formSubmitUrl: string;
@@ -46,7 +47,7 @@ function getWeekDates() {
 const weekDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export default function PropertyContactCard({ agent, propertyTitle, propertyRef, formSubmitUrl, tourFormSubmitUrl }: ContactCardProps) {
+export default function PropertyContactCard({ agents, propertyTitle, propertyRef, formSubmitUrl, tourFormSubmitUrl }: ContactCardProps) {
   const [activeTab, setActiveTab] = useState<'info' | 'tour'>('tour');
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
   const [countryCode, setCountryCode] = useState('+254');
@@ -73,9 +74,6 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
     }
     return days;
   }, [weekOffset]);
-
-  const agentInitial = agent?.name ? agent.name.charAt(0).toUpperCase() : 'A';
-  const agentRole = agent?.role || 'Property Consultant';
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -133,7 +131,24 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
           <p className="text-[#0D1B2A] font-roboto text-base font-semibold mb-1">
             {activeTab === 'tour' ? 'Tour Request Sent!' : 'Message Sent!'}
           </p>
-          <p className="text-gray-400 font-roboto text-sm">We will be in touch shortly.</p>
+          <p className="text-gray-400 font-roboto text-sm mb-6">
+            We will be in touch within 12 hours.
+          </p>
+          <div className="space-y-2">
+            <Link
+              to="/all-properties"
+              className="block w-full px-5 py-2.5 text-sm font-roboto font-semibold rounded text-white hover:opacity-90 transition-opacity cursor-pointer whitespace-nowrap"
+              style={{ background: '#002349' }}
+            >
+              View More Properties
+            </Link>
+            <Link
+              to="/"
+              className="block w-full px-5 py-2.5 text-sm font-roboto font-semibold rounded border border-primary/12 text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Back to Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -141,7 +156,7 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
 
   return (
     <div className="lg:sticky lg:top-[100px] w-full">
-      <div className="bg-white border border-primary/12 rounded-md overflow-hidden">
+      <div className="bg-white border border-primary/12 rounded-md overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)]">
         {/* Tabs */}
         <div className="flex border-b border-primary/12">
           <button
@@ -170,29 +185,52 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
           </button>
         </div>
 
-        {/* Agent row */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold font-roboto" style={{ background: '#002349' }}>
-            {agent?.avatar ? (
-              <img src={agent.avatar} alt={agent.name} className="w-full h-full rounded-full object-cover" />
-            ) : (
-              agentInitial
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-roboto font-semibold truncate" style={{ color: '#0D1B2A' }}>
-              {agent?.name || 'Oceans Kenya'}
-            </p>
-            <p className="text-xs font-roboto text-gray-400 truncate">{agentRole}</p>
-          </div>
-          {activeTab === 'info' && agent?.phone && (
-            <a
-              href={`tel:${agent.phone}`}
-              className="flex items-center gap-1.5 text-xs font-roboto font-semibold text-primary hover:opacity-70 transition-opacity cursor-pointer whitespace-nowrap shrink-0"
-            >
-              <i className="ri-phone-line text-sm"></i>
-              Call Agent
-            </a>
+        {/* Agent row(s) */}
+        <div className="border-b border-gray-100">
+          {agents.length > 0 ? (
+            agents.map((a, idx) => {
+              const initial = a.name ? a.name.charAt(0).toUpperCase() : 'A';
+              const role = a.role || 'Property Consultant';
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-center gap-3 px-5 py-3.5 ${idx > 0 ? 'border-t border-gray-100' : ''}`}
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold font-roboto" style={{ background: '#002349' }}>
+                    {a.avatar ? (
+                      <img src={a.avatar} alt={a.name} className="w-full h-full rounded-full object-cover" />
+                    ) : (
+                      initial
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-roboto font-semibold truncate" style={{ color: '#0D1B2A' }}>
+                      {a.name || 'Oceans Kenya'}
+                    </p>
+                    <p className="text-xs font-roboto text-gray-400 truncate">{role}</p>
+                  </div>
+                  {activeTab === 'info' && a.phone && (
+                    <a
+                      href={`tel:${a.phone}`}
+                      className="flex items-center gap-1.5 text-xs font-roboto font-semibold text-primary hover:opacity-70 transition-opacity cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      <i className="ri-phone-line text-sm"></i>
+                      Call
+                    </a>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="flex items-center gap-3 px-5 py-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold font-roboto" style={{ background: '#002349' }}>
+                O
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-roboto font-semibold truncate" style={{ color: '#0D1B2A' }}>Oceans Kenya</p>
+                <p className="text-xs font-roboto text-gray-400 truncate">Property Consultant</p>
+              </div>
+            </div>
           )}
         </div>
 
@@ -237,11 +275,11 @@ export default function PropertyContactCard({ agent, propertyTitle, propertyRef,
                             key={idx}
                             type="button"
                             onClick={() => setSelectedDateIdx(idx)}
-                            className="flex flex-col items-center py-2.5 text-center transition-all cursor-pointer border rounded"
+                            className="flex flex-col items-center py-2.5 text-center transition-all cursor-pointer border rounded hover:border-[#002349]"
                             style={{
                               background: isSelected ? '#002349' : '#FFFFFF',
                               color: isSelected ? '#FFFFFF' : '#1A1A1A',
-                              borderColor: isSelected ? '#002349' : '#E5E5E5',
+                              borderColor: '#002349',
                             }}
                           >
                             <span

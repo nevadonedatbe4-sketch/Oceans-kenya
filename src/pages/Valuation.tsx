@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
@@ -13,14 +14,14 @@ const steps = [
 
 const faqs = [
   { q: 'How much does a valuation cost?', a: 'Absolutely nothing. Our property valuations are completely free with no obligation to list your property with us.' },
-  { q: 'How long does a valuation take?', a: 'The on-site visit typically takes 30–60 minutes depending on the property size. You will receive your full report within 48 hours.' },
+  { q: 'How long does a valuation take?', a: 'The on-site visit typically takes 30-60 minutes depending on the property size. You will receive your full report within 48 hours.' },
   { q: 'What do I need to prepare?', a: 'Just be available to show us around! Having recent utility bills, title deeds, and any renovation receipts handy is helpful but not required.' },
   { q: 'Is the valuation binding?', a: 'No. The valuation is an expert opinion of your property\'s current market value. You are under no obligation to sell or list with us afterwards.' },
 ];
 
 export default function Valuation() {
   return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero */}
@@ -37,7 +38,7 @@ export default function Valuation() {
               Get a free, no-obligation valuation from Nairobi's leading estate agents. Our experienced valuers understand the local market and will give you an accurate, honest assessment.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
-              <a href="tel:+254703712984" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto">
+              <a href="tel:+254181408186" className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-golden text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto">
                 <i className="ri-phone-line"></i>Call for a Valuation
               </a>
               <a href="#valuation-process" className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-white/50 text-white font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors w-full sm:w-auto">
@@ -57,7 +58,7 @@ export default function Valuation() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - sits directly under the banner so the blue flows straight through */}
       <div className="bg-primary">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-6 md:py-10 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 text-center">
           {[
@@ -73,6 +74,9 @@ export default function Valuation() {
           ))}
         </div>
       </div>
+
+      {/* Breadcrumb - placed below the blue band so the blue is never broken */}
+      <PageBreadcrumbs />
 
       {/* Process */}
       <section id="valuation-process" className="px-4 md:px-6 py-12 md:py-20">
@@ -111,13 +115,13 @@ export default function Valuation() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
             {[
-              { icon: 'ri-map-pin-2-line', title: 'Local Market Expertise', desc: 'With 12+ years in Nairobi\'s premium property market, we know every neighbourhood\'s true value. We don\'t guess — we analyse real data from recent comparable sales.' },
-              { icon: 'ri-shield-check-line', title: 'Honest, Not Flattering', desc: 'Some agents inflate valuations to win your business. We give you the real number — backed by evidence — so your property sells at the right price, not a fantasy one.' },
+              { icon: 'ri-map-pin-2-line', title: 'Local Market Expertise', desc: 'With 12+ years in Nairobi\'s premium property market, we know every neighbourhood\'s true value. We don\'t guess - we analyse real data from recent comparable sales.' },
+              { icon: 'ri-shield-check-line', title: 'Honest, Not Flattering', desc: 'Some agents inflate valuations to win your business. We give you the real number - backed by evidence - so your property sells at the right price, not a fantasy one.' },
               { icon: 'ri-bar-chart-2-line', title: 'No Strings Attached', desc: 'Our valuation is completely free with zero obligation. You get a professional report. If you choose not to list with us, that\'s entirely fine.' },
             ].map((item) => (
               <div key={item.title} className="p-5 md:p-7 border-2 border-primary/12 rounded-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
                 <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full mb-4 md:mb-5 bg-[#002349]">
-                  <i className={`${item.icon} text-lg md:text-xl text-primary`}></i>
+                  <i className={`${item.icon} text-lg md:text-xl text-golden`}></i>
                 </div>
                 <h3 className="font-roboto font-bold text-primary text-sm md:text-base mb-2">{item.title}</h3>
                 <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">{item.desc}</p>
@@ -162,7 +166,7 @@ export default function Valuation() {
             Our team of experienced valuers is ready to give you an honest, accurate assessment. No cost, no pressure, no obligation.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <a href="tel:+254703712984" className="inline-flex items-center gap-2 px-6 py-2.5 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto justify-center">
+            <a href="tel:+254181408186" className="inline-flex items-center gap-2 px-6 py-2.5 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto justify-center">
               <i className="ri-phone-line"></i>Call Now
             </a>
             <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-2.5 border border-white/30 text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors w-full sm:w-auto justify-center">

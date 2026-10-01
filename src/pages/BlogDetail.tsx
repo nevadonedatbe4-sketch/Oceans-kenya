@@ -1,13 +1,19 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { sanitizeRichText } from '@/lib/sanitizeHtml';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
+import { useSeoMeta, buildBreadcrumbSchema } from '@/hooks/useSeoMeta';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import PageLoader from '@/components/feature/PageLoader';
+import NeighbourhoodAtAGlance from '@/components/feature/NeighbourhoodAtAGlance';
+import BlogArticleBody from '@/components/feature/BlogArticleBody';
+import MallMapExplorer from '@/pages/blog/components/MallMapExplorer';
+import { useImageFocalPoint } from '@/hooks/useImageFocalPoint';
+import { smartTitleCase } from '@/lib/location';
 
 interface BlogPost {
   id: string;
@@ -23,6 +29,7 @@ interface BlogPost {
   readTime: string;
   body: string;
   relatedGuides: string[];
+  relatedNeighbourhoods: string[];
 }
 
 function Reveal({
@@ -50,6 +57,7 @@ export default function BlogDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
+  const focalPoint = useImageFocalPoint();
 
   const fetchPost = useCallback(async () => {
     if (!slug) return;
@@ -65,10 +73,12 @@ export default function BlogDetail() {
       if (!error && dbPost) {
         const mapped: BlogPost = {
           id: dbPost.id,
-          title: dbPost.title || '',
+          title: smartTitleCase(dbPost.title || ''),
           slug: dbPost.slug || slug,
-          category: dbPost.category || '',
-          categoryTag: dbPost.category || '',
+          // Normalise the category through the shared casing normaliser so the
+          // article badge reads consistently with the blog listing & filters.
+          category: dbPost.category ? smartTitleCase(dbPost.category) : '',
+          categoryTag: dbPost.category ? smartTitleCase(dbPost.category) : '',
           author: dbPost.author || 'Oceans Kenya',
           authorAvatar: '',
           featured_image: dbPost.featured_image || '',
@@ -77,6 +87,7 @@ export default function BlogDetail() {
           readTime: estimateReadTime(dbPost.body || ''),
           body: dbPost.body || '',
           relatedGuides: [],
+          relatedNeighbourhoods: dbPost.related_neighbourhoods || [],
         };
         setPost(mapped);
       } else {
@@ -92,15 +103,41 @@ export default function BlogDetail() {
     fetchPost();
   }, [fetchPost]);
 
+  // Search-engine metadata + BreadcrumbList structured data for the article.
+  const structuredData = useMemo(() => {
+    if (!post) return undefined;
+    return [
+      buildBreadcrumbSchema([
+        { name: 'Home', path: '/' },
+        { name: 'Neighbourhoods & Guides', path: '/neighbourhoods' },
+        { name: post.title, path: `/blog/${post.slug}` },
+      ]),
+    ];
+  }, [post]);
+
+  useSeoMeta({
+    title: post ? post.title : 'Article',
+    description:
+      post?.excerpt ||
+      'Read the latest neighbourhood and property guide from Oceans Kenya.',
+    path: `/blog/${post?.slug || slug || ''}`,
+    ogImage: post?.featured_image || undefined,
+    schemas: structuredData,
+    noindex: !post,
+  });
+
   const relatedGuides = post?.relatedGuides
     ? [] 
     : [];
+
+  // Only the mall round-up article carries the interactive mall map + nearby listings.
+  const showMallExplorer = post?.slug === 'best-shopping-malls-nairobi-2026';
 
   if (loading) {
     return (
       <div className="min-h-screen">
         <Header />
-        <main className="pt-32 pb-20 px-4 md:px-6">
+        <main className="pt-32 md:pt-40 lg:pt-44 pb-20 px-4 md:px-6">
           <div className="max-w-3xl mx-auto">
             <PageLoader size={56} text="Loading article..." />
           </div>
@@ -115,7 +152,10 @@ export default function BlogDetail() {
     return (
       <div className="min-h-screen">
         <Header />
-        <main className="pt-32 pb-20 px-4 md:px-6">
+        <div className="pt-28 md:pt-40 lg:pt-44">
+          <PageBreadcrumbs current="Article Not Found" showBack={false} />
+        </div>
+        <main className="pb-20 px-4 md:px-6">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="font-roboto font-bold text-3xl text-primary mb-4">Article Not Found</h1>
             <p className="font-roboto text-stone-500 mb-6">
@@ -149,31 +189,18 @@ export default function BlogDetail() {
       <Header />
 
       {/* Article Hero */}
-      <section className="relative pt-28 md:pt-32 pb-12 md:pb-16 overflow-hidden">
+      <section className="relative pt-28 md:pt-40 lg:pt-44 pb-12 md:pb-16 overflow-hidden">
         <div className="absolute inset-0">
           {post.featured_image && (
             <img
               alt={post.title}
-              className="w-full h-full object-cover object-top"
+              className="w-full h-full object-cover object-center"
               src={post.featured_image}
             />
           )}
           <div className="absolute inset-0 bg-primary/80"></div>
         </div>
         <div className="relative max-w-3xl mx-auto px-4 md:px-6">
-          <nav className="mb-6">
-            <ol className="flex items-center gap-2 text-xs font-roboto text-white/60">
-              <li>
-                <Link to="/" className="hover:text-white transition-colors">Home</Link>
-              </li>
-              <li><i className="ri-arrow-right-s-line"></i></li>
-              <li>
-                <Link to="/neighbourhoods" className="hover:text-white transition-colors">Neighbourhoods &amp; Guides</Link>
-              </li>
-              <li><i className="ri-arrow-right-s-line"></i></li>
-              <li className="text-white font-medium">Blog</li>
-            </ol>
-          </nav>
           <div className="flex items-center gap-2 mb-4">
             {post.categoryTag && (
               <span className="px-2.5 py-1 bg-white/15 backdrop-blur-sm text-white text-[10px] font-roboto font-medium rounded-full">
@@ -206,9 +233,12 @@ export default function BlogDetail() {
         </div>
       </section>
 
+      {/* Breadcrumb - reflects the real hierarchy, not browsing history */}
+      <PageBreadcrumbs current={post.title} />
+
       {/* Article Body */}
-      <main className="py-10 md:py-16 bg-white">
-        <div className="max-w-3xl mx-auto px-4 md:px-6">
+      <main className="mobile-flat-headings py-10 md:py-16 bg-white">
+        <div className="max-w-4xl mx-auto px-4 md:px-8 lg:px-12">
           {/* Excerpt */}
           {post.excerpt && (
             <Reveal>
@@ -220,13 +250,23 @@ export default function BlogDetail() {
             </Reveal>
           )}
 
-          {/* Body Content */}
+          {/* Interactive mall map + nearby sale/rent listings — leads the article */}
+          {showMallExplorer && <MallMapExplorer />}
+
+          {/* Body Content — place lists automatically get venue thumbnails */}
           <Reveal delay={100}>
-            <div
-              className="font-roboto text-stone-700 text-sm leading-relaxed space-y-5 [&_h3]:font-roboto font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:leading-relaxed [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:leading-relaxed [&_strong]:text-stone-800 [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:p-2 [&_th]:bg-stone-50 [&_th]:font-roboto [&_th]:font-medium [&_th]:text-stone-600 [&_td]:p-2 [&_td]:border-t [&_td]:border-primary/12 [&_em]:text-stone-500"
-              dangerouslySetInnerHTML={{ __html: sanitizeRichText(post.body) }}
+            <BlogArticleBody
+              html={post.body}
+              className="mobile-flat-rich font-roboto text-stone-700 text-sm leading-relaxed space-y-5 [&_h3]:font-roboto font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:leading-relaxed [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:leading-relaxed [&_strong]:text-stone-800 [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:p-2 [&_th]:bg-stone-50 [&_th]:font-roboto [&_th]:font-medium [&_th]:text-stone-600 [&_td]:p-2 [&_td]:border-t [&_td]:border-primary/12 [&_em]:text-stone-500"
             />
           </Reveal>
+
+          {/* Data-driven amenity counts */}
+          {post.relatedNeighbourhoods.length > 0 && (
+            <div className="mt-12 md:mt-16 pt-8 border-t border-primary/12">
+              <NeighbourhoodAtAGlance neighbourhoodSlugs={post.relatedNeighbourhoods} />
+            </div>
+          )}
 
           {/* Related Neighbourhood Guides */}
           {relatedGuides.length > 0 && (
@@ -244,7 +284,8 @@ export default function BlogDetail() {
                       <div className="relative aspect-[16/10] overflow-hidden">
                         <img
                           alt={guide.name}
-                          className="w-full h-full object-cover object-top transition-transform duration-1000 ease-out group-hover:scale-110"
+                          className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                          style={{ objectPosition: focalPoint }}
                           src={guide.heroImage}
                         />
                         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
@@ -282,14 +323,14 @@ export default function BlogDetail() {
       </main>
 
       {/* CTA */}
-      <div className="max-w-6xl mx-auto px-4 md:px-6 pb-12 md:pb-16">
+      <div className="mobile-flat-headings max-w-6xl mx-auto px-4 md:px-6 pb-12 md:pb-16">
         <Reveal>
           <div className="text-center bg-stone-50 py-10 md:py-14 px-4 md:px-6 rounded-lg">
             <h3 className="font-roboto font-bold text-xl text-primary mb-3">
               Need Personalised Neighbourhood Advice?
             </h3>
             <p className="font-roboto text-stone-500 text-sm max-w-xl mx-auto mb-6">
-              Our agents live and breathe Nairobi&apos;s neighbourhoods. Tell us what matters to you — schools, commute, budget, lifestyle — and we&apos;ll match you with the perfect area.
+              Our agents live and breathe Nairobi&apos;s neighbourhoods. Tell us what matters to you - schools, commute, budget, lifestyle - and we&apos;ll match you with the perfect area.
             </p>
             <Link
               to="/contact"

@@ -63,7 +63,7 @@ export async function geocodeLocation(query: string): Promise<GeocodeResult> {
     }
   }
 
-  // Local fallback — match against known neighbourhoods
+  // Local fallback - match against known neighbourhoods
   const lower = trimmed.toLowerCase();
   for (const [name, coords] of Object.entries(NAIROBI_COORDS)) {
     if (lower.includes(name)) {

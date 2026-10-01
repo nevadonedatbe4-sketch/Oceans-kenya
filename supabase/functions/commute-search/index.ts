@@ -41,6 +41,44 @@ function modeToGoogle(mode: string): string {
   }
 }
 
+// Free, key-free real road-based driving times via the OSRM public demo server.
+// Returns a map of origin index -> { km, min }. Empty map if OSRM is unavailable.
+async function osrmDrivingTimes(
+  origins: { lat: number; lng: number }[],
+  dest: { lat: number; lng: number }
+): Promise<Map<number, { km: number; min: number }>> {
+  const out = new Map<number, { km: number; min: number }>();
+  try {
+    const points = [...origins, dest];
+    const coords = points.map((p) => `${p.lng},${p.lat}`).join(";");
+    const url = `https://router.project-osrm.org/table/v1/driving/${coords}?annotations=duration,distance`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!res.ok) return out;
+    const data = await res.json();
+    if (data.code !== "Ok" || !Array.isArray(data.durations) || !Array.isArray(data.distances)) return out;
+
+    const destIdx = origins.length;
+    origins.forEach((_, i) => {
+      const dur = data.durations[i]?.[destIdx];
+      const dist = data.distances[i]?.[destIdx];
+      if (typeof dur === "number" && typeof dist === "number" && dur > 0 && dist > 0) {
+        out.set(i, {
+          km: Math.round((dist / 1000) * 10) / 10,
+          min: Math.max(1, Math.round(dur / 60)),
+        });
+      }
+    });
+  } catch (_err) {
+    // OSRM unavailable — caller falls back to the straight-line estimate.
+  }
+  return out;
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -66,7 +104,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Always calculate straight-line distances first
+    // Always compute straight-line distance first (reliable baseline).
     const results: CommuteResult[] = listings.map((listing) => ({
       id: listing.id,
       distance_km: haversineKm(listing.lat, listing.lng, destinationLat, destinationLng),
@@ -75,24 +113,23 @@ serve(async (req: Request) => {
       commute_available: false,
     }));
 
-    // Try Google Maps Distance Matrix if API key is configured
-    const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
-    if (apiKey && listings.length > 0) {
-      const validListings = listings.filter(
-        (l) => typeof l.lat === "number" && typeof l.lng === "number"
-      );
+    const validListings = listings.filter(
+      (l) => typeof l.lat === "number" && typeof l.lng === "number"
+    );
 
-      if (validListings.length > 0) {
+    const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+
+    if (validListings.length > 0) {
+      if (apiKey) {
+        // Google Distance Matrix (real traffic) — preferred when key is configured.
         const origins = validListings.map((l) => `${l.lat},${l.lng}`).join("|");
         const dest = `${destinationLat},${destinationLng}`;
         const gmMode = modeToGoogle(transportMode || "driving");
-
         const gmUrl = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origins)}&destinations=${encodeURIComponent(dest)}&mode=${gmMode}&key=${apiKey}`;
 
         try {
           const gmRes = await fetch(gmUrl);
           const gmData = await gmRes.json();
-
           if (gmData.status === "OK" && gmData.rows) {
             gmData.rows.forEach((row: { elements: Array<{ status: string; duration: { value: number; text: string }; distance: { value: number; text: string } }> }, i: number) => {
               const element = row.elements?.[0];
@@ -105,9 +142,20 @@ serve(async (req: Request) => {
             });
           }
         } catch (_err) {
-          // Google API call failed — fall back to straight-line distances
           console.error("Google Distance Matrix API error:", _err);
         }
+      } else {
+        // No key — use OSRM for real road-based driving times (driving mode only).
+        const osrm = await osrmDrivingTimes(
+          validListings.map((l) => ({ lat: l.lat, lng: l.lng })),
+          { lat: destinationLat, lng: destinationLng }
+        );
+        osrm.forEach((val, i) => {
+          results[i].distance_km = val.km;
+          results[i].commute_time_min = val.min;
+          results[i].commute_time_text = `${val.min} min`;
+          results[i].commute_available = true;
+        });
       }
     }
 

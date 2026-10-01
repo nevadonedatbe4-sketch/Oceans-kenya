@@ -6,6 +6,7 @@ import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { logNeighbourhoodDeleted } from '@/lib/activityLogger';
+import { smartTitleCase } from '@/lib/location';
 
 interface Neighbourhood {
   id: string;
@@ -111,25 +112,25 @@ export default function Neighbourhoods() {
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
         <div className="flex items-center gap-3 flex-1 w-full lg:w-auto">
           <div className="relative flex-1 max-w-md">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#636363] text-sm" />
+            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#636363] text-[15px]" />
             <input
               type="text"
               placeholder="Search neighbourhoods..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-roboto focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-white"
+              className="w-full pl-9 pr-4 py-2.5 border border-[#f0f0f0] rounded-lg text-[15px] font-roboto focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-white"
             />
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => navigate('/crm/neighbourhoods/new')}
-            className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto transition-all whitespace-nowrap cursor-pointer"
+            onClick={() => navigate('/admin/neighbourhoods/new')}
+            className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-[15px] font-roboto transition-all whitespace-nowrap cursor-pointer"
           >
             <i className="ri-add-line" />
             Add Neighbourhood
           </button>
-          <span className="text-xs font-roboto text-[#636363]">{total} total</span>
+          <span className="text-[15px] font-roboto text-white/70">{total} total</span>
         </div>
       </div>
 
@@ -150,13 +151,13 @@ export default function Neighbourhoods() {
             <div className="w-12 h-12 rounded-xl bg-[#0d5959]/8 flex items-center justify-center">
               <i className="ri-map-pin-line text-[#0d5959] text-xl" />
             </div>
-            <p className="text-sm font-roboto text-[#636363]">
+            <p className="text-[15px] font-roboto text-[#636363]">
               {total === 0 ? 'No neighbourhoods yet. Add your first one.' : 'No neighbourhoods match your search.'}
             </p>
             {total === 0 && (
               <button
-                onClick={() => navigate('/crm/neighbourhoods/new')}
-                className="text-sm font-roboto text-[#0d5959] hover:text-[#001731] cursor-pointer"
+                onClick={() => navigate('/admin/neighbourhoods/new')}
+                className="text-[15px] font-roboto text-[#0d5959] hover:text-[#001731] cursor-pointer"
               >
                 Create a neighbourhood
               </button>
@@ -166,66 +167,50 @@ export default function Neighbourhoods() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {neighbourhoods.map((hood) => (
-            <div key={hood.id} onClick={() => navigate(`/crm/neighbourhoods/edit/${hood.id}`)} className="bg-white rounded-xl border border-[#f0f0f0] overflow-hidden hover:border-[#0d5959]/20 transition-all group cursor-pointer">
+            <div key={hood.id} onClick={() => navigate(`/admin/neighbourhoods/edit/${hood.id}`)} className="bg-white rounded-xl border border-[#f0f0f0] overflow-hidden hover:border-[#0d5959]/20 transition-all group cursor-pointer">
               <div className="relative h-40">
                 {hood.hero_image ? (
-                  <img src={hood.hero_image} alt={hood.name} className="w-full h-full object-cover" />
+                  <img src={hood.hero_image} alt={smartTitleCase(hood.name)} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-[#f7f8fa] flex items-center justify-center">
                     <i className="ri-map-pin-line text-[#636363] text-3xl" />
                   </div>
                 )}
-                <div className="absolute top-3 left-3 flex gap-1.5">
+              </div>
+              <div className="p-4">
+                <div className="flex items-center gap-1.5 flex-wrap mb-2">
                   {hood.is_featured && (
-                    <span className="text-[10px] font-roboto text-white bg-amber-500 px-2 py-0.5 rounded-full">
-                      <i className="ri-star-fill mr-1" /> Featured
+                    <span className="text-[15px] font-roboto font-medium text-white bg-amber-600 px-2.5 py-0.5 rounded-none">
+                      Featured
                     </span>
                   )}
                   {hood.is_published ? (
-                    <span className="text-[10px] font-roboto text-white bg-emerald-500 px-2 py-0.5 rounded-full">
+                    <span className="text-[15px] font-roboto font-medium text-white bg-emerald-600 px-2.5 py-0.5 rounded-none">
                       Published
                     </span>
                   ) : (
-                    <span className="text-[10px] font-roboto text-[#636363] bg-gray-200 px-2 py-0.5 rounded-full">
+                    <span className="text-[15px] font-roboto font-medium text-white bg-gray-500 px-2.5 py-0.5 rounded-none">
                       Draft
                     </span>
                   )}
                 </div>
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-all">
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/crm/neighbourhoods/edit/${hood.id}`); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#636363] hover:text-[#0d5959] cursor-pointer transition-colors"
-                    >
-                      <i className="ri-edit-line text-sm" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteConfirm(hood.id); }}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white/90 text-[#636363] hover:text-red-600 cursor-pointer transition-colors"
-                    >
-                      <i className="ri-delete-bin-line text-sm" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="p-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h3 className="font-jost text-sm font-medium text-[#001731]">{hood.name}</h3>
-                    <p className="text-xs font-roboto text-[#636363]">{hood.city}, {hood.country}</p>
+                    <h3 className="font-jost text-[15px] font-semibold text-[#001731] leading-snug">{smartTitleCase(hood.name)}</h3>
+                    <p className="text-[15px] font-roboto font-medium text-[#636363] mt-0.5">{hood.city}, {hood.country}</p>
                   </div>
-                  <span className="text-xs font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded-full">
+                  <span className="text-[15px] font-roboto font-semibold text-[#0d5959] bg-[#0d5959]/8 px-2 py-0.5 rounded-full">
                     #{hood.sort_order}
                   </span>
                 </div>
                 {hood.summary && (
-                  <p className="text-xs font-roboto text-[#636363] mt-2 line-clamp-2">{hood.summary}</p>
+                  <p className="text-[15px] font-roboto text-[#5a5a5a] mt-2 line-clamp-2 leading-relaxed">{hood.summary}</p>
                 )}
                 {hood.tags && hood.tags.length > 0 && (
                   <div className="flex items-center gap-1 mt-2 flex-wrap">
                     {hood.tags.map((tag) => (
-                      <span key={tag} className="text-[10px] font-roboto text-[#636363] bg-[#f7f8fa] px-2 py-0.5 rounded-full">
-                        {tag}
+                      <span key={tag} className="text-[15px] font-roboto font-medium text-[#555] bg-[#f7f8fa] px-2 py-0.5 rounded-full">
+                        {smartTitleCase(tag)}
                       </span>
                     ))}
                   </div>
@@ -234,8 +219,8 @@ export default function Neighbourhoods() {
                   <button
                     onClick={(e) => { e.stopPropagation(); handleTogglePublish(hood.id, hood.is_published); }}
                     disabled={togglingId === hood.id}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-roboto transition-all cursor-pointer whitespace-nowrap ${
-                      hood.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-[#f7f8fa] text-[#636363]'
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[15px] font-roboto font-medium transition-all cursor-pointer whitespace-nowrap ${
+                      hood.is_published ? 'bg-emerald-50 text-emerald-700 font-semibold' : 'bg-[#f7f8fa] text-[#636363]'
                     }`}
                   >
                     {hood.is_published ? <i className="ri-eye-line" /> : <i className="ri-eye-off-line" />}
@@ -244,16 +229,22 @@ export default function Neighbourhoods() {
                   <button
                     onClick={(e) => { e.stopPropagation(); handleToggleFeatured(hood.id, hood.is_featured); }}
                     disabled={togglingId === hood.id}
-                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-roboto transition-all cursor-pointer whitespace-nowrap ${
-                      hood.is_featured ? 'bg-amber-50 text-amber-700' : 'bg-[#f7f8fa] text-[#636363]'
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[15px] font-roboto font-medium transition-all cursor-pointer whitespace-nowrap ${
+                      hood.is_featured ? 'bg-amber-50 text-amber-700 font-semibold' : 'bg-[#f7f8fa] text-[#636363]'
                     }`}
                   >
                     <i className="ri-star-line" />
                     {hood.is_featured ? 'Unfeature' : 'Feature'}
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigate(`/crm/neighbourhoods/edit/${hood.id}`); }}
-                    className="ml-auto text-[10px] font-roboto text-[#0d5959] hover:text-[#001731] cursor-pointer"
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(hood.id); }}
+                    className="ml-auto w-7 h-7 flex items-center justify-center rounded-lg text-[#636363] hover:text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                  >
+                    <i className="ri-delete-bin-line text-[15px]" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate(`/admin/neighbourhoods/edit/${hood.id}`); }}
+                    className="text-[15px] font-roboto font-semibold text-[#0d5959] hover:text-[#001731] cursor-pointer"
                   >
                     Edit <i className="ri-arrow-right-line" />
                   </button>
@@ -270,6 +261,7 @@ export default function Neighbourhoods() {
           pageSize={pageSize}
           total={total}
           onPageChange={setPage}
+          tone="light"
         />
       )}
 

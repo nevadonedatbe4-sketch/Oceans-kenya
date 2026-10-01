@@ -13,6 +13,8 @@ export interface JvImageDraft {
 interface JVImageManagerProps {
   images: JvImageDraft[];
   onChange: (images: JvImageDraft[]) => void;
+  /** Storage bucket + path prefix for uploaded images. Defaults to jv-projects. */
+  storageBucket?: string;
 }
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -24,7 +26,7 @@ const MAX_SIZE = 10 * 1024 * 1024; // 10MB
  * reordering, cover selection, alt text, and deletion. The complete image list
  * is always preserved — never reduced to a single "first" image.
  */
-export default function JVImageManager({ images, onChange }: JVImageManagerProps) {
+export default function JVImageManager({ images, onChange, storageBucket = 'jv-projects' }: JVImageManagerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -54,8 +56,8 @@ export default function JVImageManager({ images, onChange }: JVImageManagerProps
     for (const file of files) {
       try {
         const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-        const fileName = `jv-projects/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { url, path } = await uploadImageViaEdgeFunction(file, fileName, 'jv-projects');
+        const fileName = `${storageBucket}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { url, path } = await uploadImageViaEdgeFunction(file, fileName, storageBucket);
         uploaded.push({
           url,
           alt: file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' '),

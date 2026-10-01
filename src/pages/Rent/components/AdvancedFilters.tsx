@@ -1,12 +1,67 @@
-import { useState } from 'react';
-import { defaultFilters, type FilterState } from './filterState';
+import { useState, useEffect } from 'react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface AdvancedFiltersProps {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: FilterState) => void;
   initialFilters: FilterState;
+  /* 'sale' hides rental-only controls (furnishing, availability, price-per,
+     house share, student accommodation) so buy/sale pages read as sales pages. */
+  mode?: 'rent' | 'sale';
 }
+
+export interface FilterState {
+  minPrice: string;
+  maxPrice: string;
+  minBeds: string;
+  maxBeds: string;
+  minBaths: string;
+  propertyTypes: string[];
+  furnished: string[];
+  lettingType: string[];
+  minSize: string;
+  maxSize: string;
+  keywords: string;
+  added: string;
+  mustHaves: string[];
+  keywordsExclude: string;
+  pets: boolean;
+  students: boolean;
+  billsIncluded: boolean;
+  parking: boolean;
+  garden: boolean;
+  balcony: boolean;
+  wheelchair: boolean;
+  chainFree: boolean;
+  sharedAccommodation: boolean;
+}
+
+export const defaultFilters: FilterState = {
+  minPrice: '',
+  maxPrice: '',
+  minBeds: '',
+  maxBeds: '',
+  minBaths: '',
+  propertyTypes: [],
+  furnished: [],
+  lettingType: [],
+  minSize: '',
+  maxSize: '',
+  keywords: '',
+  added: '',
+  mustHaves: [],
+  keywordsExclude: '',
+  pets: false,
+  students: false,
+  billsIncluded: false,
+  parking: false,
+  garden: false,
+  balcony: false,
+  wheelchair: false,
+  chainFree: false,
+  sharedAccommodation: false,
+};
 
 const propertyTypeList = ['Apartment', 'House', 'Villa', 'Penthouse', 'Townhouse', 'Studio', 'Land', 'Commercial'];
 const mustHavesList = ['Garden', 'Parking/garage', 'Balcony/terrace', 'Pets allowed', 'Bills included', 'Swimming pool', 'Gym', 'Power backup'];
@@ -23,7 +78,8 @@ const priceMinOptions = ['No min', '$50K', '$100K', '$200K', '$300K', '$500K', '
 const priceMaxOptions = ['No max', '$50K', '$100K', '$200K', '$300K', '$500K', '$750K', '$1M', '$1.5M', '$2.5M', '$5M', '$10M'];
 const pricePerOptions = ['Daily', 'Weekly', 'Monthly'];
 
-export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilters }: AdvancedFiltersProps) {
+export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilters, mode = 'rent' }: AdvancedFiltersProps) {
+  const isSale = mode === 'sale';
   const [filters, setFilters] = useState<FilterState>({ ...initialFilters });
   const [showAllTypes, setShowAllTypes] = useState(false);
   const [showAllFeatures, setShowAllFeatures] = useState(false);
@@ -52,6 +108,19 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
   const [desktopKeywords, setDesktopKeywords] = useState('');
   const [desktopShowLetAgreed, setDesktopShowLetAgreed] = useState(false);
 
+  // Detect mobile so we only lock body scroll for the bottom sheet (not the inline desktop/tablet panel)
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
+
+  useBodyScrollLock(isOpen && isMobile);
+
   const toggleCheckbox = (key: keyof FilterState, value: string) => {
     const current = (filters[key] as string[]) || [];
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
@@ -62,6 +131,11 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
   const visibleFeatures = showAllFeatures ? propertyFeaturesList : propertyFeaturesList.slice(0, 12);
 
   const mobileVisibleTypes = mobileShowAllTypes ? propertyTypeList : propertyTypeList.slice(0, 8);
+
+  // Sales pages shouldn't offer rental-only must-haves.
+  const activeMustHaves = isSale
+    ? mustHavesList.filter((i) => i !== 'Pets allowed' && i !== 'Bills included')
+    : mustHavesList;
 
   const handleApply = () => {
     const merged: FilterState = {
@@ -153,7 +227,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             <div className="mb-5">
               <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Must-haves</h4>
               <div className="flex flex-wrap gap-x-5 gap-y-2.5">
-                {mustHavesList.map((item) => (
+                {activeMustHaves.map((item) => (
                   <label key={item} className="flex items-center gap-1.5 cursor-pointer group">
                     <input
                       className="sr-only"
@@ -209,7 +283,8 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             </div>
 
             {/* Dropdown grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${isSale ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-4 mb-5`}>
+              {!isSale && (
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Furnishing</label>
                 <select
@@ -220,9 +295,11 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   {furnishingOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
-                  <i className="ri-arrow-down-s-line text-sm"></i>
+                  <i className="ri-arrow-down-wide-fill text-sm"></i>
                 </span>
               </div>
+              )}
+              {!isSale && (
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Availability</label>
                 <select
@@ -233,9 +310,10 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   {availabilityOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
-                  <i className="ri-arrow-down-s-line text-sm"></i>
+                  <i className="ri-arrow-down-wide-fill text-sm"></i>
                 </span>
               </div>
+              )}
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Added to site</label>
                 <select
@@ -246,7 +324,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   {addedOptionsDesktop.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
-                  <i className="ri-arrow-down-s-line text-sm"></i>
+                  <i className="ri-arrow-down-wide-fill text-sm"></i>
                 </span>
               </div>
               <div className="relative">
@@ -259,7 +337,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   {bedsAnyOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
-                  <i className="ri-arrow-down-s-line text-sm"></i>
+                  <i className="ri-arrow-down-wide-fill text-sm"></i>
                 </span>
               </div>
             </div>
@@ -279,7 +357,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </div>
             </div>
 
-            {/* Show let or let agreed */}
+            {/* Show sold */}
             <div className="mb-5 flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -292,7 +370,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${desktopShowLetAgreed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}></div>
                 </div>
               </label>
-              <span className="text-sm font-roboto font-medium text-primary">Show let or let agreed</span>
+              <span className="text-sm font-roboto font-medium text-primary">{isSale ? 'SHOW SOLD' : 'SHOW LET or AGREED LET'}</span>
             </div>
 
             {/* Action buttons */}
@@ -363,7 +441,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             <div className="mb-5">
               <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Must-haves</h4>
               <div className="flex flex-wrap gap-x-5 gap-y-2.5">
-                {mustHavesList.map((item) => (
+                {activeMustHaves.map((item) => (
                   <label key={item} className="flex items-center gap-1.5 cursor-pointer group">
                     <input className="sr-only" type="checkbox" checked={filters.mustHaves.includes(item)} onChange={() => toggleCheckbox('mustHaves', item)} />
                     <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${filters.mustHaves.includes(item) ? 'bg-primary border-primary' : 'border-primary/20 bg-white group-hover:border-primary/30'}`}>
@@ -397,34 +475,38 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             </div>
 
             {/* Dropdown grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${isSale ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-4 mb-5`}>
+              {!isSale && (
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Furnishing</label>
                 <select value={desktopFurnishing} onChange={(e) => setDesktopFurnishing(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {furnishingOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
+              )}
+              {!isSale && (
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Availability</label>
                 <select value={desktopAvailability} onChange={(e) => setDesktopAvailability(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {availabilityOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
+              )}
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Added to site</label>
                 <select value={desktopAdded} onChange={(e) => setDesktopAdded(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {addedOptionsDesktop.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Beds</label>
                 <select value={desktopBeds} onChange={(e) => setDesktopBeds(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {bedsAnyOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
             </div>
 
@@ -437,7 +519,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </div>
             </div>
 
-            {/* Show let or let agreed */}
+            {/* Show sold */}
             <div className="mb-5 flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input className="sr-only" type="checkbox" checked={desktopShowLetAgreed} onChange={() => setDesktopShowLetAgreed(!desktopShowLetAgreed)} />
@@ -445,7 +527,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${desktopShowLetAgreed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}></div>
                 </div>
               </label>
-              <span className="text-sm font-roboto font-medium text-primary">Show let or let agreed</span>
+              <span className="text-sm font-roboto font-medium text-primary">{isSale ? 'SHOW SOLD' : 'SHOW LET or AGREED LET'}</span>
             </div>
 
             {/* Action buttons */}
@@ -467,9 +549,18 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
         </div>
       </div>
 
-      {/* ===== MOBILE Advanced Filters Panel (scrollable) ===== */}
-      <div className="md:hidden mt-2 bg-white border border-primary/20 rounded-lg overflow-hidden max-h-[70vh] overflow-y-auto">
-        <div className="px-4 py-4">
+      {/* ===== MOBILE Advanced Filters Bottom Sheet ===== */}
+      <div className="md:hidden fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-label="Filters">
+        <div className="absolute inset-0 bg-black/50" onClick={onClose}></div>
+        <div className="absolute inset-x-0 bottom-0 max-h-[90dvh] bg-white rounded-t-2xl flex flex-col overflow-hidden shadow-2xl">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10 shrink-0">
+            <span className="text-base font-roboto font-semibold text-primary">Filters</span>
+            <button onClick={onClose} className="w-10 h-10 flex items-center justify-center text-primary rounded-md cursor-pointer hover:bg-primary/5 transition-colors" aria-label="Close filters">
+              <i className="ri-close-line text-xl"></i>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="px-4 py-4">
           {/* Radius */}
           <div className="mb-4">
             <label className="block text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Radius</label>
@@ -486,7 +577,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 <option value="30 miles">30 miles</option>
                 <option value="40 miles">40 miles</option>
               </select>
-              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>
           </div>
 
@@ -501,14 +592,14 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 <select value={mobileMinBeds} onChange={(e) => setMobileMinBeds(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {bedsMinOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Max beds</label>
                 <select value={mobileMaxBeds} onChange={(e) => setMobileMaxBeds(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {bedsMaxOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
             </div>
           </div>
@@ -524,14 +615,14 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 <select value={mobileMinBaths} onChange={(e) => setMobileMinBaths(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {bathsMinOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Max baths</label>
                 <select value={mobileMaxBaths} onChange={(e) => setMobileMaxBaths(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {bathsMaxOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
             </div>
           </div>
@@ -547,23 +638,25 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 <select value={mobileMinPrice} onChange={(e) => setMobileMinPrice(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {priceMinOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Max price</label>
                 <select value={mobileMaxPrice} onChange={(e) => setMobileMaxPrice(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                   {priceMaxOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
             </div>
+            {!isSale && (
             <div className="relative">
               <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Price per</label>
               <select value={mobilePricePer} onChange={(e) => setMobilePricePer(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                 {pricePerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
-              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>
+            )}
           </div>
 
           <div className="w-full h-px bg-primary/5 mb-4"></div>
@@ -591,7 +684,8 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
           <div className="w-full h-px bg-primary/5 mb-4"></div>
 
-          {/* Include, exclude & show only */}
+          {/* Include, exclude & show only (rental-only - hidden for sales) */}
+          {!isSale && (
           <div className="mb-4">
             <h4 className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-2">Include, exclude &amp; show only</h4>
             <div className="flex flex-col gap-3">
@@ -649,6 +743,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </div>
             </div>
           </div>
+          )}
 
           <div className="w-full h-px bg-primary/5 mb-4"></div>
 
@@ -656,7 +751,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
           <div className="mb-4">
             <h4 className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-2">Must-haves</h4>
             <div className="flex flex-wrap gap-x-5 gap-y-2.5">
-              {mustHavesList.map((item) => (
+              {activeMustHaves.map((item) => (
                 <label key={item} className="flex items-center gap-1.5 cursor-pointer group">
                   <input className="sr-only" type="checkbox" checked={filters.mustHaves.includes(item)} onChange={() => toggleCheckbox('mustHaves', item)} />
                   <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors ${filters.mustHaves.includes(item) ? 'bg-primary border-primary' : 'border-primary/20 bg-white group-hover:border-primary/30'}`}>
@@ -672,26 +767,30 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
           {/* Furnishing, Availability, Added */}
           <div className="flex flex-col gap-3 mb-4">
+            {!isSale && (
             <div className="relative">
               <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Furnishing</label>
               <select value={mobileFurnishing} onChange={(e) => setMobileFurnishing(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                 {furnishingOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
-              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>
+            )}
+            {!isSale && (
             <div className="relative">
               <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Availability</label>
               <select value={mobileAvailability} onChange={(e) => setMobileAvailability(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                 {availabilityOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
-              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>
+            )}
             <div className="relative">
               <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Added to site</label>
               <select value={mobileAdded} onChange={(e) => setMobileAdded(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
                 {addedOptionsDesktop.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
-              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-s-line text-sm"></i></span>
+              <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>
           </div>
 
@@ -711,6 +810,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
           {/* Toggles */}
           <div className="mb-5 flex flex-col gap-3">
+            {!isSale && (
             <div className="flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input className="sr-only" type="checkbox" checked={mobileShowLetAgreed} onChange={() => setMobileShowLetAgreed(!mobileShowLetAgreed)} />
@@ -718,8 +818,9 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${mobileShowLetAgreed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}></div>
                 </div>
               </label>
-              <span className="text-[13px] font-roboto font-medium text-primary">Show let or let agreed</span>
+              <span className="text-[13px] font-roboto font-medium text-primary">SHOW LET or AGREED LET</span>
             </div>
+            )}
             <div className="flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
                 <input className="sr-only" type="checkbox" checked={mobileShowSold} onChange={() => setMobileShowSold(!mobileShowSold)} />
@@ -731,12 +832,14 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-primary/10">
-            <button type="button" onClick={handleClear} className="flex items-center gap-2 h-11 px-4 text-base font-roboto font-medium text-primary border border-primary/20 rounded-lg hover:border-primary/50 transition-colors cursor-pointer whitespace-nowrap">
+            </div>
+          </div>
+          {/* Sticky footer actions */}
+          <div className="flex items-center gap-2 px-4 py-3 border-t border-primary/10 bg-white shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <button type="button" onClick={handleClear} className="flex items-center justify-center gap-2 h-11 px-4 text-base font-roboto font-medium text-primary border border-primary/20 rounded-lg hover:border-primary/50 transition-colors cursor-pointer whitespace-nowrap">
               Clear all
             </button>
-            <button type="button" onClick={handleApply} className="flex items-center gap-2 h-11 px-6 bg-primary text-white text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap ml-auto">
+            <button type="button" onClick={handleApply} className="flex items-center justify-center gap-2 h-11 px-6 bg-primary text-white text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap ml-auto flex-1">
               Apply &amp; Search
             </button>
           </div>

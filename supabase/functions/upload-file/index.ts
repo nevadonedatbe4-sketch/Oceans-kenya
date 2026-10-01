@@ -20,6 +20,12 @@ function getBucketForFileType(contentType: string, bucketHint: string): string {
   if (contentType.startsWith('image/')) {
     return 'property-images';
   }
+  if (contentType.startsWith('video/')) {
+    return 'media-library';
+  }
+  if (contentType.startsWith('audio/')) {
+    return 'voice-notes';
+  }
   if (contentType === 'application/pdf') {
     return 'property-documents';
   }
@@ -35,7 +41,7 @@ async function ensureBucket(supabase: any, bucket: string) {
   if (!bucketExists) {
     const { error: createBucketError } = await supabase.storage.createBucket(bucket, {
       public: true,
-      allowedMimeTypes: ['image/*', 'application/pdf', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+      allowedMimeTypes: ['image/*', 'video/*', 'audio/*', 'application/pdf', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/csv', 'text/plain'],
       fileSizeLimit: 52428800,
     });
     if (createBucketError && !createBucketError.message.toLowerCase().includes('already exists')) {
@@ -52,7 +58,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Privileged client (service role) — used ONLY for storage / privileged work.
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    // Separate anon client — used ONLY to verify the caller's JWT.
+    const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
 
     // Verify auth
     const authHeader = req.headers.get('authorization');
@@ -64,7 +73,7 @@ serve(async (req) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser(token);
     if (userError || !userData.user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import type { CompareProperty } from '@/hooks/useCompareToolbar';
 
 interface CompareModalProps {
@@ -26,6 +27,8 @@ function StatBar({ label, values }: { label: string; values: (string | number)[]
 
 export default function CompareModal({ isOpen, onClose, properties, onRemove }: CompareModalProps) {
   const { format } = useCurrency();
+
+  useBodyScrollLock(isOpen && properties.length >= 2);
 
   if (!isOpen || properties.length < 2) return null;
 
@@ -115,9 +118,9 @@ export default function CompareModal({ isOpen, onClose, properties, onRemove }: 
                   <StatBar label="Type" values={properties.map((p) => p.type === 'sale' ? 'For Sale' : 'For Rent')} />
                   <StatBar label="Category" values={properties.map((p) => p.category)} />
                   <StatBar label="Location" values={properties.map((p) => p.location)} />
-                  <StatBar label="Bedrooms" values={properties.map((p) => p.beds || '—')} />
-                  <StatBar label="Bathrooms" values={properties.map((p) => p.baths || '—')} />
-                  <StatBar label="Parking" values={properties.map((p) => p.parking || '—')} />
+                  <StatBar label="Bedrooms" values={properties.map((p) => p.beds || '-')} />
+                  <StatBar label="Bathrooms" values={properties.map((p) => p.baths || '-')} />
+                  <StatBar label="Parking" values={properties.map((p) => p.parking || '-')} />
                 </tbody>
               </table>
             </div>

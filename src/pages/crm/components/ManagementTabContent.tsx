@@ -6,7 +6,7 @@ import {
   Save, Loader2, Settings, Palette, Type, Layout, Image, Search,
   Upload, X, ArrowUp, ArrowDown, GripVertical,
   Globe, Share2, DollarSign, MapPin, Phone, Mail, Home, Eye, EyeOff,
-  Grid3X3, CreditCard, FileText, ChevronRight, ExternalLink, RefreshCw,
+  Grid3X3, CreditCard, FileText, ExternalLink, RefreshCw,
   Info, Building2, Bell,
 } from 'lucide-react';
 
@@ -783,7 +783,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-stone-700 block">Watermark Text</label>
                   <input
-                    type="text" placeholder="e.g. oceans.co.ke"
+                    type="text" placeholder="e.g. oceanske.com"
                     value={getPropSetting('watermark_text') || ''}
                     onChange={(e) => setPropSetting('watermark_text', e.target.value)}
                     className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-[#1B4332] focus:ring-1 focus:ring-[#1B4332]/20 transition-colors bg-white"
@@ -1208,10 +1208,10 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
           <SectionCard title="Live Preview">
             <div className="space-y-1 text-sm font-roboto text-[#1a1a2e]">
               <p className="font-semibold">{getSite('site_name') || 'Oceans Kenya'}</p>
-              <p className="text-gray-500 text-xs">{getSite('address') || 'Riverside Drive, Westlands, Nairobi'}</p>
-              <p className="text-gray-500 text-xs">{getSite('contact_phone') || '+254 703712984'}</p>
+              <p className="text-gray-500 text-xs">{getSite('address') || 'Plot 9, Mandera Rd, Nairobi'}</p>
+              <p className="text-gray-500 text-xs">{getSite('contact_phone') || '+254 181 408 186'}</p>
               <p className="text-gray-500 text-xs">{getSite('contact_email') || 'ask@oceanske.com'}</p>
-              <p className="text-gray-500 text-xs">WhatsApp: {getSite('whatsapp_number') || '+254 703712984'}</p>
+              <p className="text-gray-500 text-xs">WhatsApp: {getSite('whatsapp_number') || '+254 181 408 186'}</p>
             </div>
           </SectionCard>
 
@@ -1337,6 +1337,16 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
               </Field>
             </div>
             <ColorField label="Property Pin Color" keyName="property_pin_color" value={getMap('property_pin_color')} onChange={setMap} />
+            <Field label="Commute Time Default Range">
+              <SelectInput value={getMap('commute_default_time_range') || '30'} onChange={(v) => setMap('commute_default_time_range', v)} options={[
+                { value: '15', label: 'Under 15 min' },
+                { value: '30', label: 'Under 30 min' },
+                { value: '45', label: 'Under 45 min' },
+                { value: '60', label: 'Under 1 hour' },
+                { value: '999', label: 'Any' },
+              ]} />
+              <p className="text-xs text-stone-400 mt-1">Initial time filter shown when visitors open the Commute Time page.</p>
+            </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <ToggleRow label="Show Map on Property Pages" desc="Display map on individual property detail pages" value={getMap('show_map_on_property_pages') === 'true'} onToggle={() => toggleMap('show_map_on_property_pages')} />
               <ToggleRow label="Show Neighbourhood Map" desc="Display map on neighbourhood pages" value={getMap('show_neighbourhood_map') === 'true'} onToggle={() => toggleMap('show_neighbourhood_map')} />
@@ -1428,7 +1438,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                       disabled={index === detailLayout.length - 1}
                       className="w-5 h-4 flex items-center justify-center text-stone-300 hover:text-stone-600 disabled:opacity-20 cursor-pointer"
                     >
-                      <i className="ri-arrow-down-s-line text-xs"></i>
+                      <i className="ri-arrow-down-wide-fill text-xs"></i>
                     </button>
                   </div>
                   <span className="w-6 h-6 flex items-center justify-center text-xs font-bold text-stone-400 shrink-0">{index + 1}</span>
@@ -2484,7 +2494,7 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
             <p className="text-[13px] text-stone-500 font-roboto">
               Manage admin navigation items from the Menu Manager page. Changes to menu order, visibility and permissions are controlled there.
             </p>
-            <Link to="/crm/menu" className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1B4332] text-white rounded-lg text-[13px] font-roboto transition-all hover:bg-[#15382A]">
+            <Link to="/admin/menu" className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1B4332] text-white rounded-lg text-[13px] font-roboto transition-all hover:bg-[#15382A]">
               <Settings size={14} />
               Open Menu Manager
             </Link>

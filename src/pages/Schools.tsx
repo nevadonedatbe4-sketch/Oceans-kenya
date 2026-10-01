@@ -1,224 +1,258 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
+import { useAmenities } from '@/hooks/useAmenities';
+import { haversineDistance, formatDistance } from '@/lib/distance';
+import { withReturnFrom, useCurrentPath } from '@/lib/navigation';
+import { CARD_HEIGHT, CARD_IMAGE_FRAME, CARD_IMAGE, CARD_BODY } from '@/lib/cardLayout';
+import {
+  schoolCategoryLabel,
+  getFeatures,
+  getCurriculum,
+  getLevels,
+  getFeeRange,
+  amenityImage,
+  type Amenity,
+} from '@/lib/amenities';
 
+// Nairobi CBD reference point for "distance from centre" labels
+const CBD = { lat: -1.286389, lng: 36.817223 };
 
-interface School {
-  id: string;
-  name: string;
-  type: 'Primary' | 'Secondary' | 'International' | 'Nursery';
-  curriculum: string;
-  location: string;
-  rating: number;
-  distance: string;
-  fees: string;
-  established: number;
-  students: number;
-  image: string;
-  features: string[];
-}
+const CATEGORY_BADGE_COLORS: Record<string, string> = {
+  international_school: 'bg-accent',
+  primary_school: 'bg-[#C05621]',
+  secondary_school: 'bg-[#556B2F]',
+  kindergarten: 'bg-[#B7791F]',
+  university: 'bg-[#1F7A6E]',
+  college: 'bg-[#8A6D3B]',
+  nursery: 'bg-[#B7791F]',
+  daycare: 'bg-[#B7791F]',
+  local: 'bg-[#6B4423]',
+};
 
-const schools: School[] = [
+/** Order the Level filter options sensibly rather than alphabetically. */
+const LEVEL_ORDER = ['Kindergarten', 'Primary', 'Secondary', 'College', 'University'];
+
+/** School-type categories that are intentionally hidden from the directory pills. */
+const HIDDEN_TYPE_KEYS = ['other', 'tuition'];
+
+/**
+ * School-type pills that always appear on the directory - even before any
+ * listing uses them - so the categories are in place ready for future data.
+ * Each group matches one or more underlying subcategory keys.
+ */
+const FEATURED_TYPE_GROUPS: { key: string; label: string; match: string[] }[] = [
   {
-    id: '1',
-    name: 'Brookhouse School',
-    type: 'International',
-    curriculum: 'British (IGCSE / A-Levels)',
-    location: 'Karen',
-    rating: 4.8,
-    distance: '1.2 km',
-    fees: 'KSh 1.2M - 2.5M per year',
-    established: 1981,
-    students: 800,
-    image: 'https://readdy.ai/api/search-image?query=Modern%20private%20school%20campus%20with%20red%20brick%20buildings%20and%20green%20sports%20fields%20in%20Nairobi%20Kenya%20on%20a%20sunny%20day%20with%20blue%20sky%20and%20white%20clouds%2C%20professional%20architectural%20photography%2C%20warm%20lighting%2C%20clean%20composition&width=600&height=400&seq=1&orientation=landscape',
-    features: ['Boarding', 'Swimming pool', 'Equestrian centre', 'STEM lab'],
+    key: 'institution',
+    label: 'Institutions',
+    match: ['college', 'university', 'vocational', 'training_centre', 'professional_training'],
   },
-  {
-    id: '2',
-    name: 'Peponi School',
-    type: 'International',
-    curriculum: 'British (IGCSE)',
-    location: 'Runda',
-    rating: 4.7,
-    distance: '0.8 km',
-    fees: 'KSh 1.5M - 2.8M per year',
-    established: 1989,
-    students: 650,
-    image: 'https://readdy.ai/api/search-image?query=Prestigious%20international%20school%20campus%20with%20colonial%20style%20buildings%20and%20lush%20green%20gardens%20in%20Nairobi%20Kenya%2C%20warm%20golden%20afternoon%20light%2C%20professional%20real%20estate%20photography%2C%20elegant%20architecture&width=600&height=400&seq=2&orientation=landscape',
-    features: ['Boarding', 'Tennis courts', 'Theatre', 'Music academy'],
-  },
-  {
-    id: '3',
-    name: 'Nairobi International School',
-    type: 'International',
-    curriculum: 'American (AP)',
-    location: 'Kilimani',
-    rating: 4.6,
-    distance: '1.5 km',
-    fees: 'KSh 1.1M - 2.2M per year',
-    established: 2003,
-    students: 500,
-    image: 'https://readdy.ai/api/search-image?query=Modern%20contemporary%20school%20building%20with%20glass%20windows%20and%20concrete%20architecture%20in%20Nairobi%20Kenya%2C%20clean%20minimalist%20design%2C%20professional%20architectural%20photography%2C%20bright%20daylight%2C%20blue%20sky&width=600&height=400&seq=3&orientation=landscape',
-    features: ['Day school', 'Robotics club', 'Art studio', 'Basketball court'],
-  },
-  {
-    id: '4',
-    name: 'St. Marys School Nairobi',
-    type: 'Secondary',
-    curriculum: 'KCSE / IB',
-    location: 'Lavington',
-    rating: 4.5,
-    distance: '0.5 km',
-    fees: 'KSh 350K - 600K per year',
-    established: 1939,
-    students: 1200,
-    image: 'https://readdy.ai/api/search-image?query=Historic%20Catholic%20boys%20school%20with%20stone%20chapel%20and%20traditional%20buildings%20in%20Nairobi%20Kenya%2C%20established%20institution%20with%20green%20lawns%20and%20mature%20trees%2C%20warm%20natural%20lighting%2C%20professional%20photography&width=600&height=400&seq=4&orientation=landscape',
-    features: ['Boarding', 'Chapel', 'Rugby pitch', 'Science labs'],
-  },
-  {
-    id: '5',
-    name: 'Kilimani Junior Academy',
-    type: 'Primary',
-    curriculum: 'British / KCPE',
-    location: 'Kilimani',
-    rating: 4.4,
-    distance: '0.3 km',
-    fees: 'KSh 200K - 400K per year',
-    established: 1995,
-    students: 400,
-    image: 'https://readdy.ai/api/search-image?query=Colorful%20primary%20school%20campus%20with%20playground%20and%20modern%20classrooms%20in%20Nairobi%20Kenya%2C%20vibrant%20children%20playground%20equipment%2C%20bright%20cheerful%20architecture%2C%20sunny%20day%20with%20blue%20sky&width=600&height=400&seq=5&orientation=landscape',
-    features: ['Day school', 'Playground', 'Swimming pool', 'Library'],
-  },
-  {
-    id: '6',
-    name: 'Runda Academy',
-    type: 'Primary',
-    curriculum: 'British (Key Stages)',
-    location: 'Runda',
-    rating: 4.3,
-    distance: '1.0 km',
-    fees: 'KSh 250K - 450K per year',
-    established: 2001,
-    students: 350,
-    image: 'https://readdy.ai/api/search-image?query=Small%20private%20primary%20school%20with%20charming%20single-story%20buildings%20and%20manicured%20gardens%20in%20Nairobi%20Kenya%2C%20quaint%20educational%20facility%2C%20warm%20afternoon%20light%2C%20professional%20photography&width=600&height=400&seq=6&orientation=landscape',
-    features: ['Day school', 'Garden', 'Football pitch', 'Computer lab'],
-  },
-  {
-    id: '7',
-    name: 'Westlands Academy',
-    type: 'International',
-    curriculum: 'Montessori / British',
-    location: 'Westlands',
-    rating: 4.5,
-    distance: '0.7 km',
-    fees: 'KSh 800K - 1.5M per year',
-    established: 1998,
-    students: 450,
-    image: 'https://readdy.ai/api/search-image?query=Modern%20international%20school%20with%20Montessori%20learning%20spaces%20and%20outdoor%20play%20areas%20in%20Nairobi%20Kenya%2C%20contemporary%20educational%20architecture%2C%20natural%20light%2C%20green%20landscaping%2C%20professional%20photography&width=600&height=400&seq=7&orientation=landscape',
-    features: ['Day school', 'Montessori', 'Swimming', 'Music room'],
-  },
-  {
-    id: '8',
-    name: 'Lavington Primary School',
-    type: 'Primary',
-    curriculum: 'KCPE',
-    location: 'Lavington',
-    rating: 4.2,
-    distance: '0.4 km',
-    fees: 'KSh 150K - 300K per year',
-    established: 1962,
-    students: 600,
-    image: 'https://readdy.ai/api/search-image?query=Traditional%20Kenyan%20primary%20school%20with%20red%20tile%20roofs%20and%20spacious%20assembly%20grounds%20in%20Nairobi%20Kenya%2C%20established%20public%20institution%2C%20mature%20trees%2C%20warm%20natural%20lighting%2C%20professional%20photography&width=600&height=400&seq=8&orientation=landscape',
-    features: ['Day school', 'Assembly hall', 'Netball court', 'Garden'],
-  },
-  {
-    id: '9',
-    name: 'Muthaiga Prep School',
-    type: 'Nursery',
-    curriculum: 'Early Years / Montessori',
-    location: 'Muthaiga',
-    rating: 4.6,
-    distance: '0.6 km',
-    fees: 'KSh 300K - 550K per year',
-    established: 1985,
-    students: 180,
-    image: 'https://readdy.ai/api/search-image?query=Cozy%20nursery%20school%20with%20colorful%20outdoor%20play%20area%20and%20small%20classroom%20buildings%20in%20Nairobi%20Kenya%2C%20warm%20welcoming%20early%20education%20center%2C%20bright%20cheerful%20colors%2C%20sunny%20day%2C%20professional%20photography&width=600&height=400&seq=9&orientation=landscape',
-    features: ['Day school', 'Nursery', 'Playground', 'Sandpit'],
-  },
-  {
-    id: '10',
-    name: 'Karen C Secondary',
-    type: 'Secondary',
-    curriculum: 'KCSE',
-    location: 'Karen',
-    rating: 4.1,
-    distance: '1.8 km',
-    fees: 'KSh 180K - 350K per year',
-    established: 1975,
-    students: 900,
-    image: 'https://readdy.ai/api/search-image?query=Secondary%20school%20campus%20with%20multiple%20classroom%20blocks%20and%20sports%20field%20in%20Nairobi%20Kenya%2C%20functional%20educational%20facility%2C%20wide%20open%20grounds%2C%20warm%20afternoon%20light%2C%20professional%20photography&width=600&height=400&seq=10&orientation=landscape',
-    features: ['Day & Boarding', 'Rugby', 'Labs', 'Library'],
-  },
+  { key: 'language_school', label: 'Language Schools', match: ['language_school'] },
 ];
 
-const schoolTypeFilters = ['All', 'Primary', 'Secondary', 'International', 'Nursery'];
-const curriculumFilters = ['All', 'British', 'American', 'KCSE', 'KCPE', 'Montessori', 'IB'];
+/** Split a comma/newline separated attribute value into clean tokens. */
+function splitTokens(value: string): string[] {
+  return value
+    .split(/[,\n]/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
 
-function StarRating({ rating }: { rating: number }) {
+/** Turn a raw subcategory key into a display label when there is no mapping. */
+function prettyTypeLabel(key: string): string {
+  if (!key || key === 'other') return 'Other';
+  const known = schoolCategoryLabel(key);
+  if (known && known !== key) return known;
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Display label for a type filter key, including the always-visible groups. */
+function typeLabel(key: string): string {
+  const group = FEATURED_TYPE_GROUPS.find((g) => g.key === key);
+  return group ? group.label : prettyTypeLabel(key);
+}
+
+/** Does a school with this subcategory belong under the selected type filter? */
+function matchesType(type: string, subcategory: string | null): boolean {
+  if (type === 'other') return !subcategory;
+  const group = FEATURED_TYPE_GROUPS.find((g) => g.key === type);
+  if (group) return group.match.includes(subcategory || '');
+  return subcategory === type;
+}
+
+function StarRating({ rating }: { rating: number | null }) {
+  const r = Math.round(rating ?? 0);
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
-        <i
-          key={s}
-          className={`ri-star-fill text-xs ${s <= Math.round(rating) ? 'text-golden' : 'text-gray-300'}`}
-        ></i>
+        <i key={s} className={`ri-star-fill text-xs ${s <= r ? 'text-golden' : 'text-gray-300'}`} />
       ))}
-      <span className="text-xs font-roboto text-primary/60 ml-1">{rating}</span>
+      {rating != null && <span className="text-xs font-roboto text-primary/60 ml-1">{rating}</span>}
     </div>
   );
 }
 
+function distanceFromCbd(school: Amenity): number | null {
+  if (school.latitude == null || school.longitude == null) return null;
+  return haversineDistance(CBD.lat, CBD.lng, school.latitude, school.longitude);
+}
+
 export default function Schools() {
-  const [selectedType, setSelectedType] = useState('All');
-  const [selectedCurriculum, setSelectedCurriculum] = useState('All');
+  const currentPath = useCurrentPath();
+  // ── Filters live in the URL, so every pill / sidebar item is a real,
+  //    shareable link that always drives the results below. ──
+  const [params, setParams] = useSearchParams();
+  const type = params.get('type') || 'all';
+  const area = params.get('area') || 'all';
+  const level = params.get('level') || 'all';
+  const curriculum = params.get('curriculum') || 'all';
+
+  const { amenities, loading, error, refetch } = useAmenities({ category: 'education' });
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  const filtered = schools.filter((s) => {
-    const typeMatch = selectedType === 'All' || s.type === selectedType;
-    const curriculumMatch = selectedCurriculum === 'All' || s.curriculum.includes(selectedCurriculum);
-    const searchMatch = searchQuery === '' || s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.location.toLowerCase().includes(searchQuery.toLowerCase());
-    return typeMatch && curriculumMatch && searchMatch;
-  });
+  /** Build a new /schools search string, overriding some params ('' / 'all' clears). */
+  const buildSearch = (overrides: Record<string, string>) => {
+    const next = new URLSearchParams(params);
+    Object.entries(overrides).forEach(([k, v]) => {
+      if (!v || v === 'all') next.delete(k);
+      else next.set(k, v);
+    });
+    const s = next.toString();
+    return s ? `?${s}` : '';
+  };
+
+  // ── Filter options are derived live from the data, so they always reflect
+  //    what is actually in the directory (School Type, Level, Curriculum). ──
+  const typeOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    amenities.forEach((s) => {
+      const key = s.subcategory || 'other';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const featuredKeys = new Set(FEATURED_TYPE_GROUPS.map((g) => g.key));
+    const derived = Object.entries(counts)
+      .filter(([key]) => !HIDDEN_TYPE_KEYS.includes(key) && !featuredKeys.has(key))
+      .map(([key, count]) => ({ key, label: prettyTypeLabel(key), count }))
+      .sort((a, b) => b.count - a.count);
+    // Always-visible groups, so the category is present even with no listings yet.
+    const featured = FEATURED_TYPE_GROUPS.map((g) => ({
+      key: g.key,
+      label: g.label,
+      count: amenities.filter((s) => g.match.includes(s.subcategory || '')).length,
+    }));
+    return [...derived, ...featured];
+  }, [amenities]);
+
+  const levelOptions = useMemo(() => {
+    const set = new Set<string>();
+    amenities.forEach((s) => splitTokens(getLevels(s)).forEach((t) => set.add(t)));
+    const all = Array.from(set);
+    all.sort((a, b) => {
+      const ai = LEVEL_ORDER.indexOf(a);
+      const bi = LEVEL_ORDER.indexOf(b);
+      if (ai === -1 && bi === -1) return a.localeCompare(b);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+    return all;
+  }, [amenities]);
+
+  const curriculumOptions = useMemo(() => {
+    const set = new Set<string>();
+    amenities.forEach((s) => splitTokens(getCurriculum(s)).forEach((t) => set.add(t)));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [amenities]);
+
+  const areaOptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    amenities.forEach((s) => {
+      const n = s.neighbourhood_name;
+      if (n) counts[n] = (counts[n] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [amenities]);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return amenities.filter((s) => {
+      const typeMatch = type === 'all' || matchesType(type, s.subcategory);
+      const areaMatch = area === 'all' || (s.neighbourhood_name || '') === area;
+      const levelMatch = level === 'all' || splitTokens(getLevels(s)).includes(level);
+      const curriculumMatch =
+        curriculum === 'all' || splitTokens(getCurriculum(s)).includes(curriculum);
+      const searchMatch =
+        q === '' ||
+        s.name.toLowerCase().includes(q) ||
+        (s.neighbourhood_name || '').toLowerCase().includes(q) ||
+        getCurriculum(s).toLowerCase().includes(q) ||
+        getLevels(s).toLowerCase().includes(q) ||
+        prettyTypeLabel(s.subcategory || 'other').toLowerCase().includes(q);
+      return typeMatch && areaMatch && levelMatch && curriculumMatch && searchMatch;
+    });
+  }, [amenities, type, area, level, curriculum, searchQuery]);
+
+  const hasActiveFilter =
+    type !== 'all' || area !== 'all' || level !== 'all' || curriculum !== 'all' || searchQuery !== '';
+
+  const clearAll = () => {
+    setParams(new URLSearchParams());
+    setSearchQuery('');
+  };
+
+  // Breadcrumbs describe the site hierarchy (Home → Nairobi → Area → Schools).
+  const breadcrumbItems = useMemo(() => {
+    const items: { label: string; to?: string }[] = [
+      { label: 'Home', to: '/' },
+      { label: 'Nairobi', to: '/neighbourhoods' },
+    ];
+    if (area !== 'all') {
+      items.push({ label: area, to: `/schools?area=${encodeURIComponent(area)}` });
+    }
+    items.push({ label: 'Schools' });
+    return items;
+  }, [area]);
+
+  const pillClass = (active: boolean) =>
+    `px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${
+      active ? 'bg-primary text-white' : 'bg-gray-100 text-primary hover:bg-gray-200'
+    }`;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[120px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero */}
-      <div className="relative h-[320px] md:h-[400px] overflow-hidden">
-        <img
-          src="https://readdy.ai/api/search-image?query=Aerial%20view%20of%20Nairobi%20school%20campus%20with%20green%20sports%20fields%20and%20modern%20buildings%20surrounded%20by%20trees%2C%20warm%20golden%20hour%20lighting%2C%20professional%20drone%20photography%2C%20beautiful%20educational%20facility%20landscape%2C%20Kenya&width=1400&height=500&seq=11&orientation=landscape"
-          alt="Schools in Nairobi"
-          className="w-full h-full object-cover object-top"
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/90 via-primary/80 to-primary/50"></div>
+      <div className="relative h-[320px] md:h-[400px] overflow-hidden bg-primary">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-accent/80"></div>
+        <div
+          className="absolute inset-0 opacity-[0.08]"
+          style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #ffffff 1.2px, transparent 0)', backgroundSize: '26px 26px' }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-primary/40"></div>
         <div className="absolute inset-0 flex items-center justify-center text-center px-4">
-          <div>
+          <div className="w-full">
             <h1 className="text-white font-roboto font-bold text-3xl md:text-4xl mb-3">Schools in Nairobi</h1>
             <p className="text-white/80 font-roboto text-sm md:text-base max-w-lg mx-auto">
-              Discover the best schools in every neighbourhood. Find properties near top-rated institutions for your family.
+              International, Montessori, and university options across every neighbourhood - find your family&apos;s fit.
             </p>
           </div>
         </div>
       </div>
 
+      {/* Breadcrumb - reflects the real hierarchy, not browsing history */}
+      <PageBreadcrumbs items={breadcrumbItems} />
+
       {/* Search + Filters */}
-      <div className="sticky top-[92px] z-40 bg-white border-b border-primary/12 shadow-sm">
-        <div className="px-4 md:px-6 lg:px-10 py-3 max-w-[1400px] mx-auto">
+      <div className="sticky top-[60px] md:top-[120px] z-30 bg-white border-b border-primary/12 shadow-sm">
+        <div className="px-4 md:px-6 lg:px-10 py-3 max-w-[1400px] mx-auto space-y-3">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <div className="flex items-center gap-2.5 px-4 h-10 bg-white border border-primary/20 rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/20">
@@ -228,7 +262,7 @@ export default function Schools() {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Looking for"
+                  placeholder="Search schools, areas or curriculums"
                   className="flex-1 min-w-0 text-sm font-roboto text-gray-800 placeholder:text-gray-400 focus:outline-none bg-transparent"
                 />
                 {searchQuery && (
@@ -238,52 +272,187 @@ export default function Schools() {
                 )}
               </div>
             </div>
-            <div className="hidden md:flex items-center gap-2">
-              {schoolTypeFilters.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setSelectedType(t)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${selectedType === t ? 'bg-primary text-white' : 'bg-gray-100 text-primary hover:bg-gray-200'}`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+
             <div className="hidden md:flex items-center gap-2">
               <div className="relative">
                 <select
-                  value={selectedCurriculum}
-                  onChange={(e) => setSelectedCurriculum(e.target.value)}
-                  className="appearance-none h-9 px-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  value={area}
+                  onChange={(e) => setParams(new URLSearchParams(buildSearch({ area: e.target.value })), { replace: true })}
+                  className="appearance-none h-9 pl-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  aria-label="Filter by area"
                 >
-                  {curriculumFilters.map((c) => (
-                    <option key={c}>{c === 'All' ? 'All curriculums' : c}</option>
+                  <option value="all">All areas</option>
+                  {areaOptions.map((a) => (
+                    <option key={a.name} value={a.name}>{a.name}</option>
                   ))}
                 </select>
-                <i className="ri-arrow-down-s-line absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+                <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              </div>
+              <div className="relative">
+                <select
+                  value={level}
+                  onChange={(e) => setParams(new URLSearchParams(buildSearch({ level: e.target.value })), { replace: true })}
+                  className="appearance-none h-9 pl-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  aria-label="Filter by level"
+                >
+                  <option value="all">All levels</option>
+                  {levelOptions.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
+              </div>
+              <div className="relative">
+                <select
+                  value={curriculum}
+                  onChange={(e) => setParams(new URLSearchParams(buildSearch({ curriculum: e.target.value })), { replace: true })}
+                  className="appearance-none h-9 pl-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  aria-label="Filter by curriculum"
+                >
+                  <option value="all">All curriculums</option>
+                  {curriculumOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none"></i>
               </div>
             </div>
+
             <button
               onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 border border-primary/20 rounded-lg text-xs font-roboto text-primary cursor-pointer"
+              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 border border-primary/20 rounded-lg text-xs font-roboto text-primary cursor-pointer whitespace-nowrap"
             >
               <i className="ri-equalizer-line text-xs"></i>
               Filters
             </button>
           </div>
 
-          {/* Mobile filters */}
+          {/* School Type pills (desktop) - real links that filter the results */}
+          <div className="hidden md:flex items-center gap-2 flex-wrap">
+            <Link to={{ pathname: '/schools', search: buildSearch({ type: 'all' }) }} className={pillClass(type === 'all')}>
+              All schools
+            </Link>
+            {typeOptions.map((t) => (
+              <Link
+                key={t.key}
+                to={{ pathname: '/schools', search: buildSearch({ type: t.key }) }}
+                className={pillClass(type === t.key)}
+              >
+                {t.label}{' '}
+                <span className={type === t.key ? 'text-white/60' : 'text-primary/40'}>{t.count}</span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Mobile filter panel */}
           {showMobileFilters && (
-            <div className="md:hidden flex flex-wrap gap-2 mt-3 pb-2">
-              {schoolTypeFilters.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setSelectedType(t)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-roboto font-medium cursor-pointer transition-colors whitespace-nowrap ${selectedType === t ? 'bg-primary text-white' : 'bg-gray-100 text-primary hover:bg-gray-200'}`}
+            <div className="md:hidden pb-1 space-y-3">
+              <div>
+                <p className="text-[11px] font-roboto font-semibold text-gray-400 uppercase tracking-wider mb-2">School type</p>
+                <div className="flex flex-wrap gap-2">
+                  <Link to={{ pathname: '/schools', search: buildSearch({ type: 'all' }) }} className={pillClass(type === 'all')}>
+                    All
+                  </Link>
+                  {typeOptions.map((t) => (
+                    <Link
+                      key={t.key}
+                      to={{ pathname: '/schools', search: buildSearch({ type: t.key }) }}
+                      className={pillClass(type === t.key)}
+                    >
+                      {t.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={area}
+                  onChange={(e) => setParams(new URLSearchParams(buildSearch({ area: e.target.value })), { replace: true })}
+                  className="flex-1 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  aria-label="Filter by area"
                 >
-                  {t}
+                  <option value="all">All areas</option>
+                  {areaOptions.map((a) => (
+                    <option key={a.name} value={a.name}>{a.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={level}
+                  onChange={(e) => setParams(new URLSearchParams(buildSearch({ level: e.target.value })), { replace: true })}
+                  className="flex-1 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  aria-label="Filter by level"
+                >
+                  <option value="all">All levels</option>
+                  {levelOptions.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+                <select
+                  value={curriculum}
+                  onChange={(e) => setParams(new URLSearchParams(buildSearch({ curriculum: e.target.value })), { replace: true })}
+                  className="flex-1 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
+                  aria-label="Filter by curriculum"
+                >
+                  <option value="all">All curriculums</option>
+                  {curriculumOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Active filters */}
+          {hasActiveFilter && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-roboto font-semibold text-gray-400 uppercase tracking-wider">Active</span>
+              {type !== 'all' && (
+                <Link
+                  to={{ pathname: '/schools', search: buildSearch({ type: 'all' }) }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-roboto font-medium hover:bg-primary/20 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {typeLabel(type)} <i className="ri-close-line"></i>
+                </Link>
+              )}
+              {area !== 'all' && (
+                <Link
+                  to={{ pathname: '/schools', search: buildSearch({ area: 'all' }) }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-roboto font-medium hover:bg-primary/20 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {area} <i className="ri-close-line"></i>
+                </Link>
+              )}
+              {level !== 'all' && (
+                <Link
+                  to={{ pathname: '/schools', search: buildSearch({ level: 'all' }) }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-roboto font-medium hover:bg-primary/20 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {level} <i className="ri-close-line"></i>
+                </Link>
+              )}
+              {curriculum !== 'all' && (
+                <Link
+                  to={{ pathname: '/schools', search: buildSearch({ curriculum: 'all' }) }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-roboto font-medium hover:bg-primary/20 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {curriculum} <i className="ri-close-line"></i>
+                </Link>
+              )}
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-roboto font-medium hover:bg-primary/20 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  {searchQuery} <i className="ri-close-line"></i>
                 </button>
-              ))}
+              )}
+              <button
+                onClick={clearAll}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-roboto font-medium text-primary/70 hover:bg-gray-100 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <i className="ri-refresh-line text-xs"></i>
+                Reset
+              </button>
             </div>
           )}
         </div>
@@ -293,8 +462,10 @@ export default function Schools() {
       <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <p className="text-xs font-roboto text-gray-500">
           Showing <span className="text-primary font-semibold">{filtered.length}</span> schools
-          {selectedType !== 'All' && ` in ${selectedType}`}
-          {selectedCurriculum !== 'All' && ` with ${selectedCurriculum} curriculum`}
+          {type !== 'all' && ` in ${typeLabel(type)}`}
+          {area !== 'all' && ` in ${area}`}
+          {level !== 'all' && ` at ${level} level`}
+          {curriculum !== 'all' && ` teaching ${curriculum}`}
           {searchQuery && ` matching "${searchQuery}"`}
         </p>
       </div>
@@ -304,148 +475,216 @@ export default function Schools() {
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Schools List */}
           <div className="lg:w-[65%] xl:w-[70%]">
-            <div className="space-y-4">
-              {filtered.map((school) => (
-                <div
-                  key={school.id}
-                  className="flex flex-col sm:flex-row bg-white border border-primary/12 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:border-primary/20 hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-all duration-200"
-                >
-                  {/* Image */}
-                  <div className="relative sm:w-[220px] lg:w-[260px] h-[180px] sm:h-auto flex-shrink-0 overflow-hidden">
-                    <img
-                      src={school.image}
-                      alt={school.name}
-                      className="w-full h-full object-cover object-top"
-                    />
-                    <div className="absolute top-2 left-2">
-                      <span className={`text-[10px] font-roboto font-semibold px-2 py-0.5 rounded text-white ${school.type === 'International' ? 'bg-accent' : school.type === 'Secondary' ? 'bg-[#4B0082]' : school.type === 'Primary' ? 'bg-[#D2691E]' : 'bg-[#556B2F]'}`}>
-                        {school.type}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 p-4 sm:p-5 flex flex-col justify-between min-w-0">
-                    <div>
-                      <div className="flex items-start justify-between gap-3 mb-1">
-                        <h3 className="font-roboto font-bold text-sm md:text-base text-primary leading-snug">{school.name}</h3>
-                        <StarRating rating={school.rating} />
-                      </div>
-                      <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500 mb-2">
-                        <span className="w-4 h-4 flex items-center justify-center">
-                          <i className="ri-map-pin-line text-primary text-sm"></i>
-                        </span>
-                        {school.location}, Nairobi
-                      </p>
-                      <div className="flex items-center gap-3 mb-2 text-xs font-roboto text-primary/60">
-                        <span className="flex items-center gap-1">
-                          <i className="ri-book-open-line text-primary text-xs"></i>
-                          {school.curriculum}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <i className="ri-calendar-line text-primary text-xs"></i>
-                          Est. {school.established}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <i className="ri-user-line text-primary text-xs"></i>
-                          {school.students} students
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 mb-2 text-xs font-roboto text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <i className="ri-money-dollar-circle-line text-primary text-xs"></i>
-                          {school.fees}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <i className="ri-route-line text-primary text-xs"></i>
-                          {school.distance} from centre
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {school.features.map((f) => (
-                          <span key={f} className="px-2 py-0.5 bg-gray-100 text-primary/60 text-[10px] font-roboto rounded">
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-primary/12">
-                      <Link
-                        to={`/rent?area=${school.location.toLowerCase()}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white border-2 border-primary rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
-                      >
-                        <i className="ri-home-4-line text-[10px]"></i>
-                        Properties nearby
-                      </Link>
-                      <button className="flex items-center gap-1.5 px-3 py-1.5 border border-primary/20 text-primary rounded-md text-[10px] font-roboto font-semibold hover:border-primary hover:text-primary transition-colors cursor-pointer whitespace-nowrap">
-                        <i className="ri-phone-line text-[10px]"></i>
-                        Contact school
-                      </button>
-                    </div>
-                  </div>
+            {loading ? (
+              <div className="space-y-4">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-40 bg-gray-100 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : error && !loading ? (
+              <div className="text-center py-16 bg-gray-50 rounded-lg border border-primary/10">
+                <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-full">
+                  <i className="ri-error-warning-line text-gray-400 text-xl" />
                 </div>
-              ))}
-            </div>
+                <p className="text-sm font-roboto font-semibold text-primary mb-1">Something went wrong</p>
+                <p className="text-xs font-roboto text-gray-500 mb-3">{error}</p>
+                <button onClick={refetch} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-md text-xs font-roboto font-semibold cursor-pointer">
+                  <i className="ri-refresh-line"></i> Try again
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filtered.map((school) => {
+                  const dist = distanceFromCbd(school);
+                  const category = school.subcategory || 'local';
+                  const levels = splitTokens(getLevels(school));
+                  const img = amenityImage(school) || null;
+                  return (
+                    <div
+                      key={school.id}
+                      className={`flex flex-col sm:flex-row bg-white border border-primary/12 rounded-lg overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:border-primary/20 transition-all duration-200 ${CARD_HEIGHT}`}
+                    >
+                      <div className={CARD_IMAGE_FRAME}>
+                        {img ? (
+                          <img src={img} alt={school.name} className={CARD_IMAGE} />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-primary/10 via-primary/[0.05] to-golden/10">
+                            <span className="w-12 h-12 flex items-center justify-center rounded-full bg-white/80">
+                              <i className="ri-school-line text-primary/45 text-2xl"></i>
+                            </span>
+                            <span className="text-[10px] font-roboto font-semibold uppercase tracking-wider text-primary/45">
+                              Photo coming soon
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute top-2 left-2">
+                          <span className={`text-[10px] font-roboto font-semibold px-2 py-0.5 rounded text-white ${CATEGORY_BADGE_COLORS[category] || 'bg-[#6B4423]'}`}>
+                            {prettyTypeLabel(school.subcategory || 'other')}
+                          </span>
+                        </div>
+                      </div>
 
-            {filtered.length === 0 && (
+                      <div className={CARD_BODY}>
+                        <div className="min-h-0 overflow-hidden">
+                          <div className="flex items-start justify-between gap-3 mb-1">
+                            <h3 className="font-roboto font-bold text-sm md:text-base text-primary leading-snug">{school.name}</h3>
+                            <StarRating rating={school.rating} />
+                          </div>
+                          <p className="flex items-center gap-1.5 text-sm font-roboto text-gray-500 mb-2">
+                            <span className="w-4 h-4 flex items-center justify-center">
+                              <i className="ri-map-pin-line text-primary text-sm"></i>
+                            </span>
+                            {school.neighbourhood_name || 'Nairobi'}, Nairobi
+                            {dist != null && <span className="text-primary/50">· {formatDistance(dist)} from CBD</span>}
+                          </p>
+                          <div className="flex items-center gap-3 mb-2 text-xs font-roboto text-primary/60 flex-wrap">
+                            {getCurriculum(school) && (
+                              <span className="flex items-center gap-1">
+                                <i className="ri-book-open-line text-primary text-xs"></i>
+                                {getCurriculum(school)}
+                              </span>
+                            )}
+                            {school.attributes?.established != null && (
+                              <span className="flex items-center gap-1">
+                                <i className="ri-calendar-line text-primary text-xs"></i>
+                                Est. {school.attributes.established}
+                              </span>
+                            )}
+                            {school.attributes?.student_count != null && (
+                              <span className="flex items-center gap-1">
+                                <i className="ri-user-line text-primary text-xs"></i>
+                                {school.attributes.student_count.toLocaleString()} students
+                              </span>
+                            )}
+                          </div>
+                          {getFeeRange(school) && (
+                            <div className="flex items-center gap-2 mb-2 text-xs font-roboto text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <i className="ri-money-dollar-circle-line text-primary text-xs"></i>
+                                {getFeeRange(school)}
+                              </span>
+                            </div>
+                          )}
+                          {levels.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {levels.slice(0, 3).map((l) => (
+                                <span key={l} className="px-2 py-0.5 bg-primary/10 text-primary/70 text-[10px] font-roboto font-medium rounded">
+                                  {l}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          {getFeatures(school).length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                              {getFeatures(school).slice(0, 3).map((f) => (
+                                <span key={f} className="px-2 py-0.5 bg-gray-100 text-primary/60 text-[10px] font-roboto rounded">
+                                  {f}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t-2 border-primary/12">
+                          <Link
+                            to={`/rent?area=${(school.neighbourhood_name || '').toLowerCase()}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white border-2 border-primary rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            <i className="ri-home-4-line text-[10px]"></i>
+                            Properties nearby
+                          </Link>
+                          <Link
+                            to={withReturnFrom(`/directory/place/${school.id}`, currentPath)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-primary/20 text-primary rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap"
+                          >
+                            View school
+                            <i className="ri-arrow-right-line text-[10px]"></i>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {!loading && !error && filtered.length === 0 && (
               <div className="text-center py-16">
                 <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-full">
                   <i className="ri-school-line text-gray-400 text-xl"></i>
                 </div>
                 <h3 className="text-sm font-roboto font-semibold text-primary mb-1">No schools found</h3>
-                <p className="text-xs font-roboto text-gray-500">Try adjusting your filters or search query</p>
+                <p className="text-xs font-roboto text-gray-500 mb-3">
+                  {area !== 'all' || type !== 'all'
+                    ? 'Try widening your filters or clearing them to see every school.'
+                    : 'Try adjusting your filters or search query'}
+                </p>
+                {hasActiveFilter && (
+                  <button
+                    onClick={clearAll}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-md text-xs font-roboto font-semibold cursor-pointer whitespace-nowrap"
+                  >
+                    <i className="ri-refresh-line"></i> Clear all filters
+                  </button>
+                )}
               </div>
             )}
           </div>
 
           {/* Sidebar */}
           <div className="hidden lg:block lg:w-[35%] xl:w-[30%]">
-            <div className="sticky top-[140px] space-y-4">
-              {/* By neighbourhood */}
+            <div className="sticky top-[200px] space-y-4">
               <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <h3 className="text-sm font-roboto font-semibold text-primary">Schools by Neighbourhood</h3>
                 </div>
                 <div className="px-4 py-3 space-y-2">
-                  {['Karen', 'Runda', 'Lavington', 'Kilimani', 'Westlands', 'Muthaiga'].map((area) => {
-                    const count = schools.filter((s) => s.location === area).length;
-                    return (
-                      <button
-                        key={area}
-                        onClick={() => setSearchQuery(area)}
-                        className="w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer hover:bg-gray-50 transition-colors text-primary/60"
-                      >
-                        <span className="flex items-center gap-2">
-                          <i className="ri-map-pin-2-line text-xs"></i>
-                          {area}
-                        </span>
-                        <span className="text-gray-400">{count}</span>
-                      </button>
-                    );
-                  })}
+                  <Link
+                    to="/schools"
+                    onClick={() => setSearchQuery('')}
+                    className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer transition-colors ${area === 'all' ? 'bg-primary/5 text-primary font-semibold' : 'text-primary/60 hover:bg-gray-50'}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <i className="ri-map-pin-2-line text-xs"></i>
+                      All neighbourhoods
+                    </span>
+                    <span className="text-gray-400">{amenities.length}</span>
+                  </Link>
+                  {areaOptions.map((a) => (
+                    <Link
+                      key={a.name}
+                      to={{ pathname: '/schools', search: buildSearch({ area: a.name, type: 'all', level: 'all', curriculum: 'all' }) }}
+                      onClick={() => setSearchQuery('')}
+                      className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer transition-colors ${area === a.name ? 'bg-primary/5 text-primary font-semibold' : 'text-primary/60 hover:bg-gray-50'}`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <i className="ri-map-pin-2-line text-xs"></i>
+                        {a.name}
+                      </span>
+                      <span className="text-gray-400">{a.count}</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
 
-              {/* Type breakdown */}
               <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
                   <h3 className="text-sm font-roboto font-semibold text-primary">School Types</h3>
                 </div>
                 <div className="px-4 py-3 space-y-2">
-                  {schoolTypeFilters.slice(1).map((t) => {
-                    const count = schools.filter((s) => s.type === t).length;
-                    return (
-                      <div key={t} className="flex items-center justify-between text-xs font-roboto text-primary/60">
-                        <span>{t}</span>
-                        <span className="text-gray-400">{count} schools</span>
-                      </div>
-                    );
-                  })}
+                  {typeOptions.map((t) => (
+                    <Link
+                      key={t.key}
+                      to={{ pathname: '/schools', search: buildSearch({ type: type === t.key ? 'all' : t.key }) }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer transition-colors ${type === t.key ? 'bg-primary/5 text-primary font-semibold' : 'text-primary/60 hover:bg-gray-50'}`}
+                    >
+                      <span>{t.label}</span>
+                      <span className="text-gray-400">{t.count} schools</span>
+                    </Link>
+                  ))}
                 </div>
               </div>
 
-              {/* CTA */}
               <div className="bg-primary rounded-lg p-4 text-center">
                 <h3 className="text-white font-roboto font-bold text-sm mb-2">Looking for a family home?</h3>
                 <p className="text-white/70 font-roboto text-xs mb-3">Find properties near the best schools in Nairobi</p>

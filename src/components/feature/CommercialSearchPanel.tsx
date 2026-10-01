@@ -131,11 +131,11 @@ export default function CommercialSearchPanel({
     <div ref={panelRef} className="w-full bg-[#0f1629] rounded-2xl border border-[#1e2a4a] overflow-hidden shadow-2xl">
       {/* Rent / Sale Toggle */}
       <div className="px-5 md:px-8 pt-5 pb-4 flex items-center justify-center border-b border-[#1e2a4a]">
-        <div className="inline-flex gap-1" role="group" aria-label="Rent or Buy toggle">
+        <div className="inline-flex gap-1 w-full sm:w-auto" role="group" aria-label="Rent or Buy toggle">
           <button
             type="button"
             onClick={() => onTogglePurpose(false)}
-            className={`px-10 py-3 text-sm font-bold rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap tracking-[0.12em] ${!isBuy ? 'bg-accent text-white shadow-[0_4px_20px_rgba(13,89,89,0.35)]' : 'border border-white/30 text-gray-400 hover:text-white hover:border-white/60'}`}
+            className={`flex-1 sm:flex-none px-6 sm:px-10 py-3 text-sm font-bold rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap tracking-[0.12em] ${!isBuy ? 'bg-accent text-white shadow-[0_4px_20px_rgba(13,89,89,0.35)]' : 'border border-white/30 text-gray-400 hover:text-white hover:border-white/60'}`}
             aria-pressed={!isBuy}
           >
             RENT
@@ -143,7 +143,7 @@ export default function CommercialSearchPanel({
           <button
             type="button"
             onClick={() => onTogglePurpose(true)}
-            className={`px-10 py-3 text-sm font-bold rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap tracking-[0.12em] ${isBuy ? 'bg-accent text-white shadow-[0_4px_20px_rgba(13,89,89,0.35)]' : 'border border-white/30 text-gray-400 hover:text-white hover:border-white/60'}`}
+            className={`flex-1 sm:flex-none px-6 sm:px-10 py-3 text-sm font-bold rounded-lg transition-all duration-300 cursor-pointer whitespace-nowrap tracking-[0.12em] ${isBuy ? 'bg-accent text-white shadow-[0_4px_20px_rgba(13,89,89,0.35)]' : 'border border-white/30 text-gray-400 hover:text-white hover:border-white/60'}`}
             aria-pressed={isBuy}
           >
             BUY
@@ -160,7 +160,7 @@ export default function CommercialSearchPanel({
               role="option"
               aria-selected={selectedType === type.key}
               onClick={() => onTypeChange(type.key)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${selectedType === type.key ? 'border-accent bg-accent/20 text-accent' : 'border-[#1e2a4a] text-gray-300 hover:border-[#2a3a5a] hover:bg-[#1a2545]'}`}
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-sm font-roboto font-bold transition-all cursor-pointer whitespace-nowrap border ${selectedType === type.key ? 'border-accent bg-accent/20 text-accent' : 'border-[#1e2a4a] text-gray-300 hover:border-[#2a3a5a] hover:bg-[#1a2545]'}`}
             >
               <span className={`w-5 h-5 flex items-center justify-center ${selectedType === type.key ? 'text-accent' : 'text-gray-400'}`}>
                 <i className={`${type.icon} text-base`}></i>
@@ -185,7 +185,7 @@ export default function CommercialSearchPanel({
               {priceOptions.map((o) => <option key={o}>{o}</option>)}
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 pointer-events-none">
-              <i className="ri-arrow-down-s-line text-base"></i>
+              <i className="ri-arrow-down-wide-fill text-base"></i>
             </span>
           </div>
 
@@ -297,7 +297,7 @@ export default function CommercialSearchPanel({
               {RADIUS_OPTIONS.map((o) => <option key={o}>{o}</option>)}
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-gray-400 pointer-events-none">
-              <i className="ri-arrow-down-s-line text-base"></i>
+              <i className="ri-arrow-down-wide-fill text-base"></i>
             </span>
           </div>
 

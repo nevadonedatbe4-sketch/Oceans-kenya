@@ -20,6 +20,8 @@ interface Content {
   is_published: boolean; published_at: string | null;
   tag_green: string; tag_luxury: string; tag_wealthy: string; tag_family: string;
   tag_young: string; tag_gated: string; tag_modern: string; tag_default: string;
+  tag_text_color: string; tag_text_size: string; tag_radius: string;
+  tag_pad_x: string; tag_pad_y: string; tag_tracking: string; tag_weight: string;
 }
 
 const DEFAULTS: Content = {
@@ -32,7 +34,50 @@ const DEFAULTS: Content = {
   is_published: true, published_at: null,
   tag_green: '#2C5E1A', tag_luxury: '#E55B13', tag_wealthy: '#F6A21E', tag_family: '#1F7A6E',
   tag_young: '#7A871E', tag_gated: '#3E6B8A', tag_modern: '#32CD30', tag_default: '#6B4423',
+  tag_text_color: '#FFFFFF', tag_text_size: '11', tag_radius: '0',
+  tag_pad_x: '8', tag_pad_y: '2', tag_tracking: '0.06', tag_weight: '600',
 };
+
+const TAG_CATEGORIES: { key: keyof Content; label: string; hint: string; sample: string }[] = [
+  { key: 'tag_green', label: 'Green / Nature / Views', hint: 'leafy, park, garden, scenic, tree', sample: 'Garden' },
+  { key: 'tag_luxury', label: 'Luxury / Prestige', hint: 'luxury, premium, exclusive, historic', sample: 'Luxury' },
+  { key: 'tag_wealthy', label: 'Wealthy / Nightlife', hint: 'upscale, investment, social, bar', sample: 'Upscale' },
+  { key: 'tag_family', label: 'Family / Schools', hint: 'family, school, diplomatic, expat', sample: 'Family' },
+  { key: 'tag_young', label: 'Young Professionals', hint: 'young, starter, value, affordable', sample: 'Young' },
+  { key: 'tag_gated', label: 'Gated / Urban / Secure', hint: 'gated, corporate, central, hospital', sample: 'Gated' },
+  { key: 'tag_modern', label: 'Modern / New', hint: 'modern, contemporary, development', sample: 'Modern' },
+  { key: 'tag_default', label: 'Default (Fallback)', hint: 'any other tag', sample: 'Other' },
+];
+
+const BLOG_CATEGORY_COLORS_DEFAULT: Record<string, string> = {
+  'Area Guides': '#F6A21E',
+  'Market Trends': '#3E6B8A',
+  'Schools & Family': '#1F7A6E',
+  'Lifestyle & Dining': '#6B4423',
+};
+
+// Default per-category tag keyword lists (shown as a starting point; fully editable).
+const CAT_TAGS_DEFAULT: Record<string, string> = {
+  tag_green: 'green, leafy, park, garden, arboretum, plant, nature, tree, view, scenic, panoramic, hill, ridge',
+  tag_luxury: 'luxury, prestigious, premium, ultra, exclusive, private, elite, historic, heritage, established, colonialism',
+  tag_wealthy: 'wealthy, upscale, investment, affluent, prime, nightlife, entertainment, bar, club, social',
+  tag_family: 'family, school, kid, child, nursery, education, diplomatic, international, expat, embassy, consulate, un',
+  tag_young: 'young, professional, starter, value, emerging, affordable, budget',
+  tag_gated: 'gated, secure, safety, safe, compound, corporate, business, bank, executive, office, commercial, central, urban, city, downtown, cbd, metro, northern, suburban, residential, quiet, peaceful, hospital, medical, health, clinic',
+  tag_modern: 'modern, contemporary, new, development',
+  tag_default: '',
+};
+
+function pillStyle(c: Content): React.CSSProperties {
+  return {
+    color: c.tag_text_color,
+    fontSize: `${c.tag_text_size}px`,
+    padding: `${c.tag_pad_y}px ${c.tag_pad_x}px`,
+    borderRadius: `${c.tag_radius}px`,
+    letterSpacing: `${c.tag_tracking}em`,
+    fontWeight: Number(c.tag_weight) || 600,
+  };
+}
 
 function SC({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return <div className="bg-white rounded-xl border border-stone-100 p-5 space-y-4"><div className="flex items-center gap-2 mb-1"><span className="w-5 h-5 flex items-center justify-center"><i className={`${icon} text-[#1B4332] text-sm`}></i></span><h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide">{title}</h3></div>{children}</div>;
@@ -46,10 +91,23 @@ function TA({ label, value, onChange }: { label: string; value: string; onChange
 function Sel({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: { label: string; value: string }[] }) {
   return <div className="space-y-1.5"><label className="text-sm font-medium text-stone-700 block">{label}</label><select value={value} onChange={(e) => onChange(e.target.value)} className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#1B4332] bg-white cursor-pointer">{options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>;
 }
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-sm font-medium text-stone-700 block">{label}</label>
+      <div className="flex items-center gap-2">
+        <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
+        <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
+      </div>
+    </div>
+  );
+}
 
 export default function NeighbourhoodsPageCMS() {
   const [activeTab, setActiveTab] = useState<TabKey>('content');
   const [c, setC] = useState<Content>({ ...DEFAULTS });
+  const [catTags, setCatTags] = useState<Record<string, string>>({ ...CAT_TAGS_DEFAULT });
+  const [blogColors, setBlogColors] = useState<Record<string, string>>({ ...BLOG_CATEGORY_COLORS_DEFAULT });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const PAGE_KEY = 'neighbourhoods';
@@ -67,6 +125,35 @@ export default function NeighbourhoodsPageCMS() {
         }
       });
       setC(map);
+
+      // Tag -> colour mapping: invert stored { tag: category } map into per-category keyword strings.
+      const mapRow = data.find((r) => r.key === `page_${PAGE_KEY}_tag_map`);
+      if (mapRow?.value) {
+        try {
+          const parsed: Record<string, string> = JSON.parse(mapRow.value);
+          const buckets: Record<string, string[]> = {};
+          TAG_CATEGORIES.forEach((cat) => { buckets[String(cat.key)] = []; });
+          Object.entries(parsed).forEach(([tag, catKey]) => {
+            if (catKey in buckets) buckets[catKey].push(tag);
+          });
+          const next: Record<string, string> = {};
+          Object.entries(buckets).forEach(([k, arr]) => { next[k] = arr.join(', '); });
+          setCatTags((prev) => {
+            const base = { ...CAT_TAGS_DEFAULT };
+            Object.keys(base).forEach((k) => { base[k] = next[k] ?? ''; });
+            return base;
+          });
+        } catch { /* ignore */ }
+      }
+
+      // Blog category colours.
+      const blogRow = data.find((r) => r.key === `page_${PAGE_KEY}_blogcat_map`);
+      if (blogRow?.value) {
+        try {
+          const parsed: Record<string, string> = JSON.parse(blogRow.value);
+          if (parsed && typeof parsed === 'object') setBlogColors({ ...BLOG_CATEGORY_COLORS_DEFAULT, ...parsed });
+        } catch { /* ignore */ }
+      }
     }
     setLoading(false);
   }, []);
@@ -74,12 +161,33 @@ export default function NeighbourhoodsPageCMS() {
   useEffect(() => { fetchC(); }, [fetchC]);
 
   const upd = (key: keyof Content, value: any) => setC((prev) => ({ ...prev, [key]: value }));
+
+  const buildTagMap = (buckets: Record<string, string>): Record<string, string> => {
+    const out: Record<string, string> = {};
+    TAG_CATEGORIES.forEach((cat) => {
+      const raw = (buckets[String(cat.key)] || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+      raw.forEach((tag) => { out[tag] = String(cat.key).replace('tag_', ''); });
+    });
+    return out;
+  };
+
   const save = async () => {
     setSaving(true);
     const entries = Object.entries(c).map(([k, v]) => ({ key: `page_${PAGE_KEY}_${k}`, value: typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v) }));
+    const tagMap = buildTagMap(catTags);
+    entries.push({ key: `page_${PAGE_KEY}_tag_map`, value: JSON.stringify(tagMap) });
+    entries.push({ key: `page_${PAGE_KEY}_blogcat_map`, value: JSON.stringify(blogColors) });
     await Promise.all(entries.map((e) => supabase.from('site_settings').upsert(e, { onConflict: 'key' })));
     showToast('Neighbourhoods page saved', 'success'); setSaving(false);
   };
+
+  const reset = () => {
+    setC({ ...DEFAULTS });
+    setCatTags({ ...CAT_TAGS_DEFAULT });
+    setBlogColors({ ...BLOG_CATEGORY_COLORS_DEFAULT });
+    showToast('Defaults restored — click Save to apply', 'info');
+  };
+
   const pub = async () => {
     const ns = !c.is_published; upd('is_published', ns); upd('published_at', ns ? new Date().toISOString() : null);
     setSaving(true); await supabase.from('site_settings').upsert({ key: `page_${PAGE_KEY}_is_published`, value: ns ? 'true' : 'false' }, { onConflict: 'key' });
@@ -115,37 +223,81 @@ export default function NeighbourhoodsPageCMS() {
 
         {activeTab === 'styling' && (
           <div className="space-y-5">
-            <SC title="Styling" icon="ri-palette-line">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-stone-700 block">Accent Color</label>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
-                  <input type="text" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
+            <SC title="Accent Colour" icon="ri-palette-line"><ColorField label="Accent Color" value={c.accent_color} onChange={(v) => upd('accent_color', v)} /></SC>
+
+            <SC title="Tag Pill Style" icon="ri-t-shirt-line">
+              <p className="text-xs text-stone-400 leading-relaxed">Control the overall appearance of every tag pill (shown on neighbourhood cards, area guides and blog categories). Text colour, size, corner rounding, padding, letter-spacing and font weight.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <ColorField label="Text Colour" value={c.tag_text_color} onChange={(v) => upd('tag_text_color', v)} />
+                <T label="Font Size (px)" value={c.tag_text_size} onChange={(v) => upd('tag_text_size', v)} />
+                <T label="Corner Radius (px)" value={c.tag_radius} onChange={(v) => upd('tag_radius', v)} />
+                <T label="Padding X (px)" value={c.tag_pad_x} onChange={(v) => upd('tag_pad_x', v)} />
+                <T label="Padding Y (px)" value={c.tag_pad_y} onChange={(v) => upd('tag_pad_y', v)} />
+                <T label="Letter Spacing (em)" value={c.tag_tracking} onChange={(v) => upd('tag_tracking', v)} />
+                <T label="Font Weight" value={c.tag_weight} onChange={(v) => upd('tag_weight', v)} />
+              </div>
+              <div className="pt-1 border-t border-stone-100">
+                <p className="text-[11px] text-stone-400 mb-2 uppercase tracking-wide font-medium">Live Preview</p>
+                <div className="flex flex-wrap gap-2 items-center">
+                  {TAG_CATEGORIES.map((cat) => (
+                    <span key={String(cat.key)} className="font-jost uppercase" style={{ ...pillStyle(c), backgroundColor: c[cat.key] as string }}>{cat.sample}</span>
+                  ))}
                 </div>
               </div>
             </SC>
+
             <SC title="Tag Colours" icon="ri-price-tag-3-line">
               <p className="text-xs text-stone-400 leading-relaxed">Control the badge colour used for each category of neighbourhood tag (shown on cards and blog posts). Each colour auto-applies based on the tag's meaning.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { key: 'tag_green', label: 'Green / Nature / Views', hint: 'leafy, park, garden, scenic, tree', sample: 'Garden' },
-                  { key: 'tag_luxury', label: 'Luxury / Prestige', hint: 'luxury, premium, exclusive, historic', sample: 'Luxury' },
-                  { key: 'tag_wealthy', label: 'Wealthy / Nightlife', hint: 'upscale, investment, social, bar', sample: 'Upscale' },
-                  { key: 'tag_family', label: 'Family / Schools', hint: 'family, school, diplomatic, expat', sample: 'Family' },
-                  { key: 'tag_young', label: 'Young Professionals', hint: 'young, starter, value, affordable', sample: 'Young' },
-                  { key: 'tag_gated', label: 'Gated / Urban / Secure', hint: 'gated, corporate, central, hospital', sample: 'Gated' },
-                  { key: 'tag_modern', label: 'Modern / New', hint: 'modern, contemporary, development', sample: 'Modern' },
-                  { key: 'tag_default', label: 'Default (Fallback)', hint: 'any other tag', sample: 'Other' },
-                ].map((t) => (
-                  <div key={t.key} className="space-y-1.5">
+                {TAG_CATEGORIES.map((t) => (
+                  <div key={String(t.key)} className="space-y-1.5">
                     <label className="text-sm font-medium text-stone-700 block">{t.label}</label>
                     <p className="text-[11px] text-stone-400 leading-snug">{t.hint}</p>
                     <div className="flex items-center gap-2">
-                      <input type="color" value={c[t.key as keyof Content] as string} onChange={(e) => upd(t.key as keyof Content, e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
-                      <input type="text" value={c[t.key as keyof Content] as string} onChange={(e) => upd(t.key as keyof Content, e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
+                      <input type="color" value={c[t.key] as string} onChange={(e) => upd(t.key, e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
+                      <input type="text" value={c[t.key] as string} onChange={(e) => upd(t.key, e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
                     </div>
                     <div className="pt-1">
-                      <span className="inline-block px-2.5 py-1 text-white text-[11px] font-semibold uppercase tracking-[0.06em] rounded-sm" style={{ backgroundColor: c[t.key as keyof Content] as string }}>{t.sample}</span>
+                      <span className="font-jost uppercase" style={{ ...pillStyle(c), backgroundColor: c[t.key] as string }}>{t.sample}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SC>
+
+            <SC title="Tag → Colour Map" icon="ri-node-tree">
+              <p className="text-xs text-stone-400 leading-relaxed">Decide exactly which tags belong to which colour. Type comma-separated tags into a colour bucket — any matching tag will take that colour, overriding the automatic matcher. Example: add <code className="px-1 py-0.5 bg-stone-100 rounded text-[11px]">garden</code> into the blue bucket to force it blue.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {TAG_CATEGORIES.map((cat) => (
+                  <div key={String(cat.key)} className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-sm shrink-0" style={{ backgroundColor: c[cat.key] as string }}></span>
+                      <label className="text-sm font-medium text-stone-700">{cat.label}</label>
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="tag1, tag2, tag3"
+                      value={catTags[String(cat.key)] || ''}
+                      onChange={(e) => setCatTags((prev) => ({ ...prev, [String(cat.key)]: e.target.value }))}
+                      className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#1B4332] bg-white resize-y"
+                    />
+                  </div>
+                ))}
+              </div>
+            </SC>
+
+            <SC title="Blog Category Colours" icon="ri-article-line">
+              <p className="text-xs text-stone-400 leading-relaxed">Set the pill colour for each blog category shown on blog cards.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Object.keys(BLOG_CATEGORY_COLORS_DEFAULT).map((category) => (
+                  <div key={category} className="space-y-1.5">
+                    <label className="text-sm font-medium text-stone-700 block">{category}</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color" value={blogColors[category] || '#6B4423'} onChange={(e) => setBlogColors((prev) => ({ ...prev, [category]: e.target.value }))} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" />
+                      <input type="text" value={blogColors[category] || ''} onChange={(e) => setBlogColors((prev) => ({ ...prev, [category]: e.target.value }))} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" />
+                    </div>
+                    <div className="pt-1">
+                      <span className="font-jost uppercase" style={{ ...pillStyle(c), backgroundColor: blogColors[category] || '#6B4423' }}>{category}</span>
                     </div>
                   </div>
                 ))}
@@ -160,7 +312,7 @@ export default function NeighbourhoodsPageCMS() {
 
         {activeTab === 'preview' && <SC title="Preview" icon="ri-eye-line"><div className="border border-stone-200 rounded-lg overflow-hidden"><div className="h-32 bg-gradient-to-br from-[#1B4332] to-[#2d5a3f] flex flex-col items-center justify-center text-center px-4"><p className="text-xs text-[#C9A84C] uppercase tracking-widest mb-1">{c.hero_eyebrow}</p><p className="text-lg font-bold text-white">{c.hero_title}</p><p className="text-xs text-white/70 mt-1">{c.hero_subtitle}</p></div><div className="p-4"><p className="text-sm font-semibold text-stone-700 mb-3">{c.intro_title}</p><div className={`grid gap-2 ${c.grid_columns === '2' ? 'grid-cols-2' : c.grid_columns === '4' ? 'grid-cols-4' : 'grid-cols-3'}`}>{Array.from({ length: parseInt(c.grid_columns) || 3 }).map((_, i) => <div key={i} className="h-20 bg-stone-100 rounded-lg flex items-center justify-center"><i className="ri-map-pin-line text-stone-300 text-lg"></i></div>)}</div></div></div></SC>}
 
-        <div className="sticky bottom-0 z-10"><div className="bg-white border border-stone-200 rounded-xl shadow-sm px-5 py-3 flex items-center justify-between gap-4"><p className="text-xs text-stone-400"><span className="font-medium text-stone-600">{Object.keys(c).length}</span> fields</p><button onClick={save} disabled={saving} className="px-5 py-2 text-sm font-medium bg-[#1B4332] text-white rounded-lg hover:bg-[#163828] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 flex items-center gap-2">{saving ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : <><i className="ri-save-3-line"></i> Save Changes</>}</button></div></div>
+        <div className="sticky bottom-0 z-10"><div className="bg-white border border-stone-200 rounded-xl shadow-sm px-5 py-3 flex items-center justify-between gap-4"><p className="text-xs text-stone-400"><span className="font-medium text-stone-600">{Object.keys(c).length}</span> fields</p><div className="flex items-center gap-2"><button onClick={reset} className="px-4 py-2 text-sm font-medium bg-white border border-stone-200 text-stone-600 rounded-lg hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2"><i className="ri-refresh-line"></i> Reset Defaults</button><button onClick={save} disabled={saving} className="px-5 py-2 text-sm font-medium bg-[#1B4332] text-white rounded-lg hover:bg-[#163828] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 flex items-center gap-2">{saving ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : <><i className="ri-save-3-line"></i> Save Changes</>}</button></div></div></div>
       </div>
     </ManagementLayout>
   );

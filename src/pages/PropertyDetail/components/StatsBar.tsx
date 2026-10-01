@@ -29,7 +29,7 @@ export default function PropertyStatsBar({ title, location, price, propertyType,
           </h1>
           <p className="flex items-center gap-1.5 text-xs md:text-sm text-primary/70 font-roboto">
             <span className="w-4 h-4 flex items-center justify-center">
-              <i className="ri-map-pin-2-line text-golden text-xs md:text-sm"></i>
+              <i className="ri-map-pin-2-line text-accent text-xs md:text-sm"></i>
             </span>
             {location}
           </p>

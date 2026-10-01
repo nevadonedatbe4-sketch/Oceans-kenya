@@ -3,6 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 export const supabaseUrl = import.meta.env.VITE_PUBLIC_SUPABASE_URL;
 export const supabaseKey = import.meta.env.VITE_PUBLIC_SUPABASE_ANON_KEY;
 
+/**
+ * The Supabase client is initialised with the library's DEFAULT auth handling.
+ *
+ * IMPORTANT: we deliberately do NOT pass a custom `auth.lock` / manual
+ * `navigator.locks` implementation here. supabase-js already serialises token
+ * operations internally, and it can re-enter its own lock while a sign-in is
+ * in flight. A hand-rolled Web Locks wrapper is NOT re-entrant, so that nested
+ * request can never resolve — the promise aborts, the rejection escapes
+ * signInWithPassword, and the user is left with a vague, un-actionable error.
+ * Relying on the built-in handling removes that failure mode entirely.
+ */
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
@@ -45,11 +56,16 @@ export async function uploadImageViaEdgeFunction(
 /**
  * Upload a file to a specific bucket via the upload-file Edge Function.
  * Supports property-images, property-documents, media-library, agent-avatars.
+ *
+ * Pass `onProgress` to receive live upload percentage updates (0-100).
+ * When provided we use XMLHttpRequest so the browser can report progress;
+ * otherwise we fall back to a plain fetch.
  */
 export async function uploadFileViaEdgeFunction(
   file: File,
   path: string,
   bucket?: string,
+  onProgress?: (percent: number) => void,
 ): Promise<{ url: string; path: string; bucket: string }> {
   const base64 = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -60,20 +76,51 @@ export async function uploadFileViaEdgeFunction(
 
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
+  const endpoint = `${supabaseUrl}/functions/v1/upload-file`;
+  const payload = JSON.stringify({
+    bucket: bucket || 'auto',
+    path,
+    fileBase64: base64,
+    contentType: file.type || 'application/octet-stream',
+  });
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/upload-file`, {
+  if (onProgress) {
+    return await new Promise<{ url: string; path: string; bucket: string }>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', endpoint);
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      xhr.setRequestHeader('apikey', supabaseKey);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            onProgress(100);
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error('Upload failed: invalid response'));
+          }
+        } else {
+          let msg = `Upload failed: ${xhr.status}`;
+          try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* keep default */ }
+          reject(new Error(msg));
+        }
+      };
+      xhr.onerror = () => reject(new Error('Upload failed: network error'));
+      xhr.send(payload);
+    });
+  }
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       apikey: supabaseKey,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      bucket: bucket || 'auto',
-      path,
-      fileBase64: base64,
-      contentType: file.type || 'application/octet-stream',
-    }),
+    body: payload,
   });
 
   if (!response.ok) {

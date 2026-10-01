@@ -52,11 +52,11 @@ interface Props {
 
 /* ── Design tokens — identical to DetailsStep ── */
 const inputBase =
-  'w-full text-sm font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
+  'w-full text-base font-medium border-2 border-[#e8edf2] px-3 py-2.5 text-[#0d1f2d] outline-none focus:border-[#0d5959] focus:ring-4 focus:ring-[#0d5959]/10 transition-all bg-white placeholder:text-[#b0bec5] placeholder:font-normal rounded-md';
 
 const selectClass = `${inputBase} cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%237a8a99%22%20stroke-width%3D%221.5%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_14px_center] bg-[length:20px_20px] pr-11`;
 
-const labelClass = 'block text-[14px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
+const labelClass = 'block text-[16px] font-bold tracking-wide text-[#0d1f2d] uppercase mb-2.5 leading-none';
 
 const hintClass = 'text-[15px] text-[#4a5568] mt-2 leading-relaxed';
 
@@ -154,10 +154,6 @@ export default function PriceStep({
     if (!pricePrefix && purpose === 'sale') {
       setPricePrefix('Guide Price');
     }
-  // Seeds the default sale prefix once on mount. Deliberately not reactive:
-  // depending on pricePrefix/purpose would re-apply "Guide Price" every time
-  // the user clears the field, making it impossible to leave blank.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -172,23 +168,30 @@ export default function PriceStep({
 
       {/* Price Placeholder toggle */}
       <div className="border border-[#e8ecf0] bg-white overflow-hidden rounded-xl">
-        <ToggleRow
-          enabled={pricePlaceholder}
-          setEnabled={setPricePlaceholder}
-          label="Enable Price Placeholder"
-          desc="Hides price, currency, frequency and prefix from the listing"
-          icon="ri-eye-off-line"
-        />
+        <div className="flex items-center justify-between gap-4 px-5 py-4">
+          <div className="flex items-center gap-3.5 min-w-0">
+            <div className="w-9 h-9 flex items-center justify-center shrink-0 rounded-lg border border-[#e8ecf0] bg-[#f4f6f8]">
+              <i className="ri-information-line text-sm text-[#5a6a7a]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-[#1a1e24]">Price on Request or Enter the asking price</p>
+              <p className="text-[13px] text-[#7a8a99] mt-0.5 leading-relaxed">
+                Toggle on to show &quot;Price on Request&quot; instead of a number, or leave it off to enter the exact asking price below.
+              </p>
+            </div>
+          </div>
+          <Toggle enabled={pricePlaceholder} onChange={setPricePlaceholder} />
+        </div>
       </div>
 
-      <Card className={pricePlaceholder ? 'border-amber-200 bg-amber-50/20 relative' : ''}>
+      <Card className={pricePlaceholder ? 'border-[#088135]/40 bg-[#e6f4ea]/30 relative' : ''}>
         {pricePlaceholder && (
           <div className="absolute inset-0 z-10 bg-white/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 select-none cursor-not-allowed rounded-xl">
-            <div className="flex items-center gap-2.5 px-5 py-3 border border-amber-300 bg-amber-50 rounded-lg">
-              <i className="ri-lock-2-line text-amber-600 text-base" />
+            <div className="flex items-center gap-2.5 px-5 py-3 border border-[#088135]/40 bg-[#e6f4ea] rounded-lg">
+              <i className="ri-lock-2-line text-[#088135] text-base" />
               <div>
-                <p className="text-[15px] font-semibold text-amber-800">Fields locked — Price on Request active</p>
-                <p className="text-[13px] text-amber-600 mt-0.5">Disable the toggle above to edit these fields</p>
+                <p className="text-[15px] font-semibold text-[#088135]">Fields locked — Price on Request active</p>
+                <p className="text-[13px] text-[#2f6b4f] mt-0.5">Disable the toggle above to edit these fields</p>
               </div>
             </div>
           </div>

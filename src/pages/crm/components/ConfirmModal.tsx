@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 interface ConfirmModalProps {
   open?: boolean;
   isOpen?: boolean;
@@ -21,11 +23,20 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
-  if (!open && !isOpen) return null;
+  const isVisible = !!(open || isOpen);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isVisible, onCancel]);
+
+  if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#001731]/70" onClick={onCancel} />
       <div className="relative bg-white rounded-xl w-full max-w-sm shadow-lg p-6 text-center">
         <div className="w-12 h-12 mx-auto mb-4 rounded-full flex items-center justify-center">
           {confirmVariant === 'danger' ? (

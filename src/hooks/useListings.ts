@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getSiteNameSync, loadSiteMeta, DEFAULT_SITE_NAME } from '@/lib/siteMeta';
 import { haversineDistance } from '@/lib/distance';
 import { formatLocation, formatLocationParts, formatAreaName, smartTitleCase } from '@/lib/location';
+import { parsePropertySearch, parseSearchClauses, buildClausesOr, type PropertySearchIntent } from '@/lib/propertySearch';
+import { buildCityOrClause } from '@/lib/locationRegistry';
+import { applyPublicVisibility, applyStatusScope, statusScopeFromFilter } from '@/lib/publicListings';
 
 // ── Raw DB shape ──────────────────────────────────────────────
 interface ListingRow {
@@ -26,6 +30,7 @@ interface ListingRow {
   description: string | null;
   main_image: string | null;
   images: string[] | null;
+  neighbourhood: string | null;
   status: string;
   amenities: string[] | null;
   features: Record<string, unknown> | null;
@@ -107,6 +112,8 @@ export interface MappedListing {
   // JV / Land flags
   isLand: boolean;
   isJointVenture: boolean;
+  videoUrl?: string;
+  virtualTourUrl?: string;
   agentPhone?: string;
   agentEmail?: string;
 }
@@ -120,6 +127,13 @@ export interface ListingFilters {
   bedsMin?: number;
   bedsMax?: number;
   propertyType: string;
+  /**
+   * Multiple, OR-combined property types (e.g. ['house', 'apartment']). When
+   * provided this is the authoritative type constraint and is applied as a
+   * strict AND on top of any free-text search - a selected type can never be
+   * ignored or overridden by the parser.
+   */
+  propertyTypes?: string[];
   addedSince: string;
   sortBy: string;
   statusFilter: string;
@@ -132,6 +146,12 @@ export interface ListingFilters {
   // Size filters (sqft in DB, but filter by sqm)
   sqmMin?: number;
   sqmMax?: number;
+  // Amenities filter - additive constraint on the listings.amenities array
+  // (e.g. ['Furnished'], ['Serviced'], ['Luxury']). Used by SEO landing pages.
+  amenitiesFilter?: string[];
+  // Sub-type filter - matches the listings.sub_type discriminator
+  // (e.g. 'duplex', 'modern'). Used by SEO landing pages for true matching.
+  subTypeFilter?: string;
 }
 
 export interface UseListingsReturn {
@@ -145,14 +165,23 @@ export interface UseListingsReturn {
 // ── Agent short-name helpers ──────────────────────────────────
 const AGENT_COLORS = ['#1a1a2e', '#8B0000', '#006400', '#4B0082', '#D2691E', '#2F4F4F', '#556B2F', '#8B4513'];
 
-function deriveAgentInfo(name: string | null | undefined) {
-  if (!name) return { agent: 'Oceans Kenya', agentShortName: 'OK', agentBrandColor: '#1a1a2e' };
+function deriveAgentInfo(name: string | null | undefined, fallbackName: string = DEFAULT_SITE_NAME) {
+  if (!name) return { agent: fallbackName, agentShortName: agentInitials(fallbackName), agentBrandColor: '#1a1a2e' };
   const words = name.trim().split(/\s+/);
   const short = words.length >= 2
     ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
     : words[0].slice(0, 2).toUpperCase();
   const colorIndex = Math.abs(hashCode(name)) % AGENT_COLORS.length;
   return { agent: name, agentShortName: short, agentBrandColor: AGENT_COLORS[colorIndex] };
+}
+
+/** Two-letter initials for an agency name (e.g. "Oceans Kenya" -> "OK"). */
+function agentInitials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 'OK';
+  return words.length >= 2
+    ? (words[0][0] + words[words.length - 1][0]).toUpperCase()
+    : words[0].slice(0, 2).toUpperCase();
 }
 
 function hashCode(s: string): number {
@@ -183,7 +212,7 @@ function toDisplayType(category: string): string {
 }
 
 // ── Map a single DB row → MappedListing ───────────────────────
-function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): MappedListing {
+function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent', agencyName: string = DEFAULT_SITE_NAME): MappedListing {
   const title = smartTitleCase(row.title || 'Untitled Property');
   const location = formatLocation({
     address: row.address,
@@ -215,13 +244,15 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
       if (img && !allImages.includes(img)) allImages.push(img);
     });
   }
-  // Fallback image if nothing is available
-  if (allImages.length === 0) {
-    allImages.push('https://readdy.ai/api/search-image?query=Modern%20luxury%20property%20exterior%20with%20clean%20white%20walls%20and%20large%20windows%2C%20bright%20daylight%2C%20architectural%20photography%2C%20high%20quality%20real%20estate%20photo%2C%20palm%20trees%2C%20blue%20sky&width=800&height=600&seq=buy-fallback-01&orientation=landscape');
-  }
+  // No generated fallback image: a listing without real photos keeps an empty
+  // list so the UI can show an honest placeholder instead.
 
   const priceNum = row.price || 0;
-  const formattedPrice = formatPriceDisplay(priceNum, row.currency, row.price_prefix, row.price_postfix);
+  // A published listing without a numeric price is still real ("Price on
+  // request"). Never render a misleading "KES 0".
+  const formattedPrice = priceNum > 0
+    ? formatPriceDisplay(priceNum, row.currency, row.price_prefix, row.price_postfix)
+    : (row.price_prefix || 'Price on request');
 
   const created = new Date(row.created_at);
   const listedDays = Math.floor((now.getTime() - created.getTime()) / 86400000);
@@ -241,9 +272,11 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
 
   const beds = row.bedrooms ?? 0;
   const baths = row.bathrooms ?? 0;
-  const sqft = row.sqft ?? 1500;
+  // No fabricated size: a listing without sqft genuinely has no size yet, so
+  // cards omit the fact instead of inventing a placeholder value.
+  const sqft = row.sqft ?? 0;
 
-  const agentInfo = deriveAgentInfo(null);
+  const agentInfo = deriveAgentInfo(null, agencyName);
   const agentPhone = row.owner_phone || undefined;
   const agentEmail = row.owner_email || undefined;
 
@@ -261,7 +294,7 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
     beds,
     baths,
     parking: row.parking ?? 0,
-    receptions: Math.max(1, Math.floor(beds / 2)),
+    receptions: 0,
     sqft,
     sqm: Math.round(sqft * 0.0929),
     landSize: Number(row.land_size ?? 0),
@@ -271,7 +304,7 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
     rawPrice: priceNum,
     currency: row.currency || 'KES',
     priceUnit: undefined,
-    image: allImages[0],
+    image: allImages[0] || '',
     featured: Boolean(row.is_featured),
     listedDays,
     badges,
@@ -286,6 +319,8 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent'): Mappe
     commissionApplicable: Boolean(row.commission_applicable),
     videoTour: !!row.video_url,
     virtualTour: !!row.virtual_tour_url,
+    videoUrl: row.video_url || undefined,
+    virtualTourUrl: row.virtual_tour_url || undefined,
     floorPlan: !!(row.floor_plans && row.floor_plans.length > 0),
     justAdded,
     houseShare: false,
@@ -329,8 +364,166 @@ function filterAndSortByDistance(
     .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
 }
 
+// ── Dropdown label → canonical DB property_type ───────────────
+const PROP_TYPE_MAP: Record<string, string> = {
+  'Apartment': 'apartment',
+  'House': 'house',
+  'Townhouse': 'townhouse',
+  'Penthouse': 'penthouse',
+  'Villa': 'villa',
+  'Studio': 'studio_flat',
+  'Bungalow': 'bungalow',
+  'Maisonette': 'maisonette',
+  'Detached': 'detached',
+  'Semi-detached': 'detached',
+  'Terraced': 'townhouse',
+  'Land': 'land',
+  'Office': 'office',
+  'Retail / Shop': 'retail_shop',
+  'Warehouse': 'warehouse',
+  'Industrial': 'industrial',
+  'Serviced Office': 'office',
+};
+
+// ── Merge parsed search-intent with explicit UI filters ────────
+interface ResolvedFilters {
+  propertyType: string | null;
+  propertyCategory: string | null;
+  bedsMin?: number;
+  bedsMax?: number;
+  priceMin?: number;
+  priceMax?: number;
+  location: string | null;
+  city?: string;
+  locationLevel?: 'area' | 'city';
+  terms: string[];
+  furnished?: boolean;
+}
+
+function resolveFilters(filters: ListingFilters, parsed: PropertySearchIntent | null): ResolvedFilters {
+  // Property type: explicit dropdown wins; otherwise use the parsed intent.
+  let propertyType: string | null = null;
+  if (filters.propertyType && filters.propertyType !== 'Any type') {
+    propertyType = PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_');
+  } else if (parsed?.propertyType) {
+    propertyType = parsed.propertyType;
+  }
+
+  // Category: explicit UI category wins; otherwise derive from parsed type.
+  // IMPORTANT: we never force 'residential' when the user has actually
+  // searched - that silently excluded all land/commercial searches. The
+  // residential default only applies to the tidy "browse everything" state.
+  let propertyCategory: string | null = filters.propertyCategory || null;
+  if (!propertyCategory && parsed?.propertyCategory) {
+    propertyCategory = parsed.propertyCategory;
+  }
+  const hasCriteria = !!filters.search.trim() || !!propertyType || !!filters.propertyCategory;
+  if (!propertyCategory && !hasCriteria) {
+    propertyCategory = 'residential';
+  }
+
+  // Bedrooms - combine UI minimums and parsed minimums (use the stricter).
+  let bedsMin = filters.bedsMin;
+  if (parsed?.bedroomsMin && (!bedsMin || parsed.bedroomsMin > bedsMin)) {
+    bedsMin = parsed.bedroomsMin;
+  }
+  let bedsMax = filters.bedsMax;
+  if (parsed?.bedroomsMax && (!bedsMax || parsed.bedroomsMax < bedsMax)) {
+    bedsMax = parsed.bedroomsMax;
+  }
+
+  // Price - combine UI range and parsed range (use the stricter of each bound).
+  let priceMin = filters.priceMin;
+  if (parsed?.priceMin && (!priceMin || parsed.priceMin > priceMin)) {
+    priceMin = parsed.priceMin;
+  }
+  let priceMax = filters.priceMax;
+  if (parsed?.priceMax && (!priceMax || parsed.priceMax < priceMax)) {
+    priceMax = parsed.priceMax;
+  }
+
+  return {
+    propertyType,
+    propertyCategory,
+    bedsMin,
+    bedsMax,
+    priceMin,
+    priceMax,
+    location: parsed?.location || null,
+    city: parsed?.city,
+    locationLevel: parsed?.locationLevel,
+    terms: parsed?.terms || [],
+    furnished: undefined,
+  };
+}
+
+// ── Build the PostgREST `.or()` filter for location + leftover terms ────
+function buildSearchOr(resolved: ResolvedFilters): string | null {
+  const conds: string[] = [];
+
+  // City-level (“Nairobi”) → all Nairobi areas, never a literal field.
+  if (resolved.locationLevel === 'city' && resolved.city) {
+    const cityClause = buildCityOrClause(resolved.city);
+    if (cityClause) conds.push(cityClause);
+  }
+
+  // Specific area (“Karen”) → only that area, never broadened to the city.
+  // We match the WHOLE location hierarchy (neighbourhood, estate/area,
+  // address line, city) so "Lavington" resolves even when it lives in a
+  // different column per listing, and never relies on one exact field.
+  if (resolved.locationLevel === 'area' && resolved.location) {
+    const loc = resolved.location;
+    conds.push(
+      `neighbourhood.ilike.%${loc}%`,
+      `location.ilike.%${loc}%`,
+      `address.ilike.%${loc}%`,
+      `city.ilike.%${loc}%`,
+    );
+  }
+
+  for (const term of resolved.terms) {
+    conds.push(
+      `title.ilike.%${term}%`,
+      `location.ilike.%${term}%`,
+      `neighbourhood.ilike.%${term}%`,
+      `city.ilike.%${term}%`,
+    );
+  }
+  return conds.length > 0 ? conds.join(',') : null;
+}
+
+// ── Apply the resolved constraints to a query builder ──────────
+function applyResolved(query: any, resolved: ResolvedFilters) {
+  // Search intent OR clause (location + leftover terms). Empty locations are
+  // fine to include; only include when we actually have a condition.
+  const orClause = buildSearchOr(resolved);
+  if (orClause) query = query.or(orClause);
+
+  if (resolved.propertyType) {
+    query = query.eq('property_type', resolved.propertyType);
+  }
+  if (resolved.propertyCategory) {
+    query = query.eq('property_category', resolved.propertyCategory);
+  }
+  if (resolved.bedsMin !== undefined && resolved.bedsMin > 0) {
+    query = query.gte('bedrooms', resolved.bedsMin);
+  }
+  if (resolved.bedsMax !== undefined && resolved.bedsMax > 0) {
+    query = query.lte('bedrooms', resolved.bedsMax);
+  }
+  if (resolved.priceMin !== undefined && resolved.priceMin > 0) {
+    query = query.gte('price', resolved.priceMin);
+  }
+  if (resolved.priceMax !== undefined && resolved.priceMax > 0) {
+    query = query.lte('price', resolved.priceMax);
+  }
+  return query;
+}
+
 // ── Hook ───────────────────────────────────────────────────────
 const ITEMS_PER_PAGE = 10;
+
+const LISTING_SELECT = 'id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable';
 
 export function useListings(filters: ListingFilters, page: number): UseListingsReturn {
   const [listings, setListings] = useState<MappedListing[]>([]);
@@ -338,6 +531,25 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Agency name used as the fallback "agent" on cards; comes from site settings.
+  const agencyNameRef = useRef<string>(getSiteNameSync());
+
+  // Resolve the admin-managed agency name once, then refresh so fallback cards
+  // pick it up instead of the built-in default.
+  useEffect(() => {
+    let active = true;
+    loadSiteMeta().then(() => {
+      if (!active) return;
+      if (agencyNameRef.current !== getSiteNameSync()) {
+        agencyNameRef.current = getSiteNameSync();
+        refetch();
+      }
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchListings = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
@@ -349,129 +561,126 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
 
     const isDistanceFilter = !!(filters.centerLat && filters.centerLng && filters.radiusMeters);
 
+    // Compound clauses = a natural-language query that may contain MULTIPLE
+    // independent transaction/type/location combinations (OR between clauses).
+    const clauses = filters.search ? parseSearchClauses(filters.search) : [];
+    const isCompound = clauses.length > 0;
+    // Simple intent, used only for the non-compound path.
+    const parsed = filters.search ? parsePropertySearch(filters.search) : null;
+    const resolved = resolveFilters(filters, parsed);
+
     try {
-      // Build base query without pagination when distance filtering
       let query = supabase
-        .from('listings')
-        .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable', { count: 'exact', head: false })
-        .eq('purpose', filters.purpose)
-        .eq('is_published', true)
+        .from('all_listings')
+        .select(LISTING_SELECT, { count: 'exact', head: false })
         .neq('title', '')
-        .gt('price', 0)
         .or('is_new_development.eq.false,is_new_development.is.null');
 
-      // Status filter
-      if (filters.statusFilter === 'available') {
-        query = query.eq('status', 'available');
-      } else if (filters.statusFilter === 'all') {
-        query = query.neq('status', 'sold');
+      // ── CANONICAL PUBLIC VISIBILITY ──────────────────────────────────
+      // is_published = true AND a live (non-withdrawn) status. Applied from the
+      // ONE shared definition so Buy / Rent / Land / Commercial / SEO pages all
+      // agree. Deliberately NOT gated on price: a published listing with a
+      // "Price on request" value is still a real, discoverable listing.
+      query = applyPublicVisibility(query, statusScopeFromFilter(filters.statusFilter));
+
+      // Amenities filter - additive constraint (SEO landing pages only). Uses
+      // array containment so a listing matches if its amenities include any of
+      // the requested values (e.g. 'Furnished', 'Serviced', 'Luxury').
+      if (filters.amenitiesFilter && filters.amenitiesFilter.length > 0) {
+        query = query.contains('amenities', filters.amenitiesFilter);
+      }
+
+      // Sub-type filter - strict discriminator (SEO landing pages only), e.g.
+      // 'duplex' or 'modern'. Matches the listings.sub_type column exactly.
+      if (filters.subTypeFilter) {
+        query = query.eq('sub_type', filters.subTypeFilter);
+      }
+
+      // Purpose is global only when there is no compound query that sets its own
+      // per-clause transaction. A compound query can mix sale AND rent, so when
+      // any clause explicitly declares a transaction we encode it per-clause;
+      // otherwise (e.g. an area-only "Karen" search) the page's sale/rent context
+      // must still apply, so we keep the global purpose filter.
+      const hasExplicitTxn = clauses.some((c) => c.transaction);
+      if (!isCompound || !hasExplicitTxn) {
+        query = query.eq('purpose', filters.purpose);
+      }
+
+      // Status filter is already applied by applyPublicVisibility above - the
+      // per-page `statusFilter` only selects which CANONICAL scope to use, so
+      // it can never widen or narrow the definition on its own.
+
+      // Apply search criteria:
+      //   • compound query → one PostgREST or() grouping every clause (AND
+      //     within a clause, OR between clauses). Never broadens the query.
+      //   • simple query → the single-intent resolved path.
+      if (isCompound) {
+        const orClause = buildClausesOr(clauses);
+        if (orClause) query = query.or(orClause);
       } else {
-        query = query.in('status', ['available', 'under_contract']);
+        query = applyResolved(query, resolved);
       }
 
-      // Search
-      if (filters.search) {
-        const q = filters.search.trim();
-        query = query.or(`title.ilike.%${q}%,location.ilike.%${q}%,neighbourhood.ilike.%${q}%`);
+      // ── EXPLICIT PROPERTY TYPE IS AUTHORITATIVE ─────────────────────────
+      // A type chosen in the UI must never be ignored or overridden by the
+      // free-text parser. E.g. a compound query "house in Karen" combined with
+      // a dropdown selection of "Land" must return LAND, not houses. The
+      // selection is therefore applied as a strict AND on top of every other
+      // constraint (multiple values are OR-combined, single value is exact).
+      const explicitTypes = (filters.propertyTypes && filters.propertyTypes.length > 0)
+        ? filters.propertyTypes.filter(Boolean)
+        : [];
+      if (explicitTypes.length === 1) {
+        query = query.eq('property_type', explicitTypes[0]);
+      } else if (explicitTypes.length > 1) {
+        query = query.in('property_type', explicitTypes);
       }
 
-      // Price range
-      if (filters.priceMin !== undefined && filters.priceMin > 0) {
-        query = query.gte('price', filters.priceMin);
-      }
-      if (filters.priceMax !== undefined && filters.priceMax > 0) {
-        query = query.lte('price', filters.priceMax);
-      }
+      // Price range (advanced/explicit)
+      if (filters.priceMin !== undefined && filters.priceMin > 0) query = query.gte('price', filters.priceMin);
+      if (filters.priceMax !== undefined && filters.priceMax > 0) query = query.lte('price', filters.priceMax);
 
-      // Beds
-      if (filters.bedsMin !== undefined && filters.bedsMin > 0) {
-        query = query.gte('bedrooms', filters.bedsMin);
-      }
-      if (filters.bedsMax !== undefined && filters.bedsMax > 0) {
-        query = query.lte('bedrooms', filters.bedsMax);
-      }
+      // Beds (explicit dropdown - already merged via resolved, but keep for safety)
+      if (filters.bedsMin !== undefined && filters.bedsMin > 0) query = query.gte('bedrooms', filters.bedsMin);
+      if (filters.bedsMax !== undefined && filters.bedsMax > 0) query = query.lte('bedrooms', filters.bedsMax);
 
-      // Property type — shared typeMap used in main & fallback paths
-      const PROP_TYPE_MAP: Record<string, string> = {
-        'Apartment': 'apartment',
-        'House': 'house',
-        'Townhouse': 'townhouse',
-        'Penthouse': 'penthouse',
-        'Villa': 'villa',
-        'Studio': 'studio_flat',
-        'Bungalow': 'bungalow',
-        'Maisonette': 'maisonette',
-        'Detached': 'detached',
-        'Semi-detached': 'semi-detached',
-        'Terraced': 'terraced',
-        'Land': 'land',
-        'Office': 'office',
-        'Retail / Shop': 'retail_shop',
-        'Warehouse': 'warehouse',
-        'Industrial': 'industrial',
-        'Serviced Office': 'serviced_office',
-      };
-      if (filters.propertyType && filters.propertyType !== 'Any type') {
-        const dbType = PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_');
-        query = query.eq('property_type', dbType);
-      }
-
-      // Property category — always enforced; Buy/Rent default to residential-only
-      // For commercial, also catch listings by property_type so nothing slips through
-      if (filters.propertyCategory === 'commercial') {
-        query = query.or('property_category.eq.commercial,property_type.in.(office,serviced_office,retail_shop,guest_house,leisure,warehouse,industrial,land,other)');
-      } else {
-        query = query.eq('property_category', filters.propertyCategory || 'residential');
-      }
+      // Property category (explicit only) - never defaulted to residential
+      if (filters.propertyCategory) query = query.eq('property_category', filters.propertyCategory);
 
       // Size (sqft in DB, convert from sqm)
-      if (filters.sqmMin !== undefined && filters.sqmMin > 0) {
-        query = query.gte('sqft', filters.sqmMin * 10.764);
-      }
-      if (filters.sqmMax !== undefined && filters.sqmMax > 0) {
-        query = query.lte('sqft', filters.sqmMax * 10.764);
-      }
+      if (filters.sqmMin !== undefined && filters.sqmMin > 0) query = query.gte('sqft', filters.sqmMin * 10.764);
+      if (filters.sqmMax !== undefined && filters.sqmMax > 0) query = query.lte('sqft', filters.sqmMax * 10.764);
 
       // Added since
       if (filters.addedSince && filters.addedSince !== 'Anytime') {
         const now = new Date();
         let since: Date;
         switch (filters.addedSince) {
-          case 'Last 24 hours':
-            since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-            break;
-          case 'Last 3 days':
-            since = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
-            break;
-          case 'Last 7 days':
-            since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            break;
-          case 'Last 14 days':
-            since = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-            break;
-          default:
-            since = new Date(0);
+          case 'Last 24 hours': since = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
+          case 'Last 3 days': since = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); break;
+          case 'Last 7 days': since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+          case 'Last 14 days': since = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); break;
+          default: since = new Date(0);
         }
         query = query.gte('created_at', since.toISOString());
       }
 
-      // Sort — distance filtering overrides sort
+      // Sort - distance filtering overrides sort. A–Z is the default so a large
+      // dataset always starts at "A" instead of an arbitrary insertion order.
       if (!isDistanceFilter) {
         switch (filters.sortBy) {
-          case 'Highest price':
-            query = query.order('price', { ascending: false });
-            break;
-          case 'Lowest price':
-            query = query.order('price', { ascending: true });
-            break;
+          case 'Highest price': query = query.order('price', { ascending: false }); break;
+          case 'Lowest price': query = query.order('price', { ascending: true }); break;
           case 'Most recent':
-          default:
-            query = query.order('created_at', { ascending: false });
-            break;
+          case 'Most reduced':
+          case 'Most popular': query = query.order('created_at', { ascending: false }); break;
+          case 'Z - A': query = query.order('title', { ascending: false }); break;
+          case 'A - Z':
+          default: query = query.order('title', { ascending: true }); break;
         }
       }
 
-      // Pagination — skip when distance filtering (fetch all, paginate client-side)
+      // Pagination - skip when distance filtering (fetch all, paginate client-side)
       const from = (page - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
       if (!isDistanceFilter) {
@@ -479,75 +688,22 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       }
 
       const { data, error: queryError, count } = await query;
+      if (queryError) throw queryError;
 
-      if (queryError) {
-        if (queryError.code === '42703' || queryError.message?.toLowerCase().includes('schema cache') || queryError.message?.toLowerCase().includes('agents')) {
-          let fallbackQuery = supabase
-            .from('listings')
-            .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable', { count: 'exact', head: false })
-            .eq('purpose', filters.purpose)
-            .eq('is_published', true)
-            .neq('title', '')
-            .gt('price', 0)
-            .neq('is_new_development', true);
+      const now = new Date();
+      let mapped = ((data || []) as ListingRow[]).map((row) => mapRow(row, now, filters.purpose, agencyNameRef.current));
 
-          if (filters.search) {
-            const q = filters.search.trim();
-            fallbackQuery = fallbackQuery.or(`title.ilike.%${q}%,location.ilike.%${q}%`);
-          }
-          if (filters.priceMin && filters.priceMin > 0) fallbackQuery = fallbackQuery.gte('price', filters.priceMin);
-          if (filters.priceMax && filters.priceMax > 0) fallbackQuery = fallbackQuery.lte('price', filters.priceMax);
-          if (filters.bedsMin && filters.bedsMin > 0) fallbackQuery = fallbackQuery.gte('bedrooms', filters.bedsMin);
-          if (filters.bedsMax && filters.bedsMax > 0) fallbackQuery = fallbackQuery.lte('bedrooms', filters.bedsMax);
-          if (filters.propertyType && filters.propertyType !== 'Any type') {
-            const dbType = PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_');
-            fallbackQuery = fallbackQuery.eq('property_type', dbType);
-          }
-          fallbackQuery = fallbackQuery.eq('property_category', filters.propertyCategory || 'residential');
-          if (filters.sqmMin && filters.sqmMin > 0) fallbackQuery = fallbackQuery.gte('sqft', filters.sqmMin * 10.764);
-          if (filters.sqmMax && filters.sqmMax > 0) fallbackQuery = fallbackQuery.lte('sqft', filters.sqmMax * 10.764);
-          fallbackQuery = fallbackQuery.in('status', ['available', 'under_contract']);
-          fallbackQuery = fallbackQuery.order('created_at', { ascending: false });
-          if (!isDistanceFilter) {
-            fallbackQuery = fallbackQuery.range(from, to);
-          }
-
-          const fallback = await fallbackQuery;
-          if (fallback.error) throw fallback.error;
-
-          const now = new Date();
-          let mapped = ((fallback.data || []) as ListingRow[]).map((row) => mapRow(row, now, filters.purpose));
-
-          // Distance filtering
-          if (isDistanceFilter) {
-            mapped = filterAndSortByDistance(mapped, filters.centerLat!, filters.centerLng!, filters.radiusMeters!);
-            const total = mapped.length;
-            const start = (page - 1) * ITEMS_PER_PAGE;
-            mapped = mapped.slice(start, start + ITEMS_PER_PAGE);
-            setTotalCount(total);
-          } else {
-            setTotalCount(fallback.count || mapped.length);
-          }
-          setListings(mapped);
-        } else {
-          throw queryError;
-        }
+      // Distance filtering
+      if (isDistanceFilter) {
+        mapped = filterAndSortByDistance(mapped, filters.centerLat!, filters.centerLng!, filters.radiusMeters!);
+        const total = mapped.length;
+        const start = (page - 1) * ITEMS_PER_PAGE;
+        mapped = mapped.slice(start, start + ITEMS_PER_PAGE);
+        setTotalCount(total);
       } else {
-        const now = new Date();
-        let mapped = ((data || []) as ListingRow[]).map((row) => mapRow(row, now, filters.purpose));
-
-        // Distance filtering
-        if (isDistanceFilter) {
-          mapped = filterAndSortByDistance(mapped, filters.centerLat!, filters.centerLng!, filters.radiusMeters!);
-          const total = mapped.length;
-          const start = (page - 1) * ITEMS_PER_PAGE;
-          mapped = mapped.slice(start, start + ITEMS_PER_PAGE);
-          setTotalCount(total);
-        } else {
-          setTotalCount(count || mapped.length);
-        }
-        setListings(mapped);
+        setTotalCount(count || mapped.length);
       }
+      setListings(mapped);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to load listings';
       setError(message);
@@ -556,7 +712,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.subTypeFilter]);
 
   useEffect(() => {
     fetchListings();

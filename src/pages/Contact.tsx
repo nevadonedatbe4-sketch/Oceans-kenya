@@ -1,29 +1,22 @@
 import { useState, FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { resolveSocials } from '@/lib/socialIcons';
+import { DEFAULT_CONTACT, formatPhoneDisplay, toTelHref, toWhatsappHref } from '@/lib/contactDefaults';
 
 const officeHours = [
-  { day: 'Monday', hours: '8:00 AM – 4:00 PM' },
-  { day: 'Tuesday', hours: '8:00 AM – 4:00 PM' },
-  { day: 'Wednesday', hours: '8:00 AM – 4:00 PM' },
-  { day: 'Thursday', hours: '8:00 AM – 4:00 PM' },
-  { day: 'Friday', hours: '8:00 AM – 4:00 PM' },
-  { day: 'Saturday', hours: '9:00 AM – 4:00 PM' },
+  { day: 'Monday', hours: '8:00 AM - 4:00 PM' },
+  { day: 'Tuesday', hours: '8:00 AM - 4:00 PM' },
+  { day: 'Wednesday', hours: '8:00 AM - 4:00 PM' },
+  { day: 'Thursday', hours: '8:00 AM - 4:00 PM' },
+  { day: 'Friday', hours: '8:00 AM - 4:00 PM' },
+  { day: 'Saturday', hours: '9:00 AM - 4:00 PM' },
   { day: 'Sunday', hours: 'Closed' },
-];
-
-const defaultSocialLinks = [
-  { icon: 'ri-facebook-fill', label: 'Facebook', href: 'https://www.facebook.com/oceanskenya' },
-  { icon: 'ri-instagram-line', label: 'Instagram', href: 'https://www.instagram.com/oceans_estateagents' },
-  { icon: 'ri-linkedin-fill', label: 'LinkedIn', href: 'https://www.linkedin.com/company/oceans-estate-agents' },
-  { icon: 'ri-whatsapp-line', label: 'WhatsApp', href: 'https://wa.me/254703712984' },
-  { icon: 'ri-twitter-x-line', label: 'X / Twitter', href: 'https://x.com/oceanskenya' },
-  { icon: 'ri-youtube-fill', label: 'YouTube', href: 'https://www.youtube.com/@oceanskenya' },
 ];
 
 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -33,14 +26,14 @@ export default function Contact() {
   const { getSite, social } = useSiteSettings();
   const [searchParams] = useSearchParams();
   const presetEnquiry = searchParams.get('type');
-  const socialLinks = resolveSocials(social, 'contact', defaultSocialLinks);
+  const socialLinks = resolveSocials(social, 'contact', []);
 
-  const sitePhone = getSite('contact_phone') || '+254703712984';
-  const siteEmail = getSite('contact_email') || 'ask@oceanske.com';
+  const sitePhone = getSite('contact_phone') || DEFAULT_CONTACT.phone;
+  const siteEmail = getSite('contact_email') || DEFAULT_CONTACT.email;
   const siteWhatsapp = getSite('whatsapp_number') || sitePhone;
-  const siteAddress = getSite('address') || 'Plot 9, Riverside Drive, Westlands, Nairobi, Kenya';
-  const telHref = `tel:${sitePhone.replace(/[^+\d]/g, '')}`;
-  const waHref = `https://wa.me/${siteWhatsapp.replace(/[^\d]/g, '')}`;
+  const siteAddress = getSite('address');
+  const telHref = toTelHref(sitePhone);
+  const waHref = toWhatsappHref(siteWhatsapp);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -78,7 +71,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-white pt-[88px] md:pt-[96px]">
+    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero */}
@@ -89,17 +82,12 @@ export default function Contact() {
           <p className="text-golden text-sm md:text-base font-roboto font-semibold tracking-[0.2em] uppercase mb-3">We're Here to Help</p>
           <h1 className="text-3xl md:text-5xl font-roboto font-bold text-white mb-3 leading-tight">Get In Touch</h1>
           <p className="text-white/75 font-roboto text-sm leading-relaxed max-w-md mx-auto mb-6">
-            Whether you're buying, selling, renting, or just have a question — our team is ready and happy to help.
+            Whether you're buying, selling, renting, or just have a question - our team is ready and happy to help.
           </p>
-        </div>
-        <div className="absolute bottom-5 left-0 right-0 flex items-center justify-center gap-2 text-white/50 font-roboto text-[11px]">
-          <Link className="hover:text-white transition-colors cursor-pointer" to="/">Home</Link>
-          <i className="ri-arrow-right-s-line"></i>
-          <span className="text-white/80">Contact</span>
         </div>
       </div>
 
-      {/* Quick links */}
+      {/* Quick links - sits directly under the banner so the blue flows straight through */}
       <div className="bg-primary">
         <div className="max-w-5xl mx-auto px-4 md:px-6 py-4 md:py-5 grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
           {[
@@ -118,6 +106,9 @@ export default function Contact() {
         </div>
       </div>
 
+      {/* Breadcrumb - placed below the blue band so the blue is never broken */}
+      <PageBreadcrumbs />
+
       {/* Main content */}
       <section className="relative max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-14">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8 items-start">
@@ -129,26 +120,26 @@ export default function Contact() {
               <p className="text-stone-500 font-roboto text-xs md:text-sm leading-relaxed">Fill in the form below and one of our agents will be in touch within 24 hours. For urgent matters, call us directly.</p>
             </div>
 
-            <div className="bg-white border-2 border-primary/12 p-4 md:p-10">
+            <div className="bg-white border border-primary/10 p-4 md:p-10 shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)]">
               <form data-readdy-form="true" id="contact-main-form" onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Full Name <span className="text-red-400">*</span></label>
-                    <input required name="full_name" placeholder="Your full name" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
+                    <input required name="full_name" placeholder="Your full name" className="w-full border border-primary/20 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                   </div>
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Email <span className="text-red-400">*</span></label>
-                    <input required type="email" name="email" placeholder="your@email.com" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
+                    <input required type="email" name="email" placeholder="your@email.com" className="w-full border border-primary/20 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Phone Number</label>
-                    <input type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
+                    <input type="tel" name="phone" placeholder="+254 700 000 000" className="w-full border border-primary/20 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                   </div>
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Enquiry Type</label>
-                    <select name="enquiry_type" defaultValue={presetEnquiry === 'brochure' ? 'brochure' : undefined} className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary focus:outline-none focus:border-primary cursor-pointer bg-white">
+                    <select name="enquiry_type" defaultValue={presetEnquiry === 'brochure' ? 'brochure' : undefined} className="w-full border border-primary/20 px-4 py-3 text-base font-roboto font-normal text-primary focus:outline-none focus:border-primary cursor-pointer bg-white">
                       <option value="buy">Buying a Property</option>
                       <option value="rent">Renting a Property</option>
                       <option value="sell">Selling a Property</option>
@@ -161,23 +152,31 @@ export default function Contact() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-2">Subject <span className="text-red-400">*</span></label>
-                  <input required name="subject" placeholder="How can we help?" className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
+                  <input required name="subject" placeholder="How can we help?" className="w-full border border-primary/20 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-2">Message <span className="text-red-400">*</span></label>
-                  <textarea name="message" required rows={4} maxLength={500} placeholder="Tell us about your property needs, questions, or anything else we can help with..." className="w-full border-2 border-primary/40 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors resize-none"></textarea>
+                  <textarea name="message" required rows={4} maxLength={500} placeholder="Tell us about your property needs, questions, or anything else we can help with..." className="w-full border border-primary/20 px-4 py-3 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors resize-none"></textarea>
                   <p className="text-right text-sm text-primary/50 font-roboto mt-1">Max 500 characters</p>
                 </div>
                 <input type="text" name="company_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="contact-hp-field" />
                 <button
                   type="submit"
-                  disabled={formStatus === 'submitting'}
+                  disabled={formStatus === 'submitting' || formStatus === 'success'}
                   className="w-full px-5 py-3 bg-primary hover:bg-accent text-white border-2 border-primary font-roboto font-semibold text-base tracking-widest uppercase cursor-pointer whitespace-nowrap transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {formStatus === 'submitting' ? 'Submitting...' : 'Submit'}
+                  {formStatus === 'submitting' ? 'Submitting...' : formStatus === 'success' ? 'Sent!' : 'Submit'}
                 </button>
                 {formStatus === 'success' && (
-                  <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&apos;ll respond within 24 hours.</p>
+                  <div className="flex items-start gap-3 p-4 bg-green-50 border-2 border-green-200 rounded-lg" role="status">
+                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-green-100 shrink-0">
+                      <i className="ri-check-line text-green-600"></i>
+                    </span>
+                    <div className="text-left">
+                      <p className="text-green-700 font-roboto font-semibold text-sm">Message sent successfully!</p>
+                      <p className="text-green-600 font-roboto text-xs mt-0.5">Thank you - we&apos;ll respond within 24 hours. There&apos;s no need to send it again.</p>
+                    </div>
+                  </div>
                 )}
                 {formStatus === 'error' && (
                   <p className="text-red-500 text-sm font-roboto text-center">{formError}</p>
@@ -197,9 +196,9 @@ export default function Contact() {
                 </div>
                 <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
                   <a href={telHref} className="hidden sm:flex items-center gap-1 text-white font-roboto text-xs hover:text-white/80 transition-colors cursor-pointer">
-                    <i className="ri-phone-line text-xs"></i>{sitePhone}
+                    <i className="ri-phone-line text-xs"></i>{formatPhoneDisplay(sitePhone)}
                   </a>
-                  <a href="https://www.google.com/maps/dir//Riverside%20Drive%2C%20Westlands%2C%20Nairobi%2C%20Kenya" target="_blank" rel="nofollow noreferrer" className="inline-flex items-center gap-1 px-2.5 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs font-roboto font-medium bg-golden text-white hover:bg-golden/90 transition cursor-pointer whitespace-nowrap">
+                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(siteAddress || '')}`} target="_blank" rel="nofollow noreferrer" className="inline-flex items-center gap-1 px-2.5 md:px-3 py-1 md:py-1.5 text-[10px] md:text-xs font-roboto font-medium bg-golden text-white hover:bg-golden/90 transition cursor-pointer whitespace-nowrap">
                     <i className="ri-navigation-fill text-[10px] md:text-xs"></i>Get Directions
                   </a>
                 </div>
@@ -230,7 +229,7 @@ export default function Contact() {
               <div className="space-y-3 md:space-y-5">
                 {/* Office photo */}
                 <div className="w-full aspect-square overflow-hidden">
-                  <img alt="Oceans Kenya" className="w-full h-full object-cover object-top" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp" />
+                  <img alt="Oceans Kenya" className="w-full h-full object-cover object-center" src="https://storage.helloreaddy.io/project_files/842d3b8a-5d73-416c-bead-c20132299a10/7e1ae572-8d93-4598-a1fb-e49d9066583a_compressed_6763327f26245b63a5c7ce2e32ec8cf5.webp" />
                 </div>
 
                 {/* Open status */}
@@ -274,7 +273,7 @@ export default function Contact() {
                   </div>
                   <div className="space-y-2.5 md:space-y-3">
                     {[
-                      { icon: 'ri-phone-line', label: 'Phone', value: sitePhone, href: telHref },
+                      { icon: 'ri-phone-line', label: 'Phone', value: formatPhoneDisplay(sitePhone), href: telHref },
                       { icon: 'ri-whatsapp-line', label: 'WhatsApp', value: siteWhatsapp, href: waHref },
                       { icon: 'ri-mail-line', label: 'Email', value: siteEmail, href: `mailto:${siteEmail}` },
                     ].map((item) => (
@@ -294,7 +293,7 @@ export default function Contact() {
                       </div>
                       <div>
                         <p className="text-primary font-roboto text-sm font-bold uppercase tracking-wider mb-0.5">Office</p>
-                        <p className="text-primary font-roboto text-base font-medium leading-relaxed">Plot 9, Riverside Drive, Westlands, Nairobi, Kenya</p>
+                        <p className="text-primary font-roboto text-base font-medium leading-relaxed">{siteAddress}</p>
                       </div>
                     </div>
                   </div>
@@ -310,11 +309,11 @@ export default function Contact() {
                   </div>
                   <div className="space-y-2.5 md:space-y-3">
                     {[
-                      { label: 'General Inquiries', value: 'ask@oceanske.com' },
-                      { label: 'Sales', value: 'sales@oceanske.com' },
-                      { label: 'Rentals', value: 'Rent@oceanske.com' },
-                      { label: 'Ventures', value: 'ventures@oceanske.com' },
-                    ].map((item) => (
+                      { label: 'General Inquiries', value: getSite('email_general') || siteEmail },
+                      { label: 'Sales', value: getSite('email_sales') },
+                      { label: 'Rentals', value: getSite('email_rentals') },
+                      { label: 'Ventures', value: getSite('email_ventures') },
+                    ].filter((item) => item.value && item.value.trim()).map((item) => (
                       <a key={item.label} href={`mailto:${item.value}`} className="flex items-start gap-2 md:gap-2.5 group cursor-pointer rounded-sm p-1.5 -mx-1.5 hover:bg-primary/5 transition-colors">
                         <div className="w-8 h-8 flex items-center justify-center bg-primary/10 rounded-full flex-shrink-0 group-hover:bg-golden/20 transition-colors">
                           <i className="ri-mail-line text-golden text-xs"></i>
@@ -375,7 +374,7 @@ export default function Contact() {
               </div>
               <h3 className="text-primary font-roboto font-bold text-sm mb-1">Our Address</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed">
-                Plot 9, Riverside Drive<br />Westlands<br />Nairobi<br />Kenya
+                {siteAddress}
               </p>
             </div>
             <div className="text-center flex flex-col items-center">
@@ -384,7 +383,7 @@ export default function Contact() {
               </div>
               <h3 className="text-primary font-roboto font-bold text-sm mb-1">Getting Here</h3>
               <p className="text-stone-500 font-roboto text-xs leading-relaxed max-w-sm mx-auto">
-                We are located off Riverside Drive in Westlands. Ample parking is available on-site. 10 minutes from Nairobi City Centre.
+                We are located on Mandera Rd. Ample parking is available on-site. 10 minutes from Nairobi City Centre.
               </p>
             </div>
             <div className="text-center flex flex-col items-center">
