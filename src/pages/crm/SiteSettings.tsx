@@ -233,17 +233,67 @@ export default function SiteSettings() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Address
-                </label>
-                <input
-                  type="text"
-                  value={getSetting('address')}
-                  onChange={(e) => setSetting('address', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
-                  placeholder="Riverside Drive, Westlands, Nairobi"
-                />
+              <div className="pt-2 border-t border-gray-100">
+                <h4 className="font-jost text-[15px] text-[#1a1a2e] mb-3 mt-1">Office Locations</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="border border-gray-100 rounded-md p-4 space-y-3">
+                    <p className="text-[15px] font-roboto font-semibold text-[#1a1a2e]">Primary Office</p>
+                    <div>
+                      <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        Office Label
+                      </label>
+                      <input
+                        type="text"
+                        value={getSetting('address_label')}
+                        onChange={(e) => setSetting('address_label', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                        placeholder="Head Office"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        Address
+                      </label>
+                      <input
+                        type="text"
+                        value={getSetting('address')}
+                        onChange={(e) => setSetting('address', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                        placeholder="Riverside Drive, Westlands, Nairobi"
+                      />
+                    </div>
+                  </div>
+                  <div className="border border-gray-100 rounded-md p-4 space-y-3">
+                    <p className="text-[15px] font-roboto font-semibold text-[#1a1a2e]">Second Office</p>
+                    <div>
+                      <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        Office Label
+                      </label>
+                      <input
+                        type="text"
+                        value={getSetting('address_2_label')}
+                        onChange={(e) => setSetting('address_2_label', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                        placeholder="Karen Office"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                        Address
+                      </label>
+                      <input
+                        type="text"
+                        value={getSetting('address_2')}
+                        onChange={(e) => setSetting('address_2', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto focus:outline-none focus:border-primary"
+                        placeholder="Karen Road, Karen, Nairobi"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[15px] text-gray-500 font-roboto mt-2">
+                  Both offices appear on the Contact page and in the footer. Leave the second office address blank to show only one.
+                </p>
               </div>
 
               <div>

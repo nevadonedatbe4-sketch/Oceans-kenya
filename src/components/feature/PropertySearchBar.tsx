@@ -92,6 +92,8 @@ export interface PropertySearchBarProps {
 
   onFilters?: () => void;
   filtersActive?: boolean;
+  /** Number of currently-applied advanced filters; drives the button badge. */
+  filtersCount?: number;
 
   saved?: boolean;
   onToggleSave?: () => void;
@@ -274,22 +276,30 @@ function SelectControl({
 function FiltersButton({
   onClick,
   active,
+  count = 0,
   className = '',
 }: {
   onClick: () => void;
   active?: boolean;
+  count?: number;
   className?: string;
 }) {
+  const isActive = Boolean(active) || count > 0;
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 h-[54px] px-5 rounded-[4px] border text-base font-roboto font-semibold whitespace-nowrap cursor-pointer transition-colors ${active ? 'bg-primary text-white border-primary' : 'bg-white text-primary border-primary/60 hover:border-primary hover:bg-primary/5'} ${className}`}
+      className={`flex items-center justify-center gap-2 h-[54px] px-5 rounded-[4px] border text-base font-roboto font-semibold whitespace-nowrap cursor-pointer transition-colors ${isActive ? 'bg-primary text-white border-primary' : 'bg-white text-primary border-primary/60 hover:border-primary hover:bg-primary/5'} ${className}`}
     >
       <span className="w-5 h-5 flex items-center justify-center">
         <i className="ri-equalizer-line"></i>
       </span>
       Filters
+      {count > 0 && (
+        <span className="min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-white text-primary text-[11px] font-bold leading-none">
+          {count}
+        </span>
+      )}
     </button>
   );
 }
@@ -409,6 +419,7 @@ export default function PropertySearchBar({
   landSizeLabel,
   onFilters,
   filtersActive,
+  filtersCount,
   saved,
   onToggleSave,
   onSearch,
@@ -499,7 +510,7 @@ export default function PropertySearchBar({
             fieldClassName="flex-1 min-w-[165px]"
           />
         ))}
-        {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} className="shrink-0" />}
+        {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} count={filtersCount} className="shrink-0" />}
         {showSearch && <SearchButton onClick={onSearch as () => void} dark={isDark} className="shrink-0" />}
       </div>
 
@@ -565,7 +576,7 @@ export default function PropertySearchBar({
             fieldClassName="flex-1 min-w-[150px]"
           />
         ))}
-        {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} className="shrink-0" />}
+        {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} count={filtersCount} className="shrink-0" />}
         {showSearch && <SearchButton onClick={onSearch as () => void} dark={isDark} className="shrink-0" />}
       </div>
 
@@ -580,7 +591,7 @@ export default function PropertySearchBar({
           />
           {(showFilters || showSearch) && (
             <div className="p-3 flex items-center gap-2">
-              {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} className="flex-1" />}
+              {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} count={filtersCount} className="flex-1" />}
               {showSearch && <SearchButton onClick={onSearch as () => void} dark={isDark} className="flex-1" />}
             </div>
           )}

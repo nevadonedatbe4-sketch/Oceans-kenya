@@ -808,28 +808,20 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             />
           </div>
 
-          {/* Toggles */}
-          <div className="mb-5 flex flex-col gap-3">
-            {!isSale && (
-            <div className="flex items-center gap-3">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input className="sr-only" type="checkbox" checked={mobileShowLetAgreed} onChange={() => setMobileShowLetAgreed(!mobileShowLetAgreed)} />
-                <div className={`w-9 h-5 rounded-full transition-colors ${mobileShowLetAgreed ? 'bg-primary' : 'bg-primary/10'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${mobileShowLetAgreed ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}></div>
-                </div>
-              </label>
-              <span className="text-[13px] font-roboto font-medium text-primary">SHOW LET or AGREED LET</span>
-            </div>
-            )}
-            <div className="flex items-center gap-3">
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input className="sr-only" type="checkbox" checked={mobileShowSold} onChange={() => setMobileShowSold(!mobileShowSold)} />
-                <div className={`w-9 h-5 rounded-full transition-colors ${mobileShowSold ? 'bg-primary' : 'bg-primary/10'}`}>
-                  <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${mobileShowSold ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}></div>
-                </div>
-              </label>
-              <span className="text-[13px] font-roboto font-medium text-primary">Show sold</span>
-            </div>
+          {/* Show sold (sale) / Show let or agreed let (rent) */}
+          <div className="mb-5 flex items-center gap-3">
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                className="sr-only"
+                type="checkbox"
+                checked={isSale ? mobileShowSold : mobileShowLetAgreed}
+                onChange={() => (isSale ? setMobileShowSold(!mobileShowSold) : setMobileShowLetAgreed(!mobileShowLetAgreed))}
+              />
+              <div className={`w-9 h-5 rounded-full transition-colors ${(isSale ? mobileShowSold : mobileShowLetAgreed) ? 'bg-primary' : 'bg-primary/10'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${(isSale ? mobileShowSold : mobileShowLetAgreed) ? 'translate-x-[18px]' : 'translate-x-[2px]'}`}></div>
+              </div>
+            </label>
+            <span className="text-[13px] font-roboto font-medium text-primary">{isSale ? 'SHOW SOLD' : 'SHOW LET or AGREED LET'}</span>
           </div>
 
             </div>

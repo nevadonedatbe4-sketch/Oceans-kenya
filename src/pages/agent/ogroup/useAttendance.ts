@@ -3,7 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { pushNotification } from './useNotifications';
 import {
-  detectPunchLocation,
   getBrowserPosition,
   hasGeolocationPermission,
   isValidCoords,
@@ -141,32 +140,84 @@ export function useAttendance(notificationLink: string = '/agent/check-in') {
     setError(null);
     setErrorCode(null);
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('og-checkin', {
-        body: {
-          action,
-          note: payload?.note,
-          break_type: payload?.break_type,
-          break_type_id: payload?.break_type_id,
-          device: payload?.device,
-          location: payload?.location
-            ? {
-              lat: payload.location.lat,
-              lng: payload.location.lng,
-              accuracy: payload.location.accuracy,
-              label: payload.location.label,
-              source: payload.location.source,
-            }
-            : undefined,
-        },
+      // ── Session guard (root-cause fix for "Unauthorized" on punch-out) ──
+      // A punch can succeed in the morning and then 401 in the evening because
+      // the tab's access token went stale (a long shift with no refresh), was
+      // replaced by a sign-in in another tab/device (shared machine), or was
+      // signed out elsewhere. In all of those cases supabase.functions.invoke
+      // sends a stale/absent token and the server rejects it BEFORE it can log
+      // anything — exactly why no punch-out error ever appears in the log.
+      //
+      // So, for EVERY attendance action (status, punch, break, timesheet) we:
+      //   1. make sure a live session exists before calling; if it is missing,
+      //      try a refresh first;
+      //   2. if the server still answers 401, transparently refresh and retry
+      //      the call EXACTLY once;
+      //   3. only then surface a clear, actionable "sign in again" message.
+      const buildBody = () => ({
+        action,
+        note: payload?.note,
+        break_type: payload?.break_type,
+        break_type_id: payload?.break_type_id,
+        device: payload?.device,
+        location: payload?.location
+          ? {
+            lat: payload.location.lat,
+            lng: payload.location.lng,
+            accuracy: payload.location.accuracy,
+            label: payload.location.label,
+            source: payload.location.source,
+          }
+          : undefined,
       });
+
+      let { data: { session } } = await supabase.auth.getSession();
+      // Refresh proactively when there is no session OR the token is within
+      // 60s of expiry, so a stale token is never sent in the first place.
+      const expSoon = !!session?.expires_at && session.expires_at * 1000 - Date.now() < 60000;
+      if (!session || expSoon) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        session = refreshed.session ?? session;
+      }
+      if (!session) {
+        const msg = 'Your sign-in session has ended. Please sign in again to continue.';
+        setErrorCode('SESSION_EXPIRED');
+        setError(msg);
+        return { ok: false, code: 'SESSION_EXPIRED', message: msg };
+      }
+
       // A non-2xx response (e.g. GEOFENCE_NOTE_REQUIRED) arrives as `fnErr` with
       // the body on `error.context`; a 2xx arrives as `data`. Read both so the
       // real error code + details are never swallowed.
-      let body: unknown = data;
-      if (fnErr && (fnErr as { context?: Response }).context) {
-        try { body = await (fnErr as { context: Response }).context.json(); } catch { /* keep data */ }
+      const callOnce = async () => {
+        const { data, error: fnErr } = await supabase.functions.invoke('og-checkin', { body: buildBody() });
+        let status = 200;
+        let body: unknown = data;
+        if (fnErr && (fnErr as { context?: Response }).context) {
+          status = (fnErr as { context: Response }).context.status;
+          try { body = await (fnErr as { context: Response }).context.json(); } catch { /* keep data */ }
+        }
+        return { fnErr, status, j: (body as Record<string, unknown>) || {} };
+      };
+
+      let { fnErr, status, j } = await callOnce();
+      const authRejected = status === 401
+        || j.error === 'Unauthorized'
+        || /jwt|unauthoris|unauthoriz/i.test(String(j.message ?? ''));
+      if ((fnErr || j.error) && authRejected) {
+        // The token was rejected — refresh it and retry the call once.
+        const { data: refreshed, error: refreshErr } = await supabase.auth.refreshSession();
+        if (!refreshErr && refreshed.session) {
+          ({ fnErr, status, j } = await callOnce());
+        }
       }
-      const j = (body as Record<string, unknown>) || {};
+
+      if ((fnErr || j.error) && (status === 401 || j.error === 'Unauthorized')) {
+        const msg = 'Your sign-in session has ended. Please sign in again to continue.';
+        setErrorCode('SESSION_EXPIRED');
+        setError(msg);
+        return { ok: false, code: 'SESSION_EXPIRED', message: msg };
+      }
       if (fnErr || j.error) {
         const code = (j.error as string) || 'ERROR';
         const msg = (j.message as string) || code || 'Something went wrong. Please try again.';
@@ -207,20 +258,17 @@ export function useAttendance(notificationLink: string = '/agent/check-in') {
 
   const status = useCallback(async () => invoke('status'), [invoke]);
 
-  // Punch-in location is BEST-EFFORT. It only runs when the user explicitly
-  // confirms a punch-in. Signing in, page load, refresh, session restoration
-  // and presence NEVER call this.
+  // Punch-in REQUIRES a real location (device fix or a manually chosen place).
+  // The dialog only calls this after the user confirms a detected location, so
+  // there is no silent coordinate-less fallback: a punch without valid
+  // coordinates is rejected here AND re-checked on the server.
   //
-  // If the device can't return coordinates we STILL punch in — the server
-  // stands in with the saved office location so the shift is always recorded. A
-  // missing location must never block an agent from starting their shift.
+  // Signing in, page load, refresh, session restoration and presence NEVER
+  // call this.
   const punchIn = useCallback(async (note?: string, location?: PunchLocation): Promise<PunchOutcome> => {
     if (punchingRef.current) return { ok: false, code: 'IN_FLIGHT', message: 'A punch is already in progress.' };
-
-    let loc = location;
-    if (!loc || !isValidCoords(loc.lat, loc.lng)) {
-      const det = await detectPunchLocation();
-      if (isValidCoords(det.location.lat, det.location.lng)) loc = det.location;
+    if (!location || !isValidCoords(location.lat, location.lng)) {
+      return { ok: false, code: 'LOCATION_REQUIRED', message: 'We need your location before you can punch in.' };
     }
 
     const device = {
@@ -233,7 +281,7 @@ export function useAttendance(notificationLink: string = '/agent/check-in') {
 
     punchingRef.current = true;
     try {
-      return await invoke('punch_in', { location: loc, note, device });
+      return await invoke('punch_in', { location, note, device });
     } finally {
       punchingRef.current = false;
     }

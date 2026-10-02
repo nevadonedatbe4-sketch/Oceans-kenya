@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_CHECKIN_COPY } from '@/lib/ogroupCopy';
 import type { BreakType } from '../useAttendance';
 
 interface Props {
@@ -9,6 +11,7 @@ interface Props {
 }
 
 export default function BreakTypePicker({ breakTypes, busy, onCancel, onSelect }: Props) {
+  const { content: c } = usePageContent('ogroup_checkin', DEFAULT_CHECKIN_COPY);
   const [selected, setSelected] = useState<string>(breakTypes[0]?.id || '');
   const list = breakTypes.length ? breakTypes : [{ id: 'other', name: 'Other', paid: false }];
   const chosen = list.find((b) => b.id === selected) || list[0];
@@ -18,10 +21,10 @@ export default function BreakTypePicker({ breakTypes, busy, onCancel, onSelect }
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       <div className="relative w-full max-w-sm bg-white rounded-2xl p-5 border border-neutral-200">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-base font-semibold text-neutral-900">Start a break</h3>
+          <h3 className="text-base font-semibold text-neutral-900">{c.break_title}</h3>
           <button onClick={onCancel} className="text-neutral-400 hover:text-neutral-600 cursor-pointer"><i className="ri-close-line text-xl" /></button>
         </div>
-        <p className="text-xs text-neutral-500 mb-4">Pick the type of break you&apos;re taking.</p>
+        <p className="text-xs text-neutral-500 mb-4">{c.break_subtitle}</p>
 
         <div className="space-y-2">
           {list.map((b) => (
@@ -38,20 +41,20 @@ export default function BreakTypePicker({ breakTypes, busy, onCancel, onSelect }
                 <span className="text-sm font-medium text-neutral-800">{b.name}</span>
               </span>
               <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${b.paid ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-500'}`}>
-                {b.paid ? 'Paid' : 'Unpaid'}
+                {b.paid ? c.break_paid : c.break_unpaid}
               </span>
             </button>
           ))}
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-neutral-500 hover:bg-neutral-50 cursor-pointer">Cancel</button>
+          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-neutral-500 hover:bg-neutral-50 cursor-pointer">{c.break_cancel}</button>
           <button
             onClick={() => onSelect(chosen.name, chosen.id)}
             disabled={busy}
             className="px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-semibold hover:bg-neutral-800 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
           >
-            {busy ? 'Starting…' : 'Start break'}
+            {busy ? c.break_starting : c.break_start}
           </button>
         </div>
       </div>

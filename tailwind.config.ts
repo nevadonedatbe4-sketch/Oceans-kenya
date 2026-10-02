@@ -36,13 +36,18 @@ export default {
         'crm-navy': 'rgb(var(--color-crm-navy) / <alpha-value>)',
       },
       fontFamily: {
-        prata: ['"Prata"', 'serif'],
-        roboto: ['"Roboto"', 'sans-serif'],
+        // Bound to the SAME CSS variables that useTypography() drives from
+        // typography_settings, so changing a font in Management → Typography
+        // changes every element using these utilities (the site's default
+        // Prata / Jost / Roboto classes) without touching component code.
+        prata: ['var(--font-display)'],
+        roboto: ['var(--font-body)'],
+        jost: ['var(--font-heading)'],
         // Humanist stacks for the property detail / rich-text surfaces.
         // Titles: Roboto with an Arial fallback. Copy: classic Arial voice.
-        title: ['"Roboto"', 'Arial', 'sans-serif'],
+        title: ['var(--font-body)', 'Arial', 'sans-serif'],
         copy: ['Arial', '"Helvetica Neue"', 'Helvetica', 'sans-serif'],
-        jost: ['"Jost"', 'sans-serif'],
+        // CRM messenger keeps its own faces (not part of the public type system).
         inter: ['"Inter"', 'sans-serif'],
         spaceGrotesk: ['"Space Grotesk"', 'sans-serif'],
       },

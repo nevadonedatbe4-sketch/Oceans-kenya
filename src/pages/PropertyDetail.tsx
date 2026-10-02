@@ -31,6 +31,7 @@ import VideoTour from '@/pages/PropertyDetail/components/VideoTour';
 import JvDealRoom from '@/pages/PropertyDetail/components/JvDealRoom';
 import { buildLandModel } from '@/lib/propertyDetail/land';
 import { buildJvModel } from '@/lib/propertyDetail/jv';
+import { usePropertyDetailContent } from '@/hooks/useDynamicPageTemplates';
 
 interface ListingImage {
   id: string;
@@ -157,7 +158,7 @@ function stripHtml(html: string): string {
  * (and indexable-free) instead of dead-ending. Points visitors to the live
  * search for similar available stock.
  */
-function SoldRentedNotice({ href, isSold }: { href: string; isSold: boolean }) {
+function SoldRentedNotice({ href, isSold, soldTitle, letTitle, text, buttonLabel }: { href: string; isSold: boolean; soldTitle: string; letTitle: string; text: string; buttonLabel: string }) {
   return (
     <div className="px-4 md:px-6 max-w-7xl mx-auto mt-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-lg border border-[#d3bb6e] bg-[#fdf8ec] px-5 py-4">
@@ -166,17 +167,17 @@ function SoldRentedNotice({ href, isSold }: { href: string; isSold: boolean }) {
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-[#0d1f2d]">
-            This property has been {isSold ? 'sold' : 'let'}.
+            {isSold ? soldTitle : letTitle}
           </p>
           <p className="text-[13px] text-[#5a6a7a] mt-0.5 leading-relaxed">
-            It is kept for reference only. Browse similar available properties still on the market.
+            {text}
           </p>
         </div>
         <Link
           to={href}
           className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-md bg-[#0d1f2d] text-white text-[13px] font-semibold hover:bg-[#1a2f45] transition-colors cursor-pointer whitespace-nowrap shrink-0"
         >
-          View similar
+          {buttonLabel}
           <i className="ri-arrow-right-line text-sm" />
         </Link>
       </div>
@@ -190,6 +191,9 @@ function DetailSearchBar({
   radiusValue,
   onRadiusChange,
   radiusOptions,
+  bedsValue,
+  onBedsChange,
+  bedOptions,
   priceValue,
   onPriceChange,
   priceOptions,
@@ -201,6 +205,9 @@ function DetailSearchBar({
   saved,
   onToggleSave,
   onSearch,
+  onMapView,
+  mapActive,
+  onCreateAlert,
   advancedOpen,
   advancedFilters,
   onApplyAdvanced,
@@ -211,6 +218,9 @@ function DetailSearchBar({
   radiusValue: string;
   onRadiusChange: (v: string) => void;
   radiusOptions: string[];
+  bedsValue: string;
+  onBedsChange: (v: string) => void;
+  bedOptions: string[];
   priceValue: string;
   onPriceChange: (v: string) => void;
   priceOptions: string[];
@@ -222,6 +232,9 @@ function DetailSearchBar({
   saved: boolean;
   onToggleSave: () => void;
   onSearch: () => void;
+  onMapView: () => void;
+  mapActive?: boolean;
+  onCreateAlert: () => void;
   advancedOpen: boolean;
   advancedFilters: FilterState;
   onApplyAdvanced: (f: FilterState) => void;
@@ -243,6 +256,9 @@ function DetailSearchBar({
           radiusValue={radiusValue}
           onRadiusChange={onRadiusChange}
           radiusOptions={radiusOptions}
+          bedsValue={bedsValue}
+          onBedsChange={onBedsChange}
+          bedOptions={bedOptions}
           priceValue={priceValue}
           onPriceChange={onPriceChange}
           priceOptions={priceOptions}
@@ -254,6 +270,9 @@ function DetailSearchBar({
           saved={saved}
           onToggleSave={onToggleSave}
           onSearch={onSearch}
+          onMapView={onMapView}
+          mapActive={mapActive}
+          onCreateAlert={onCreateAlert}
         />
       </div>
       <AdvancedFilters
@@ -276,12 +295,14 @@ export default function PropertyDetail() {
   const [jvRecord, setJvRecord] = useState<Record<string, unknown> | null>(null);
   const { format } = useCurrency();
   const { enableBreadcrumbs } = useSiteSettings();
+  const { content: pd } = usePropertyDetailContent();
 
   // ── Search bar state (above breadcrumb on all property detail pages) ──
   const navigate = useNavigate();
   const [detailSearchQuery, setDetailSearchQuery] = useState('');
   const [detailLocation, setDetailLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [detailRadius, setDetailRadius] = useState('This area only');
+  const [detailBeds, setDetailBeds] = useState('Any beds');
   const [detailPrice, setDetailPrice] = useState('Any price');
   const [detailType, setDetailType] = useState('Any type');
   const [detailSavedSearch, setDetailSavedSearch] = useState(false);
@@ -289,6 +310,7 @@ export default function PropertyDetail() {
   const [detailAdvancedFilters, setDetailAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
 
   const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
+  const detailBedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
   const detailPriceOptions = ['Any price', 'Under KES 10M', 'KES 10M - 30M', 'KES 30M - 50M', 'KES 50M - 100M', 'KES 100M - 200M', 'Over KES 200M'];
   const detailTypeOptions = ['Any type', 'Apartment', 'House', 'Townhouse', 'Penthouse', 'Villa', 'Studio', 'Land'];
 
@@ -298,6 +320,7 @@ export default function PropertyDetail() {
     query?: string;
     location?: { lat: number; lng: number } | null;
     radius?: string;
+    beds?: string;
     price?: string;
     type?: string;
   } = {}) => {
@@ -305,6 +328,7 @@ export default function PropertyDetail() {
     const query = overrides.query ?? detailSearchQuery;
     const loc = overrides.location !== undefined ? overrides.location : detailLocation;
     const radius = overrides.radius ?? detailRadius;
+    const beds = overrides.beds ?? detailBeds;
     const price = overrides.price ?? detailPrice;
     const type = overrides.type ?? detailType;
     const params = new URLSearchParams();
@@ -314,6 +338,7 @@ export default function PropertyDetail() {
       params.set('lng', String(loc.lng));
     }
     if (radius !== 'This area only') params.set('radius', radius);
+    if (beds !== 'Any beds') params.set('beds', beds);
     if (price !== 'Any price') params.set('price', price);
     if (type !== 'Any type') params.set('type', type);
     const qs = params.toString();
@@ -336,6 +361,11 @@ export default function PropertyDetail() {
   const handleDetailRadiusChange = (v: string) => {
     setDetailRadius(v);
     runDetailSearch({ radius: v });
+  };
+
+  const handleDetailBedsChange = (v: string) => {
+    setDetailBeds(v);
+    runDetailSearch({ beds: v });
   };
 
   const handleDetailPriceChange = (v: string) => {
@@ -784,7 +814,7 @@ export default function PropertyDetail() {
       <div className="min-h-screen bg-[#F5F5F5] pt-[60px] md:pt-[130px] lg:pt-[148px]">
         <Header />
         <main className="px-4 md:px-6 py-8 md:py-12 max-w-6xl mx-auto">
-          <PageLoader size={56} text="Loading property..." />
+          <PageLoader size={56} text={pd.loading_text} />
         </main>
         <Footer />
         <BackToTop />
@@ -802,10 +832,10 @@ export default function PropertyDetail() {
             <div className="w-16 h-16 flex items-center justify-center bg-red-50 rounded-full mx-auto mb-4">
               <i className="ri-error-warning-line text-2xl text-red-400"></i>
             </div>
-            <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">Something went wrong</h1>
+            <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">{pd.error_title}</h1>
             <p className="font-roboto text-stone-500 mb-6">{error}</p>
             <Link to="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
-              <i className="ri-arrow-left-line"></i>Back to Home
+              <i className="ri-arrow-left-line"></i>{pd.back_home_label}
             </Link>
           </div>
         </main>
@@ -825,10 +855,10 @@ export default function PropertyDetail() {
             <div className="w-16 h-16 flex items-center justify-center bg-stone-100 rounded-full mx-auto mb-4">
               <i className="ri-error-warning-line text-2xl text-stone-400"></i>
             </div>
-            <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">Listing Not Found</h1>
-            <p className="font-roboto text-stone-500 mb-6">This listing does not exist or may have been removed.</p>
+            <h1 className="font-roboto font-bold text-2xl md:text-3xl text-primary mb-3">{pd.notfound_title}</h1>
+            <p className="font-roboto text-stone-500 mb-6">{pd.notfound_text}</p>
             <Link to="/" className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors">
-              <i className="ri-arrow-left-line"></i>Back to Home
+              <i className="ri-arrow-left-line"></i>{pd.back_home_label}
             </Link>
           </div>
         </main>
@@ -889,6 +919,10 @@ export default function PropertyDetail() {
             <SoldRentedNotice
               href="/joint-ventures"
               isSold={String(activeListing.status || '').toLowerCase() === 'sold' || String(activeListing.purpose || '').toLowerCase() === 'sold'}
+              soldTitle={pd.sold_title}
+              letTitle={pd.let_title}
+              text={pd.sold_text}
+              buttonLabel={pd.sold_button}
             />
           )}
           {/* Global breadcrumb + utility bar - shared with the regular property layout */}
@@ -912,6 +946,9 @@ export default function PropertyDetail() {
             radiusValue={detailRadius}
             onRadiusChange={handleDetailRadiusChange}
             radiusOptions={radiusOptions}
+            bedsValue={detailBeds}
+            onBedsChange={handleDetailBedsChange}
+            bedOptions={detailBedOptions}
             priceValue={detailPrice}
             onPriceChange={handleDetailPriceChange}
             priceOptions={detailPriceOptions}
@@ -923,6 +960,9 @@ export default function PropertyDetail() {
             saved={detailSavedSearch}
             onToggleSave={() => setDetailSavedSearch(!detailSavedSearch)}
             onSearch={() => runDetailSearch()}
+            onMapView={() => runDetailSearch()}
+            mapActive={false}
+            onCreateAlert={() => runDetailSearch()}
             advancedOpen={showDetailAdvancedFilters}
             advancedFilters={detailAdvancedFilters}
             onApplyAdvanced={(f) => setDetailAdvancedFilters(f)}
@@ -1007,14 +1047,14 @@ export default function PropertyDetail() {
                     </p>
                   )}
                   <div className="mb-8">
-                    <h2 className="font-roboto font-bold text-primary text-xl mb-3">About This Plot</h2>
+                    <h2 className="font-roboto font-bold text-primary text-xl mb-3">{pd.land_about_heading}</h2>
                     <LandDescription html={activeListing.description} />
                   </div>
                   {detailModel?.investmentOpportunity && (
                     <div className="mb-8 rounded-lg border border-accent/30 bg-accent/5 p-5">
                       <h3 className="font-roboto font-bold text-primary text-base mb-2 flex items-center gap-2">
                         <span className="w-5 h-5 flex items-center justify-center text-accent"><i className="ri-lightbulb-line"></i></span>
-                        Investment Opportunity
+                        {pd.land_investment_heading}
                       </h3>
                       <p className="font-roboto text-primary/80 text-sm md:text-base leading-relaxed whitespace-pre-line">{detailModel.investmentOpportunity}</p>
                     </div>
@@ -1037,7 +1077,7 @@ export default function PropertyDetail() {
                     </div>
                   )}
                   <div className="mb-8">
-                    <h2 className="font-roboto font-bold text-primary text-xl mb-3">Location</h2>
+                    <h2 className="font-roboto font-bold text-primary text-xl mb-3">{pd.land_location_heading}</h2>
                     <div className="aspect-[16/9] rounded-lg overflow-hidden border border-primary/12">
                       <iframe src={mapSrc} className="w-full h-full" loading="lazy" title={`Map of ${activeListing.title}`} allowFullScreen></iframe>
                     </div>
@@ -1047,10 +1087,10 @@ export default function PropertyDetail() {
                     </p>
                   </div>
                   <div className="bg-primary p-6 md:p-8 rounded-lg">
-                    <h3 className="font-roboto font-bold text-white text-xl mb-2">Interested in this plot?</h3>
-                    <p className="text-white/70 font-roboto text-sm mb-5">Submit your enquiry and a partner manager will reach out with full disclosure, site visit options, and next steps.</p>
+                    <h3 className="font-roboto font-bold text-white text-xl mb-2">{pd.land_enquiry_title}</h3>
+                    <p className="text-white/70 font-roboto text-sm mb-5">{pd.land_enquiry_text}</p>
                     <Link to="/joint-ventures#request-desk" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white text-sm tracking-widest uppercase font-semibold cursor-pointer whitespace-nowrap hover:bg-accent/90 transition-opacity">
-                      <i className="ri-mail-send-line"></i>Enquire About This Plot
+                      <i className="ri-mail-send-line"></i>{pd.land_enquiry_button}
                     </Link>
                   </div>
 
@@ -1078,14 +1118,14 @@ export default function PropertyDetail() {
                       }]}
                     />
                     <div className="bg-primary border-2 border-primary rounded-lg p-5">
-                      <h3 className="font-roboto font-bold text-white text-base mb-4 pb-3 border-b border-white/20">Contact the Desk</h3>
-                      <p className="font-roboto text-sm leading-relaxed mb-4 text-white/80">Our joint ventures desk handles all land enquiries.</p>
+                      <h3 className="font-roboto font-bold text-white text-base mb-4 pb-3 border-b border-white/20">{pd.land_contact_title}</h3>
+                      <p className="font-roboto text-sm leading-relaxed mb-4 text-white/80">{pd.land_contact_text}</p>
                       <Link to="/contact" className="inline-flex items-center gap-2 w-full justify-center px-4 py-3 bg-accent text-white font-roboto text-sm uppercase tracking-wider font-semibold cursor-pointer whitespace-nowrap hover:bg-accent/90 transition-colors">
-                        <i className="ri-mail-send-line"></i>Speak to the Desk
+                        <i className="ri-mail-send-line"></i>{pd.land_contact_button}
                       </Link>
                     </div>
                     <Link to="/joint-ventures" className="inline-flex items-center gap-2 text-primary/70 font-roboto text-sm hover:text-primary transition-colors cursor-pointer">
-                      <i className="ri-arrow-left-line"></i>Back to all listings
+                      <i className="ri-arrow-left-line"></i>{pd.land_back_label}
                     </Link>
                   </div>
                 </div>
@@ -1124,6 +1164,10 @@ export default function PropertyDetail() {
         <SoldRentedNotice
           href={breadcrumbParent.href}
           isSold={String(activeListing.status || '').toLowerCase() === 'sold' || String(activeListing.purpose || '').toLowerCase() === 'sold'}
+          soldTitle={pd.sold_title}
+          letTitle={pd.let_title}
+          text={pd.sold_text}
+          buttonLabel={pd.sold_button}
         />
       )}
 
@@ -1135,6 +1179,9 @@ export default function PropertyDetail() {
           radiusValue={detailRadius}
           onRadiusChange={handleDetailRadiusChange}
           radiusOptions={radiusOptions}
+          bedsValue={detailBeds}
+          onBedsChange={handleDetailBedsChange}
+          bedOptions={detailBedOptions}
           priceValue={detailPrice}
           onPriceChange={handleDetailPriceChange}
           priceOptions={detailPriceOptions}
@@ -1145,6 +1192,10 @@ export default function PropertyDetail() {
           filtersActive={showDetailAdvancedFilters}
           saved={detailSavedSearch}
           onToggleSave={() => setDetailSavedSearch(!detailSavedSearch)}
+          onSearch={() => runDetailSearch()}
+          onMapView={() => runDetailSearch()}
+          mapActive={false}
+          onCreateAlert={() => runDetailSearch()}
           advancedOpen={showDetailAdvancedFilters}
           advancedFilters={detailAdvancedFilters}
           onApplyAdvanced={(f) => setDetailAdvancedFilters(f)}
@@ -1211,7 +1262,7 @@ export default function PropertyDetail() {
                 </div>
               </div>
               <div className="mt-3 md:mt-6">
-                <div className="flex w-full border border-[#e5e5e5] overflow-hidden rounded-[2px]">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-[#e5e5e5] border border-[#e5e5e5] overflow-hidden rounded-[2px]">
                   {[
                     { icon: 'ri-home-5-line', label: 'Type', value: activeListing.propertyType ? activeListing.propertyType.charAt(0).toUpperCase() + activeListing.propertyType.slice(1) : 'N/A' },
                     { icon: 'ri-hotel-bed-line', label: 'Beds', value: activeListing.beds != null && activeListing.beds > 0 ? String(activeListing.beds) : 'N/A' },
@@ -1219,7 +1270,7 @@ export default function PropertyDetail() {
                     { icon: 'ri-car-line', label: 'Parking', value: activeListing.parking != null && activeListing.parking > 0 ? String(activeListing.parking) : 'N/A' },
                     { icon: 'ri-fingerprint-line', label: 'ID', value: activeListing.ref },
                   ].map((stat, idx, arr) => (
-                    <div key={idx} className={`flex-1 flex flex-col items-center justify-center px-1 py-2.5 md:px-3 md:py-4 text-center min-w-0 overflow-hidden ${idx < arr.length - 1 ? 'border-r border-[#e5e5e5]' : ''}`}>
+                    <div key={idx} className={`flex flex-col items-center justify-center bg-white px-2 py-3 md:px-3 md:py-4 text-center min-w-0 ${idx === arr.length - 1 ? 'col-span-2 md:col-span-1' : ''}`}>
                       <div className="flex items-center justify-center gap-0.5 md:gap-1.5 mb-0.5 w-full">
                         <span className="w-3 h-3 md:w-4 md:h-4 flex items-center justify-center shrink-0 hidden sm:flex">
                           <i className={`${stat.icon} text-[10px] md:text-sm text-[#333333]`}></i>

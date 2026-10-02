@@ -1,201 +1,58 @@
 import { useMemo } from 'react';
-import { placeImageFor, sectionImageFor } from '@/lib/blogPlaceImages';
 
 interface BlogArticleBodyProps {
-  /** Stored rich HTML for the article body. */
+  /** Stored rich HTML for the article body (already prepared by buildArticle). */
   html?: string | null;
-  /** Wrapper classes (typography, spacing) applied to the rendered article. */
+  /** Optional extra classes merged after the built-in editorial styles. */
   className?: string;
 }
 
 /**
- * Tailwind classes for the generated thumbnail-list markup. These use arbitrary
- * variants so the styles travel with the component instead of needing global CSS.
+ * Editorial typography for article bodies.
+ *
+ * This replaces the old behaviour that silently injected a thumbnail onto every
+ * heading and bullet. Now the body renders exactly the authored markup, styled
+ * as a comfortable, publication-quality reading column.
  */
-const PLACE_LIST_CLASSES = [
-  '[&_.blog-place-list]:grid',
-  '[&_.blog-place-list]:grid-cols-1',
-  '[&_.blog-place-list]:gap-3',
-  '[&_.blog-place-list]:my-4',
-  '[&_.blog-place-item]:flex',
-  '[&_.blog-place-item]:items-start',
-  '[&_.blog-place-item]:gap-4',
-  '[&_.blog-place-item]:p-3',
-  '[&_.blog-place-item]:rounded-lg',
-  '[&_.blog-place-item]:bg-stone-50',
-  '[&_.blog-place-item]:border',
-  '[&_.blog-place-item]:border-primary/10',
-  '[&_.blog-place-thumb]:w-20',
-  '[&_.blog-place-thumb]:h-20',
-  '[&_.blog-place-thumb]:sm:w-24',
-  '[&_.blog-place-thumb]:sm:h-24',
-  '[&_.blog-place-thumb]:flex-shrink-0',
-  '[&_.blog-place-thumb]:overflow-hidden',
-  '[&_.blog-place-thumb]:rounded-md',
-  '[&_.blog-place-thumb]:bg-stone-100',
-  '[&_.blog-place-thumb_img]:w-full',
-  '[&_.blog-place-thumb_img]:h-full',
-  '[&_.blog-place-thumb_img]:object-cover',
-  '[&_.blog-place-thumb_img]:object-center',
-  '[&_.blog-place-body]:flex-1',
-  '[&_.blog-place-body]:min-w-0',
-  '[&_.blog-place-name]:font-roboto',
-  '[&_.blog-place-name]:font-bold',
-  '[&_.blog-place-name]:text-primary',
-  '[&_.blog-place-name]:text-sm',
-  '[&_.blog-place-name]:mb-1',
-  '[&_.blog-place-desc]:font-roboto',
-  '[&_.blog-place-desc]:text-stone-600',
-  '[&_.blog-place-desc]:text-xs',
-  '[&_.blog-place-desc]:leading-relaxed',
-  '[&_.blog-section-head]:flex',
-  '[&_.blog-section-head]:items-center',
-  '[&_.blog-section-head]:gap-3',
-  '[&_.blog-section-head]:mt-8',
-  '[&_.blog-section-head]:mb-3',
-  '[&_.blog-section-head_h3]:mt-0',
-  '[&_.blog-section-head_h3]:mb-0',
-  '[&_.blog-section-thumb]:w-12',
-  '[&_.blog-section-thumb]:h-12',
-  '[&_.blog-section-thumb]:md:w-14',
-  '[&_.blog-section-thumb]:md:h-14',
-  '[&_.blog-section-thumb]:flex-shrink-0',
-  '[&_.blog-section-thumb]:overflow-hidden',
-  '[&_.blog-section-thumb]:rounded-md',
-  '[&_.blog-section-thumb]:bg-stone-100',
-  '[&_.blog-section-thumb_img]:w-full',
-  '[&_.blog-section-thumb_img]:h-full',
-  '[&_.blog-section-thumb_img]:object-cover',
-  '[&_.blog-section-thumb_img]:object-center',
+const ARTICLE_CLASSES = [
+  'font-roboto [&_*]:font-roboto',
+  'text-[#333333] text-[15px] md:text-[17px] leading-[1.85]',
+  // Headings
+  '[&_h2]:font-prata [&_h2]:font-semibold [&_h2]:not-italic [&_h2]:text-primary [&_h2]:text-[24px] md:[&_h2]:text-[30px] [&_h2]:leading-[1.2] [&_h2]:mt-12 [&_h2]:mb-4 [&_h2]:scroll-mt-28',
+  '[&_h3]:font-prata [&_h3]:font-semibold [&_h3]:text-primary [&_h3]:text-[19px] md:[&_h3]:text-[23px] [&_h3]:leading-snug [&_h3]:mt-9 [&_h3]:mb-3 [&_h3]:scroll-mt-28',
+  '[&_h4]:font-jost [&_h4]:font-semibold [&_h4]:uppercase [&_h4]:tracking-[0.08em] [&_h4]:text-[13px] [&_h4]:text-golden [&_h4]:mt-7 [&_h4]:mb-2',
+  // Paragraphs
+  '[&_p]:mb-5 [&_p]:leading-[1.85]',
+  // Lists
+  '[&_ul]:mb-5 [&_ul]:pl-5 [&_ul]:space-y-2 [&_ul]:list-disc [&_ul]:marker:text-golden',
+  '[&_ol]:mb-5 [&_ol]:pl-5 [&_ol]:space-y-2 [&_ol]:list-decimal [&_ol]:marker:text-golden [&_ol]:marker:font-semibold',
+  '[&_li]:leading-[1.7] [&_li]:pl-1',
+  // Links / emphasis
+  '[&_a]:text-primary [&_a]:font-medium [&_a]:underline [&_a]:decoration-primary/30 [&_a]:underline-offset-2 hover:[&_a]:decoration-primary',
+  '[&_strong]:font-semibold [&_strong]:text-primary',
+  // Quote
+  '[&_blockquote]:my-8 [&_blockquote]:border-l-4 [&_blockquote]:border-golden [&_blockquote]:bg-[#F7F9F9] [&_blockquote]:py-4 [&_blockquote]:px-5 [&_blockquote]:font-prata [&_blockquote]:text-[17px] md:[&_blockquote]:text-[20px] [&_blockquote]:italic [&_blockquote]:text-primary [&_blockquote]:leading-snug',
+  '[&_blockquote_p]:mb-0 [&_blockquote_p]:font-prata',
+  // Media
+  '[&_img]:w-full [&_img]:h-auto [&_img]:rounded-lg [&_img]:my-6',
+  '[&_figure]:my-8 [&_figure]:rounded-lg [&_figure]:overflow-hidden',
+  '[&_figcaption]:font-roboto [&_figcaption]:text-[13px] [&_figcaption]:text-[#777777] [&_figcaption]:italic [&_figcaption]:mt-2 [&_figcaption]:px-1',
+  // Tables
+  '[&_table]:w-full [&_table]:my-6 [&_table]:text-[14px] [&_table]:border-collapse',
+  '[&_th]:text-left [&_th]:p-3 [&_th]:bg-[#F7F9F9] [&_th]:font-jost [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.06em] [&_th]:text-[12px] [&_th]:text-primary [&_th]:border-b-2 [&_th]:border-primary/12 [&_th]:whitespace-nowrap',
+  '[&_td]:p-3 [&_td]:border-b [&_td]:border-primary/10 [&_td]:align-top [&_td]:leading-relaxed',
+  // Divider
+  '[&_hr]:my-10 [&_hr]:border-0 [&_hr]:h-px [&_hr]:bg-primary/12',
 ].join(' ');
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/** Splits a list item into a short label + supporting description. */
-function splitItem(text: string): { name: string; desc: string } {
-  const clean = text.replace(/\s+/g, ' ').trim();
-  if (!clean) return { name: '', desc: '' };
-
-  const dashParts = clean.split(/\s*[—–]\s*/);
-  if (dashParts.length > 1) {
-    return {
-      name: (dashParts[0] || '').trim(),
-      desc: dashParts.slice(1).join(' — ').trim(),
-    };
-  }
-
-  const colonIndex = clean.indexOf(':');
-  if (colonIndex > 0) {
-    return {
-      name: clean.slice(0, colonIndex).trim(),
-      desc: clean.slice(colonIndex + 1).trim(),
-    };
-  }
-
-  return { name: clean, desc: '' };
-}
-
-/**
- * Turns every authored bullet list into a set of thumbnail rows so all guides
- * share the same rich list treatment. Each row shows an image (matched to the
- * item where possible) plus its label and description.
- */
-function enhanceHtml(html: string): string {
-  if (!html || typeof window === 'undefined') return html;
-  if (!html.includes('<ul') && !html.includes('<h3')) return html;
-
-  const doc = new DOMParser().parseFromString(`<div id="__blog_root">${html}</div>`, 'text/html');
-  const root = doc.getElementById('__blog_root');
-  if (!root) return html;
-
-  root.querySelectorAll('ul').forEach((ul) => {
-    const items = Array.from(ul.children).filter((el) => el.tagName === 'LI');
-    if (items.length === 0) return;
-
-    const parsed = items
-      .map((li) => splitItem(li.textContent || ''))
-      .filter((item) => item.name || item.desc);
-
-    if (parsed.length === 0) return;
-
-    const container = doc.createElement('div');
-    container.className = 'blog-place-list';
-
-    parsed.forEach((place, index) => {
-      const card = doc.createElement('div');
-      card.className = 'blog-place-item';
-
-      const img = placeImageFor(place.name);
-      if (img) {
-        const thumb = doc.createElement('div');
-        thumb.className = 'blog-place-thumb';
-        const image = doc.createElement('img');
-        image.src = img;
-        image.alt = place.name || `Item ${index + 1}`;
-        thumb.appendChild(image);
-        card.appendChild(thumb);
-      }
-
-      const body = doc.createElement('div');
-      body.className = 'blog-place-body';
-      const nameHtml = place.name
-        ? `<p class="blog-place-name">${escapeHtml(place.name)}</p>`
-        : '';
-      const descHtml = place.desc
-        ? `<p class="blog-place-desc">${escapeHtml(place.desc)}</p>`
-        : '';
-      body.innerHTML = `${nameHtml}${descHtml}`;
-
-      card.appendChild(body);
-      container.appendChild(card);
-    });
-
-    ul.replaceWith(container);
-  });
-
-  // Attach a thumbnail to every section heading so articles without bullet
-  // lists still show visual thumbnails beside each sub-section.
-  root.querySelectorAll('h3').forEach((h3) => {
-    const headingText = (h3.textContent || '').trim();
-    if (!headingText) return;
-
-    const wrap = doc.createElement('div');
-    wrap.className = 'blog-section-head';
-
-    const thumb = doc.createElement('div');
-    thumb.className = 'blog-section-thumb';
-    const image = doc.createElement('img');
-    image.src = sectionImageFor(headingText);
-    image.alt = headingText;
-    thumb.appendChild(image);
-
-    if (h3.parentNode) {
-      h3.parentNode.insertBefore(wrap, h3);
-      wrap.appendChild(thumb);
-      wrap.appendChild(h3);
-    }
-  });
-
-  return root.innerHTML;
-}
-
-/**
- * Renders an article body. Every bullet list automatically gains list-item
- * thumbnails; all other markup renders untouched.
- */
 export default function BlogArticleBody({ html, className = '' }: BlogArticleBodyProps) {
-  const safeHtml = useMemo(() => enhanceHtml(html || ''), [html]);
+  const safeHtml = useMemo(() => html || '', [html]);
+
+  if (!safeHtml.trim()) return null;
 
   return (
     <div
-      className={`${className} ${PLACE_LIST_CLASSES}`.trim()}
+      className={`${ARTICLE_CLASSES} ${className}`.trim()}
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />
   );

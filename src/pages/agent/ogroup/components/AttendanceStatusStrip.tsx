@@ -1,3 +1,5 @@
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_CHECKIN_COPY } from '@/lib/ogroupCopy';
 import type { AttendanceState } from '../useAttendance';
 
 interface Props {
@@ -14,24 +16,26 @@ interface Props {
  *   • Timesheet  — Not started / Active
  */
 export default function AttendanceStatusStrip({ signedIn, state, timesheetActive }: Props) {
+  const { content: c } = usePageContent('ogroup_checkin', DEFAULT_CHECKIN_COPY);
+
   const attendance = state === 'on_break'
-    ? { text: 'On break', dot: 'bg-amber-500', cls: 'text-amber-700 border-amber-200 bg-amber-50' }
+    ? { text: c.state_on_break, dot: 'bg-amber-500', cls: 'text-amber-700 border-amber-200 bg-amber-50' }
     : state === 'punched_in'
-      ? { text: 'Punched in', dot: 'bg-emerald-500', cls: 'text-emerald-700 border-emerald-200 bg-emerald-50' }
-      : { text: 'Not punched in', dot: 'bg-neutral-400', cls: 'text-neutral-600 border-neutral-200 bg-neutral-50' };
+      ? { text: c.state_punched_in, dot: 'bg-emerald-500', cls: 'text-emerald-700 border-emerald-200 bg-emerald-50' }
+      : { text: c.strip_not_punched_in, dot: 'bg-neutral-400', cls: 'text-neutral-600 border-neutral-200 bg-neutral-50' };
 
   const items = [
     {
       key: 'account',
-      label: 'Account',
-      value: signedIn ? 'Signed in' : 'Signed out',
+      label: c.strip_account,
+      value: signedIn ? c.strip_signed_in : c.strip_signed_out,
       dot: signedIn ? 'bg-emerald-500' : 'bg-neutral-400',
       cls: signedIn ? 'text-emerald-700 border-emerald-200 bg-emerald-50' : 'text-neutral-600 border-neutral-200 bg-neutral-50',
       icon: signedIn ? 'ri-shield-user-line' : 'ri-logout-box-r-line',
     },
     {
       key: 'attendance',
-      label: 'Attendance',
+      label: c.strip_attendance,
       value: attendance.text,
       dot: attendance.dot,
       cls: attendance.cls,
@@ -39,8 +43,8 @@ export default function AttendanceStatusStrip({ signedIn, state, timesheetActive
     },
     {
       key: 'timesheet',
-      label: 'Timesheet',
-      value: timesheetActive ? 'Active' : 'Not started',
+      label: c.strip_timesheet,
+      value: timesheetActive ? c.strip_active : c.strip_not_started,
       dot: timesheetActive ? 'bg-sky-500' : 'bg-neutral-400',
       cls: timesheetActive ? 'text-sky-700 border-sky-200 bg-sky-50' : 'text-neutral-600 border-neutral-200 bg-neutral-50',
       icon: 'ri-file-list-3-line',

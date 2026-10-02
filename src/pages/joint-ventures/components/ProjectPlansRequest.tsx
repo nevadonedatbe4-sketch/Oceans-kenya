@@ -1,4 +1,5 @@
 import { useState, FormEvent } from 'react';
+import { FIELD_CLASS } from '@/lib/formFieldStyles';
 
 const FORM_URL = 'https://readdy.ai/api/form/dapcsmnd3mjnincc41bg';
 
@@ -160,7 +161,7 @@ export default function ProjectPlansRequest({
                 type="text"
                 name="name"
                 placeholder="Full name"
-                className="w-full border border-primary/20 px-3.5 py-3 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                className={FIELD_CLASS}
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
@@ -168,13 +169,13 @@ export default function ProjectPlansRequest({
                   type="email"
                   name="email"
                   placeholder="Email"
-                  className="w-full border border-primary/20 px-3.5 py-3 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                  className={FIELD_CLASS}
                 />
                 <input
                   type="tel"
                   name="phone"
                   placeholder="Phone / WhatsApp"
-                  className="w-full border border-primary/20 px-3.5 py-3 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                  className={FIELD_CLASS}
                 />
               </div>
               <textarea
@@ -184,7 +185,7 @@ export default function ProjectPlansRequest({
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Tell us what you need - full plan set, specific units, feasibility pack..."
-                className="w-full border border-primary/20 px-3.5 py-3 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors resize-none"
+                className={`${FIELD_CLASS} resize-none`}
               />
               <p className="text-right text-[10px] text-primary/40 font-roboto -mt-1">
                 {message.length}/500

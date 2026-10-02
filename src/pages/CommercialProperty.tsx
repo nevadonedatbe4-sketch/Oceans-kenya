@@ -9,6 +9,7 @@ import QuickViewModal from '@/components/feature/QuickViewModal';
 import CompareToolbar from '@/components/feature/CompareToolbar';
 import CompareModal from '@/components/feature/CompareModal';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
+import ActiveFilterChips, { type ActiveFilterChip } from '@/components/feature/ActiveFilterChips';
 import Pagination from '@/components/feature/Pagination';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import CardContactActions from '@/components/feature/CardContactActions';
@@ -23,6 +24,8 @@ import { getPropertySpecs } from '@/lib/propertySpecs';
 import { formatListingAge } from '@/lib/listingMeta';
 import { smartTitleCase } from '@/lib/location';
 import { cleanListingDescription } from '@/lib/description';
+import { useCommercialPropertyPageContent } from '@/hooks/useCommercialPropertyPageContent';
+import CommercialAdvancedFilters, { defaultCommercialFilters, COMMERCIAL_MUST_HAVES, type CommercialFilterState } from '@/pages/CommercialProperty/components/CommercialAdvancedFilters';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -90,19 +93,6 @@ const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 
 const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
-const nearbyAreas = [
-  'Karen', 'Westlands', 'Kilimani', 'Upper Hill', 'CBD', 'Industrial Area',
-  'Mombasa Road', 'Parklands', 'Gigiri', 'Lavington', 'Ngong Road', 'Riverside',
-];
-
-const relatedSearches = [
-  'Commercial offices to rent',
-  'Retail shops to rent',
-  'Warehouses to rent',
-  'Industrial property for sale',
-  'Commercial land for sale',
-];
-
 export default function CommercialProperty() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -139,6 +129,8 @@ export default function CommercialProperty() {
   const [currentPage, setCurrentPage] = useState(1);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<CommercialFilterState>({ ...defaultCommercialFilters });
   const [imageIndexes, setImageIndexes] = useState<Record<string, number>>({});
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   // On touch devices there is no real hover, so the first tap on a card image
@@ -157,6 +149,7 @@ export default function CommercialProperty() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const { status: alertStatus, error: alertError, submitToContacts, reset: resetAlert } = useFormSubmit();
   const { format, currency, rates } = useCurrency();
+  const { content: c } = useCommercialPropertyPageContent();
 
   const priceOptions = useMemo(() => {
     const opts = ['Any price'];
@@ -193,15 +186,26 @@ export default function CommercialProperty() {
     try { localStorage.setItem('comm_sort', sortBy); } catch { /* ignore */ }
   }, [searchQuery, selectedRadius, selectedPrice, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy, purpose]);
 
+  const mustHaveGroups = useMemo(
+    () => advancedFilters.mustHaves
+      .map((key) => COMMERCIAL_MUST_HAVES.find((m) => m.key === key)?.amenities || [])
+      .filter((group) => group.length > 0),
+    [advancedFilters.mustHaves]
+  );
+
   const buildFilters = (): ListingFilters => {
+    const hasSectors = advancedFilters.sectors.length > 0;
+    const combinedSearch = [debouncedSearch, advancedFilters.keywords].filter(Boolean).join(' ').trim();
     const filters: ListingFilters = {
       purpose,
-      search: debouncedSearch,
-      propertyType: COMM_TYPE_DB_MAP[selectedType] ?? '',
+      search: combinedSearch,
+      propertyType: hasSectors ? '' : (COMM_TYPE_DB_MAP[selectedType] ?? ''),
+      propertyTypes: hasSectors ? advancedFilters.sectors : undefined,
       addedSince: selectedAdded,
       sortBy,
       statusFilter: 'active',
       propertyCategory: 'commercial',
+      amenitiesGroups: mustHaveGroups,
     };
     const priceIdx = priceOptions.indexOf(selectedPrice);
     const selectedRange = priceIdx > 0 ? kesRanges[priceIdx] : null;
@@ -413,29 +417,110 @@ export default function CommercialProperty() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const heroTitle = isBuy ? 'Commercial Property For Sale' : 'Commercial Property To Rent';
-  const heroSubtitle = isBuy
-    ? 'Discover premium office, retail, and industrial properties for sale.'
-    : 'Explore premium office, retail, and industrial properties to rent.';
+  const commercialAppliedCount = useMemo(() => [
+    advancedFilters.sectors.length > 0,
+    minSize !== '' || maxSize !== '',
+    selectedAdded !== 'Anytime',
+    advancedFilters.keywords.trim() !== '',
+    advancedFilters.mustHaves.length > 0,
+  ].filter(Boolean).length, [advancedFilters, minSize, maxSize, selectedAdded]);
+
+  const clearAllFilters = () => {
+    triggerSearch('');
+    setSelectedRadius('This area only');
+    setSelectedPrice('Any price');
+    setSelectedBeds('Any beds');
+    setSelectedType('any');
+    setMinSize('');
+    setMaxSize('');
+    setSelectedAdded('Anytime');
+    setAdvancedFilters({ ...defaultCommercialFilters });
+    setCurrentPage(1);
+  };
+
+  const activeChips = useMemo<ActiveFilterChip[]>(() => {
+    const chips: ActiveFilterChip[] = [];
+    if (debouncedSearch.trim()) {
+      chips.push({ key: 'search', label: `"${debouncedSearch.trim()}"`, onRemove: () => triggerSearch('') });
+    }
+    if (selectedType !== 'any') {
+      chips.push({
+        key: 'type',
+        label: COMM_TYPE_OPTIONS.find((t) => t.key === selectedType)?.label || selectedType,
+        onRemove: () => setSelectedType('any'),
+      });
+    }
+    if (selectedBeds !== 'Any beds') {
+      chips.push({ key: 'beds', label: selectedBeds, onRemove: () => setSelectedBeds('Any beds') });
+    }
+    if (selectedPrice !== 'Any price') {
+      chips.push({ key: 'price', label: selectedPrice, onRemove: () => setSelectedPrice('Any price') });
+    }
+    if (selectedAdded !== 'Anytime') {
+      chips.push({ key: 'added', label: selectedAdded, onRemove: () => setSelectedAdded('Anytime') });
+    }
+    if (selectedRadius !== 'This area only') {
+      chips.push({ key: 'radius', label: selectedRadius, onRemove: () => setSelectedRadius('This area only') });
+    }
+    if (minSize !== '' || maxSize !== '') {
+      chips.push({
+        key: 'size',
+        label: `${minSize || '0'} - ${maxSize || 'any'} sqm`,
+        onRemove: () => { setMinSize(''); setMaxSize(''); },
+      });
+    }
+    advancedFilters.sectors.forEach((s) => {
+      chips.push({
+        key: `sector-${s}`,
+        label: COMM_TYPE_OPTIONS.find((t) => t.key === s)?.label || s,
+        onRemove: () => setAdvancedFilters((prev) => ({ ...prev, sectors: prev.sectors.filter((v) => v !== s) })),
+      });
+    });
+    advancedFilters.mustHaves.forEach((m) => {
+      chips.push({
+        key: `must-${m}`,
+        label: COMMERCIAL_MUST_HAVES.find((x) => x.key === m)?.label || m,
+        onRemove: () => setAdvancedFilters((prev) => ({ ...prev, mustHaves: prev.mustHaves.filter((v) => v !== m) })),
+      });
+    });
+    if (advancedFilters.keywords.trim()) {
+      chips.push({
+        key: 'keywords',
+        label: `"${advancedFilters.keywords.trim()}"`,
+        onRemove: () => setAdvancedFilters((prev) => ({ ...prev, keywords: '' })),
+      });
+    }
+    return chips;
+  }, [debouncedSearch, selectedType, selectedBeds, selectedPrice, selectedAdded, selectedRadius, minSize, maxSize, advancedFilters]);
+
+  const heroEyebrow = isBuy ? c.hero_eyebrow_buy : c.hero_eyebrow_rent;
+  const heroTitle = isBuy ? c.hero_title_buy : c.hero_title_rent;
+  const heroSubtitle = isBuy ? c.hero_subtitle_buy : c.hero_subtitle_rent;
+  const resultsHeading = isBuy ? c.results_heading_buy : c.results_heading_rent;
 
   return (
     <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
 
       {/* Hero Section */}
+      {c.show_hero && (
       <section className="relative w-full">
         <div className="relative w-full h-[280px] md:h-[380px] lg:h-[420px] overflow-hidden">
+          {c.show_hero_image && c.hero_image && (
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${c.hero_image})` }}></div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-accent/70"></div>
           <div className="absolute inset-0 bg-gradient-to-b from-primary/90 via-primary/80 to-primary/50"></div>
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center px-6 w-full">
-              <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">{isBuy ? 'Commercial Sales' : 'Commercial Lettings'}</p>
+              <p className="text-golden text-sm font-roboto font-bold tracking-widest uppercase mb-3">{heroEyebrow}</p>
               <h1 className="text-white font-roboto font-bold text-3xl md:text-4xl lg:text-5xl mb-4">{heroTitle}</h1>
               <p className="text-white/80 font-roboto text-base md:text-lg max-w-xl mx-auto leading-relaxed">{heroSubtitle}</p>
             </div>
           </div>
         </div>
       </section>
+      )}
 
       {/* Shared global search bar - kept on the commercial page so search
           matches Buy / Rent / All Properties. Purpose, price, radius, type and
@@ -486,6 +571,9 @@ export default function CommercialProperty() {
             saved={savedSearch}
             onToggleSave={() => setSavedSearch(!savedSearch)}
             onSearch={handleSearch}
+            onFilters={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            filtersActive={showAdvancedFilters}
+            filtersCount={commercialAppliedCount}
             onMapView={() => setViewMode(viewMode === 'map' ? 'list' : 'map')}
             mapActive={viewMode === 'map'}
             onCreateAlert={scrollToAlertForm}
@@ -513,6 +601,20 @@ export default function CommercialProperty() {
             />
           </div>
         </div>
+
+        <CommercialAdvancedFilters
+          isOpen={showAdvancedFilters}
+          onClose={() => setShowAdvancedFilters(false)}
+          onApply={(f) => {
+            setAdvancedFilters(f);
+            setSelectedAdded(f.added);
+            setMinSize(f.minSize);
+            setMaxSize(f.maxSize);
+            setCurrentPage(1);
+          }}
+          initialFilters={{ ...advancedFilters, minSize, maxSize, added: selectedAdded }}
+          isBuy={isBuy}
+        />
       </div>
 
       {/* Breadcrumb below the banner - keeps the blue flow intact */}
@@ -579,10 +681,10 @@ export default function CommercialProperty() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">
-              {isBuy ? 'Commercial properties for sale' : 'Commercial properties to rent'}
+              {resultsHeading}
             </h1>
             <p className="text-sm font-roboto text-gray-500 mt-0.5">
-              <span className="text-primary font-bold">{activeCount}</span> properties
+              <span className="text-primary font-bold">{activeCount}</span> {c.results_count_label}
             </p>
           </div>
           <div className="md:hidden flex items-center gap-2">
@@ -597,6 +699,7 @@ export default function CommercialProperty() {
             </button>
           </div>
         </div>
+        <ActiveFilterChips chips={activeChips} onClearAll={clearAllFilters} className="mt-3" />
       </div>
 
       {/* === MAIN CONTENT === */}
@@ -608,7 +711,7 @@ export default function CommercialProperty() {
                 <span className="w-4 h-4 flex items-center justify-center">
                   <i className="ri-notification-3-line text-sm"></i>
                 </span>
-                Create alert
+                {c.create_alert_label}
               </button>
             </div>
 
@@ -635,10 +738,10 @@ export default function CommercialProperty() {
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-red-50">
                     <i className="ri-error-warning-line text-red-400 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">Something went wrong</h3>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">{c.error_title}</h3>
                   <p className="text-sm font-roboto text-gray-500 mb-4">{error}</p>
                   <button onClick={refetch} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
-                    Try again
+                    {c.error_retry_label}
                   </button>
                 </div>
               )}
@@ -648,16 +751,16 @@ export default function CommercialProperty() {
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
                     <i className="ri-building-2-line text-gray-400 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No commercial properties found</h3>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">{c.empty_title}</h3>
                   <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">
-                    There are currently no commercial listings available. Check back soon or advertise your property with us.
+                    {c.empty_text}
                   </p>
                   <div className="flex items-center justify-center gap-3">
-                    <button onClick={() => { triggerSearch(''); setSelectedPrice('Any price'); setSelectedType('any'); setMinSize(''); setMaxSize(''); }} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
+                    <button onClick={clearAllFilters} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
                       Clear filters
                     </button>
-                    <Link to="/c/commercial-advertising/" className="px-6 py-2 border-2 border-primary text-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
-                      Advertise with us
+                    <Link to={c.list_cta_button_link} className="px-6 py-2 border-2 border-primary text-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
+                      {c.empty_advertise_label}
                     </Link>
                   </div>
                 </div>
@@ -836,28 +939,28 @@ export default function CommercialProperty() {
               />
             )}
 
-            <div ref={alertFormRef} className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
-              <h3 className="text-lg font-roboto font-bold text-primary mb-2">Can&rsquo;t find what you&rsquo;re looking for?</h3>
-              <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">Register for commercial property alerts and be the first to know about new listings.</p>
+            {c.show_alert_cta && (<div ref={alertFormRef} className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
+              <h3 className="text-lg font-roboto font-bold text-primary mb-2">{c.alert_heading}</h3>
+              <p className="text-sm font-roboto text-gray-500 mb-4 max-w-md mx-auto">{c.alert_text}</p>
               <form data-readdy-form="true" id="comm-alert-form" onSubmit={handleEnquiry} className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
-                <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-primary/12 rounded-lg focus:outline-none focus:border-primary" />
+                <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-stone-300 rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors shadow-[0_1px_2px_rgba(0,23,49,0.04),0_2px_8px_rgba(0,23,49,0.05)]" />
                 <input type="hidden" name="type" value="commercial_alert" />
                 <input type="hidden" name="location" value="" />
                 <input type="text" name="company_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="footer-hp-field" />
                 <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white border-2 border-primary text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
-                  {alertStatus === 'success' ? 'Alert set!' : 'Get alerts'}
+                  {alertStatus === 'success' ? 'Alert set!' : c.alert_button}
                 </button>
               </form>
               {alertStatus === 'success' && (
-                <p className="text-green-600 text-sm font-roboto text-center">Thank you! We&rsquo;ll respond within 24 hours.</p>
+                <p className="text-green-600 text-sm font-roboto text-center">{c.alert_success}</p>
               )}
               {alertStatus === 'error' && (
                 <p className="text-red-500 text-sm font-roboto text-center">{alertError}</p>
               )}
-            </div>
+            </div>)}
           </div>
 
-          {viewMode === 'list' && (
+          {viewMode === 'list' && c.show_sidebar && (
             <div className="hidden lg:block lg:w-[25%] xl:w-[22%]">
               <div className="sticky top-[140px] space-y-3">
                 {recentlyViewed.length > 0 && (
@@ -867,7 +970,7 @@ export default function CommercialProperty() {
                         <span className="w-3.5 h-3.5 flex items-center justify-center">
                           <i className="ri-time-line text-[10px]"></i>
                         </span>
-                        Recently Viewed
+                        {c.recently_viewed_label}
                       </h3>
                       <button onClick={() => { localStorage.removeItem('recently_viewed_properties'); localStorage.removeItem('recently_viewed_devs'); setRecentlyViewed([]); }} className="text-[10px] font-roboto text-gray-400 hover:text-primary/60 cursor-pointer whitespace-nowrap">
                         Clear
@@ -895,19 +998,19 @@ export default function CommercialProperty() {
 
                 <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                   <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-bold text-primary">Commercial property</h3>
+                    <h3 className="text-xs font-roboto font-bold text-primary">{c.sidebar_section_title}</h3>
                   </div>
                   <div className="px-3 py-2">
-                    <p className="text-[11px] font-roboto text-gray-500">Refine your search to find the perfect commercial space</p>
+                    <p className="text-[11px] font-roboto text-gray-500">{c.sidebar_refine_text}</p>
                   </div>
                 </div>
 
                 <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                   <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-bold text-primary">Popular areas</h3>
+                    <h3 className="text-xs font-roboto font-bold text-primary">{c.popular_areas_label}</h3>
                   </div>
                   <div className="px-3 py-2 grid grid-cols-2 gap-x-2 gap-y-1.5">
-                    {nearbyAreas.map((area) => (
+                    {c.popular_areas.map((area) => (
                       <button key={area} onClick={() => handleAreaClick(area)} className="text-left text-xs font-roboto text-primary/60 hover:text-primary hover:underline transition-colors cursor-pointer">
                         {area}
                       </button>
@@ -917,10 +1020,10 @@ export default function CommercialProperty() {
 
                 <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                   <div className="px-3 py-2.5 border-b border-gray-100">
-                    <h3 className="text-xs font-roboto font-bold text-primary">Related searches</h3>
+                    <h3 className="text-xs font-roboto font-bold text-primary">{c.related_searches_label}</h3>
                   </div>
                   <div className="px-3 py-2 space-y-1.5">
-                    {relatedSearches.map((search) => (
+                    {c.related_searches.map((search) => (
                       <button key={search} onClick={() => handleRelatedSearch(search)} className="block text-left w-full text-xs font-roboto text-primary/60 hover:text-primary hover:underline transition-colors cursor-pointer">
                         {search}
                       </button>
@@ -929,10 +1032,10 @@ export default function CommercialProperty() {
                 </div>
 
                 <div className="bg-primary rounded-lg p-3.5 text-center">
-                  <h3 className="text-white font-roboto font-bold text-xs mb-1.5">Advertise your property</h3>
-                  <p className="text-white/70 font-roboto text-[10px] mb-2.5">List your commercial property with us</p>
-                  <Link to="/c/commercial-advertising/" className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-golden text-white font-roboto text-[10px] font-bold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
-                    Get started
+                  <h3 className="text-white font-roboto font-bold text-xs mb-1.5">{c.list_cta_heading}</h3>
+                  <p className="text-white/70 font-roboto text-[10px] mb-2.5">{c.list_cta_text}</p>
+                  <Link to={c.list_cta_button_link} className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-golden text-white font-roboto text-[10px] font-bold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
+                    {c.list_cta_button}
                   </Link>
                 </div>
               </div>
@@ -975,14 +1078,16 @@ export default function CommercialProperty() {
       </main>
 
       {/* === FOOTER CTA === */}
+      {c.show_footer_cta && (
       <div className="bg-primary py-12 px-6 text-center">
-        <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">Own Commercial Property?</p>
-        <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">Advertise Your Commercial Property</h2>
-        <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">Reach thousands of qualified businesses and investors. Get a free valuation today.</p>
-        <Link to="/c/commercial-advertising/" className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white border-2 border-golden font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
-          <i className="ri-building-2-line"></i>List Your Property
+        <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">{c.footer_eyebrow}</p>
+        <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">{c.footer_heading}</h2>
+        <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">{c.footer_text}</p>
+        <Link to={c.footer_button_link} className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white border-2 border-golden font-roboto text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
+          <i className="ri-building-2-line"></i>{c.footer_button}
         </Link>
       </div>
+      )}
 
       <PageContactSection />
       <Footer />

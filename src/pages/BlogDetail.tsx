@@ -1,63 +1,104 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { useScrollReveal } from '@/hooks/useScrollReveal';
 import { useSeoMeta, buildBreadcrumbSchema } from '@/hooks/useSeoMeta';
 import Header from '@/components/feature/Header';
-import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
+import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import PageLoader from '@/components/feature/PageLoader';
-import NeighbourhoodAtAGlance from '@/components/feature/NeighbourhoodAtAGlance';
 import BlogArticleBody from '@/components/feature/BlogArticleBody';
-import MallMapExplorer from '@/pages/blog/components/MallMapExplorer';
-import { useImageFocalPoint } from '@/hooks/useImageFocalPoint';
-import { smartTitleCase } from '@/lib/location';
+import NearbyAreaStrip from '@/components/feature/NearbyAreaStrip';
+import BlogHero, { type HeroMetaItem } from '@/pages/blog/components/BlogHero';
+import GuideToc, { type TocItem } from '@/pages/blog/components/GuideToc';
+import BlogSidebar from '@/pages/blog/components/BlogSidebar';
+import RelatedNeighbourhoods, { type RelatedArea } from '@/pages/blog/components/RelatedNeighbourhoods';
+import RelatedReading, { type RelatedPost } from '@/pages/blog/components/RelatedReading';
+import AreaProperties from '@/pages/blog/components/AreaProperties';
+import DiningQuickGuide from '@/pages/blog/components/DiningQuickGuide';
+import VenuesByArea from '@/pages/blog/components/VenuesByArea';
+import VenuesByOccasion from '@/pages/blog/components/VenuesByOccasion';
+import ContextualProperties from '@/pages/blog/components/ContextualProperties';
+import GuideMethodNote from '@/pages/blog/components/GuideMethodNote';
+import ThingsToDoQuickGuide from '@/pages/blog/components/ThingsToDoQuickGuide';
+import PlacesByTheme from '@/pages/blog/components/PlacesByTheme';
+import PlacesByArea from '@/pages/blog/components/PlacesByArea';
+import MicroGuidePlaces from '@/pages/blog/components/MicroGuidePlaces';
+import EcosystemBlocks from '@/pages/blog/components/EcosystemBlocks';
+import { normalizeEcoBlocks, type EcoBlock } from '@/lib/ecosystemBlocks';
+import { useGuideVenues } from '@/hooks/useGuideVenues';
+import { useGuidePlaces } from '@/hooks/useGuidePlaces';
+import { useCuratedPlaces } from '@/hooks/useCuratedPlaces';
+import { toGuidePlace, groupPlacesByTheme } from '@/lib/guidePlaces';
+import {
+  resolveMicroGuideConfig,
+  filterMicroGuidePlaces,
+  areasPresentInPlaces,
+} from '@/lib/microGuides';
+import {
+  toGuideVenue,
+  groupVenuesByArea,
+  groupVenuesByOccasion,
+  scopeVenuesToAreas,
+  fragmentId,
+} from '@/lib/guideVenues';
+import { buildArticle } from '@/lib/blogArticle';
+import { areaSearchHref } from '@/lib/areaSearch';
+import { formatKes, cleanRentalRange } from '@/hooks/usePriceGuide';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_BLOG_DETAIL } from '@/lib/pageCopy';
 
 interface BlogPost {
   id: string;
   title: string;
   slug: string;
   category: string;
-  categoryTag: string;
   author: string;
-  authorAvatar: string;
   featured_image: string;
   excerpt: string;
   published_at: string;
-  readTime: string;
+  updated_at: string;
   body: string;
-  relatedGuides: string[];
+  article_type: string;
   relatedNeighbourhoods: string[];
+  related_posts: string[];
+  guide_area: string | null;
+  guide_categories: string[] | null;
+  guide_match: string[] | null;
+  eco_blocks: EcoBlock[];
 }
 
-function Reveal({
-  children,
-  className = '',
-  delay = 0,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  delay?: number;
-}) {
-  const { ref, isVisible } = useScrollReveal<HTMLDivElement>();
-  return (
-    <div
-      ref={ref}
-      className={`${className} reveal-up ${isVisible ? 'revealed' : ''}`}
-      style={{ transitionDelay: `${delay}ms` }}
-    >
-      {children}
-    </div>
-  );
+interface QuickFact {
+  label: string;
+  value: string;
+}
+
+function formatDate(value: string): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function estimateReadTime(body: string): string {
+  const words = subjectWords(body);
+  const minutes = Math.max(1, Math.ceil(words / 200));
+  return `${minutes} min read`;
+}
+
+function subjectWords(body: string): number {
+  return body.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
 }
 
 export default function BlogDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [post, setPost] = useState<BlogPost | null>(null);
+  const [relatedAreas, setRelatedAreas] = useState<RelatedArea[]>([]);
+  const [relatedPosts, setRelatedPosts] = useState<RelatedPost[]>([]);
+  const [guideAreaNames, setGuideAreaNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const focalPoint = useImageFocalPoint();
+  const { content: c } = usePageContent('blog_detail', DEFAULT_BLOG_DETAIL);
 
   const fetchPost = useCallback(async () => {
     if (!slug) return;
@@ -70,31 +111,91 @@ export default function BlogDetail() {
         .eq('status', 'published')
         .maybeSingle();
 
-      if (!error && dbPost) {
-        const mapped: BlogPost = {
-          id: dbPost.id,
-          title: smartTitleCase(dbPost.title || ''),
-          slug: dbPost.slug || slug,
-          // Normalise the category through the shared casing normaliser so the
-          // article badge reads consistently with the blog listing & filters.
-          category: dbPost.category ? smartTitleCase(dbPost.category) : '',
-          categoryTag: dbPost.category ? smartTitleCase(dbPost.category) : '',
-          author: dbPost.author || 'Oceans Kenya',
-          authorAvatar: '',
-          featured_image: dbPost.featured_image || '',
-          excerpt: dbPost.excerpt || '',
-          published_at: dbPost.published_at || '',
-          readTime: estimateReadTime(dbPost.body || ''),
-          body: dbPost.body || '',
-          relatedGuides: [],
-          relatedNeighbourhoods: dbPost.related_neighbourhoods || [],
-        };
-        setPost(mapped);
-      } else {
+      if (error || !dbPost) {
         setPost(null);
+        setRelatedAreas([]);
+        setRelatedPosts([]);
+        setGuideAreaNames([]);
+        setLoading(false);
+        return;
+      }
+
+      const relatedSlugs: string[] = dbPost.related_neighbourhoods || [];
+
+      const mapped: BlogPost = {
+        id: dbPost.id,
+        title: dbPost.title || '',
+        slug: dbPost.slug || slug,
+        category: dbPost.category || '',
+        author: dbPost.author || c.default_author,
+        featured_image: dbPost.featured_image || '',
+        excerpt: dbPost.excerpt || '',
+        published_at: dbPost.published_at || '',
+        updated_at: dbPost.updated_at || dbPost.published_at || '',
+        body: dbPost.body || '',
+        article_type: dbPost.article_type || 'editorial',
+        relatedNeighbourhoods: relatedSlugs,
+        related_posts: (dbPost.related_posts || []) as string[],
+        guide_area: dbPost.guide_area || null,
+        guide_categories: dbPost.guide_categories || null,
+        guide_match: dbPost.guide_match || null,
+        eco_blocks: normalizeEcoBlocks(dbPost.eco_blocks),
+      };
+      setPost(mapped);
+
+      if (relatedSlugs.length > 0) {
+        const { data: hoods } = await supabase
+          .from('neighbourhoods')
+          .select('slug, name, hero_image, summary, tags, city, target_market, average_sale_price, rental_range_kes, is_published')
+          .in('slug', relatedSlugs);
+
+        const rows = (hoods || []).sort(
+          (a, b) => relatedSlugs.indexOf(a.slug) - relatedSlugs.indexOf(b.slug),
+        );
+
+        // Guide area names resolve regardless of a neighbourhood page's publish
+        // state, so a dining guide never silently drops a whole area's venues.
+        setGuideAreaNames(rows.map((h) => h.name).filter(Boolean));
+
+        const mappedAreas: RelatedArea[] = rows
+          .filter((h) => h.is_published)
+          .map((h) => ({
+            slug: h.slug,
+            name: h.name,
+            heroImage: h.hero_image,
+            summary: h.summary,
+            tags: (h.tags || []) as string[],
+            city: h.city || 'Nairobi',
+            targetMarket: h.target_market,
+            averageSalePrice: h.average_sale_price != null ? Number(h.average_sale_price) : null,
+            rentalRange: h.rental_range_kes,
+          }));
+        setRelatedAreas(mappedAreas);
+      } else {
+        setRelatedAreas([]);
+        setGuideAreaNames([]);
+      }
+
+      // Editorially-selected sibling articles (Related reading block).
+      const relatedPostSlugs: string[] = dbPost.related_posts || [];
+      if (relatedPostSlugs.length > 0) {
+        const { data: relRows } = await supabase
+          .from('blog_posts')
+          .select('slug, title, category, excerpt, featured_image')
+          .in('slug', relatedPostSlugs)
+          .eq('status', 'published');
+        const ordered = (relRows || []).sort(
+          (a, b) => relatedPostSlugs.indexOf(a.slug) - relatedPostSlugs.indexOf(b.slug),
+        );
+        setRelatedPosts(ordered as RelatedPost[]);
+      } else {
+        setRelatedPosts([]);
       }
     } catch {
       setPost(null);
+      setRelatedAreas([]);
+      setRelatedPosts([]);
+      setGuideAreaNames([]);
     }
     setLoading(false);
   }, [slug]);
@@ -103,7 +204,175 @@ export default function BlogDetail() {
     fetchPost();
   }, [fetchPost]);
 
-  // Search-engine metadata + BreadcrumbList structured data for the article.
+  const { html: articleHtml, headings } = useMemo(() => buildArticle(post?.body), [post?.body]);
+
+  const primaryArea = relatedAreas[0]?.name || '';
+  const city = relatedAreas[0]?.city || 'Nairobi';
+
+  // Editor-configured live ecosystem blocks (listings / developments / services).
+  const ecoBlocks = useMemo(() => (post?.eco_blocks || []).filter((b) => b.enabled), [post]);
+
+  // ── Editorial dining modules (only for dining_guide articles) ────────────
+  const isDining = post?.article_type === 'dining_guide';
+  const { venues: guideVenueRows } = useGuideVenues();
+  const areaNames = useMemo(
+    () => (guideAreaNames.length > 0 ? guideAreaNames : relatedAreas.map((a) => a.name)),
+    [guideAreaNames, relatedAreas],
+  );
+  const guideVenues = useMemo(() => guideVenueRows.map(toGuideVenue), [guideVenueRows]);
+  const scopedVenues = useMemo(
+    () => scopeVenuesToAreas(guideVenues, areaNames),
+    [guideVenues, areaNames],
+  );
+  const areaVenueGroups = useMemo(
+    () => groupVenuesByArea(scopedVenues, areaNames),
+    [scopedVenues, areaNames],
+  );
+  const occasionVenueGroups = useMemo(
+    () => groupVenuesByOccasion(scopedVenues),
+    [scopedVenues],
+  );
+  const quickGuideItems = useMemo(
+    () =>
+      occasionVenueGroups.map((g) => ({
+        key: g.key,
+        label: g.label,
+        icon: g.icon,
+        count: g.venues.length,
+      })),
+    [occasionVenueGroups],
+  );
+
+  // ── Editorial things-to-do modules (things_to_do / attraction articles) ───
+  const isThingsToDo =
+    post?.article_type === 'things_to_do' || post?.article_type === 'attraction';
+  const { places: guidePlaceRows } = useGuidePlaces();
+  const guidePlaces = useMemo(() => guidePlaceRows.map(toGuidePlace), [guidePlaceRows]);
+  const scopedPlaces = useMemo(
+    () => scopeVenuesToAreas(guidePlaces, areaNames),
+    [guidePlaces, areaNames],
+  );
+  const themePlaceGroups = useMemo(() => groupPlacesByTheme(scopedPlaces), [scopedPlaces]);
+  const placeAreaGroups = useMemo(
+    () => groupVenuesByArea(scopedPlaces, areaNames),
+    [scopedPlaces, areaNames],
+  );
+  const themeQuickItems = useMemo(
+    () =>
+      themePlaceGroups.map((g) => ({
+        key: g.key,
+        label: g.label,
+        icon: g.icon,
+        count: g.places.length,
+      })),
+    [themePlaceGroups],
+  );
+
+  // ── Micro-guides ("Best Cafés in Kilimani"...) - the scalable engine ─────
+  const isMicroGuide = post?.article_type === 'micro_guide';
+  const { places: curatedPlaceRows } = useCuratedPlaces();
+  const curatedPlaces = useMemo(() => curatedPlaceRows.map(toGuidePlace), [curatedPlaceRows]);
+  const microConfig = useMemo(
+    () =>
+      resolveMicroGuideConfig({
+        guide_area: post?.guide_area,
+        guide_categories: post?.guide_categories,
+        guide_match: post?.guide_match,
+      }),
+    [post],
+  );
+  const microPlaces = useMemo(
+    () => filterMicroGuidePlaces(curatedPlaces, microConfig),
+    [curatedPlaces, microConfig],
+  );
+  const microAreas = useMemo(
+    () => (microConfig.area ? [microConfig.area] : areasPresentInPlaces(microPlaces)),
+    [microConfig, microPlaces],
+  );
+  const microHeading = microConfig.area ? `The shortlist in ${microConfig.area}` : 'The Nairobi shortlist';
+  const microSubheading = 'Every place below is a real, verified listing - curated for this guide, never paid placement.';
+  const microStayHeading = microConfig.area
+    ? `Where to Stay in ${microConfig.area}`
+    : "Where to Stay Near Nairobi's Best";
+  const microStaySubheading = microConfig.area
+    ? `Homes in ${microConfig.area}, so it is all on your doorstep.`
+    : 'Homes across the neighbourhoods above.';
+
+  const tocItems = useMemo<TocItem[]>(() => {
+    const items: TocItem[] = [{ id: 'guide-top', label: 'Overview', level: 2 }];
+    headings.forEach((h) => items.push({ id: h.id, label: h.text, level: h.level }));
+    if (isDining && areaVenueGroups.length > 0) {
+      items.push({ id: 'quick-guide', label: 'Quick guide', level: 2 });
+      items.push({ id: 'by-area', label: 'Where to eat by area', level: 2 });
+      areaVenueGroups.forEach((g) =>
+        items.push({ id: `area-${fragmentId(g.name)}`, label: g.name, level: 3 }),
+      );
+      if (occasionVenueGroups.length > 0) {
+        items.push({ id: 'by-occasion', label: 'Choose by occasion', level: 2 });
+      }
+    }
+    if (isThingsToDo && themePlaceGroups.length > 0) {
+      items.push({ id: 'ttd-quick-guide', label: 'The quick guide', level: 2 });
+      items.push({ id: 'ttd-theme', label: 'Things to do by theme', level: 2 });
+    }
+    if (isThingsToDo && placeAreaGroups.length > 0) {
+      items.push({ id: 'ttd-area', label: 'Things to do by area', level: 2 });
+      placeAreaGroups.forEach((g) =>
+        items.push({ id: `area-${fragmentId(g.name)}`, label: g.name, level: 3 }),
+      );
+    }
+    if (isMicroGuide && microPlaces.length > 0) {
+      items.push({ id: 'micro-guide-places', label: microHeading, level: 2 });
+    }
+    if (isMicroGuide && microAreas.length > 0) {
+      items.push({ id: 'stay', label: 'Where to stay', level: 2 });
+    } else if ((isDining || isThingsToDo) && areaNames.length > 0) {
+      items.push({ id: 'stay', label: 'Where to stay', level: 2 });
+    } else if (primaryArea) {
+      items.push({ id: 'properties', label: `Properties in ${primaryArea}`, level: 2 });
+    }
+    ecoBlocks.forEach((b) => items.push({ id: `eco-${b.type}`, label: b.heading, level: 2 }));
+    items.push({ id: 'nearby', label: 'Explore nearby neighbourhoods', level: 2 });
+    if (relatedPosts.length > 0) {
+      items.push({ id: 'related-reading', label: 'Related reading', level: 2 });
+    }
+    return items;
+  }, [headings, primaryArea, isDining, isThingsToDo, isMicroGuide, microHeading, microPlaces, microAreas, areaVenueGroups, occasionVenueGroups, themePlaceGroups, placeAreaGroups, areaNames, relatedPosts, ecoBlocks]);
+
+  const heroMeta = useMemo<HeroMetaItem[]>(() => {
+    const meta: HeroMetaItem[] = [];
+    meta.push({ icon: 'ri-map-pin-2-line', label: 'Location', value: city });
+    if (post?.category) meta.push({ icon: 'ri-book-2-line', label: 'Type', value: post.category });
+    const updated = formatDate(post?.updated_at || '');
+    if (updated) meta.push({ icon: 'ri-calendar-check-line', label: 'Updated', value: updated });
+    if (post?.published_at) {
+      meta.push({ icon: 'ri-time-line', label: 'Reading', value: estimateReadTime(post.body) });
+    }
+    if (primaryArea) {
+      meta.push({
+        icon: 'ri-home-4-line',
+        label: 'Homes',
+        value: `View in ${primaryArea}`,
+        href: areaSearchHref(primaryArea),
+      });
+    }
+    return meta;
+  }, [post, city, primaryArea]);
+
+  const quickFacts = useMemo<QuickFact[]>(() => {
+    const area = relatedAreas[0];
+    if (!area) return [];
+    const facts: QuickFact[] = [];
+    if (area.tags.length > 0) facts.push({ label: 'Lifestyle', value: area.tags.slice(0, 3).join(' · ') });
+    if (area.averageSalePrice != null && area.averageSalePrice > 0) {
+      facts.push({ label: 'Average sale price', value: formatKes(area.averageSalePrice) });
+    }
+    const rent = cleanRentalRange(area.rentalRange || '');
+    if (rent) facts.push({ label: 'Monthly rent', value: `KSh ${rent}` });
+    if (area.targetMarket) facts.push({ label: 'Best for', value: area.targetMarket });
+    return facts;
+  }, [relatedAreas]);
+
   const structuredData = useMemo(() => {
     if (!post) return undefined;
     return [
@@ -117,21 +386,12 @@ export default function BlogDetail() {
 
   useSeoMeta({
     title: post ? post.title : 'Article',
-    description:
-      post?.excerpt ||
-      'Read the latest neighbourhood and property guide from Oceans Kenya.',
+    description: post?.excerpt || c.seo_description,
     path: `/blog/${post?.slug || slug || ''}`,
     ogImage: post?.featured_image || undefined,
     schemas: structuredData,
     noindex: !post,
   });
-
-  const relatedGuides = post?.relatedGuides
-    ? [] 
-    : [];
-
-  // Only the mall round-up article carries the interactive mall map + nearby listings.
-  const showMallExplorer = post?.slug === 'best-shopping-malls-nairobi-2026';
 
   if (loading) {
     return (
@@ -139,7 +399,7 @@ export default function BlogDetail() {
         <Header />
         <main className="pt-32 md:pt-40 lg:pt-44 pb-20 px-4 md:px-6">
           <div className="max-w-3xl mx-auto">
-            <PageLoader size={56} text="Loading article..." />
+            <PageLoader size={56} text={c.loading_text} />
           </div>
         </main>
         <Footer />
@@ -153,19 +413,17 @@ export default function BlogDetail() {
       <div className="min-h-screen">
         <Header />
         <div className="pt-28 md:pt-40 lg:pt-44">
-          <PageBreadcrumbs current="Article Not Found" showBack={false} />
+          <PageBreadcrumbTrail items={[{ label: 'Home', to: '/' }, { label: 'Guides', to: '/neighbourhoods' }, { label: 'Not found' }]} />
         </div>
         <main className="pb-20 px-4 md:px-6">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">Article Not Found</h1>
-            <p className="font-roboto text-stone-500 mb-6">
-              We could not find the blog post you are looking for.
-            </p>
+            <h1 className="font-prata font-bold text-3xl text-primary mb-4">{c.notfound_title}</h1>
+            <p className="font-roboto text-[#636363] mb-6">{c.notfound_text}</p>
             <Link
               to="/neighbourhoods"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-jost font-semibold tracking-wider uppercase rounded-md hover:bg-[#002349] transition-colors whitespace-nowrap cursor-pointer"
             >
-              Back to Neighbourhoods &amp; Guides
+              {c.notfound_button}
               <i className="ri-arrow-right-line text-xs"></i>
             </Link>
           </div>
@@ -176,182 +434,174 @@ export default function BlogDetail() {
     );
   }
 
-  const formattedDate = post.published_at
-    ? new Date(post.published_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : '';
-
   return (
     <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Article Hero */}
-      <section className="relative pt-28 md:pt-40 lg:pt-44 pb-12 md:pb-16 overflow-hidden">
-        <div className="absolute inset-0">
-          {post.featured_image && (
-            <img
-              alt={post.title}
-              className="w-full h-full object-cover object-center"
-              src={post.featured_image}
-            />
-          )}
-          <div className="absolute inset-0 bg-primary/80"></div>
-        </div>
-        <div className="relative max-w-3xl mx-auto px-4 md:px-6">
-          <div className="flex items-center gap-2 mb-4">
-            {post.categoryTag && (
-              <span className="px-2.5 py-1 bg-white/15 backdrop-blur-sm text-white text-[10px] font-roboto font-medium rounded-full">
-                {post.categoryTag}
-              </span>
-            )}
-            {post.category && post.category !== post.categoryTag && (
-              <span className="px-2.5 py-1 bg-white/15 backdrop-blur-sm text-white text-[10px] font-roboto font-medium rounded-full">
-                {post.category}
-              </span>
-            )}
-          </div>
-          <h1 className="font-roboto font-bold text-2xl md:text-4xl text-white mb-4 leading-tight">
-            {post.title}
-          </h1>
-          <div className="flex items-center gap-3 text-white/70 text-xs font-roboto">
-            {post.author && <span>{post.author}</span>}
-            {post.author && formattedDate && <span>&middot;</span>}
-            {formattedDate && <span>{formattedDate}</span>}
-            {post.readTime && (
-              <>
-                <span>&middot;</span>
-                <span className="flex items-center gap-1">
-                  <i className="ri-time-line"></i>
-                  {post.readTime}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </section>
+      <div id="guide-top" className="scroll-mt-24">
+        <BlogHero
+          eyebrow={
+            isDining
+              ? 'Oceans Kenya · Where to Eat'
+              : isThingsToDo
+                ? 'Oceans Kenya · Things to Do'
+                : isMicroGuide
+                  ? 'Oceans Kenya · Local Guide'
+                  : 'Oceans Kenya · Neighbourhood Guide'
+          }
+          title={post.title}
+          category={post.category}
+          featuredImage={post.featured_image}
+          dek={post.excerpt}
+          meta={heroMeta}
+        />
+      </div>
 
-      {/* Breadcrumb - reflects the real hierarchy, not browsing history */}
-      <PageBreadcrumbs current={post.title} />
+      <main className="py-10 md:py-14 bg-white">
+        <div className="max-w-6xl mx-auto px-4 md:px-6">
+          <PageBreadcrumbTrail
+            className="mb-8 md:mb-10"
+            items={[
+              { label: 'Home', to: '/' },
+              { label: 'Neighbourhoods & Guides', to: '/neighbourhoods' },
+              { label: post.title },
+            ]}
+          />
 
-      {/* Article Body */}
-      <main className="mobile-flat-headings py-10 md:py-16 bg-white">
-        <div className="max-w-4xl mx-auto px-4 md:px-8 lg:px-12">
-          {/* Excerpt */}
-          {post.excerpt && (
-            <Reveal>
-              <div className="border-l-4 border-primary pl-4 md:pl-5 mb-8 md:mb-10">
-                <p className="font-roboto text-stone-600 text-sm md:text-base leading-relaxed italic">
-                  {post.excerpt}
-                </p>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8 lg:gap-12 items-start">
+            <article className="min-w-0">
+              {/* Compact mobile navigation */}
+              <GuideToc items={tocItems} variant="inline" className="lg:hidden mb-8" />
+
+              {/* Article body */}
+              <div className="max-w-[720px]">
+                <BlogArticleBody html={articleHtml} />
               </div>
-            </Reveal>
-          )}
 
-          {/* Interactive mall map + nearby sale/rent listings — leads the article */}
-          {showMallExplorer && <MallMapExplorer />}
+              {/* Editorial dining modules - real venues from the database */}
+              {isDining && (areaVenueGroups.length > 0 || occasionVenueGroups.length > 0) && (
+                <div className="mt-12 md:mt-14 space-y-12 md:space-y-16">
+                  <DiningQuickGuide items={quickGuideItems} />
+                  <VenuesByArea groups={areaVenueGroups} />
+                  <VenuesByOccasion groups={occasionVenueGroups} />
+                  <GuideMethodNote venues={scopedVenues} />
+                </div>
+              )}
 
-          {/* Body Content — place lists automatically get venue thumbnails */}
-          <Reveal delay={100}>
-            <BlogArticleBody
-              html={post.body}
-              className="mobile-flat-rich font-roboto text-stone-700 text-sm leading-relaxed space-y-5 [&_h3]:font-roboto font-bold [&_h3]:text-lg [&_h3]:text-primary [&_h3]:mt-8 [&_h3]:mb-3 [&_p]:leading-relaxed [&_ul]:space-y-2 [&_ul]:pl-5 [&_li]:leading-relaxed [&_strong]:text-stone-800 [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:p-2 [&_th]:bg-stone-50 [&_th]:font-roboto [&_th]:font-medium [&_th]:text-stone-600 [&_td]:p-2 [&_td]:border-t [&_td]:border-primary/12 [&_em]:text-stone-500"
-            />
-          </Reveal>
+              {/* Editorial things-to-do modules - real places from the database */}
+              {isThingsToDo && (themePlaceGroups.length > 0 || placeAreaGroups.length > 0) && (
+                <div className="mt-12 md:mt-14 space-y-12 md:space-y-16">
+                  <ThingsToDoQuickGuide items={themeQuickItems} />
+                  <PlacesByTheme groups={themePlaceGroups} />
+                  <PlacesByArea groups={placeAreaGroups} />
+                  <GuideMethodNote venues={scopedPlaces} />
+                </div>
+              )}
 
-          {/* Data-driven amenity counts */}
-          {post.relatedNeighbourhoods.length > 0 && (
-            <div className="mt-12 md:mt-16 pt-8 border-t border-primary/12">
-              <NeighbourhoodAtAGlance neighbourhoodSlugs={post.relatedNeighbourhoods} />
-            </div>
-          )}
+              {/* Micro-guide picks - real curated places from the database */}
+              {isMicroGuide && microPlaces.length > 0 && (
+                <div className="mt-12 md:mt-14 space-y-12 md:space-y-16">
+                  <MicroGuidePlaces
+                    places={microPlaces}
+                    heading={microHeading}
+                    subheading={microSubheading}
+                    groupByArea={!microConfig.area}
+                  />
+                  <GuideMethodNote venues={microPlaces} />
+                </div>
+              )}
 
-          {/* Related Neighbourhood Guides */}
-          {relatedGuides.length > 0 && (
-            <div className="mt-12 md:mt-16 pt-8">
-              <Reveal>
-                <h3 className="font-roboto font-bold text-lg text-primary mb-4">Related Area Guides</h3>
-              </Reveal>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {relatedGuides.map((guide, i) => (
-                  <Reveal key={guide.slug} delay={i * 100}>
-                    <Link
-                      to={`/neighbourhood/${guide.slug}`}
-                      className="group cursor-pointer block bg-stone-50 rounded-lg overflow-hidden hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-500"
-                    >
-                      <div className="relative aspect-[16/10] overflow-hidden">
-                        <img
-                          alt={guide.name}
-                          className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
-                          style={{ objectPosition: focalPoint }}
-                          src={guide.heroImage}
-                        />
-                        <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-                          {guide.tags.slice(0, 2).map((tag) => (
-                            <span key={tag} className="px-1.5 py-0.5 bg-white/85 text-[9px] font-roboto font-medium text-stone-600 rounded-full">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="p-3">
-                        <h4 className="font-roboto font-bold text-sm text-primary mb-1">{guide.name} Guide</h4>
-                        <p className="font-roboto text-stone-500 text-xs leading-relaxed line-clamp-2">
-                          {guide.summary}
-                        </p>
-                      </div>
-                    </Link>
-                  </Reveal>
-                ))}
+              {/* Contextual properties - only from the areas this guide covers */}
+              {isMicroGuide && microAreas.length > 0 ? (
+                <div id="stay" className="scroll-mt-24 mt-14 md:mt-16 pt-10 border-t-2 border-primary/10">
+                  <ContextualProperties
+                    areas={microAreas}
+                    heading={microStayHeading}
+                    subheading={microStaySubheading}
+                  />
+                </div>
+              ) : isDining && areaNames.length > 0 ? (
+                <div id="stay" className="scroll-mt-24 mt-14 md:mt-16 pt-10 border-t-2 border-primary/10">
+                  <ContextualProperties
+                    areas={areaNames}
+                    heading="Where to Stay Near Nairobi's Food Scene"
+                    subheading="Homes in and around the areas above, so the food is on your doorstep."
+                  />
+                </div>
+              ) : isThingsToDo && areaNames.length > 0 ? (
+                <div id="stay" className="scroll-mt-24 mt-14 md:mt-16 pt-10 border-t-2 border-primary/10">
+                  <ContextualProperties
+                    areas={areaNames}
+                    heading="Where to Stay Near Nairobi's Highlights"
+                    subheading="Homes in and around the areas above, so the city's best experiences are on your doorstep."
+                  />
+                </div>
+              ) : primaryArea ? (
+                <div id="properties" className="scroll-mt-24 mt-14 md:mt-16 pt-10 border-t-2 border-primary/10">
+                  <AreaProperties areaName={primaryArea} />
+                </div>
+              ) : null}
+
+              {/* Ecosystem blocks - live listings, developments & service providers */}
+              <EcosystemBlocks blocks={ecoBlocks} defaultAreas={areaNames} />
+
+              {/* Related areas */}
+              <div id="nearby" className="scroll-mt-24 mt-14 md:mt-16 pt-10 border-t-2 border-primary/10">
+                {relatedAreas.length > 0 ? (
+                  <RelatedNeighbourhoods areas={relatedAreas} />
+                ) : (
+                  <NearbyAreaStrip label={city} heading="Explore nearby neighbourhoods" className="mt-0" />
+                )}
               </div>
-            </div>
-          )}
 
-          {/* Back Link */}
-          <div className="mt-8 md:mt-10 pt-6">
-            <Link
-              to="/neighbourhoods"
-              className="inline-flex items-center gap-1.5 text-sm font-roboto font-medium text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
-            >
-              <i className="ri-arrow-left-line"></i>
-              Back to Neighbourhoods &amp; Guides
-            </Link>
+              {/* Related reading - editorially-selected sibling guides */}
+              {relatedPosts.length > 0 && (
+                <div id="related-reading" className="scroll-mt-24 mt-14 md:mt-16 pt-10 border-t-2 border-primary/10">
+                  <RelatedReading posts={relatedPosts} />
+                </div>
+              )}
+
+              <div className="mt-8 md:mt-10 pt-6">
+                <Link
+                  to="/neighbourhoods"
+                  className="inline-flex items-center gap-1.5 text-sm font-roboto font-medium text-primary hover:text-[#0D5959] transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <i className="ri-arrow-left-line"></i>
+                  {c.back_label}
+                </Link>
+              </div>
+            </article>
+
+            <BlogSidebar
+              className="hidden lg:block lg:sticky lg:top-28"
+              tocItems={tocItems}
+              areas={relatedAreas}
+              areaName={primaryArea}
+            />
+          </div>
+
+          {/* CTA */}
+          <div className="mt-16 md:mt-20">
+            <div className="text-center bg-primary rounded-lg py-12 md:py-16 px-4 md:px-6">
+              <h3 className="font-prata font-semibold text-white text-2xl md:text-3xl mb-3">{c.cta_title}</h3>
+              <p className="font-roboto text-white/80 text-sm md:text-base max-w-xl mx-auto mb-6 leading-relaxed">
+                {c.cta_text}
+              </p>
+              <Link
+                to="/contact"
+                className="inline-flex items-center gap-2 px-7 py-3.5 bg-golden text-white border-2 border-golden text-sm font-jost font-semibold tracking-wider uppercase hover:bg-[#8a6d1f] transition-colors whitespace-nowrap cursor-pointer"
+              >
+                {c.cta_button}
+                <i className="ri-arrow-right-line text-xs"></i>
+              </Link>
+            </div>
           </div>
         </div>
       </main>
-
-      {/* CTA */}
-      <div className="mobile-flat-headings max-w-6xl mx-auto px-4 md:px-6 pb-12 md:pb-16">
-        <Reveal>
-          <div className="text-center bg-stone-50 py-10 md:py-14 px-4 md:px-6 rounded-lg">
-            <h3 className="font-roboto font-bold text-xl text-primary mb-3">
-              Need Personalised Neighbourhood Advice?
-            </h3>
-            <p className="font-roboto text-stone-500 text-sm max-w-xl mx-auto mb-6">
-              Our agents live and breathe Nairobi&apos;s neighbourhoods. Tell us what matters to you - schools, commute, budget, lifestyle - and we&apos;ll match you with the perfect area.
-            </p>
-            <Link
-              to="/contact"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
-            >
-              Talk to an Agent
-              <i className="ri-arrow-right-line text-xs"></i>
-            </Link>
-          </div>
-        </Reveal>
-      </div>
 
       <PageContactSection />
       <Footer />
       <BackToTop />
     </div>
   );
-}
-
-function estimateReadTime(body: string): string {
-  const words = body.replace(/<[^>]*>/g, '').split(/\s+/).length;
-  const minutes = Math.max(1, Math.ceil(words / 200));
-  return `${minutes} min read`;
 }

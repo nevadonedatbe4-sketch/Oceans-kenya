@@ -116,6 +116,20 @@ const NewDevelopmentsPage = lazy(() => import("../pages/crm/management/NewDevelo
 const AboutPage = lazy(() => import("../pages/crm/management/AboutPage"));
 const ContactPage = lazy(() => import("../pages/crm/management/ContactPage"));
 const NeighbourhoodsPage = lazy(() => import("../pages/crm/management/NeighbourhoodsPage"));
+const NeighbourhoodsContentPage = lazy(() => import("../pages/crm/management/NeighbourhoodsContentPage"));
+const DirectoryPagesPage = lazy(() => import("../pages/crm/management/DirectoryPagesPage"));
+const DynamicPageTemplatesPage = lazy(() => import("../pages/crm/management/DynamicPageTemplatesPage"));
+const CommercialPropertyPageCMS = lazy(() => import("../pages/crm/management/CommercialPropertyPage"));
+const CommercialAdvertisingPageCMS = lazy(() => import("../pages/crm/management/CommercialAdvertisingPage"));
+const ValuationPageCMS = lazy(() => import("../pages/crm/management/ValuationPage"));
+const ExplorePagesCMS = lazy(() => import("../pages/crm/management/ExplorePagesCMS"));
+const LocalPagesCMS = lazy(() => import("../pages/crm/management/LocalPagesCMS"));
+const LegalPagesCMS = lazy(() => import("../pages/crm/management/LegalPagesCMS"));
+const CheckInBreaksPage = lazy(() => import("../pages/crm/management/CheckInBreaksPage"));
+const HomePageManagement = lazy(() => import("../pages/crm/management/HomePage"));
+const ListingPagesCMS = lazy(() => import("../pages/crm/management/ListingPagesCMS"));
+const FilterChipsPageCMS = lazy(() => import("../pages/crm/management/FilterChipsPage"));
+const JointVenturesPageCMS = lazy(() => import("../pages/crm/management/JointVenturesPage"));
 const ContactCompany = lazy(() => import("../pages/crm/management/ContactCompany"));
 const ManagementSocialMedia = lazy(() => import("../pages/crm/management/SocialMedia"));
 const MapsLocation = lazy(() => import("../pages/crm/management/MapsLocation"));
@@ -133,6 +147,7 @@ const AgentDashboardPreview = lazy(() => import("../pages/admin/AgentDashboardPr
 const AgentDashboards = lazy(() => import("../pages/admin/AgentDashboards"));
 const AgentAccountSettings = lazy(() => import("../pages/agent/AgentAccountSettings"));
 const SystemManagementOptions = lazy(() => import("../pages/admin/SystemManagementOptions"));
+const PageEditorsHub = lazy(() => import("../pages/admin/PageEditorsHub"));
 const AdminAttendance = lazy(() => import("../pages/admin/AdminAttendance"));
 const AdminTeamOverview = lazy(() => import("../pages/admin/AdminTeamOverview"));
 const TeamContacts = lazy(() => import("../pages/admin/TeamContacts"));
@@ -201,6 +216,7 @@ const adminChildren: RouteObject[] = [
   // Users & Roles / Invitations now live inside the consolidated Agents & Access page.
   { path: "users", element: <Navigate to="/admin/agents?tab=users" replace /> },
   { path: "system-management", element: <SystemManagementOptions /> },
+  { path: "page-editors", element: <PageEditorsHub /> },
   { path: "attendance", element: <AdminAttendance /> },
   { path: "check-in", element: <OGroupCheckIn /> },
   { path: "team", element: <AdminTeamOverview /> },
@@ -264,6 +280,20 @@ const adminChildren: RouteObject[] = [
   { path: "management/about-page", element: <AboutPage /> },
   { path: "management/contact-page", element: <ContactPage /> },
   { path: "management/neighbourhoods-page", element: <NeighbourhoodsPage /> },
+  { path: "management/neighbourhoods-content", element: <NeighbourhoodsContentPage /> },
+  { path: "management/directory-pages", element: <DirectoryPagesPage /> },
+  { path: "management/dynamic-templates", element: <DynamicPageTemplatesPage /> },
+  { path: "management/commercial-property-page", element: <CommercialPropertyPageCMS /> },
+  { path: "management/commercial-advertising-page", element: <CommercialAdvertisingPageCMS /> },
+  { path: "management/valuation-page", element: <ValuationPageCMS /> },
+  { path: "management/explore-pages", element: <ExplorePagesCMS /> },
+  { path: "management/local-pages", element: <LocalPagesCMS /> },
+  { path: "management/legal-pages", element: <LegalPagesCMS /> },
+  { path: "management/checkin-breaks", element: <CheckInBreaksPage /> },
+  { path: "management/home-page", element: <HomePageManagement /> },
+  { path: "management/listing-pages", element: <ListingPagesCMS /> },
+  { path: "management/filter-chips", element: <FilterChipsPageCMS /> },
+  { path: "management/joint-ventures-page", element: <JointVenturesPageCMS /> },
   { path: "management/contact", element: <ContactCompany /> },
   { path: "management/social", element: <ManagementSocialMedia /> },
   { path: "management/maps", element: <MapsLocation /> },

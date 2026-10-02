@@ -24,6 +24,8 @@ import NearbyAreaStrip from '@/components/feature/NearbyAreaStrip';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
 import AreaOverviewSidebar from '@/components/feature/AreaOverviewSidebar';
 import { supabase } from '@/lib/supabase';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_AREA_GUIDE } from '@/lib/pageCopy';
 
 const SITE_URL = 'https://www.oceanske.com';
 
@@ -134,11 +136,12 @@ function GuideBlockSection({
 }
 
 function FaqSection({ def }: { def: AreaGuideDef }) {
+  const { content: c } = usePageContent('area_guide', DEFAULT_AREA_GUIDE);
   const [open, setOpen] = useState<number | null>(0);
   return (
     <section className="mt-12 md:mt-16">
       <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-        Frequently Asked Questions
+        {c.faq_heading}
       </h2>
       <div className="divide-y-2 divide-primary/12 border-y-2 border-primary/12">
         {def.faqs.map((f, i) => {
@@ -171,10 +174,11 @@ function FaqSection({ def }: { def: AreaGuideDef }) {
 }
 
 function RelatedLinks({ def }: { def: AreaGuideDef }) {
+  const { content: c } = usePageContent('area_guide', DEFAULT_AREA_GUIDE);
   return (
     <section className="mt-12 md:mt-16 bg-[#F7F9F9] rounded-lg p-6 md:p-8">
       <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-        Explore More in {def.area}
+        {c.related_heading_prefix} {def.area}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {def.related.map((r) => (
@@ -198,6 +202,7 @@ function RelatedLinks({ def }: { def: AreaGuideDef }) {
 
 export default function AreaGuidePage({ slug }: { slug: string }) {
   const def: AreaGuideDef | undefined = AREA_GUIDE_PAGES[slug];
+  const { content: c } = usePageContent('area_guide', DEFAULT_AREA_GUIDE);
   // Canonical neighbourhood id so the directory resolves by FK (not just name).
   const [areaId, setAreaId] = useState<string | null>(null);
   // Area centre point so the shared directory layer can fold in nearby places
@@ -325,8 +330,8 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
         <Header />
         <main className="pt-36 pb-24 px-4 md:px-6">
           <div className="max-w-6xl mx-auto text-center">
-            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">Guide Not Found</h1>
-            <p className="font-roboto text-stone-500 mb-6">This premium area guide could not be found.</p>
+            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">{c.notfound_title}</h1>
+            <p className="font-roboto text-stone-500 mb-6">{c.notfound_text}</p>
             <Link
               to="/property-for-sale/nairobi"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold uppercase hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
@@ -362,20 +367,20 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
             {def.h1}
           </h1>
           <p className="font-roboto text-white/80 text-sm md:text-base max-w-2xl leading-relaxed">
-            Everything you need to know about {def.area} - schools, malls, lifestyle and the market.
+            {c.hero_subtitle_prefix} {def.area} - {c.hero_subtitle_suffix}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a
               href="#properties"
               className="inline-flex items-center gap-2 px-7 py-3 bg-golden text-white border-2 border-golden text-sm font-roboto font-semibold uppercase hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-home-4-line"></i> View {def.area} Homes
+              <i className="ri-home-4-line"></i> {c.hero_button_view} {def.area} {c.hero_button_view_suffix}
             </a>
             <Link
               to="/contact"
               className="inline-flex items-center gap-2 px-7 py-3 border-2 border-white/60 text-white text-sm font-roboto font-semibold uppercase hover:bg-white hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-chat-3-line"></i> Ask About {def.area}
+              <i className="ri-chat-3-line"></i> {c.hero_button_ask} {def.area}
             </Link>
           </div>
         </div>
@@ -398,7 +403,7 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
           <ScrollRevealBlock>
             <div className="max-w-3xl mb-10">
               <h2 className="font-roboto font-bold text-primary text-lg md:text-xl mb-4">
-                About {def.area}, Nairobi
+                {c.about_heading_prefix} {def.area}, {c.about_heading_suffix}
               </h2>
               {def.intro.map((para, i) => (
                 <p key={i} className="font-roboto text-stone-600 text-sm leading-relaxed mb-4">
@@ -412,12 +417,12 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
           <ScrollRevealBlock>
             <section className="mb-12 md:mb-16">
               <p className="text-golden text-xs font-roboto font-semibold uppercase tracking-[0.3em] mb-1">
-                Life around here
+                {c.life_eyebrow}
               </p>
               <div className="flex items-end justify-between mb-6 gap-4 flex-wrap">
                 <div>
                   <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
-                    Everyday Life in {def.area}
+                    {c.life_heading_prefix} {def.area}
                   </h2>
                   {!directory.loading && directory.nearby.length > 0 && (
                     <span className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-accent-100 text-accent-900 text-xs font-roboto font-semibold whitespace-nowrap">
@@ -631,7 +636,7 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
                   Properties
                 </p>
                 <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
-                  Homes in {def.area} - {totalCount} result{totalCount === 1 ? '' : 's'}
+                  Homes in {def.area} - {totalCount} {c.results_word}
                 </h2>
               </div>
             </div>
@@ -659,7 +664,7 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
                 </div>
                 <p className="font-roboto font-bold text-primary mb-1">No properties available yet</p>
                 <p className="font-roboto text-stone-500 text-sm max-w-md mx-auto mb-4">
-                  New premium {def.area} listings arrive regularly. Explore the area search or register your interest to be contacted first.
+                  {c.empty_text_prefix} {def.area} {c.empty_text_suffix}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                   <Link
@@ -693,7 +698,7 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
                       className="inline-flex items-center gap-2 px-7 py-3 bg-primary text-white text-sm font-roboto font-semibold uppercase tracking-wide rounded-md hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-wait"
                     >
                       <i className={loadingMore ? 'ri-loader-4-line animate-spin' : 'ri-add-line'}></i>
-                      {loadingMore ? 'Loading…' : 'Load More Homes'}
+                      {loadingMore ? 'Loading…' : c.load_more}
                     </button>
                   </div>
                 )}
@@ -718,31 +723,30 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
           <ScrollRevealBlock>
             <div className="mt-12 md:mt-16 bg-primary rounded-lg py-12 md:py-16 px-6 text-center">
               <h2 className="font-prata font-semibold text-white text-2xl md:text-3xl mb-4">
-                Ready to Call {def.area} Home?
+                {c.cta_title_prefix} {def.area} {c.cta_title_suffix}
               </h2>
               <p className="font-roboto text-white/80 text-sm md:text-base max-w-xl mx-auto leading-relaxed mb-7">
-                Our local agents know {def.area} inside out - from the best streets and schools to off-market
-                opportunities. Let us match you with the perfect property in this neighbourhood.
+                {c.cta_text_prefix} {def.area} {c.cta_text_suffix}
               </p>
               <Link
                 to="/contact"
                 className="inline-flex items-center gap-2 px-8 py-3.5 bg-golden text-white border-2 border-golden text-sm font-roboto font-semibold uppercase hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <i className="ri-chat-3-line"></i> Contact an Agent
+                <i className="ri-chat-3-line"></i> {c.cta_button}
               </Link>
             </div>
           </ScrollRevealBlock>
           </div>
 
           <AreaOverviewSidebar
-            eyebrow="At a glance"
-            heading={`${def.area} Quick Facts`}
+            eyebrow={c.sidebar_eyebrow}
+            heading={`${def.area} ${c.sidebar_heading_suffix}`}
             intro={`Everything you need to know about ${def.area} - schools, malls, lifestyle and the market.`}
             facts={[
               { label: 'Average Sale Price', value: priceValue },
               { label: 'Monthly Rent Range', value: rentValue },
               { label: 'Drive to CBD', value: `~${def.commuteMinutes} min (${def.commuteKm} km)` },
-              { label: 'Best For', value: 'Families · Professionals · Investors' },
+              { label: 'Best For', value: c.sidebar_best_for },
             ]}
             footer={
               <a

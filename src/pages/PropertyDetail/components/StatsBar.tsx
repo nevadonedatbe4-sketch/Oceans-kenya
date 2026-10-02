@@ -1,3 +1,5 @@
+import { usePropertyDetailContent } from '@/hooks/useDynamicPageTemplates';
+
 interface StatsBarProps {
   title: string;
   location: string;
@@ -11,12 +13,13 @@ interface StatsBarProps {
 }
 
 export default function PropertyStatsBar({ title, location, price, propertyType, beds, baths, parking, ref, purpose }: StatsBarProps) {
+  const { content: c } = usePropertyDetailContent();
   const stats = [
-    { icon: 'ri-home-5-line', label: 'Type', value: propertyType ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) : 'N/A' },
-    { icon: 'ri-hotel-bed-line', label: 'Beds', value: beds != null && beds > 0 ? String(beds) : 'N/A' },
-    { icon: 'fa-solid fa-bath', label: 'Baths', value: baths != null && baths > 0 ? String(baths) : 'N/A' },
-    { icon: 'ri-car-line', label: 'Garage', value: parking != null && parking > 0 ? String(parking) : 'N/A' },
-    { icon: 'ri-fingerprint-line', label: 'ID', value: ref },
+    { icon: 'ri-home-5-line', label: c.stat_type, value: propertyType ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) : c.na_value },
+    { icon: 'ri-hotel-bed-line', label: c.stat_beds, value: beds != null && beds > 0 ? String(beds) : c.na_value },
+    { icon: 'fa-solid fa-bath', label: c.stat_baths, value: baths != null && baths > 0 ? String(baths) : c.na_value },
+    { icon: 'ri-car-line', label: c.stat_garage, value: parking != null && parking > 0 ? String(parking) : c.na_value },
+    { icon: 'ri-fingerprint-line', label: c.stat_id, value: ref },
   ];
 
   return (
@@ -39,7 +42,7 @@ export default function PropertyStatsBar({ title, location, price, propertyType,
             {price}
           </p>
           {purpose === 'rent' && (
-            <p className="text-primary/50 text-[10px] md:text-xs font-roboto mt-0.5">per calendar month</p>
+            <p className="text-primary/50 text-[10px] md:text-xs font-roboto mt-0.5">{c.per_month}</p>
           )}
         </div>
       </div>
@@ -52,8 +55,8 @@ export default function PropertyStatsBar({ title, location, price, propertyType,
               <span className="w-4 h-4 md:w-5 md:h-5 flex items-center justify-center text-primary/50 mb-0.5 md:mb-1.5">
                 <i className={`${stat.icon} text-xs md:text-sm`}></i>
               </span>
-              <p className="text-primary font-roboto text-xs md:text-sm font-semibold">{stat.value}</p>
-              <p className="text-primary/50 font-roboto text-[9px] uppercase tracking-wider">{stat.label}</p>
+              <p className="text-primary font-roboto text-xs md:text-sm font-medium">{stat.value}</p>
+              <p className="text-primary/60 font-roboto text-[9px] font-medium uppercase tracking-wider">{stat.label}</p>
             </div>
           ))}
         </div>

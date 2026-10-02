@@ -238,7 +238,6 @@ interface MobileGalleryProps {
 
 function MobileGallery({ images, title, statusLabel, hasMultipleImages, onOpenLightbox }: MobileGalleryProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
   const touchStartRef = useRef(0);
   const touchEndRef = useRef(0);
 
@@ -283,11 +282,7 @@ function MobileGallery({ images, title, statusLabel, hasMultipleImages, onOpenLi
   };
 
   return (
-    <div
-      className="md:hidden relative h-[260px] overflow-hidden"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className="md:hidden relative h-[260px] overflow-hidden">
       <div
         className="w-full h-full"
         onTouchStart={handleTouchStart}
@@ -316,7 +311,7 @@ function MobileGallery({ images, title, statusLabel, hasMultipleImages, onOpenLi
 
           <button
             onClick={goPrev}
-            className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 w-9 h-11 flex items-center justify-center rounded-md bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap"
             aria-label="Previous image"
           >
             <i className="ri-arrow-left-s-line text-lg"></i>
@@ -324,7 +319,7 @@ function MobileGallery({ images, title, statusLabel, hasMultipleImages, onOpenLi
 
           <button
             onClick={goNext}
-            className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 w-7 h-11 md:w-8 md:h-12 flex items-center justify-center rounded-md bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap ${isHovered ? 'opacity-100' : 'opacity-0'}`}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 w-9 h-11 flex items-center justify-center rounded-md bg-white/90 text-gray-700 hover:bg-white hover:text-gray-900 transition-all duration-200 cursor-pointer whitespace-nowrap"
             aria-label="Next image"
           >
             <i className="ri-arrow-right-s-line text-lg"></i>

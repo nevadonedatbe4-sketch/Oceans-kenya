@@ -8,6 +8,7 @@ import { GlobalPresenceProvider } from "./hooks/useGlobalPresence";
 import { CurrencyProvider } from "./hooks/useCurrency";
 import { useBrandTheme } from "./hooks/useBrandTheme";
 import { useCardTheme } from "./hooks/useCardTheme";
+import { useTypography } from "./hooks/useTypography";
 import PageLoader from "./components/feature/PageLoader";
 import { ChatNotificationCenter } from "./pages/agent/ogroup/components/ChatNotificationCenter";
 import { QuickSetProvider } from "./pages/agent/ogroup/QuickSetProvider";
@@ -37,6 +38,9 @@ function ThemedApp() {
   // that Tailwind's primary/golden/accent tokens read from.
   useBrandTheme();
   useCardTheme();
+  // Applies typography_settings (Management → Typography) to the root CSS
+  // variables the base stylesheet + Tailwind font utilities consume.
+  useTypography();
   return (
     <BrowserRouter basename={__BASE_PATH__}>
       <ScrollToTop />

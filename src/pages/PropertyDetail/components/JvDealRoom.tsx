@@ -12,6 +12,7 @@
 
 import { FormEvent, useState } from 'react';
 import { useLeadSubmit } from '@/hooks/useFormSubmit';
+import { FIELD_CLASS } from '@/lib/formFieldStyles';
 import {
   DEAL_TYPE_LABELS,
   DEAL_STRUCTURE_LABELS,
@@ -219,7 +220,7 @@ export default function JvDealRoom({
                   min="0"
                   inputMode="numeric"
                   placeholder="e.g. 45000000"
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                  className={FIELD_CLASS}
                 />
               </div>
               <div>
@@ -229,7 +230,7 @@ export default function JvDealRoom({
                 <select
                   name="offer_currency"
                   defaultValue={defaultCurrency}
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary cursor-pointer bg-white"
+                  className={`${FIELD_CLASS} cursor-pointer bg-white`}
                 >
                   {CURRENCY_OPTIONS.filter((c) => c.value).map((c) => (
                     <option key={c.value} value={c.value}>{c.value}</option>
@@ -246,7 +247,7 @@ export default function JvDealRoom({
                 <select
                   name="contribution_type"
                   defaultValue=""
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary cursor-pointer bg-white"
+                  className={`${FIELD_CLASS} cursor-pointer bg-white`}
                 >
                   {CONTRIBUTION_TYPE_OPTIONS.map((o) => (
                     <option key={o.value || 'none'} value={o.value}>{o.label}</option>
@@ -260,7 +261,7 @@ export default function JvDealRoom({
                 <select
                   name="timeline"
                   defaultValue=""
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-primary cursor-pointer bg-white"
+                  className={`${FIELD_CLASS} cursor-pointer bg-white`}
                 >
                   {TIMELINE_OPTIONS.map((o) => (
                     <option key={o.value || 'none'} value={o.value}>{o.label}</option>
@@ -278,7 +279,7 @@ export default function JvDealRoom({
                   required
                   name="full_name"
                   placeholder="e.g. David Okello"
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                  className={FIELD_CLASS}
                 />
               </div>
               <div>
@@ -290,7 +291,7 @@ export default function JvDealRoom({
                   type="tel"
                   name="phone"
                   placeholder="+254 7XX XXX XXX"
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                  className={FIELD_CLASS}
                 />
               </div>
               <div>
@@ -302,7 +303,7 @@ export default function JvDealRoom({
                   type="email"
                   name="email"
                   placeholder="you@email.com"
-                  className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors"
+                  className={FIELD_CLASS}
                 />
               </div>
             </div>
@@ -316,7 +317,7 @@ export default function JvDealRoom({
                 rows={3}
                 maxLength={500}
                 placeholder="Preferred JV structure, exit expectation, conditions, or anything the desk should know..."
-                className="w-full border border-primary/20 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/40 focus:outline-none focus:border-primary transition-colors resize-none"
+                className={`${FIELD_CLASS} resize-none`}
               ></textarea>
               <p className="text-right text-xs text-primary/50 font-roboto mt-1">Max 500 characters</p>
             </div>

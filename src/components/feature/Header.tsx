@@ -205,7 +205,7 @@ export default function Header() {
 
       {/* Main nav */}
       <div className={`transition-all duration-300 ${navBgClass} ${useTransparent ? '' : 'shadow-md border-b border-white/15'}`}>
-        <div className="flex items-center justify-between px-4 md:px-6 lg:px-10 py-2 md:py-3">
+        <div className="flex items-center justify-between gap-3 px-4 md:px-6 xl:px-8 py-2 md:py-3">
           <Link
             to="/"
             aria-label={`Go to ${siteName} homepage`}
@@ -213,13 +213,13 @@ export default function Header() {
           >
             <img
               alt={siteName}
-              className="w-10 h-10 md:w-16 md:h-16 lg:w-20 lg:h-20 object-contain"
+              className="w-10 h-10 md:w-14 md:h-14 xl:w-16 xl:h-16 object-contain"
               src={logoUrl}
             />
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-0">
+          <nav className="site-nav hidden xl:flex items-center gap-0">
             {navLoading ? (
               <div className="h-4 w-32 bg-white/20 animate-pulse rounded" />
             ) : (
@@ -228,7 +228,7 @@ export default function Header() {
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em]"
+                    className="px-3 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[18px] font-medium capitalize tracking-[0.05em]"
                   >
                     {link.label}
                   </Link>
@@ -246,18 +246,18 @@ export default function Header() {
                       {hasRealHref ? (
                         <Link
                           to={link.href}
-                          className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
+                          className="px-3 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[18px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
                         >
                           {link.label}
-                          <span className={`text-2xl ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
+                          <span className={`text-xl ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
                         </Link>
                       ) : (
                         <button
                           onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: !prev[link.id] }))}
-                          className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
+                          className="px-3 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[18px] font-medium capitalize tracking-[0.05em] flex items-center gap-2"
                         >
                           {link.label}
-                          <span className={`text-2xl ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
+                          <span className={`text-xl ml-0.5 text-white transition-transform duration-300 ${openDropdowns[link.id] ? 'rotate-180' : ''}`}><i className="ri-arrow-down-wide-fill"></i></span>
                         </button>
                       )}
                       {openDropdowns[link.id] && (
@@ -267,7 +267,7 @@ export default function Header() {
                               <Link
                                 key={child.id}
                                 to={child.href}
-                                className="block px-4 py-2.5 text-[17px] font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+                                className="block px-4 py-2.5 text-[18px] font-roboto text-gray-700 hover:bg-gray-50 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
                                 onClick={() => setOpenDropdowns((prev) => ({ ...prev, [link.id]: false }))}
                               >
                                 {child.label}
@@ -283,7 +283,7 @@ export default function Header() {
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="px-4 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium tracking-[0.05em]"
+                    className="px-3 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[18px] font-medium tracking-[0.05em]"
                   >
                     About us
                   </Link>
@@ -292,7 +292,7 @@ export default function Header() {
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="ml-3 px-5 py-2.5 bg-accent text-white text-[15px] font-semibold tracking-wider hover:bg-accent/90 transition-colors cursor-pointer whitespace-nowrap"
+                    className="ml-2 px-4 py-2.5 bg-accent text-white text-[15px] font-semibold tracking-wider hover:bg-accent/90 transition-colors cursor-pointer whitespace-nowrap"
                   >
                     Let's talk
                   </Link>
@@ -302,7 +302,7 @@ export default function Header() {
             {showCTA && (
               <Link
                 to={ctaLink}
-                className="ml-3 px-5 py-2.5 bg-golden text-white text-[15px] font-semibold capitalize tracking-wider hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
+                className="ml-2 px-4 py-2.5 bg-golden text-white text-[15px] font-semibold capitalize tracking-wider hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
               >
                 {ctaLabel}
               </Link>
@@ -310,7 +310,7 @@ export default function Header() {
           </nav>
 
           {/* Mobile header controls */}
-          <div className="flex items-center gap-3 lg:hidden">
+          <div className="flex items-center gap-3 xl:hidden">
             <div className="relative" ref={mobileCurrencyRef}>
               <button
                 onClick={() => setMobileCurrencyOpen(!mobileCurrencyOpen)}
@@ -340,7 +340,7 @@ export default function Header() {
         </div>
 
         {/* Mobile menu */}
-        <div className={`lg:hidden fixed inset-0 z-[70] transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} role="dialog" aria-modal="true" aria-label="Site navigation" aria-hidden={!mobileMenuOpen}>
+        <div className={`xl:hidden fixed inset-0 z-[70] transition-all duration-300 ${mobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} role="dialog" aria-modal="true" aria-label="Site navigation" aria-hidden={!mobileMenuOpen}>
           <div className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0'}`} onClick={() => setMobileMenuOpen(false)}></div>
           <div className={`absolute inset-y-0 left-0 w-full max-w-sm bg-primary flex flex-col overflow-hidden shadow-2xl transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
@@ -354,12 +354,12 @@ export default function Header() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
-              <nav className="flex flex-col gap-1 py-2">
+              <nav className="site-nav flex flex-col gap-1 py-2">
                 {mainLinks.map((link) => (
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] border-b border-white/5 touch-manipulation"
+                    className="px-4 py-3 transition-colors cursor-pointer text-white/85 hover:text-golden text-[18px] font-medium capitalize tracking-[0.05em] border-b border-white/5 touch-manipulation"
                     onClick={(e) => {
                       e.preventDefault();
                       setMobileMenuOpen(false);
@@ -378,7 +378,7 @@ export default function Header() {
                         {hasRealHref ? (
                           <Link
                             to={link.href}
-                            className="flex-1 px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] touch-manipulation"
+                            className="flex-1 px-4 py-3 transition-colors cursor-pointer text-white/85 hover:text-golden text-[18px] font-medium capitalize tracking-[0.05em] touch-manipulation"
                             onClick={(e) => {
                               e.preventDefault();
                               setMobileMenuOpen(false);
@@ -389,7 +389,7 @@ export default function Header() {
                             {link.label}
                           </Link>
                         ) : (
-                          <span className="flex-1 px-4 py-3 whitespace-nowrap text-white/85 text-[17px] font-medium capitalize tracking-[0.05em]">
+                          <span className="flex-1 px-4 py-3 text-white/85 text-[18px] font-medium capitalize tracking-[0.05em]">
                             {link.label}
                           </span>
                         )}
@@ -407,7 +407,7 @@ export default function Header() {
                             <Link
                               key={child.id}
                               to={child.href}
-                              className="px-2 py-2 transition-colors cursor-pointer whitespace-nowrap text-white/70 hover:text-golden text-[17px] font-medium capitalize tracking-[0.05em] touch-manipulation"
+                              className="px-2 py-2 transition-colors cursor-pointer text-white/70 hover:text-golden text-[18px] font-medium capitalize tracking-[0.05em] touch-manipulation"
                               onClick={(e) => {
                                 e.preventDefault();
                                 setMobileMenuOpen(false);
@@ -427,7 +427,7 @@ export default function Header() {
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="px-4 py-3 transition-colors cursor-pointer whitespace-nowrap text-white/85 hover:text-golden text-[17px] font-medium tracking-[0.05em] border-b border-white/5 touch-manipulation"
+                    className="px-4 py-3 transition-colors cursor-pointer text-white/85 hover:text-golden text-[18px] font-medium tracking-[0.05em] border-b border-white/5 touch-manipulation"
                     onClick={(e) => {
                       e.preventDefault();
                       setMobileMenuOpen(false);
@@ -442,7 +442,7 @@ export default function Header() {
                   <Link
                     key={link.id}
                     to={link.href}
-                    className="px-4 py-3 mt-2 bg-accent text-white text-center text-[17px] font-semibold tracking-[0.05em] cursor-pointer whitespace-nowrap rounded-md touch-manipulation"
+                    className="px-4 py-3 mt-2 bg-accent text-white text-center text-[18px] font-semibold tracking-[0.05em] cursor-pointer whitespace-nowrap rounded-md touch-manipulation"
                     onClick={(e) => {
                       e.preventDefault();
                       setMobileMenuOpen(false);

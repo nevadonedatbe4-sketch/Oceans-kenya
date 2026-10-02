@@ -1,13 +1,19 @@
 import { Link } from 'react-router-dom';
 import Reveal from '@/components/feature/Reveal';
 
-interface GuideItem {
+export interface DecisionGuideItem {
   who: string;
   icon: string;
   matches: string[];
 }
 
-const GUIDE_ITEMS: GuideItem[] = [
+// Seed content — only used until an admin saves from the CRM. Once saved,
+// the backend site_settings row is the single source of truth.
+export const DEFAULT_GUIDE_TITLE = 'Quick Decision Guide';
+export const DEFAULT_GUIDE_HINT = 'Not sure where to start?';
+export const DEFAULT_GUIDE_HELPER = 'Click a profile to filter, or tap an area to open its guide';
+
+export const DEFAULT_GUIDE_ITEMS: DecisionGuideItem[] = [
   { who: 'First-Time Visitors', icon: 'ri-plane-line', matches: ['Westlands', 'Kilimani'] },
   { who: 'Nightlife & Social', icon: 'ri-moon-line', matches: ['Westlands'] },
   { who: 'Families & Nature', icon: 'ri-leaf-line', matches: ['Karen', 'Lavington'] },
@@ -21,6 +27,9 @@ const GUIDE_ITEMS: GuideItem[] = [
   { who: 'Green & Exclusive', icon: 'ri-plant-line', matches: ['Riverside'] },
 ];
 
+export const DEFAULT_GUIDE_TIP =
+  'Safety tip: Stick to well-known areas, use Uber/Bolt (reliable), gated compounds/hotels, and avoid walking alone at night in unfamiliar spots. Most tourist zones feel secure during the day.';
+
 interface QuickDecisionGuideProps {
   expanded: boolean;
   onExpandedChange: (value: boolean) => void;
@@ -28,6 +37,11 @@ interface QuickDecisionGuideProps {
   onSelectProfile: (matches: string[]) => void;
   onClear: () => void;
   areaHref: (name: string) => string;
+  items?: DecisionGuideItem[];
+  tip?: string;
+  title?: string;
+  hint?: string;
+  helperText?: string;
 }
 
 export default function QuickDecisionGuide({
@@ -37,7 +51,18 @@ export default function QuickDecisionGuide({
   onSelectProfile,
   onClear,
   areaHref,
+  items,
+  tip,
+  title,
+  hint,
+  helperText,
 }: QuickDecisionGuideProps) {
+  const guideItems = items && items.length ? items : DEFAULT_GUIDE_ITEMS;
+  const guideTip = tip !== undefined ? tip : DEFAULT_GUIDE_TIP;
+  const guideTitle = title !== undefined && title !== '' ? title : DEFAULT_GUIDE_TITLE;
+  const guideHint = hint !== undefined ? hint : DEFAULT_GUIDE_HINT;
+  const guideHelper = helperText !== undefined && helperText !== '' ? helperText : DEFAULT_GUIDE_HELPER;
+
   return (
     <div className="bg-primary border-2 border-white/10 -mx-4 md:-mx-6 lg:-mx-8">
       {!expanded && (
@@ -48,11 +73,13 @@ export default function QuickDecisionGuide({
           <div className="flex items-center gap-2.5">
             <i className="ri-compass-3-line text-golden text-base"></i>
             <span className="font-jost text-white text-[13px] uppercase tracking-[0.12em] font-semibold">
-              Quick Decision Guide
+              {guideTitle}
             </span>
-            <span className="font-roboto text-white/60 text-[13px] hidden sm:inline">
-              - Not sure where to start?
-            </span>
+            {guideHint ? (
+              <span className="font-roboto text-white/60 text-[13px] hidden sm:inline">
+                - {guideHint}
+              </span>
+            ) : null}
           </div>
           <i className="ri-arrow-down-wide-fill text-golden text-4xl transition-colors"></i>
         </button>
@@ -67,7 +94,7 @@ export default function QuickDecisionGuide({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-jost text-white text-[12px] uppercase tracking-[0.15em] font-semibold">
-                    Quick Decision Guide
+                    {guideTitle}
                   </span>
                   {activeMatches.length > 0 && (
                     <button
@@ -82,7 +109,7 @@ export default function QuickDecisionGuide({
                 <p className="font-roboto text-[14px] text-white/60 mt-0.5">
                   {activeMatches.length > 0
                     ? `Showing: ${activeMatches.join(', ')}`
-                    : 'Click a profile to filter, or tap an area to open its guide'}
+                    : guideHelper}
                 </p>
               </div>
             </div>
@@ -94,14 +121,14 @@ export default function QuickDecisionGuide({
             </button>
           </div>
           <div className="divide-y divide-white/10">
-            {GUIDE_ITEMS.map((item, idx) => {
+            {guideItems.map((item, idx) => {
               const num = String(idx + 1).padStart(2, '0');
               const isActive =
                 activeMatches.length > 0
                 && item.matches.every((m) => activeMatches.includes(m))
                 && activeMatches.every((g) => item.matches.includes(g));
               return (
-                <Reveal key={item.who} delay={idx * 60}>
+                <Reveal key={`${item.who}-${idx}`} delay={idx * 60}>
                   <div className="py-4 flex items-start gap-4">
                     <span className="font-prata text-golden text-[34px] leading-none shrink-0 w-10">{num}</span>
                     <div className="flex-1">
@@ -131,12 +158,12 @@ export default function QuickDecisionGuide({
               );
             })}
           </div>
-          <div className="mt-5 bg-white/5 border-l-4 border-golden p-4 flex items-start gap-3">
-            <i className="ri-information-line text-golden text-lg shrink-0"></i>
-            <p className="font-roboto text-[15px] text-white/85 leading-relaxed">
-              Safety tip: Stick to well-known areas, use Uber/Bolt (reliable), gated compounds/hotels, and avoid walking alone at night in unfamiliar spots. Most tourist zones feel secure during the day.
-            </p>
-          </div>
+          {guideTip ? (
+            <div className="mt-5 bg-white/5 border-l-4 border-golden p-4 flex items-start gap-3">
+              <i className="ri-information-line text-golden text-lg shrink-0"></i>
+              <p className="font-roboto text-[15px] text-white/85 leading-relaxed">{guideTip}</p>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

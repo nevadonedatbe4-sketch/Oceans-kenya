@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { Settings, Shield, SlidersHorizontal, Map, Sparkles, Newspaper, Wand2 } from 'lucide-react';
+import { Settings, SlidersHorizontal, Map, Sparkles, Newspaper, Wand2, LayoutGrid } from 'lucide-react';
+import PageEditorsHub from '@/pages/admin/PageEditorsHub';
 import SiteSettings from '@/pages/crm/SiteSettings';
 import ManagementOptions from '@/pages/crm/ManagementOptions';
 import NeighbourhoodsAdmin from '@/pages/crm/Neighbourhoods';
@@ -9,7 +10,7 @@ import TidyNamesPanel from '@/pages/crm/components/TidyNamesPanel';
 
 const TABS = [
   { key: 'settings', label: 'Settings', icon: Settings, desc: 'Global site configuration — branding, social, SEO, currency & footer' },
-  { key: 'system', label: 'System', icon: Shield, desc: 'System-level controls & site integrity' },
+  { key: 'system', label: 'System', icon: LayoutGrid, desc: 'Edit every page on the public site — one hub for all page editors' },
   { key: 'management', label: 'Management Options', icon: SlidersHorizontal, desc: 'Global controls that affect the frontend experience' },
   { key: 'neighbourhoods', label: 'Neighbourhoods', icon: Map, desc: 'Manage neighbourhoods, life guides & directory data' },
   { key: 'amenities', label: 'Amenities', icon: Sparkles, desc: 'Manage amenities, categories & reviews' },
@@ -57,7 +58,7 @@ export default function SystemManagementOptions() {
       <p className="text-[15px] text-white/70 font-roboto -mt-1">{current.desc}</p>
 
       {/* Content */}
-      {current.key === 'names' ? <TidyNamesPanel /> : current.key === 'management' ? <ManagementOptions /> : current.key === 'neighbourhoods' ? <NeighbourhoodsAdmin /> : current.key === 'amenities' ? <AmenitiesAdmin /> : current.key === 'blog' ? <BlogAdmin /> : <SiteSettings />}
+      {current.key === 'system' ? <PageEditorsHub /> : current.key === 'names' ? <TidyNamesPanel /> : current.key === 'management' ? <ManagementOptions /> : current.key === 'neighbourhoods' ? <NeighbourhoodsAdmin /> : current.key === 'amenities' ? <AmenitiesAdmin /> : current.key === 'blog' ? <BlogAdmin /> : <SiteSettings />}
     </div>
   );
 }

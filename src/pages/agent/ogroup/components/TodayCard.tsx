@@ -1,3 +1,5 @@
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_CHECKIN_COPY } from '@/lib/ogroupCopy';
 import type { AttendanceSession, AttendanceState, AttendancePolicy, WorkSchedule } from '../useAttendance';
 import { fmtTime, fmtDur, liveBreakSec, type AccentTheme } from '../checkInTheme';
 
@@ -26,6 +28,7 @@ function expectedSec(schedule: WorkSchedule | null, policy: AttendancePolicy | n
 }
 
 export default function TodayCard({ session, state, policy, schedule, now, theme }: Props) {
+  const { content: c } = usePageContent('ogroup_checkin', DEFAULT_CHECKIN_COPY);
   const expected = expectedSec(schedule, policy);
   const gross = session ? Math.max(0, Math.floor((now - new Date(session.clock_in_at).getTime()) / 1000)) : 0;
   const breakTotal = session ? liveBreakSec(session, now) : 0;
@@ -33,18 +36,18 @@ export default function TodayCard({ session, state, policy, schedule, now, theme
   const remaining = Math.max(0, expected - worked);
 
   const meta = state === 'on_break'
-    ? { label: 'On break', cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', icon: 'ri-cup-line' }
+    ? { label: c.state_on_break, cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500', icon: 'ri-cup-line' }
     : state === 'punched_in'
-      ? { label: 'Punched in', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', icon: 'ri-checkbox-circle-line' }
-      : { label: 'Off clock', cls: 'bg-neutral-100 text-neutral-500 border-neutral-200', dot: 'bg-neutral-400', icon: 'ri-circle-line' };
+      ? { label: c.state_punched_in, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', icon: 'ri-checkbox-circle-line' }
+      : { label: c.state_off_clock, cls: 'bg-neutral-100 text-neutral-500 border-neutral-200', dot: 'bg-neutral-400', icon: 'ri-circle-line' };
 
   const stats: { label: string; value: string; icon: string }[] = [
-    { label: 'Started', value: session ? fmtTime(session.clock_in_at) : '—', icon: 'ri-login-circle-line' },
-    { label: state === 'on_break' ? 'Break started' : 'Current session', value: state === 'on_break' ? fmtTime(session?.break_started_at || null) : fmtDur(gross), icon: state === 'on_break' ? 'ri-cup-line' : 'ri-timer-line' },
-    { label: 'Break total', value: fmtDur(breakTotal), icon: 'ri-cup-line' },
-    { label: 'Expected', value: fmtDur(expected), icon: 'ri-calendar-check-line' },
-    { label: 'Worked', value: fmtDur(worked), icon: 'ri-briefcase-line' },
-    { label: 'Est. remaining', value: fmtDur(remaining), icon: 'ri-hourglass-line' },
+    { label: c.today_started, value: session ? fmtTime(session.clock_in_at) : '—', icon: 'ri-login-circle-line' },
+    { label: state === 'on_break' ? c.today_break_started : c.today_current_session, value: state === 'on_break' ? fmtTime(session?.break_started_at || null) : fmtDur(gross), icon: state === 'on_break' ? 'ri-cup-line' : 'ri-timer-line' },
+    { label: c.today_break_total, value: fmtDur(breakTotal), icon: 'ri-cup-line' },
+    { label: c.today_expected, value: fmtDur(expected), icon: 'ri-calendar-check-line' },
+    { label: c.today_worked, value: fmtDur(worked), icon: 'ri-briefcase-line' },
+    { label: c.today_remaining, value: fmtDur(remaining), icon: 'ri-hourglass-line' },
   ];
 
   return (
@@ -52,7 +55,7 @@ export default function TodayCard({ session, state, policy, schedule, now, theme
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-neutral-100">
         <div className="flex items-center gap-2">
           <i className={`ri-dashboard-line ${theme.softText}`} />
-          <p className="text-sm font-semibold text-neutral-800">Today</p>
+          <p className="text-sm font-semibold text-neutral-800">{c.today_title}</p>
         </div>
         <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border ${meta.cls}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />

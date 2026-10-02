@@ -270,6 +270,16 @@ export default function NeighbourhoodEdit() {
         } else {
           addToast('Failed to save some gallery images', 'error');
         }
+        // Promote the first uploaded photo to the neighbourhood hero when there
+        // isn't one yet. Otherwise an image uploaded via the Gallery tab lives
+        // only in neighbourhood_images while the front end keeps reading the
+        // empty hero_image column - the exact "I updated the image but the
+        // page is still empty" bug.
+        if (!dbError && !form.hero_image && uploadedUrls.length > 0) {
+          const heroUrl = uploadedUrls[0].url;
+          setForm((prev) => ({ ...prev, hero_image: heroUrl }));
+          await persistImageColumns('neighbourhoods', id, { hero_image: heroUrl });
+        }
         const { data: refreshed } = await supabase
           .from('neighbourhood_images')
           .select('*')

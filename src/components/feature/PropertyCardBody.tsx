@@ -95,7 +95,7 @@ export default function PropertyCardBody({
             {priceLabel}
           </span>
           {p.rawPrice > 0 && (variant === 'rent' ? (
-            <span className="relative inline-flex items-center gap-1 text-sm font-roboto font-normal text-[#2D303D]">
+            <span className="relative inline-flex items-center gap-1 text-sm font-roboto font-medium text-[#1A1C26]">
               pcm
               <span className="group relative inline-flex items-center cursor-help opacity-60">
                 <i className="ri-information-line text-[11px]"></i>
@@ -105,7 +105,7 @@ export default function PropertyCardBody({
               </span>
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-xs font-roboto font-normal text-[color:var(--card-category-text)]">
+            <span className="inline-flex items-center gap-1 text-xs font-roboto font-medium text-[color:var(--card-category-text)]">
               Guide price
               <span className="cursor-help" title="The asking price set by the seller">
                 <i className="ri-information-line text-sm"></i>
@@ -116,7 +116,7 @@ export default function PropertyCardBody({
 
         {/* Title */}
         <Link to={detailHref} className="block mb-1.5">
-          <h3 className="text-sm md:text-base font-roboto font-medium text-[color:var(--card-title-text)] leading-snug line-clamp-2 transition-colors hover:text-primary">
+          <h3 className="card-title text-sm md:text-base font-roboto font-medium text-[color:var(--card-title-text)] leading-snug line-clamp-2 transition-colors hover:text-primary">
             {p.title}
           </h3>
         </Link>
@@ -133,7 +133,7 @@ export default function PropertyCardBody({
           {specs.map((spec) => (
             <span
               key={spec.key}
-              className="flex items-center gap-1 text-xs md:text-sm font-roboto font-normal text-[#2D303D]"
+              className="flex items-center gap-1 text-xs md:text-sm font-roboto font-medium text-[#2D303D]"
             >
               <i className={`${spec.icon} text-[#555555] text-xs`}></i>
               {spec.label}

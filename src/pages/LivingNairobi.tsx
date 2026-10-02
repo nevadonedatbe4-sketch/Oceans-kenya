@@ -10,6 +10,8 @@ import PageLoader from '@/components/feature/PageLoader';
 import EntityImage from '@/components/feature/EntityImage';
 import { useImageFocalPoint } from '@/hooks/useImageFocalPoint';
 import { smartTitleCase } from '@/lib/location';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_NAIROBI_LIFE } from '@/lib/pageCopy';
 
 interface GuidePost {
   id: string;
@@ -33,6 +35,7 @@ export default function LivingNairobi() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const focalPoint = useImageFocalPoint();
+  const { content: c } = usePageContent('nairobi_life', DEFAULT_NAIROBI_LIFE);
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -77,16 +80,16 @@ export default function LivingNairobi() {
           <div className="max-w-2xl">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/15 backdrop-blur-sm text-white text-[11px] font-roboto font-medium rounded-full mb-4">
               <i className="ri-book-open-line text-xs"></i>
-              Living in Nairobi
+              {c.hero_badge}
             </span>
             <h1 className="text-white font-roboto font-bold text-3xl md:text-5xl mb-4 leading-tight">
-              Your Guide to Life in Nairobi
+              {c.hero_title}
             </h1>
             <p className="text-white/80 font-roboto text-sm md:text-base max-w-xl mx-auto">
-              Schools, restaurants, malls, healthcare and more - researched by neighbourhood, connected to the properties we list.
+              {c.hero_subtitle}
             </p>
             <p className="mt-4 text-white/60 font-roboto text-xs">
-              Last updated: <span className="text-white font-medium">August 2026</span>
+              {c.updated_label} <span className="text-white font-medium">{c.updated_value}</span>
             </p>
           </div>
         </div>
@@ -98,7 +101,7 @@ export default function LivingNairobi() {
       <div className="border-b border-primary/12 bg-stone-50">
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-2 justify-between">
           <p className="font-roboto text-sm text-primary/70">
-            Eight living guides, powered by live amenity data - counts update automatically as we add schools, restaurants and more.
+            {c.intro_text}
           </p>
           <Link
             to="/neighbourhoods"
@@ -114,26 +117,26 @@ export default function LivingNairobi() {
       <main className="px-4 md:px-6 py-12 md:py-16 max-w-6xl mx-auto w-full">
         {loading ? (
           <div className="flex justify-center py-24">
-            <PageLoader size={48} text="Loading guides..." />
+            <PageLoader size={48} text={c.loading_text} />
           </div>
         ) : error ? (
           <div className="text-center py-16 bg-stone-50 rounded-lg border border-primary/10">
             <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-white rounded-full">
               <i className="ri-error-warning-line text-primary/40 text-xl"></i>
             </div>
-            <p className="text-sm font-roboto font-semibold text-primary mb-1">Something went wrong</p>
+            <p className="text-sm font-roboto font-semibold text-primary mb-1">{c.error_title}</p>
             <p className="text-xs font-roboto text-primary/50 mb-3">{error}</p>
             <button
               onClick={fetchPosts}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-md text-xs font-roboto font-semibold cursor-pointer"
             >
-              <i className="ri-refresh-line"></i> Try again
+              <i className="ri-refresh-line"></i> {c.retry_button}
             </button>
           </div>
         ) : posts.length === 0 ? (
           <div className="text-center py-16 bg-stone-50 rounded-lg border border-primary/10">
-            <p className="text-sm font-roboto font-semibold text-primary mb-1">No guides yet</p>
-            <p className="text-xs font-roboto text-primary/50">Check back soon - our living guides are on the way.</p>
+            <p className="text-sm font-roboto font-semibold text-primary mb-1">{c.empty_title}</p>
+            <p className="text-xs font-roboto text-primary/50">{c.empty_text}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -153,7 +156,7 @@ export default function LivingNairobi() {
                   />
                   <div className="absolute top-3 left-3">
                     <span className="px-2 py-0.5 bg-white/90 text-[10px] font-roboto font-semibold text-primary rounded-full">
-                      Living in Nairobi
+                      {c.card_badge}
                     </span>
                   </div>
                 </div>
@@ -187,10 +190,10 @@ export default function LivingNairobi() {
       <div className="max-w-6xl mx-auto px-4 md:px-6 pb-12 md:pb-16">
         <div className="text-center bg-primary rounded-lg py-10 md:py-14 px-4 md:px-6">
           <h3 className="font-roboto font-bold text-xl text-white mb-3">
-            Not sure which neighbourhood fits you?
+            {c.cta_title}
           </h3>
           <p className="font-roboto text-white/70 text-sm max-w-xl mx-auto mb-6">
-            Compare schools, restaurants, malls and healthcare side by side - then browse the properties that match.
+            {c.cta_text}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link

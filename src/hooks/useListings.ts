@@ -149,6 +149,10 @@ export interface ListingFilters {
   // Amenities filter - additive constraint on the listings.amenities array
   // (e.g. ['Furnished'], ['Serviced'], ['Luxury']). Used by SEO landing pages.
   amenitiesFilter?: string[];
+  // "Must-have" amenity GROUPS. Each inner array is OR-combined (a listing
+  // matches when it has ANY of them) and every group must be satisfied (AND).
+  // e.g. [['Parking','Underground Parking'], ['24/7 Security','CCTV Surveillance']]
+  amenitiesGroups?: string[][];
   // Sub-type filter - matches the listings.sub_type discriminator
   // (e.g. 'duplex', 'modern'). Used by SEO landing pages for true matching.
   subTypeFilter?: string;
@@ -590,6 +594,25 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
         query = query.contains('amenities', filters.amenitiesFilter);
       }
 
+      // Must-have amenity groups - AND across groups, OR within a group. Built
+      // as ONE nested PostgREST expression `and(or(...),...)` (repeated or=
+      // params are not reliably supported), so "must have Parking AND any one
+      // of the security amenities" behaves exactly as a must-have list implies.
+      if (filters.amenitiesGroups && filters.amenitiesGroups.length > 0) {
+        const groups = filters.amenitiesGroups
+          .map((g) => (g || []).filter(Boolean))
+          .filter((g) => g.length > 0);
+        if (groups.length > 0) {
+          const esc = (v: string) => v.replace(/"/g, '\\"');
+          const parts = groups.map((vals) =>
+            vals.length === 1
+              ? `amenities.cs.{"${esc(vals[0])}"}`
+              : `or(${vals.map((v) => `amenities.cs.{"${esc(v)}"}`).join(',')})`,
+          );
+          query = query.or(`and(${parts.join(',')})`);
+        }
+      }
+
       // Sub-type filter - strict discriminator (SEO landing pages only), e.g.
       // 'duplex' or 'modern'. Matches the listings.sub_type column exactly.
       if (filters.subTypeFilter) {
@@ -712,7 +735,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.subTypeFilter]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
 
   useEffect(() => {
     fetchListings();

@@ -23,8 +23,10 @@ import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
 import MobileFilterPills from '@/components/feature/MobileFilterPills';
+import RefineSearchChips from '@/components/feature/RefineSearchChips';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { useListingsPageContent } from '@/hooks/useListingsPageContent';
 import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
 import { parsePropertySearch, parseSearchClauses, clauseSummary, buildClausesOr, intentToChips, withoutIntent } from '@/lib/propertySearch';
@@ -59,25 +61,9 @@ const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 
 const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '½ mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
-const nearbyAreas = [
-  'Karen', 'Runda', 'Lavington', 'Kilimani', 'Westlands', 'Kileleshwa',
-  'Muthaiga', 'Parklands', 'Riverside', 'Gigiri', 'Spring Valley', 'Nyari',
-  'Langata', 'Kiserian', 'Ongata Rongai', 'Ngong', 'Kitengela', 'Athi River',
-];
-
-const relatedSearches = [
-  'New homes for sale',
-  'Properties for sale',
-  'Explore house prices',
-  'Find estate agents',
-  'Commercial properties for sale',
-  'Studios for sale',
-  'Houses for sale',
-  'Furnished apartments for sale',
-];
-
 export default function Buy() {
   const { hero } = usePropertyPageSettings('buy');
+  const { content: LC } = useListingsPageContent();
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
   const currentPath = `${pathname}${search}`;
@@ -457,6 +443,13 @@ export default function Buy() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const applyRefineFilter = (opts: { beds?: string; type?: string; search?: string }) => {
+    if (opts.beds) setSelectedBeds(opts.beds);
+    if (opts.type) setSelectedType(opts.type);
+    if (opts.search) { setSearchQuery(opts.search); setDebouncedSearch(opts.search); }
+    setCurrentPage(1);
+  };
+
   return (
     <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
       <Header />
@@ -593,7 +586,7 @@ export default function Buy() {
       <div ref={resultsTopRef} className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">Properties for sale</h1>
+            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">{LC.heading_buy}</h1>
             {geocodedName && radiusLabelToMeters(selectedRadius) && (
               <p className="text-xs font-roboto text-primary/50 mt-0.5">
                 <span className="w-3.5 h-3.5 inline-flex items-center justify-center align-middle mr-1">
@@ -603,7 +596,7 @@ export default function Buy() {
               </p>
             )}
             <p className="text-xs font-roboto text-primary/50 mt-0.5">
-              <span className="text-primary font-semibold">{activeCount}</span> properties
+              <span className="text-primary font-semibold">{activeCount}</span> {LC.count_label}
             </p>
           </div>
           <div className="md:hidden flex items-center gap-2">
@@ -622,7 +615,7 @@ export default function Buy() {
         {/* Understood search criteria - the system shows what it parsed */}
         {hasSearch && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">You searched for</span>
+            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">{LC.search_label}</span>
             {isCompound ? (
               searchClauses.map((cl, i) => (
                 <span key={i} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
@@ -873,16 +866,17 @@ export default function Buy() {
             />
 
             {/* Bottom CTA */}
+            {LC.show_alert_cta && (
             <div ref={alertFormRef} className="mt-10 bg-[#f8f7f4] rounded-lg p-6 text-center">
-              <h3 className="text-lg font-roboto font-bold text-primary mb-2">Can&apos;t find what you&apos;re looking for?</h3>
-              <p className="text-sm font-roboto text-primary/60 mb-4 max-w-md mx-auto">Register for property alerts and be the first to know about new homes for sale in your area.</p>
+              <h3 className="text-lg font-roboto font-bold text-primary mb-2">{LC.alert_heading}</h3>
+              <p className="text-sm font-roboto text-primary/60 mb-4 max-w-md mx-auto">{LC.alert_text_buy}</p>
               <form data-readdy-form="true" id="buy-alert-form" onSubmit={handleEnquiry} className="flex flex-col sm:flex-row items-center gap-3 max-w-lg mx-auto">
                 <input name="email" type="email" placeholder="Enter your email" required className="flex-1 w-full h-11 px-4 text-sm font-roboto border border-primary/20 rounded-lg focus:outline-none focus:border-primary" />
                 <input type="hidden" name="type" value="buy_alert" />
                 <input type="hidden" name="location" value="" />
                 <input type="text" name="company_alt" tabIndex={-1} autoComplete="off" aria-hidden="true" readOnly className="footer-hp-field" />
                 <button type="submit" disabled={alertStatus === 'submitting'} className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white border-2 border-primary text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50">
-                  {alertStatus === 'success' ? 'Alert set!' : 'Get alerts'}
+                  {alertStatus === 'success' ? 'Alert set!' : LC.alert_button}
                 </button>
               </form>
               {alertStatus === 'success' && (
@@ -892,10 +886,11 @@ export default function Buy() {
                 <p className="text-red-500 text-sm font-roboto text-center">{alertError}</p>
               )}
             </div>
+            )}
           </div>
 
           {/* Right Sidebar - Only in list view */}
-          {viewMode === 'list' && (
+          {LC.show_sidebar && viewMode === 'list' && (
             <div className="hidden lg:block lg:w-[25%] xl:w-[22%]">
               <div className="sticky top-[140px] space-y-6">
                 {/* Recently Viewed */}
@@ -906,7 +901,7 @@ export default function Buy() {
                         <span className="w-3.5 h-3.5 flex items-center justify-center">
                           <i className="ri-time-line text-[10px]"></i>
                         </span>
-                        Recently Viewed
+                        {LC.recently_viewed_label}
                       </h3>
                       <button
                         onClick={() => { localStorage.removeItem('recently_viewed_properties'); localStorage.removeItem('recently_viewed_devs'); setRecentlyViewed([]); }}
@@ -969,20 +964,20 @@ export default function Buy() {
                 {/* Refine search */}
                 <div className="bg-white border border-primary/12 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
-                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Refine your search</h3>
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">{LC.refine_label}</h3>
                   </div>
                   <div className="px-4 py-3">
-                    <p className="text-[11px] font-roboto text-primary/70">Refine your search with specific requirements</p>
+                    <RefineSearchChips page="buy" onFilterChange={applyRefineFilter} onNavigate={navigate} />
                   </div>
                 </div>
 
                 {/* Nearby areas */}
                 <div className="bg-white border border-primary/12 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
-                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Popular areas</h3>
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">{LC.popular_areas_label}</h3>
                   </div>
                   <div className="px-4 py-3 grid grid-cols-2 gap-2">
-                    {nearbyAreas.map((area) => (
+                    {LC.popular_areas.map((area) => (
                       <button key={area} onClick={() => handleAreaClick(area)} className="text-left text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors cursor-pointer">
                         {area}
                       </button>
@@ -993,10 +988,10 @@ export default function Buy() {
                 {/* Related searches */}
                 <div className="bg-white border border-primary/12 rounded-lg shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-primary/15 mb-2">
-                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">Related searches</h3>
+                    <h3 className="text-xs font-roboto font-bold text-primary uppercase tracking-wide">{LC.related_searches_label}</h3>
                   </div>
                   <div className="px-4 py-3 space-y-2">
-                    {relatedSearches.map((search) => (
+                    {LC.related_searches_buy.map((search) => (
                       <button key={search} onClick={() => handleRelatedSearch(search.replace(' for sale in ', '').replace(' in ', ''))} className="block text-left w-full text-xs font-roboto text-primary/85 hover:text-accent hover:underline transition-colors cursor-pointer">
                         {search}
                       </button>
@@ -1006,10 +1001,10 @@ export default function Buy() {
 
                 {/* List property CTA */}
                 <div className="bg-primary rounded-lg p-4 text-center">
-                  <h3 className="text-white font-roboto font-bold text-xs uppercase tracking-wide mb-1.5">List your property</h3>
-                  <p className="text-white/70 font-roboto text-[10px] mb-2.5">Reach thousands of qualified buyers</p>
-                  <Link to="/landlords" className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-accent text-white font-roboto text-xs font-semibold rounded-md hover:bg-accent/90 transition-colors cursor-pointer whitespace-nowrap">
-                    Get started
+                  <h3 className="text-white font-roboto font-bold text-xs uppercase tracking-wide mb-1.5">{LC.list_cta_heading}</h3>
+                  <p className="text-white/70 font-roboto text-[10px] mb-2.5">{LC.list_cta_text_buy}</p>
+                  <Link to={LC.list_cta_button_link} className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-accent text-white font-roboto text-xs font-semibold rounded-md hover:bg-accent/90 transition-colors cursor-pointer whitespace-nowrap">
+                    {LC.list_cta_button}
                   </Link>
                 </div>
               </div>
@@ -1044,14 +1039,16 @@ export default function Buy() {
       </main>
 
       {/* === FOOTER CTA === */}
+      {LC.show_footer_cta && (
       <div className="bg-primary py-12 px-6 text-center">
-        <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">Own a Property?</p>
-        <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">List Your Property With Us</h2>
-        <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">Reach thousands of qualified buyers. Get a free market valuation from our expert team today.</p>
-        <Link to="/landlords" className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white border-2 border-golden font-roboto text-xs font-semibold tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
-          <i className="ri-home-heart-line"></i>Get Free Valuation
+        <p className="text-golden text-sm font-roboto tracking-widest uppercase mb-3">{LC.footer_eyebrow}</p>
+        <h2 className="text-white font-roboto font-bold text-2xl md:text-3xl mb-3">{LC.footer_heading}</h2>
+        <p className="text-white/70 font-roboto text-sm mb-7 max-w-md mx-auto">{LC.footer_text_buy}</p>
+        <Link to={LC.footer_button_link} className="inline-flex items-center gap-2 px-8 py-3 bg-golden text-white border-2 border-golden font-roboto text-xs font-semibold tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-colors">
+          <i className="ri-home-heart-line"></i>{LC.footer_button_buy}
         </Link>
       </div>
+      )}
 
       <PageContactSection />
       <Footer />

@@ -21,10 +21,12 @@ import {
 import AmenityCard from '@/components/feature/AmenityCard';
 import AmenityDetailModal from '@/components/feature/AmenityDetailModal';
 import CategoryIcon from '@/components/base/CategoryIcon';
+import { useDirectoryLandingContent } from '@/hooks/useDirectoryPageContent';
 
 const PER_CATEGORY_INITIAL = 8;
 
 export default function Directory() {
+  const { content: c } = useDirectoryLandingContent();
   const { amenities, loading, error, refetch } = useAmenities();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<'all' | AmenityCategory>('all');
@@ -155,14 +157,13 @@ export default function Directory() {
         <div className="absolute inset-0 flex items-center justify-center text-center px-4">
           <div className="max-w-3xl w-full">
             <p className="text-golden text-xs font-jost font-semibold uppercase tracking-[0.3em] mb-3">
-              Everything Around You
+              {c.hero_eyebrow}
             </p>
             <h1 className="text-white font-prata font-bold text-3xl md:text-5xl mb-4">
-              Social Directory
+              {c.hero_title}
             </h1>
             <p className="text-white/85 font-roboto text-sm md:text-base max-w-xl mx-auto leading-relaxed">
-              Explore the people, places, services and facilities that make each neighbourhood work - schools,
-              healthcare, fitness, transport, recreation, shopping, dining and more.
+              {c.hero_text}
             </p>
           </div>
         </div>
@@ -177,7 +178,7 @@ export default function Directory() {
                 {loading ? '-' : totalCount}
               </p>
               <p className="font-jost text-white/60 text-xs uppercase tracking-[0.15em] mt-1.5">
-                Places &amp; Services
+                {c.counter_label}
               </p>
             </div>
             <div className="flex-1 min-w-0">
@@ -209,13 +210,13 @@ export default function Directory() {
         <div ref={tilesRef} className="max-w-[1400px] mx-auto px-4 md:px-6 py-8 md:py-12">
           <div className="mb-6">
             <p className="text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.15em] mb-1">
-              Browse by Category
+              {c.tiles_eyebrow}
             </p>
             <h2 className="font-prata font-bold text-primary text-[27px] md:text-[33px]">
-              What are you looking for?
+              {c.tiles_title}
             </h2>
             <p className="font-roboto text-sm text-[#636363] mt-1.5">
-              Tap a category to see what&rsquo;s in it, or jump straight to its full page.
+              {c.tiles_text}
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 md:gap-3">
@@ -288,7 +289,7 @@ export default function Directory() {
                         onClick={() => setOpenCategory(null)}
                         className="flex items-center justify-between gap-3 px-4 py-3.5 border-t border-primary/10 font-jost text-[12px] font-semibold uppercase tracking-[0.12em] text-white bg-primary hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap group"
                       >
-                        View the full category
+                        {c.view_category_label}
                         <i className="ri-arrow-right-line group-hover:translate-x-1 transition-transform"></i>
                       </Link>
                     </div>
@@ -311,7 +312,7 @@ export default function Directory() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search or ask - e.g. “Where can I get a SIM card?”"
+                placeholder={c.search_placeholder}
                 className="w-full pl-11 pr-11 py-3 rounded-md border border-primary/20 bg-white text-sm font-roboto text-[#1a1a1a] placeholder:text-[#636363] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
               {search && (
@@ -364,29 +365,10 @@ export default function Directory() {
           {!search.trim() && activeCategory === 'all' && (
             <div className="mb-6">
               <p className="text-xs font-roboto text-[#636363] mb-2">
-                Try searching for:
+                {c.suggestions_label}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {[
-                  'SIM cards',
-                  'Fibre internet',
-                  'Groceries',
-                  'ATM',
-                  'Schools',
-                  'Vets',
-                  'Dog grooming',
-                  'Parks',
-                  'Restaurants',
-                  'Banks',
-                  'Shopping centres',
-                  'Pharmacy',
-                  'Gym',
-                  'Laundry',
-                  'Car wash',
-                  'Coworking',
-                  'Tailor',
-                  'Phone repair',
-                ].map((s) => (
+                {c.suggestions.map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -403,9 +385,9 @@ export default function Directory() {
           {/* Results count */}
           {!loading && !error && (
             <p className="text-xs font-roboto text-[#636363] mb-5">
-              Showing <span className="text-primary font-semibold">{filtered.length}</span>{' '}
-              place{filtered.length === 1 ? '' : 's'}
-              {effectiveCategory !== 'all' && ` in ${categoryLabel(effectiveCategory)}`}
+              {c.showing_label} <span className="text-primary font-semibold">{filtered.length}</span>{' '}
+              {c.place_word}
+              {effectiveCategory !== 'all' && ` ${c.category_word} ${categoryLabel(effectiveCategory)}`}
               {effectiveSearch.trim() && ` matching \u201c${effectiveSearch.trim()}\u201d`}
             </p>
           )}
@@ -491,12 +473,12 @@ export default function Directory() {
                     <i className="ri-map-pin-line text-stone-400 text-xl"></i>
                   </div>
                   <p className="font-semibold text-primary text-sm mb-1">
-                    No verified listings currently recorded
+                    {c.empty_title}
                   </p>
                   <p className="text-xs text-stone-500 max-w-sm mx-auto">
                     {effectiveSearch.trim()
                       ? `No verified places match \u201c${effectiveSearch.trim()}\u201d. Try a different term or category.`
-                      : 'We don\u2019t have verified listings for this yet - data is being updated regularly.'}
+                      : c.empty_text}
                   </p>
                 </div>
               )}
@@ -508,17 +490,16 @@ export default function Directory() {
       {/* CTA */}
       <section className="bg-primary py-14 md:py-20 px-4 md:px-6 text-center">
         <h3 className="font-prata font-semibold text-white text-[27px] md:text-[33px] mb-3">
-          Find a home near the things you love
+          {c.cta_heading}
         </h3>
         <p className="font-roboto text-white/80 text-[15px] md:text-base max-w-xl mx-auto leading-relaxed mb-6">
-          From top schools to the best restaurants and green spaces, explore neighbourhoods that match your
-          lifestyle.
+          {c.cta_text}
         </p>
         <Link
           to="/neighbourhoods"
           className="inline-flex items-center gap-2 px-6 py-3 bg-golden text-white text-sm font-jost font-semibold uppercase tracking-[0.08em] hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
         >
-          Explore Neighbourhoods
+          {c.cta_button}
           <i className="ri-arrow-right-line"></i>
         </Link>
       </section>

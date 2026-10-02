@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import RichTextContent from '@/components/feature/RichTextContent';
 import { descriptionToNormalizedPlainText } from '@/lib/richText';
 import type { DetailSpecRow } from '@/lib/propertyDetailSpecs';
+import { usePropertyDetailContent } from '@/hooks/useDynamicPageTemplates';
 
 interface LeftColumnProps {
   description: string;
@@ -96,14 +97,16 @@ function getStatusLabel(status: string, purpose?: string): string {
   if (purpose === 'rent') return 'For Rent';
   return 'For Sale';
 }
+void getStatusLabel;
 
 export default function PropertyLeftColumn({
   description, features, amenities, beds, baths, parking, garages, sqft,
-  propertyType, status, ref, price, location, title, latitude, longitude, district, area, city, country, furnished, createdAt,
+  propertyType, ref, price, location, title, latitude, longitude, district, area, city, country, furnished, createdAt,
   commissionApplicable, commissionDetails, specs,
 }: LeftColumnProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
+  const { content: c } = usePropertyDetailContent();
 
   const plainDescription = descriptionToNormalizedPlainText(description);
   const descriptionLimit = 200;
@@ -128,7 +131,7 @@ export default function PropertyLeftColumn({
     .filter(Boolean)
     .filter((v, i, arr) => arr.indexOf(v) === i)
     .join(', ');
-  const displayPropertyType = propertyType ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) : 'N/A';
+  const displayPropertyType = propertyType ? propertyType.charAt(0).toUpperCase() + propertyType.slice(1) : c.na_value;
   const displayBeds = beds != null && beds > 0 ? String(beds) : '-';
   const displayBaths = baths != null && baths > 0 ? String(baths) : '-';
   const displayGarage = garageTotal > 0 ? String(garageTotal) : '-';
@@ -136,27 +139,27 @@ export default function PropertyLeftColumn({
 
   const formattedDate = createdAt
     ? new Date(createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    : 'N/A';
+    : c.na_value;
 
   const detailsLeft = [
-    { label: 'Property ID', value: ref || 'N/A' },
-    { label: 'Price', value: price, isPrice: true },
-    { label: 'Bedrooms', value: displayBeds },
-    { label: 'Bathrooms', value: displayBaths },
-    { label: 'Garage / Parking', value: displayGarage },
-    { label: 'Property Size', value: displaySqft },
+    { label: c.label_property_id, value: ref || c.na_value },
+    { label: c.label_price, value: price, isPrice: true },
+    { label: c.label_bedrooms, value: displayBeds },
+    { label: c.label_bathrooms, value: displayBaths },
+    { label: c.label_garage_parking, value: displayGarage },
+    { label: c.label_property_size, value: displaySqft },
   ];
 
   const detailsRight = [
-    { label: 'Property Type', value: displayPropertyType },
-    { label: 'Furnished', value: furnished || 'Unfurnished' },
-    { label: 'Property Status', value: getStatusLabel(status) },
-    { label: 'Location', value: locationLine || location || displayCity || 'N/A' },
-    { label: 'Commission', value: commissionApplicable ? 'Yes' : 'No' },
+    { label: c.label_property_type, value: displayPropertyType },
+    { label: c.label_furnished, value: furnished || c.unfurnished },
+    { label: c.label_status, value: c.status_sale },
+    { label: c.label_location, value: locationLine || location || displayCity || c.na_value },
+    { label: c.label_commission, value: commissionApplicable ? c.commission_yes : c.commission_no },
     ...(commissionApplicable
-      ? [{ label: 'Commission Amount', value: (commissionDetails || '').trim() || 'On request' }]
+      ? [{ label: c.label_commission_amount, value: (commissionDetails || '').trim() || c.commission_on_request }]
       : []),
-    { label: 'Date Listed', value: formattedDate },
+    { label: c.label_date_listed, value: formattedDate },
   ];
 
   return (
@@ -167,12 +170,12 @@ export default function PropertyLeftColumn({
           <h2
             className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
           >
-            Description
+            {c.section_description}
           </h2>
         </div>
         <div className="font-copy text-[16px] text-[#0d1f2d] leading-[1.65]">
           {!plainDescription.trim() ? (
-            <p>No description available for this property.</p>
+            <p>{c.no_description}</p>
           ) : descExpanded ? (
             <RichTextContent html={description} normalizeCase />
           ) : (
@@ -184,7 +187,7 @@ export default function PropertyLeftColumn({
             onClick={() => setDescExpanded(!descExpanded)}
             className="mt-4 inline-flex items-center gap-1.5 text-xs font-title font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
           >
-            {descExpanded ? 'Show less' : 'Read full description'}
+            {descExpanded ? c.show_less : c.read_full}
             <span className="w-4 h-4 flex items-center justify-center">
               <i className={`text-sm ${descExpanded ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'}`}></i>
             </span>
@@ -196,7 +199,7 @@ export default function PropertyLeftColumn({
       <section className="mb-6 md:mb-8">
         <div className="mb-3 md:mb-4">
           <h2 id="section-details" className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb] scroll-mt-24">
-            Property Details
+            {c.section_details}
           </h2>
         </div>
         <div className="bg-white border-2 border-stone-300 p-3 md:p-5 rounded-[2px]">
@@ -248,7 +251,7 @@ export default function PropertyLeftColumn({
             <h2
               className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
             >
-              Additional Details
+              {c.section_additional}
             </h2>
           </div>
           <div className="bg-white border-2 border-stone-300 p-3 md:p-5 rounded-[2px]">
@@ -271,7 +274,7 @@ export default function PropertyLeftColumn({
             <h2
               className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
             >
-              Features &amp; Amenities
+              {c.section_features}
             </h2>
           </div>
           <div className="bg-white border-2 border-stone-300 p-4 md:p-6 rounded-[2px]">
@@ -294,7 +297,7 @@ export default function PropertyLeftColumn({
               onClick={() => setFeaturesExpanded(!featuresExpanded)}
               className="mt-4 inline-flex items-center gap-1.5 text-xs font-title font-semibold uppercase tracking-wider transition-opacity hover:opacity-70 cursor-pointer text-[#555555]"
             >
-              {featuresExpanded ? 'View less' : `View all ${allFeatures.length} features`}
+              {featuresExpanded ? c.view_less : `${c.view_all_features_prefix} ${allFeatures.length} ${c.view_all_features_suffix}`}
               <span className="w-4 h-4 flex items-center justify-center">
                 <i className={`text-sm ${featuresExpanded ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'}`}></i>
               </span>
@@ -309,7 +312,7 @@ export default function PropertyLeftColumn({
           <h2
             className="font-title text-[17px] md:text-[18px] font-semibold tracking-normal text-primary pb-2 md:pb-3 border-b border-[#e5e7eb]"
           >
-            Location
+            {c.section_location}
           </h2>
         </div>
         <div className="aspect-[16/9] overflow-hidden rounded-[2px] border border-primary/12">

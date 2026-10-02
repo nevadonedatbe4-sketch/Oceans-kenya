@@ -11,16 +11,19 @@ import { useLoadMoreListings } from '@/hooks/useLoadMoreListings';
 import { useSeoMeta, buildBreadcrumbSchema, buildFaqSchema, buildListingSchema } from '@/hooks/useSeoMeta';
 import { ESTATE_AGENT_PAGES, type EstateAgentDef } from '@/lib/seoClusters';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_ESTATE_AGENT } from '@/lib/pageCopy';
 
 const SITE_URL = 'https://www.oceanske.com';
 
 function AgentFaq({ def }: { def: EstateAgentDef }) {
+  const { content: c } = usePageContent('estate_agent', DEFAULT_ESTATE_AGENT);
   const [open, setOpen] = useState<number | null>(0);
   if (!def.faqs.length) return null;
   return (
     <section className="mt-12 md:mt-16">
       <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-        Frequently Asked Questions
+        {c.faq_heading}
       </h2>
       <div className="divide-y-2 divide-primary/12 border-y-2 border-primary/12">
         {def.faqs.map((f, i) => {
@@ -53,10 +56,11 @@ function AgentFaq({ def }: { def: EstateAgentDef }) {
 }
 
 function AgentRelated({ def }: { def: EstateAgentDef }) {
+  const { content: c } = usePageContent('estate_agent', DEFAULT_ESTATE_AGENT);
   return (
     <section className="mt-12 md:mt-16 bg-[#F7F9F9] rounded-lg p-6 md:p-8">
       <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-        Expert Guidance in {def.area}
+        {c.related_heading_prefix} {def.area}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {def.related.map((r) => (
@@ -80,6 +84,7 @@ function AgentRelated({ def }: { def: EstateAgentDef }) {
 
 export default function EstateAgentPage({ slug }: { slug: string }) {
   const def: EstateAgentDef | undefined = ESTATE_AGENT_PAGES[slug];
+  const { content: c } = usePageContent('estate_agent', DEFAULT_ESTATE_AGENT);
 
   const filters: ListingFilters = {
     purpose: def?.purpose || 'sale',
@@ -136,13 +141,13 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
         <Header />
         <main className="pt-36 pb-24 px-4 md:px-6">
           <div className="max-w-6xl mx-auto text-center">
-            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">Page Not Found</h1>
-            <p className="font-roboto text-stone-500 mb-6">This estate agency page could not be found.</p>
+            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">{c.notfound_title}</h1>
+            <p className="font-roboto text-stone-500 mb-6">{c.notfound_text}</p>
             <Link
               to="/property-for-sale/nairobi"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold uppercase hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              Browse Nairobi Property
+              {c.notfound_button}
               <i className="ri-arrow-right-line text-xs"></i>
             </Link>
           </div>
@@ -171,20 +176,20 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
             {def.h1}
           </h1>
           <p className="font-roboto text-white/80 text-sm md:text-base max-w-2xl leading-relaxed">
-            Premium real estate expertise in {def.area}, Nairobi - delivered with local mastery.
+            {c.hero_subtitle_prefix} {def.area}, {c.hero_subtitle_suffix}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <a
               href="#properties"
               className="inline-flex items-center gap-2 px-7 py-3 bg-golden text-white border-2 border-golden text-sm font-roboto font-semibold uppercase hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-home-4-line"></i> View {def.area} Homes
+              <i className="ri-home-4-line"></i> {c.hero_button_primary} {def.area} {c.hero_button_primary_suffix}
             </a>
             <Link
               to="/contact"
               className="inline-flex items-center gap-2 px-7 py-3 border-2 border-white/60 text-white text-sm font-roboto font-semibold uppercase hover:bg-white hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-chat-3-line"></i> Speak to an Agent
+              <i className="ri-chat-3-line"></i> {c.hero_button_secondary}
             </Link>
           </div>
         </div>
@@ -204,7 +209,7 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
           <ScrollRevealBlock>
             <div className="max-w-3xl mb-10">
               <h2 className="font-roboto font-bold text-primary text-lg md:text-xl mb-4">
-                Why {def.area} home buyers choose Oceans Kenya
+                {c.intro_heading_prefix} {def.area} {c.intro_heading_suffix}
               </h2>
               {def.intro.map((para, i) => (
                 <p key={i} className="font-roboto text-stone-600 text-sm leading-relaxed mb-4">
@@ -218,8 +223,7 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
           <section id="properties">
             <div className="flex items-end justify-between mb-6">
               <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
-                {def.area} Properties Best Served by Our Agents - {totalCount} result
-                {totalCount === 1 ? '' : 's'}
+                {def.area} {c.properties_heading_prefix} {totalCount} {c.results_word}
               </h2>
             </div>
 
@@ -244,9 +248,9 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
                 <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3 rounded-full">
                   <i className="ri-home-4-line text-white text-xl"></i>
                 </div>
-                <p className="font-roboto font-bold text-primary mb-1">No properties hosted here yet</p>
+                <p className="font-roboto font-bold text-primary mb-1">{c.empty_title}</p>
                 <p className="font-roboto text-stone-500 text-sm max-w-md mx-auto mb-4">
-                  New premium {def.area} listings arrive regularly. Register your interest to be contacted first.
+                  {c.empty_text_prefix} {def.area} {c.empty_text_suffix}
                 </p>
                 <Link
                   to="/contact"
@@ -272,7 +276,7 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
                       className="inline-flex items-center gap-2 px-7 py-3 bg-primary text-white text-sm font-roboto font-semibold uppercase tracking-wide rounded-md hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-wait"
                     >
                       <i className={loadingMore ? 'ri-loader-4-line animate-spin' : 'ri-add-line'}></i>
-                      {loadingMore ? 'Loading…' : 'Load More Homes'}
+                      {loadingMore ? c.loading_label : c.load_more}
                     </button>
                   </div>
                 )}
@@ -294,17 +298,16 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
           <ScrollRevealBlock>
             <div className="mt-12 md:mt-16 bg-primary rounded-lg py-12 md:py-16 px-6 text-center">
               <h2 className="font-prata font-semibold text-white text-2xl md:text-3xl mb-4">
-                Trusted Estate Agents in {def.area}
+                {c.cta_title_prefix} {def.area}
               </h2>
               <p className="font-roboto text-white/80 text-sm md:text-base max-w-xl mx-auto leading-relaxed mb-7">
-                Whether you are buying, selling or investing in {def.area}, our local agents are ready to deliver a
-                seamless, confidential experience from start to finish.
+                {c.cta_text_prefix} {def.area}, {c.cta_text_suffix}
               </p>
               <Link
                 to="/contact"
                 className="inline-flex items-center gap-2 px-8 py-3.5 bg-golden text-white border-2 border-golden text-sm font-roboto font-semibold uppercase hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <i className="ri-chat-3-line"></i> Contact an Agent
+                <i className="ri-chat-3-line"></i> {c.cta_button}
               </Link>
             </div>
           </ScrollRevealBlock>

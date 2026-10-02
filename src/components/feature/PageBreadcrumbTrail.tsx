@@ -55,7 +55,7 @@ export default function PageBreadcrumbTrail({
           <span className="hidden sm:block w-px h-3.5 bg-primary/15 shrink-0" aria-hidden="true"></span>
         </>
       )}
-      <nav aria-label="Breadcrumb">
+      <nav aria-label="Breadcrumb" className="site-breadcrumb">
         <ol className="flex items-center gap-2 text-[13px] font-roboto text-[#636363] flex-wrap">
           {items.map((item, index) => {
             const isLast = index === items.length - 1;

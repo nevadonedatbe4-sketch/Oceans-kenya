@@ -16,6 +16,7 @@ import {
   type FooterLink,
 } from '@/lib/footerLinks';
 import { formatPhoneDisplay, toTelHref } from '@/lib/contactDefaults';
+import { getSiteOffices } from '@/lib/siteOffices';
 import { FALLBACK_LOGO } from '@/lib/brandDefaults';
 
 interface ColumnProps {
@@ -112,7 +113,7 @@ export default function Footer() {
 
   const aboutText = getValue('about_text');
   const seoIntro = getValue('seo_intro');
-  const address = getValue('address') || site.address;
+  const offices = getSiteOffices(getSite, getValue('address') || site.address);
   const phone = getValue('phone') || site.contact_phone;
   const email = getValue('email') || site.contact_email;
   const footerTagline = getValue('tagline');
@@ -155,7 +156,7 @@ export default function Footer() {
 
   if (loading) {
     return (
-      <footer className="text-white" style={{ backgroundColor: footerBg }}>
+      <footer className="site-footer text-white" style={{ backgroundColor: footerBg }}>
         <div className="py-8 md:py-14 px-4 md:px-10">
           <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
             {Array.from({ length: 4 }).map((_, i) => (
@@ -195,7 +196,7 @@ export default function Footer() {
   ];
 
   return (
-    <footer className="text-white" style={{ backgroundColor: footerBg }}>
+    <footer className="site-footer text-white" style={{ backgroundColor: footerBg }}>
       {/* ── Brand / intro band ─────────────────────────────────── */}
       <div className="px-4 md:px-10 pt-10 md:pt-14 pb-10 border-b" style={borderStyle}>
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -239,9 +240,10 @@ export default function Footer() {
               Contact Us
             </h4>
             <div className="space-y-3">
-              {address && (
+              {offices.map((office, index) => (
                 <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                  key={`${office.label}-${index}`}
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(office.address)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-2 text-sm font-roboto hover:text-golden transition-colors cursor-pointer"
@@ -250,9 +252,12 @@ export default function Footer() {
                   <span className="mt-0.5 w-4 h-4 flex items-center justify-center text-golden shrink-0">
                     <i className="ri-map-pin-line"></i>
                   </span>
-                  <span>{address}</span>
+                  <span className="min-w-0 break-words">
+                    {office.label && <span className="font-semibold" style={textStyle}>{office.label}: </span>}
+                    {office.address}
+                  </span>
                 </a>
-              )}
+              ))}
               {phone && (
                 <a
                   href={toTelHref(phone)}
@@ -275,7 +280,7 @@ export default function Footer() {
                   <span className="w-4 h-4 flex items-center justify-center text-golden shrink-0">
                     <i className="ri-mail-line"></i>
                   </span>
-                  <span className="truncate">
+                  <span className="min-w-0 break-all">
                     <span style={textStyle}>{em.label}: </span>
                     {em.value}
                   </span>

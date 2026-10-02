@@ -27,6 +27,8 @@ import {
   type AmenityReview,
 } from '@/lib/directory';
 import { normalizeAmenityRow } from '@/lib/publicAmenities';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_PLACE_DETAIL } from '@/lib/pageCopy';
 
 function renderStars(rating: number): string {
   return '★'.repeat(rating) + '☆'.repeat(5 - rating);
@@ -42,6 +44,7 @@ export default function PlaceDetail() {
   const [reviews, setReviews] = useState<AmenityReview[]>([]);
   const [related, setRelated] = useState<Amenity[]>([]);
   const [categoryColors, setCategoryColors] = useState<Record<string, string>>({});
+  const { content: c } = usePageContent('place_detail', DEFAULT_PLACE_DETAIL);
 
   // Review form state
   const [formName, setFormName] = useState('');
@@ -229,16 +232,15 @@ export default function PlaceDetail() {
             <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-[#F3F0E9] rounded-full">
               <i className="ri-map-pin-2-line text-2xl text-primary" />
             </div>
-            <h1 className="font-prata font-bold text-primary text-3xl mb-3">Place not available</h1>
+            <h1 className="font-prata font-bold text-primary text-3xl mb-3">{c.notfound_title}</h1>
             <p className="font-roboto text-[#636363] text-sm mb-6 leading-relaxed">
-              This place may be draft, unpublished, or no longer listed. Browse the Directory to explore
-              everything that&rsquo;s available.
+              {c.notfound_text}
             </p>
             <Link
               to="/directory"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-sm font-jost font-semibold uppercase tracking-[0.08em] hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-arrow-left-line" /> Back to Directory
+              <i className="ri-arrow-left-line" /> {c.notfound_button}
             </Link>
           </div>
         </main>
@@ -296,7 +298,7 @@ export default function PlaceDetail() {
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-white/50">
             <i className="ri-image-line text-3xl" />
-            <span className="text-xs font-roboto font-semibold uppercase tracking-wider">No verified image available</span>
+            <span className="text-xs font-roboto font-semibold uppercase tracking-wider">{c.no_image_label}</span>
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
@@ -319,7 +321,7 @@ export default function PlaceDetail() {
               {/* Description */}
               {place.description && (
                 <section>
-                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">About</h2>
+                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">{c.about_heading}</h2>
                   <p className="font-roboto text-[#3A3A3A] text-[15px] leading-relaxed">{place.description}</p>
                 </section>
               )}
@@ -327,7 +329,7 @@ export default function PlaceDetail() {
               {/* Services offered + price range */}
               {(Array.isArray(place.services) && place.services.length > 0) && (
                 <section>
-                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">Services Offered</h2>
+                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">{c.services_heading}</h2>
                   <div className="flex flex-wrap gap-2">
                     {place.services.map((s) => (
                       <span key={s} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#F3F0E9] text-[#3A3A3A] text-sm font-roboto">
@@ -340,7 +342,7 @@ export default function PlaceDetail() {
 
               {place.price_range && (
                 <section>
-                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">Price Range</h2>
+                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">{c.price_range_heading}</h2>
                   <div className="inline-flex items-center gap-2 px-4 py-3 rounded-lg border border-primary/15 bg-white">
                     <i className="ri-price-tag-3-line text-primary text-lg" />
                     <span className="font-roboto text-[#1a1a1a] text-base font-semibold">{place.price_range}</span>
@@ -354,7 +356,7 @@ export default function PlaceDetail() {
                   <div className="flex items-start gap-2">
                     <i className="ri-map-pin-line text-primary text-lg mt-0.5" />
                     <div>
-                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">Location</p>
+                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">{c.location_label}</p>
                       <p className="text-sm text-[#1a1a1a] font-medium">{place.address || place.neighbourhood_name}</p>
                       {place.neighbourhood_name && place.address && <p className="text-xs text-[#636363]">{place.neighbourhood_name}</p>}
                     </div>
@@ -364,7 +366,7 @@ export default function PlaceDetail() {
                   <div className="flex items-start gap-2">
                     <i className="ri-time-line text-primary text-lg mt-0.5" />
                     <div>
-                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">Opening Hours</p>
+                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">{c.hours_label}</p>
                       <p className="text-sm text-[#1a1a1a] font-medium">{place.opening_hours}</p>
                     </div>
                   </div>
@@ -373,7 +375,7 @@ export default function PlaceDetail() {
                   <div className="flex items-start gap-2">
                     <i className="ri-phone-line text-primary text-lg mt-0.5" />
                     <div>
-                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">Phone</p>
+                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">{c.phone_label}</p>
                       <a href={`tel:${place.phone}`} className="text-sm text-primary font-medium hover:underline">{place.phone}</a>
                     </div>
                   </div>
@@ -382,7 +384,7 @@ export default function PlaceDetail() {
                   <div className="flex items-start gap-2">
                     <i className="ri-mail-line text-primary text-lg mt-0.5" />
                     <div>
-                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">Email</p>
+                      <p className="text-xs text-[#636363] uppercase tracking-wider mb-0.5">{c.email_label}</p>
                       <a href={`mailto:${place.email}`} className="text-sm text-primary font-medium hover:underline break-all">{place.email}</a>
                     </div>
                   </div>
@@ -392,7 +394,7 @@ export default function PlaceDetail() {
               {/* Features */}
               {features.length > 0 && (
                 <section>
-                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">Features</h2>
+                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">{c.features_heading}</h2>
                   <div className="flex flex-wrap gap-2">
                     {features.map((f) => (
                       <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#F3F0E9] text-[#3A3A3A] text-sm font-roboto">
@@ -406,7 +408,7 @@ export default function PlaceDetail() {
               {/* Gallery */}
               {gallery.length > 0 && (
                 <section>
-                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">Gallery</h2>
+                  <h2 className="font-prata font-semibold text-primary text-xl mb-3">{c.gallery_heading}</h2>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {gallery.map((url, i) => (
                       <div key={i} className="aspect-[4/3] rounded-lg overflow-hidden">
@@ -419,7 +421,7 @@ export default function PlaceDetail() {
 
               {/* Reviews */}
               <section className="border-t border-primary/10 pt-8">
-                <h2 className="font-prata font-semibold text-primary text-xl mb-4">Reviews</h2>
+                <h2 className="font-prata font-semibold text-primary text-xl mb-4">{c.reviews_heading}</h2>
                 <div className="flex items-center gap-3 mb-4">
                   {ratingSummary.avg != null ? (
                     <>
@@ -430,7 +432,7 @@ export default function PlaceDetail() {
                       </div>
                     </>
                   ) : (
-                    <p className="text-sm text-[#636363]">No reviews yet - be the first to review.</p>
+                    <p className="text-sm text-[#636363]">{c.no_reviews_text}</p>
                   )}
                 </div>
 
@@ -438,7 +440,7 @@ export default function PlaceDetail() {
                   <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50/60 p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <i className="ri-google-fill text-base" style={{ color: '#4285F4' }} />
-                      <span className="text-xs font-semibold uppercase tracking-wider text-[#636363]">From Google Reviews</span>
+                      <span className="text-xs font-semibold uppercase tracking-wider text-[#636363]">{c.from_google_label}</span>
                     </div>
                     <p className="font-roboto text-[#3A3A3A] text-sm leading-relaxed italic">&ldquo;{place.google_review_text}&rdquo;</p>
                   </div>
@@ -452,14 +454,14 @@ export default function PlaceDetail() {
                         <span className="text-xs text-[#636363]">{new Date(r.created_at).toLocaleDateString()}</span>
                       </div>
                       <p className="text-sm text-[#1a1a1a] leading-relaxed">{r.review_text}</p>
-                      <p className="text-xs text-[#636363] mt-2 font-medium">{r.reviewer_name || 'Anonymous'} · <span className="text-primary/70">Verified visitor</span></p>
+                      <p className="text-xs text-[#636363] mt-2 font-medium">{r.reviewer_name || 'Anonymous'} · <span className="text-primary/70">{c.verified_visitor}</span></p>
                     </div>
                   ))}
                 </div>
 
                 {/* Write a review */}
                 <div className="mt-8 border border-primary/10 rounded-lg p-5 bg-[#FBFBFB]">
-                  <h3 className="font-roboto font-semibold text-primary text-base mb-3">Write a review</h3>
+                  <h3 className="font-roboto font-semibold text-primary text-base mb-3">{c.write_review_heading}</h3>
                   {formMessage && (
                     <div className={`mb-3 px-3 py-2.5 rounded-md text-sm ${formMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                       {formMessage.text}
@@ -468,7 +470,7 @@ export default function PlaceDetail() {
                   {formError && <div className="mb-3 px-3 py-2.5 rounded-md text-sm bg-red-50 text-red-700">{formError}</div>}
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-semibold text-[#636363] uppercase tracking-wider mb-1.5">Your rating</label>
+                      <label className="block text-xs font-semibold text-[#636363] uppercase tracking-wider mb-1.5">{c.rating_label}</label>
                       <div className="flex items-center gap-1">
                         {[1, 2, 3, 4, 5].map((n) => (
                           <button
@@ -483,28 +485,28 @@ export default function PlaceDetail() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-[#636363] uppercase tracking-wider mb-1.5">Your name</label>
+                      <label className="block text-xs font-semibold text-[#636363] uppercase tracking-wider mb-1.5">{c.name_label}</label>
                       <input
                         type="text"
                         value={formName}
                         onChange={(e) => setFormName(e.target.value)}
                         maxLength={60}
-                        placeholder="e.g. Wanjiku M."
+                        placeholder={c.name_placeholder}
                         className="w-full px-3 py-2.5 border border-primary/20 rounded-md text-sm font-roboto text-[#1a1a1a] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-[#636363] uppercase tracking-wider mb-1.5">Your review</label>
+                      <label className="block text-xs font-semibold text-[#636363] uppercase tracking-wider mb-1.5">{c.review_label}</label>
                       <textarea
                         value={formText}
                         onChange={(e) => setFormText(e.target.value)}
                         maxLength={500}
                         rows={4}
-                        placeholder="Share what you experienced…"
+                        placeholder={c.review_placeholder}
                         className="w-full px-3 py-2.5 border border-primary/20 rounded-md text-sm font-roboto text-[#1a1a1a] focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 resize-none"
                       />
                       <div className="flex justify-between mt-1">
-                        <span className="text-[11px] text-[#636363]">Reviews are moderated before publishing.</span>
+                        <span className="text-[11px] text-[#636363]">{c.moderated_note}</span>
                         <span className={`text-[11px] ${formText.length > 450 ? 'text-red-600' : 'text-[#636363]'}`}>{formText.length}/500</span>
                       </div>
                     </div>
@@ -514,7 +516,7 @@ export default function PlaceDetail() {
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer whitespace-nowrap"
                     >
                       <i className={`${formSubmitting ? 'ri-loader-4-line animate-spin' : 'ri-chat-3-line'}`} />
-                      {formSubmitting ? 'Submitting…' : 'Submit review'}
+                      {formSubmitting ? c.submitting : c.submit_review}
                     </button>
                   </div>
                 </div>
@@ -539,13 +541,13 @@ export default function PlaceDetail() {
 
               {/* Quick facts */}
               <div className="rounded-lg border border-primary/10 p-4 bg-white">
-                <p className="text-xs text-[#636363] uppercase tracking-wider mb-2">Quick facts</p>
+                <p className="text-xs text-[#636363] uppercase tracking-wider mb-2">{c.quick_facts}</p>
                 <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between"><span className="text-[#636363]">Category</span><span className="text-primary font-medium">{categoryLabel(place.category)}</span></div>
-                  {place.subcategory && <div className="flex justify-between"><span className="text-[#636363]">Type</span><span className="text-primary font-medium">{subcategoryLabel(place.subcategory)}</span></div>}
-                  {place.price_range && <div className="flex justify-between"><span className="text-[#636363]">Price range</span><span className="text-primary font-medium">{place.price_range}</span></div>}
-                  {place.neighbourhood_name && <div className="flex justify-between"><span className="text-[#636363]">Area</span><span className="text-primary font-medium">{place.neighbourhood_name}</span></div>}
-                  {(place.view_count || 0) > 0 && <div className="flex justify-between"><span className="text-[#636363]">Views</span><span className="text-primary font-medium">{(place.view_count || 0).toLocaleString()}</span></div>}
+                  <div className="flex justify-between"><span className="text-[#636363]">{c.category_label}</span><span className="text-primary font-medium">{categoryLabel(place.category)}</span></div>
+                  {place.subcategory && <div className="flex justify-between"><span className="text-[#636363]">{c.type_label}</span><span className="text-primary font-medium">{subcategoryLabel(place.subcategory)}</span></div>}
+                  {place.price_range && <div className="flex justify-between"><span className="text-[#636363]">{c.price_fact_label}</span><span className="text-primary font-medium">{place.price_range}</span></div>}
+                  {place.neighbourhood_name && <div className="flex justify-between"><span className="text-[#636363]">{c.area_label}</span><span className="text-primary font-medium">{place.neighbourhood_name}</span></div>}
+                  {(place.view_count || 0) > 0 && <div className="flex justify-between"><span className="text-[#636363]">{c.views_label}</span><span className="text-primary font-medium">{(place.view_count || 0).toLocaleString()}</span></div>}
                 </div>
               </div>
 
@@ -553,24 +555,24 @@ export default function PlaceDetail() {
               <div className="rounded-lg border border-primary/10 p-4 bg-white space-y-2.5">
                 {website && (
                   <a href={website} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-md text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap">
-                    Visit Website <i className="ri-external-link-line" />
+                    {c.visit_website} <i className="ri-external-link-line" />
                   </a>
                 )}
                 {maps && (
                   <a href={maps} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 border border-primary/25 text-primary rounded-md text-sm font-semibold hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
-                    Get Directions <i className="ri-map-pin-line" />
+                    {c.get_directions} <i className="ri-map-pin-line" />
                   </a>
                 )}
                 {place.phone && (
                   <a href={`tel:${place.phone}`} className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 border border-primary/25 text-primary rounded-md text-sm font-semibold hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
-                    Call <i className="ri-phone-line" />
+                    {c.call_button} <i className="ri-phone-line" />
                   </a>
                 )}
 
                 {/* Share */}
                 <div ref={shareRef} className="relative">
                   <button onClick={() => setShareOpen((s) => !s)} className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 border border-primary/25 text-primary rounded-md text-sm font-semibold hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
-                    <i className="ri-share-line" /> Share
+                    <i className="ri-share-line" /> {c.share_button}
                   </button>
                   {shareOpen && (
                     <div className="absolute left-0 right-0 top-full mt-2 z-40 bg-white border border-primary/10 rounded-lg shadow-xl overflow-hidden animate-float-in">
@@ -583,13 +585,13 @@ export default function PlaceDetail() {
                         ))}
                       </div>
                       <button onClick={copyLink} className="w-full inline-flex items-center justify-center gap-2 py-2.5 border-t border-primary/10 text-sm text-primary hover:bg-[#F3F0E9] transition-colors cursor-pointer">
-                        <i className="ri-link" /> Copy link
+                        <i className="ri-link" /> {c.copy_link}
                       </button>
                       <button
                         onClick={() => { window.print(); }}
                         className="w-full inline-flex items-center justify-center gap-2 py-2.5 border-t border-primary/10 text-sm text-primary hover:bg-[#F3F0E9] transition-colors cursor-pointer"
                       >
-                        <i className="ri-file-pdf-2-line" /> Download / Share as PDF
+                        <i className="ri-file-pdf-2-line" /> {c.download_pdf}
                       </button>
                     </div>
                   )}
@@ -601,7 +603,7 @@ export default function PlaceDetail() {
           {/* Related */}
           {related.length > 0 && (
             <section className="mt-12">
-              <h2 className="font-prata font-semibold text-primary text-xl mb-4">More in {categoryLabel(place.category)}</h2>
+              <h2 className="font-prata font-semibold text-primary text-xl mb-4">{c.related_heading_prefix} {categoryLabel(place.category)}</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {related.map((r) => (
                   <Link key={r.id} to={withReturnFrom(`/directory/place/${r.slug || r.id}`, currentPath)} className="group rounded-lg overflow-hidden border border-primary/10 hover:border-primary/25 transition-colors">

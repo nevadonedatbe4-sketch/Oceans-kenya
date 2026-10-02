@@ -14,6 +14,8 @@ import { smartTitleCase } from '@/lib/location';
 import PageLoader from '@/components/feature/PageLoader';
 import CommuteMap from '@/components/feature/CommuteMap';
 import EntityImage from '@/components/feature/EntityImage';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_COMMUTE } from '@/lib/pageCopy';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -156,6 +158,7 @@ function mapListingToProperty(row: ListingRow): CommuteProperty {
 
 export default function CommuteTime() {
   const { format } = useCurrency();
+  const { content: c } = usePageContent('commute', DEFAULT_COMMUTE);
 
   // Search state
   const [selectedDest, setSelectedDest] = useState(5); // Lavington Curve is the default area
@@ -409,9 +412,9 @@ export default function CommuteTime() {
       <div className="bg-background-100 border-b border-background-200">
         <div className="px-4 md:px-6 lg:px-10 py-8 max-w-[1400px] mx-auto">
           <div className="max-w-2xl">
-            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground-950 mb-2">Commute Time Search</h1>
+            <h1 className="text-2xl md:text-3xl font-heading font-bold text-foreground-950 mb-2">{c.hero_title}</h1>
             <p className="text-sm font-body text-foreground-600 mb-6">
-              Find properties near your workplace or daily destination. {anyCommuteAvailable ? 'Times are calculated using live traffic data.' : 'Distances are straight-line from listing coordinates.'}
+              {c.hero_subtitle} {anyCommuteAvailable ? c.live_note : c.straight_note}
             </p>
           </div>
 
@@ -506,7 +509,7 @@ export default function CommuteTime() {
         {/* Toolbar: heading + view toggle */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-heading font-semibold text-foreground-950">
-            {commuteLoading ? 'Calculating distances...' : `Results for ${destination.name}`}
+            {commuteLoading ? c.calculating_text : `${c.results_heading_prefix} ${destination.name}`}
           </h2>
           <div className="flex gap-1 bg-background-100 rounded-full p-1">
             <button
@@ -516,7 +519,7 @@ export default function CommuteTime() {
               <span className="w-3.5 h-3.5 flex items-center justify-center">
                 <i className="ri-list-check-2 text-sm"></i>
               </span>
-              List
+              {c.list_label}
             </button>
             <button
               onClick={() => setViewMode('map')}
@@ -525,7 +528,7 @@ export default function CommuteTime() {
               <span className="w-3.5 h-3.5 flex items-center justify-center">
                 <i className="ri-map-pin-line text-sm"></i>
               </span>
-              Map
+              {c.map_label}
             </button>
           </div>
         </div>
@@ -545,10 +548,10 @@ export default function CommuteTime() {
                 <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-background-100 rounded-full">
                   <i className="ri-error-warning-line text-foreground-400 text-xl"></i>
                 </div>
-                <p className="font-body font-semibold text-foreground-950 text-lg mb-2">Could not load properties</p>
+                <p className="font-body font-semibold text-foreground-950 text-lg mb-2">{c.error_title}</p>
                 <p className="text-sm font-body text-foreground-500 mb-4">{error}</p>
                 <button onClick={() => window.location.reload()} className="inline-flex items-center gap-2 px-5 py-2 bg-primary-500 text-background-50 text-xs font-label tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary-600 transition-colors">
-                  <i className="ri-refresh-line"></i>Try Again
+                  <i className="ri-refresh-line"></i>{c.try_again}
                 </button>
               </div>
             )}
@@ -582,7 +585,7 @@ export default function CommuteTime() {
                     <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4">
                       <PageLoader size={32} />
                     </div>
-                    <p className="text-sm font-body text-foreground-500">Calculating distances to {destination.name}...</p>
+                    <p className="text-sm font-body text-foreground-500">{c.calculating_text}</p>
                   </div>
                 )}
 
@@ -592,9 +595,9 @@ export default function CommuteTime() {
                       <i className="ri-information-line text-base"></i>
                     </span>
                     <div>
-                      <p className="text-sm font-roboto font-bold text-primary">No exact matches</p>
+                      <p className="text-sm font-roboto font-bold text-primary">{c.fallback_title}</p>
                       <p className="text-xs font-roboto text-primary/70 mt-0.5">
-                        Nothing falls within your {TIME_RANGES[timeRangeIndex].label.toLowerCase()} window of {destination.name}. Showing the closest properties instead.
+                        {c.fallback_text}
                       </p>
                     </div>
                   </div>
@@ -640,7 +643,7 @@ export default function CommuteTime() {
                           <span className="w-3.5 h-3.5 flex items-center justify-center">
                             <i className="ri-expand-diagonal-line text-xs"></i>
                           </span>
-                          Preview
+                          {c.preview_label}
                         </span>
                       </button>
                     </div>
@@ -705,25 +708,25 @@ export default function CommuteTime() {
                               )}
                             </span>
                           ) : (
-                            <span className="text-foreground-400">Distance unavailable</span>
+                            <span className="text-foreground-400">{c.distance_unavailable}</span>
                           )}
                         </div>
                       </div>
 
                       <div className="flex items-end justify-between gap-3 pt-3 border-t border-background-200 mt-2">
-                        <span className="text-xs font-body text-foreground-400">{p.type === 'rent' ? 'To rent' : 'For sale'}</span>
+                        <span className="text-xs font-body text-foreground-400">{p.type === 'rent' ? c.rent_label : c.sale_label}</span>
                         <div className="flex items-center gap-3 shrink-0">
                           <a href="tel:+254181408186" className="flex items-center gap-1.5 text-sm font-body text-foreground-600 hover:text-primary-500 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-4 h-4 flex items-center justify-center">
                               <i className="ri-phone-line text-sm"></i>
                             </span>
-                            <span className="underline underline-offset-2">Call</span>
+                            <span className="underline underline-offset-2">{c.call_label}</span>
                           </a>
                           <button onClick={() => setContactModalProp(p)} className="flex items-center gap-1.5 text-sm font-body text-foreground-600 hover:text-primary-500 transition-colors cursor-pointer whitespace-nowrap">
                             <span className="w-4 h-4 flex items-center justify-center">
                               <i className="ri-mail-line text-sm"></i>
                             </span>
-                            <span className="underline underline-offset-2">Email</span>
+                            <span className="underline underline-offset-2">{c.email_label}</span>
                           </button>
                         </div>
                       </div>
@@ -737,8 +740,8 @@ export default function CommuteTime() {
                     <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-background-100 rounded-full">
                       <i className="ri-route-line text-foreground-400 text-xl"></i>
                     </div>
-                    <p className="font-heading font-bold text-foreground-950 text-lg mb-2">No properties found</p>
-                    <p className="text-sm font-body text-foreground-500">Try extending your time range or choosing a different destination</p>
+                    <p className="font-heading font-bold text-foreground-950 text-lg mb-2">{c.no_results_title}</p>
+                    <p className="text-sm font-body text-foreground-500">{c.no_results_text}</p>
                   </div>
                 )}
               </div>
@@ -752,7 +755,7 @@ export default function CommuteTime() {
               <div className="bg-background-50 border border-background-200 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-background-200">
                   <h3 className="text-sm font-heading font-semibold text-foreground-950">
-                    Map - {destination.name}
+                    {c.map_heading_prefix} {destination.name}
                   </h3>
                 </div>
                 <div className="h-[300px]">
@@ -770,7 +773,7 @@ export default function CommuteTime() {
                 {!anyCommuteAvailable && (
                   <div className="px-4 py-2 bg-background-100 border-t border-background-200">
                     <p className="text-[11px] font-body text-foreground-500">
-                      Straight-line distances shown. Add a Google Maps API key for real driving times.
+                      {c.api_key_note}
                     </p>
                   </div>
                 )}
@@ -779,7 +782,7 @@ export default function CommuteTime() {
               {/* Popular destinations */}
               <div className="bg-background-50 border border-background-200 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-background-200">
-                  <h3 className="text-sm font-heading font-semibold text-foreground-950">Popular Destinations</h3>
+                  <h3 className="text-sm font-heading font-semibold text-foreground-950">{c.popular_destinations}</h3>
                 </div>
                 <div className="px-4 py-3 space-y-1">
                   {DESTINATIONS.slice(0, 6).map((d, i) => (
@@ -808,26 +811,16 @@ export default function CommuteTime() {
 
               {/* Tips */}
               <div className="bg-background-100 rounded-lg p-4">
-                <h3 className="text-sm font-heading font-semibold text-foreground-950 mb-2">Commute Tips</h3>
+                <h3 className="text-sm font-heading font-semibold text-foreground-950 mb-2">{c.tips_title}</h3>
                 <ul className="space-y-2 text-xs font-body text-foreground-600">
-                  <li className="flex items-start gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
-                      <i className="ri-time-line text-primary-500 text-xs"></i>
-                    </span>
-                    Morning peak hours in Nairobi are 7:00 - 9:00 AM
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
-                      <i className="ri-road-map-line text-primary-500 text-xs"></i>
-                    </span>
-                    Mombasa Road and Thika Road experience the heaviest traffic
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
-                      <i className="ri-bus-line text-primary-500 text-xs"></i>
-                    </span>
-                    Matatus are the fastest public transport option on most routes
-                  </li>
+                  {c.tips.map((tip) => (
+                    <li key={tip.text} className="flex items-start gap-2">
+                      <span className="w-4 h-4 flex items-center justify-center shrink-0 mt-0.5">
+                        <i className={`${tip.icon} text-primary-500 text-xs`}></i>
+                      </span>
+                      {tip.text}
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>

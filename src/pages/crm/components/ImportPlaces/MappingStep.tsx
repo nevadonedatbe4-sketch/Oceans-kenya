@@ -53,7 +53,8 @@ export default function MappingStep({
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[#e8edf2]">
-        <table className="w-full text-left">
+        <div className="overflow-x-auto">
+        <table className="w-full text-left min-w-[520px]">
           <thead className="bg-[#f7f8fa] border-b border-[#e8edf2]">
             <tr>
               <th className="px-4 py-3 text-xs font-roboto font-semibold text-[#4b5563] uppercase tracking-wider">Spreadsheet column</th>
@@ -102,6 +103,7 @@ export default function MappingStep({
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {!nameAssigned && (

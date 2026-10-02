@@ -3,131 +3,176 @@ import { supabase } from '@/lib/supabase';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ImageUploadField from '@/pages/crm/components/ImageUploadField';
 import ManagementLayout from '../ManagementLayout';
+import { DEFAULT_CONTACT_PAGE_CONTENT, invalidateContactPageContentCache, type ContactPageContent } from '@/hooks/useContactPageContent';
 
-type TabKey = 'content' | 'media' | 'layout' | 'styling' | 'seo' | 'publishing' | 'preview';
+type TabKey = 'hero' | 'quick' | 'form' | 'sidebar' | 'hours' | 'office' | 'preview';
 const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: 'content', label: 'Content', icon: 'ri-article-line' }, { key: 'media', label: 'Media', icon: 'ri-image-2-line' }, { key: 'layout', label: 'Layout', icon: 'ri-layout-4-line' },
-  { key: 'styling', label: 'Styling', icon: 'ri-palette-line' }, { key: 'seo', label: 'SEO', icon: 'ri-search-line' }, { key: 'publishing', label: 'Publishing', icon: 'ri-global-line' }, { key: 'preview', label: 'Preview', icon: 'ri-eye-line' },
+  { key: 'hero', label: 'Hero', icon: 'ri-image-2-line' },
+  { key: 'quick', label: 'Quick Links', icon: 'ri-links-line' },
+  { key: 'form', label: 'Form Copy', icon: 'ri-chat-3-line' },
+  { key: 'sidebar', label: 'Sidebar', icon: 'ri-layout-right-2-line' },
+  { key: 'hours', label: 'Office Hours', icon: 'ri-time-line' },
+  { key: 'office', label: 'Find Office', icon: 'ri-map-pin-line' },
+  { key: 'preview', label: 'Preview', icon: 'ri-eye-line' },
 ];
 
-interface Content {
-  hero_title: string; hero_subtitle: string; hero_image: string;
-  address_line1: string; address_line2: string; phone: string; email: string; whatsapp: string;
-  office_hours_weekday: string; office_hours_saturday: string; office_hours_sunday: string;
-  map_embed_url: string; map_lat: string; map_lng: string;
-  form_heading: string; form_subheading: string;
-  cta_title: string; cta_subtitle: string; cta_button_text: string; cta_button_link: string;
-  section_order: string; hero_height: string; accent_color: string;
-  meta_title: string; meta_description: string; meta_keywords: string;
-  is_published: boolean; published_at: string | null;
-}
-
-const DEFAULTS: Content = {
-  hero_title: 'Contact Us', hero_subtitle: 'We\'d love to hear from you', hero_image: '',
-  address_line1: 'Plot 9, Mandera Rd', address_line2: 'Nairobi, Kenya',
-  phone: '+254 181 408 186', email: 'ask@oceanske.com', whatsapp: '+254 181 408 186',
-  office_hours_weekday: 'Mon — Fri: 9:00 AM — 6:00 PM', office_hours_saturday: 'Saturday: 10:00 AM — 2:00 PM', office_hours_sunday: 'Sunday: Closed',
-  map_embed_url: '', map_lat: '-1.2921', map_lng: '36.8219',
-  form_heading: 'Send Us a Message', form_subheading: 'Fill in the form and our team will get back to you within 24 hours.',
-  cta_title: 'Prefer a Call?', cta_subtitle: 'Speak directly with one of our agents.', cta_button_text: 'Call Now', cta_button_link: 'tel:+254181408186',
-  section_order: 'hero,info,form,map,cta', hero_height: '350', accent_color: '#1B4332',
-  meta_title: 'Contact Us — Oceans', meta_description: 'Get in touch with our team. Visit our office in Westlands, Nairobi or send us a message online.', meta_keywords: 'contact, get in touch, real estate contact',
-  is_published: true, published_at: null,
-};
+const PAGE_KEY = 'contact_page';
 
 function SC({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return <div className="bg-white rounded-xl border border-stone-100 p-5 space-y-4"><div className="flex items-center gap-2 mb-1"><span className="w-5 h-5 flex items-center justify-center"><i className={`${icon} text-[#1B4332] text-sm`}></i></span><h3 className="text-sm font-semibold text-stone-700 uppercase tracking-wide">{title}</h3></div>{children}</div>;
 }
-function T({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function TextF({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return <div className="space-y-1.5"><label className="text-sm font-medium text-stone-700 block">{label}</label><input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#1B4332] bg-white" /></div>;
 }
-function TA({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return <div className="space-y-1.5"><label className="text-sm font-medium text-stone-700 block">{label}</label><textarea rows={2} value={value} onChange={(e) => onChange(e.target.value)} className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#1B4332] bg-white resize-y" /></div>;
+function TextAreaF({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return <div className="space-y-1.5"><label className="text-sm font-medium text-stone-700 block">{label}</label><textarea rows={3} value={value} onChange={(e) => onChange(e.target.value)} className="w-full border border-stone-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:border-[#1B4332] bg-white resize-y" /></div>;
 }
 
 export default function ContactPageCMS() {
-  const [activeTab, setActiveTab] = useState<TabKey>('content');
-  const [c, setC] = useState<Content>({ ...DEFAULTS });
+  const [activeTab, setActiveTab] = useState<TabKey>('hero');
+  const [c, setC] = useState<ContactPageContent>(DEFAULT_CONTACT_PAGE_CONTENT);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const PAGE_KEY = 'contact_page';
 
-  const fetchC = useCallback(async () => {
+  const fetchContent = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.from('site_settings').select('key, value').ilike('key', `page_${PAGE_KEY}_%`);
     if (data) {
-      const map = { ...DEFAULTS };
+      const map = { ...DEFAULT_CONTACT_PAGE_CONTENT };
       data.forEach((r: { key: string; value: string | null }) => {
         const f = r.key.replace(`page_${PAGE_KEY}_`, '');
-        if (f in map && r.value !== null) { if (f === 'is_published') (map as any)[f] = r.value === 'true'; else (map as any)[f] = r.value; }
+        if (!(f in map) || r.value === null) return;
+        if (['quick_links', 'hours'].includes(f)) {
+          try { (map as any)[f] = JSON.parse(r.value); } catch { /* keep default */ }
+        } else {
+          (map as any)[f] = r.value;
+        }
       });
       setC(map);
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchC(); }, [fetchC]);
+  useEffect(() => { fetchContent(); }, [fetchContent]);
 
-  const upd = (key: keyof Content, value: any) => setC((prev) => ({ ...prev, [key]: value }));
+  const upd = (key: keyof ContactPageContent, value: unknown) => setC((prev) => ({ ...prev, [key]: value }));
+
   const save = async () => {
     setSaving(true);
-    const entries = Object.entries(c).map(([k, v]) => ({ key: `page_${PAGE_KEY}_${k}`, value: typeof v === 'boolean' ? (v ? 'true' : 'false') : String(v) }));
+    const entries = Object.entries(c).map(([k, v]) => ({
+      key: `page_${PAGE_KEY}_${k}`,
+      value: Array.isArray(v) ? JSON.stringify(v) : String(v),
+    }));
     await Promise.all(entries.map((e) => supabase.from('site_settings').upsert(e, { onConflict: 'key' })));
-    showToast('Contact page saved', 'success'); setSaving(false);
-  };
-  const pub = async () => {
-    const ns = !c.is_published; upd('is_published', ns); upd('published_at', ns ? new Date().toISOString() : null);
-    setSaving(true); await supabase.from('site_settings').upsert({ key: `page_${PAGE_KEY}_is_published`, value: ns ? 'true' : 'false' }, { onConflict: 'key' });
-    showToast(ns ? 'Published!' : 'Unpublished', 'success'); setSaving(false);
+    invalidateContactPageContentCache();
+    showToast('Contact page saved', 'success');
+    setSaving(false);
   };
 
   if (loading) return <ManagementLayout title="Contact Page" description="" icon={<i className="ri-mail-line text-[#1B4332] text-lg"></i>}><div className="py-20 flex justify-center"><div className="w-8 h-8 border-2 border-[#1B4332] border-t-transparent rounded-full animate-spin" /></div></ManagementLayout>;
 
   return (
-    <ManagementLayout title="Contact Page" description="Manage the Contact page — office details, map, opening hours and form settings." icon={<i className="ri-mail-line text-[#1B4332] text-lg"></i>}>
+    <ManagementLayout title="Contact Page" description="Edit the Contact page hero, quick links, form copy, sidebar, office hours and location block." icon={<i className="ri-mail-line text-[#1B4332] text-lg"></i>}>
       <div className="space-y-5 pb-24">
         <div className="bg-white rounded-xl border border-stone-100 overflow-hidden">
-          <div className="flex border-b border-stone-100 overflow-x-auto">{TABS.map((t) => { const isA = activeTab === t.key; return <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex items-center gap-2 px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border-b-2 ${isA ? 'border-[#1B4332] text-[#1B4332] bg-[#1B4332]/4' : 'border-transparent text-stone-500 hover:text-stone-800 hover:bg-[#f5f5f5]'}`}><i className={`${t.icon} text-sm`}></i>{t.label}</button>; })}</div>
+          <div className="flex border-b border-stone-100 overflow-x-auto">{TABS.map((t) => { const a = activeTab === t.key; return <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex items-center gap-2 px-4 py-3 text-xs font-medium whitespace-nowrap transition-colors cursor-pointer border-b-2 ${a ? 'border-[#1B4332] text-[#1B4332] bg-[#1B4332]/4' : 'border-transparent text-stone-500 hover:text-stone-800 hover:bg-[#f5f5f5]'}`}><i className={`${t.icon} text-sm`}></i>{t.label}</button>; })}</div>
         </div>
 
-        {activeTab === 'content' && (
+        {activeTab === 'hero' && (
+          <SC title="Hero" icon="ri-image-2-line">
+            <TextF label="Eyebrow" value={c.hero_eyebrow} onChange={(v) => upd('hero_eyebrow', v)} />
+            <TextF label="Title" value={c.hero_title} onChange={(v) => upd('hero_title', v)} />
+            <TextAreaF label="Subtitle" value={c.hero_subtitle} onChange={(v) => upd('hero_subtitle', v)} />
+            <ImageUploadField label="Hero Background" value={c.hero_image} onChange={(v) => upd('hero_image', v)} pageKey={PAGE_KEY} fieldKey="hero_image" />
+          </SC>
+        )}
+
+        {activeTab === 'quick' && (
+          <SC title="Quick Links Strip" icon="ri-links-line">
+            <p className="text-xs text-stone-400">The four shortcut links below the hero.</p>
+            {c.quick_links.map((l, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-3 p-3 bg-stone-50 rounded-lg items-end">
+                <TextF label="Icon" value={l.icon} onChange={(v) => upd('quick_links', c.quick_links.map((x, j) => (j === i ? { ...x, icon: v } : x)))} />
+                <TextF label="Label" value={l.label} onChange={(v) => upd('quick_links', c.quick_links.map((x, j) => (j === i ? { ...x, label: v } : x)))} />
+                <TextF label="Link" value={l.link} onChange={(v) => upd('quick_links', c.quick_links.map((x, j) => (j === i ? { ...x, link: v } : x)))} />
+                <button onClick={() => upd('quick_links', c.quick_links.filter((_, j) => j !== i))} className="text-xs text-red-500 hover:underline cursor-pointer pb-2">Remove</button>
+              </div>
+            ))}
+            <button onClick={() => upd('quick_links', [...c.quick_links, { icon: 'ri-link', label: 'New Link', link: '/' }])} className="text-xs font-medium text-[#1B4332] hover:underline cursor-pointer">+ Add link</button>
+          </SC>
+        )}
+
+        {activeTab === 'form' && (
+          <SC title="Contact Form Copy" icon="ri-chat-3-line">
+            <TextF label="Eyebrow" value={c.form_eyebrow} onChange={(v) => upd('form_eyebrow', v)} />
+            <TextF label="Heading" value={c.form_heading} onChange={(v) => upd('form_heading', v)} />
+            <TextAreaF label="Intro Text" value={c.form_text} onChange={(v) => upd('form_text', v)} />
+            <TextF label="Footnote (under submit)" value={c.form_footnote} onChange={(v) => upd('form_footnote', v)} />
+          </SC>
+        )}
+
+        {activeTab === 'sidebar' && (
           <div className="space-y-5">
-            <SC title="Hero" icon="ri-image-2-line"><T label="Title" value={c.hero_title} onChange={(v) => upd('hero_title', v)} /><TA label="Subtitle" value={c.hero_subtitle} onChange={(v) => upd('hero_subtitle', v)} /><ImageUploadField label="Hero Image" value={c.hero_image} onChange={(v) => upd('hero_image', v)} pageKey={PAGE_KEY} fieldKey="hero_image" /></SC>
-            <SC title="Contact Details" icon="ri-contacts-book-2-line">
-              <T label="Address Line 1" value={c.address_line1} onChange={(v) => upd('address_line1', v)} />
-              <T label="Address Line 2" value={c.address_line2} onChange={(v) => upd('address_line2', v)} />
-              <T label="Phone" value={c.phone} onChange={(v) => upd('phone', v)} />
-              <T label="Email" value={c.email} onChange={(v) => upd('email', v)} />
-              <T label="WhatsApp" value={c.whatsapp} onChange={(v) => upd('whatsapp', v)} />
+            <SC title="Sidebar Header & Image" icon="ri-layout-right-2-line">
+              <TextF label="Eyebrow" value={c.sidebar_eyebrow} onChange={(v) => upd('sidebar_eyebrow', v)} />
+              <TextF label="Heading" value={c.sidebar_heading} onChange={(v) => upd('sidebar_heading', v)} />
+              <ImageUploadField label="Office Photo" value={c.office_image} onChange={(v) => upd('office_image', v)} pageKey={PAGE_KEY} fieldKey="office_image" />
+              <TextF label="Open Status Label" value={c.open_status_label} onChange={(v) => upd('open_status_label', v)} />
             </SC>
-            <SC title="Opening Hours" icon="ri-time-line">
-              <T label="Weekdays" value={c.office_hours_weekday} onChange={(v) => upd('office_hours_weekday', v)} />
-              <T label="Saturday" value={c.office_hours_saturday} onChange={(v) => upd('office_hours_saturday', v)} />
-              <T label="Sunday" value={c.office_hours_sunday} onChange={(v) => upd('office_hours_sunday', v)} />
+            <SC title="Sidebar Card Headings" icon="ri-layout-right-2-line">
+              <TextF label="Details Heading" value={c.details_heading} onChange={(v) => upd('details_heading', v)} />
+              <TextF label="Email Heading" value={c.email_heading} onChange={(v) => upd('email_heading', v)} />
+              <TextF label="Social Heading" value={c.social_heading} onChange={(v) => upd('social_heading', v)} />
             </SC>
-            <SC title="Map Settings" icon="ri-map-pin-line">
-              <T label="Google Maps Embed URL" value={c.map_embed_url} onChange={(v) => upd('map_embed_url', v)} />
-              <div className="grid grid-cols-2 gap-3"><T label="Latitude" value={c.map_lat} onChange={(v) => upd('map_lat', v)} /><T label="Longitude" value={c.map_lng} onChange={(v) => upd('map_lng', v)} /></div>
+            <SC title="Valuation CTA Card" icon="ri-bar-chart-2-line">
+              <TextF label="Title" value={c.valuation_title} onChange={(v) => upd('valuation_title', v)} />
+              <TextF label="Text" value={c.valuation_text} onChange={(v) => upd('valuation_text', v)} />
             </SC>
-            <SC title="Contact Form" icon="ri-chat-3-line">
-              <T label="Form Heading" value={c.form_heading} onChange={(v) => upd('form_heading', v)} />
-              <TA label="Form Subheading" value={c.form_subheading} onChange={(v) => upd('form_subheading', v)} />
-            </SC>
-            <SC title="CTA" icon="ri-megaphone-line"><T label="Title" value={c.cta_title} onChange={(v) => upd('cta_title', v)} /><TA label="Subtitle" value={c.cta_subtitle} onChange={(v) => upd('cta_subtitle', v)} /><T label="Button Text" value={c.cta_button_text} onChange={(v) => upd('cta_button_text', v)} /><T label="Button Link" value={c.cta_button_link} onChange={(v) => upd('cta_button_link', v)} /></SC>
           </div>
         )}
 
-        {activeTab === 'media' && <SC title="Page Images" icon="ri-image-2-line"><ImageUploadField label="Hero Image" value={c.hero_image} onChange={(v) => upd('hero_image', v)} pageKey={PAGE_KEY} fieldKey="hero_image" previewWidth="w-24" previewHeight="h-16" /></SC>}
+        {activeTab === 'hours' && (
+          <SC title="Office Hours" icon="ri-time-line">
+            <TextF label="Card Heading" value={c.hours_heading} onChange={(v) => upd('hours_heading', v)} />
+            {c.hours.map((h, i) => (
+              <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-3 p-3 bg-stone-50 rounded-lg items-end">
+                <TextF label="Day" value={h.day} onChange={(v) => upd('hours', c.hours.map((x, j) => (j === i ? { ...x, day: v } : x)))} />
+                <TextF label="Hours" value={h.hours} onChange={(v) => upd('hours', c.hours.map((x, j) => (j === i ? { ...x, hours: v } : x)))} />
+                <button onClick={() => upd('hours', c.hours.filter((_, j) => j !== i))} className="text-xs text-red-500 hover:underline cursor-pointer pb-2">Remove</button>
+              </div>
+            ))}
+            <button onClick={() => upd('hours', [...c.hours, { day: 'Day', hours: 'Closed' }])} className="text-xs font-medium text-[#1B4332] hover:underline cursor-pointer">+ Add day</button>
+          </SC>
+        )}
 
-        {activeTab === 'layout' && <SC title="Layout" icon="ri-layout-4-line"><div className="grid grid-cols-2 gap-4"><T label="Hero Height (px)" value={c.hero_height} onChange={(v) => upd('hero_height', v)} /><T label="Section Order" value={c.section_order} onChange={(v) => upd('section_order', v)} /></div></SC>}
+        {activeTab === 'office' && (
+          <SC title="Find Our Office" icon="ri-map-pin-line">
+            <TextF label="Eyebrow" value={c.find_eyebrow} onChange={(v) => upd('find_eyebrow', v)} />
+            <TextF label="Heading" value={c.find_heading} onChange={(v) => upd('find_heading', v)} />
+            <TextF label="Address Column Title" value={c.find_address_title} onChange={(v) => upd('find_address_title', v)} />
+            <TextF label="Getting Here Title" value={c.find_getting_title} onChange={(v) => upd('find_getting_title', v)} />
+            <TextAreaF label="Getting Here Text" value={c.find_getting_text} onChange={(v) => upd('find_getting_text', v)} />
+            <TextF label="Book a Meeting Title" value={c.find_book_title} onChange={(v) => upd('find_book_title', v)} />
+            <TextAreaF label="Book a Meeting Text" value={c.find_book_text} onChange={(v) => upd('find_book_text', v)} />
+            <TextF label="Book Button Label" value={c.find_book_button} onChange={(v) => upd('find_book_button', v)} />
+          </SC>
+        )}
 
-        {activeTab === 'styling' && <SC title="Styling" icon="ri-palette-line"><div className="space-y-1.5"><label className="text-sm font-medium text-stone-700 block">Accent Color</label><div className="flex items-center gap-2"><input type="color" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="w-10 h-10 border border-stone-200 rounded-md cursor-pointer shrink-0" /><input type="text" value={c.accent_color} onChange={(e) => upd('accent_color', e.target.value)} className="flex-1 border border-stone-200 rounded-md px-3 py-2 text-sm uppercase focus:outline-none focus:border-[#1B4332] bg-white" /></div></div></SC>}
-
-        {activeTab === 'seo' && <SC title="SEO" icon="ri-search-line"><T label="Meta Title" value={c.meta_title} onChange={(v) => upd('meta_title', v)} /><TA label="Meta Description" value={c.meta_description} onChange={(v) => upd('meta_description', v)} /><T label="Keywords" value={c.meta_keywords} onChange={(v) => upd('meta_keywords', v)} /></SC>}
-
-        {activeTab === 'publishing' && <SC title="Publishing" icon="ri-global-line"><div className="flex items-center justify-between p-4 border border-stone-200 rounded-lg"><div><p className="text-sm font-medium text-stone-700">Status</p><p className="text-xs text-stone-400">{c.is_published ? `Published ${c.published_at ? new Date(c.published_at).toLocaleDateString() : ''}` : 'Draft'}</p></div><button onClick={pub} className={`px-4 py-2 text-sm font-medium rounded-lg cursor-pointer whitespace-nowrap ${c.is_published ? 'bg-amber-100 text-amber-700' : 'bg-[#1B4332] text-white'}`}>{c.is_published ? 'Unpublish' : 'Publish'}</button></div></SC>}
-
-        {activeTab === 'preview' && <SC title="Preview" icon="ri-eye-line"><div className="border border-stone-200 rounded-lg overflow-hidden"><div className="h-32 bg-gradient-to-br from-[#1B4332] to-[#2d5a3f] flex flex-col items-center justify-center text-center px-4"><p className="text-lg font-bold text-white">{c.hero_title}</p><p className="text-xs text-white/70">{c.hero_subtitle}</p></div><div className="p-4 grid grid-cols-2 gap-3"><div className="space-y-1"><p className="text-xs font-semibold text-stone-700">Address</p><p className="text-xs text-stone-500">{c.address_line1}</p><p className="text-xs text-stone-500">{c.address_line2}</p></div><div className="space-y-1"><p className="text-xs font-semibold text-stone-700">Contact</p><p className="text-xs text-stone-500">{c.phone}</p><p className="text-xs text-stone-500">{c.email}</p></div></div></div></SC>}
+        {activeTab === 'preview' && (
+          <SC title="Live Preview" icon="ri-eye-line">
+            <div className="border border-stone-200 rounded-lg overflow-hidden">
+              <div className="relative h-36 bg-[#1B4332] flex flex-col items-center justify-center text-center px-4">
+                <p className="text-[10px] uppercase tracking-widest text-[#C9A84C] mb-1">{c.hero_eyebrow}</p>
+                <p className="text-xl font-bold text-white">{c.hero_title}</p>
+                <p className="text-xs text-white/70 mt-1 max-w-md">{c.hero_subtitle}</p>
+              </div>
+              <div className="p-4 grid grid-cols-2 gap-4">
+                <div><p className="text-xs font-bold text-[#1B4332] mb-1">{c.form_heading}</p><p className="text-[10px] text-stone-500">{c.form_text}</p></div>
+                <div><p className="text-xs font-bold text-[#1B4332] mb-1">{c.sidebar_heading}</p>{c.hours.slice(0, 3).map((h, i) => <p key={i} className="text-[10px] text-stone-500 flex justify-between"><span>{h.day}</span><span>{h.hours}</span></p>)}</div>
+              </div>
+            </div>
+          </SC>
+        )}
 
         <div className="sticky bottom-0 z-10"><div className="bg-white border border-stone-200 rounded-xl shadow-sm px-5 py-3 flex items-center justify-between gap-4"><p className="text-xs text-stone-400"><span className="font-medium text-stone-600">{Object.keys(c).length}</span> fields</p><button onClick={save} disabled={saving} className="px-5 py-2 text-sm font-medium bg-[#1B4332] text-white rounded-lg hover:bg-[#163828] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-50 flex items-center gap-2">{saving ? <><i className="ri-loader-4-line animate-spin"></i> Saving...</> : <><i className="ri-save-3-line"></i> Save Changes</>}</button></div></div>
       </div>

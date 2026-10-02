@@ -120,7 +120,7 @@ export default function PropertyCard({
           </span>
           <span className="truncate">{property.area}</span>
         </p>
-        <div className="flex items-center gap-2 sm:gap-4 text-[13px] sm:text-[15px] flex-wrap font-normal mb-2 text-[color:var(--card-specs-text)]">
+        <div className="flex items-center gap-2 sm:gap-4 text-[13px] sm:text-[15px] flex-wrap font-medium mb-2 text-[color:var(--card-specs-text)]">
           {getPropertySpecs(property.propertyType, {
             beds: property.beds,
             baths: property.baths,
@@ -148,7 +148,7 @@ export default function PropertyCard({
               {format(property.priceRaw, property.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
             </span>
             {property.priceRaw > 0 && (property.priceUnit ? (
-              <span className="inline-flex items-baseline gap-0.5 text-[#2D303D] text-[15px] font-normal">
+              <span className="inline-flex items-baseline gap-0.5 text-[#1A1C26] text-[15px] font-medium">
                 <span className="whitespace-nowrap">Pm</span>
                 <span className="relative inline-flex items-center cursor-help group text-[#636363] opacity-40">
                   <i className="ri-information-line text-[10px]"></i>
@@ -158,7 +158,7 @@ export default function PropertyCard({
                 </span>
               </span>
             ) : (
-              <span className="text-[15px] font-roboto font-normal text-[#2D303D] whitespace-nowrap">
+              <span className="text-[15px] font-roboto font-medium text-[#1A1C26] whitespace-nowrap">
                 Guide Price
               </span>
             ))}

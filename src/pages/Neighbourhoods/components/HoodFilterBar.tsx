@@ -13,6 +13,11 @@ interface HoodFilterBarProps {
   onFilterChange: (key: string) => void;
   resultCount: number;
   totalCount: number;
+  // Backend-editable labels (fall back to the published defaults).
+  searchPlaceholder?: string;
+  areasWord?: string;
+  heading?: string;
+  resetLabel?: string;
 }
 
 export default function HoodFilterBar({
@@ -23,6 +28,10 @@ export default function HoodFilterBar({
   onFilterChange,
   resultCount,
   totalCount,
+  searchPlaceholder = 'Looking for a neighbourhood…',
+  areasWord = 'Areas',
+  heading = 'Browse by vibe',
+  resetLabel = 'Reset',
 }: HoodFilterBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -60,7 +69,7 @@ export default function HoodFilterBar({
           <input
             ref={inputRef}
             type="text"
-            placeholder="Looking for a neighbourhood…"
+            placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-11 pr-11 py-3 rounded-md border border-[#1a1a1a]/15 bg-white text-[15px] font-roboto text-[#1a1a1a] placeholder:text-[#636363] focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors"
@@ -82,7 +91,7 @@ export default function HoodFilterBar({
         <div className="shrink-0 flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded-md">
           <span className="font-prata font-bold text-[20px] leading-none">{resultCount}</span>
           <span className="font-jost text-[13px] uppercase tracking-[0.08em]">
-            {resultCount === 1 ? 'Area' : 'Areas'}
+            {areasWord}
           </span>
         </div>
       </form>
@@ -91,7 +100,7 @@ export default function HoodFilterBar({
       <div className="p-4 md:p-5">
         <div className="flex items-center justify-between mb-3">
           <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.12em] font-semibold">
-            Browse by vibe
+            {heading}
           </p>
           {(activeFilter !== 'all' || searchQuery) && (
             <button
@@ -102,7 +111,7 @@ export default function HoodFilterBar({
               className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
             >
               <i className="ri-refresh-line"></i>
-              Reset
+              {resetLabel}
             </button>
           )}
         </div>

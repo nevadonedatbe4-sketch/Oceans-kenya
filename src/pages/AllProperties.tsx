@@ -15,6 +15,7 @@ import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolb
 import { supabase } from '@/lib/supabase';
 import { getPropertySpecs } from '@/lib/propertySpecs';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useListingsPageContent } from '@/hooks/useListingsPageContent';
 import { formatListingAge } from '@/lib/listingMeta';
 import { formatLocation, formatLocationParts, formatAreaName, smartTitleCase } from '@/lib/location';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
@@ -205,6 +206,7 @@ function mapRow(row: Record<string, unknown>): Property {
 
 export default function AllProperties() {
   const { format, currency, rates } = useCurrency();
+  const { content: LC } = useListingsPageContent();
   const { pathname, search } = useLocation();
   const currentPath = `${pathname}${search}`;
   // Deep-link support: /all-properties?area=Kileleshwa preselects that area's listings.
@@ -508,10 +510,10 @@ export default function AllProperties() {
   };
 
   const headingText = filterType === 'rent'
-    ? 'Luxury Homes for Rent'
+    ? LC.ap_heading_rent
     : filterType === 'sale'
-      ? 'Luxury Homes for Sale'
-      : 'Luxury Residential Homes';
+      ? LC.ap_heading_sale
+      : LC.ap_heading_all;
 
   return (
     <div className="min-h-screen bg-[#F5F5F5] flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px] pb-16 md:pb-0">
@@ -548,11 +550,11 @@ export default function AllProperties() {
                 {loading && listings.length === 0 ? (
                   <span className="inline-block w-16 h-4 bg-stone-200 rounded animate-pulse"></span>
                 ) : (
-                  <><span className="text-primary font-semibold">{totalCount}</span> listings</>
+                  <><span className="text-primary font-semibold">{totalCount}</span> {LC.ap_listings_label}</>
                 )}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-primary/50 font-roboto hidden sm:inline">Sort:</span>
+                <span className="text-xs text-primary/50 font-roboto hidden sm:inline">{LC.ap_sort_label}</span>
                 <div className="relative">
                   <select
                     value={sortBy}
@@ -611,12 +613,7 @@ export default function AllProperties() {
                       : 'bg-white text-primary border-primary/30 hover:border-primary hover:bg-primary/5'
                   }`}
                 >
-                  {type === 'all' ? (
-                    <>
-                      <span className="sm:hidden">All</span>
-                      <span className="max-sm:hidden">All Properties</span>
-                    </>
-                  ) : type === 'sale' ? 'For Sale' : 'For Rent'}
+                  {type === 'all' ? LC.ap_tab_all : type === 'sale' ? LC.ap_tab_sale : LC.ap_tab_rent}
                 </button>
               ))}
             </div>
@@ -716,6 +713,7 @@ export default function AllProperties() {
           </div>
 
           {/* Sidebar */}
+          {LC.ap_show_sidebar && (
           <div className="hidden lg:block lg:w-[22%] xl:w-[18%]">
             <div className="sticky top-[140px] space-y-3">
               {recentlyViewed.length > 0 && (
@@ -787,34 +785,29 @@ export default function AllProperties() {
 
               <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-3 py-2.5">
-                  <p className="text-[10px] font-roboto text-gray-400 uppercase tracking-wider mb-0.5">Search Filters Saved</p>
+                  <p className="text-[10px] font-roboto text-gray-400 uppercase tracking-wider mb-0.5">{LC.ap_saved_label}</p>
                   <p className="text-xs font-roboto text-gray-600 leading-relaxed">
-                    Your filters are remembered. Return anytime to pick up where you left off.
+                    {LC.ap_saved_text}
                   </p>
                 </div>
               </div>
 
               <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-3 py-2.5 border-b border-gray-100">
-                  <h3 className="text-xs font-roboto font-semibold text-primary">Quick Links</h3>
+                  <h3 className="text-xs font-roboto font-semibold text-primary">{LC.ap_quick_links_label}</h3>
                 </div>
                 <div className="px-3 py-2 space-y-1.5">
-                  <Link to="/buy" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
-                    <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-home-line text-[10px]"></i></span>
-                    Properties for Sale
-                  </Link>
-                  <Link to="/rent" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
-                    <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-key-line text-[10px]"></i></span>
-                    Properties for Rent
-                  </Link>
-                  <Link to="/new-developments" className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
-                    <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-building-4-line text-[10px]"></i></span>
-                    New Developments
-                  </Link>
+                  {LC.ap_quick_links.map((l, i) => (
+                    <Link key={`${l.link}-${i}`} to={l.link} className="flex items-center gap-2 text-xs font-roboto text-gray-600 hover:text-primary transition-colors cursor-pointer">
+                      <span className="w-3.5 h-3.5 flex items-center justify-center"><i className="ri-link text-[10px]"></i></span>
+                      {l.label}
+                    </Link>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
+          )}
         </div>
       </main>
 

@@ -9,6 +9,7 @@ import QuickViewModal from '@/components/feature/QuickViewModal';
 import PropertyCard, { type Property } from './PropertyCard';
 import Pagination from '@/components/feature/Pagination';
 import { parsePropertySearch, parseSearchClauses, buildClausesOr, clauseSummary, intentToChips, withoutIntent, buildIntentOr } from '@/lib/propertySearch';
+import type { HomePageContent } from '@/hooks/useHomePageContent';
 
 interface ListingRow {
   id: string;
@@ -127,9 +128,10 @@ type TabKey = (typeof TABS)[number]['key'];
 interface PropertiesSectionProps {
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  content: HomePageContent;
 }
 
-export default function PropertiesSection({ searchQuery = '', onSearchChange }: PropertiesSectionProps) {
+export default function PropertiesSection({ searchQuery = '', onSearchChange, content }: PropertiesSectionProps) {
   const [tab, setTab] = useState<TabKey>('all');
   const [page, setPage] = useState(0);
   const [cardsPerView, setCardsPerView] = useState(3);
@@ -299,12 +301,17 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange }: 
     }
   }, [maxPage]);
 
-  const headingText =
-    tab === 'rent'
-      ? 'Prime Homes for Rent'
-      : tab === 'sale'
-        ? 'Prime Homes for Sale'
-        : 'Prime Residential Homes You\u2019ll Love';
+  const headingText = tab === 'rent'
+    ? content.properties_title_rent
+    : tab === 'sale'
+      ? content.properties_title_sale
+      : content.properties_title_all;
+
+  const subheadingText = tab === 'rent'
+    ? content.properties_subtitle_rent
+    : tab === 'sale'
+      ? content.properties_subtitle_sale
+      : content.properties_subtitle_all;
 
   // Understood search criteria - same engine that drives Buy/Rent
   const parsedIntent = parsePropertySearch(searchQuery);
@@ -315,6 +322,8 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange }: 
   const removeChip = (key: 'transaction' | 'propertyType' | 'location' | 'bedrooms' | 'price' | 'furnished') => {
     if (onSearchChange) onSearchChange(withoutIntent(searchQuery, key));
   };
+
+  if (!content.properties_visible) return null;
 
   if (error) {
     return (
@@ -345,11 +354,7 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange }: 
               {headingText}
             </h2>
             <p className="mt-2 text-sm sm:text-base md:text-lg font-roboto font-bold uppercase tracking-[0.12em] sm:tracking-[0.16em] md:tracking-[0.2em] text-golden">
-              {tab === 'rent'
-                ? 'Homes to let in Nairobi'
-                : tab === 'sale'
-                  ? 'Homes for sale in Nairobi'
-                  : 'Residential homes for sale and rent in Nairobi'}
+              {subheadingText}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-1 md:mt-2">
@@ -375,7 +380,7 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange }: 
         {/* Understood search criteria - the engine shows what it parsed */}
         {hasSearch && (
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">You searched for</span>
+            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">{content.properties_search_label}</span>
             {isCompound ? (
               searchClauses.map((cl, i) => (
                 <span key={i} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
@@ -484,32 +489,34 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange }: 
         )}
 
         {/* Small valuation CTA - mid-page discoverability */}
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-2 border-primary/12 bg-white px-5 py-5 md:px-7 md:py-6">
-          <div className="flex items-center gap-4 text-center sm:text-left">
-            <span className="w-11 h-11 hidden sm:flex items-center justify-center rounded-full bg-primary/5 text-golden shrink-0">
-              <i className="ri-line-chart-line text-lg"></i>
-            </span>
-            <div>
-              <p className="font-roboto font-bold text-primary text-sm md:text-base">Wondering what your property is worth?</p>
-              <p className="text-stone-500 font-roboto text-xs md:text-sm mt-0.5">Get a free, no-obligation valuation from our team.</p>
+        {content.properties_valuation_visible && (
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-between gap-4 border-2 border-primary/12 bg-white px-5 py-5 md:px-7 md:py-6">
+            <div className="flex items-center gap-4 text-center sm:text-left">
+              <span className="w-11 h-11 hidden sm:flex items-center justify-center rounded-full bg-primary/5 text-golden shrink-0">
+                <i className="ri-line-chart-line text-lg"></i>
+              </span>
+              <div>
+                <p className="font-roboto font-bold text-primary text-sm md:text-base">{content.properties_valuation_title}</p>
+                <p className="text-stone-500 font-roboto text-xs md:text-sm mt-0.5">{content.properties_valuation_text}</p>
+              </div>
             </div>
+            <Link
+              to={content.properties_valuation_button_link || '/valuation'}
+              className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 border-2 border-[#002349] text-[#002349] px-6 py-2.5 text-xs md:text-sm font-roboto font-semibold tracking-wide uppercase hover:bg-[#002349] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+            >
+              {content.properties_valuation_button_label}
+              <i className="ri-arrow-right-line transition-transform duration-300 group-hover:translate-x-0.5"></i>
+            </Link>
           </div>
-          <Link
-            to="/valuation"
-            className="group inline-flex w-full sm:w-auto items-center justify-center gap-2 border-2 border-[#002349] text-[#002349] px-6 py-2.5 text-xs md:text-sm font-roboto font-semibold tracking-wide uppercase hover:bg-[#002349] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
-          >
-            Get a Free Valuation
-            <i className="ri-arrow-right-line transition-transform duration-300 group-hover:translate-x-0.5"></i>
-          </Link>
-        </div>
+        )}
 
         <div className="mt-10">
           <Link
-            to="/all-properties"
+            to={content.properties_view_more_link || '/all-properties'}
             className="group flex w-full items-center justify-center gap-2 bg-primary hover:bg-[#002349] text-white border-2 border-primary px-8 sm:px-12 py-2.5 text-sm sm:text-base font-roboto font-semibold transition-colors cursor-pointer whitespace-nowrap"
           >
             <span className="relative">
-              View More Properties
+              {content.properties_view_more_label}
               <span className="absolute left-0 -bottom-1.5 h-[2px] w-0 bg-current transition-all duration-300 group-hover:w-full"></span>
             </span>
             <i className="ri-arrow-right-line"></i>

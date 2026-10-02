@@ -20,6 +20,7 @@ import {
   toggleStar,
   bulkStar,
   bulkPublish,
+  bulkGuideCurated,
   togglePublish,
   setArchived,
   addToFolder,
@@ -715,6 +716,19 @@ export default function Amenities() {
     setBulkBusy(false);
   };
 
+  // Shortlist places in the live guides (or take them back out). This is the
+  // flag the micro-guides read, so it flips every shortlist at once.
+  const runBulkGuideCurated = async (val: boolean) => {
+    if (!selectedIds.length) return;
+    setBulkBusy(true);
+    const affected = await bulkGuideCurated(selectedIds, val);
+    if (affected > 0) {
+      setAmenities((prev) => prev.map((a) => (selectedIds.includes(a.id) ? { ...a, is_guide_curated: val } : a)));
+      addToast(`${affected} place(s) ${val ? 'added to guide' : 'removed from guide'}`, 'success');
+    }
+    setBulkBusy(false);
+  };
+
   const runBulkArchive = async (value: boolean) => {
     if (!selectedIds.length) return;
     setBulkBusy(true);
@@ -816,6 +830,10 @@ export default function Amenities() {
   const allChecked = filteredAmenities.length > 0 && selectedIds.length === filteredAmenities.length;
   const toggleAll = () => setSelectedIds(allChecked ? [] : filteredAmenities.map((a) => a.id));
   const toggleOne = (id: string) => setSelectedIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
+  // Whether every selected place is already shortlisted — drives the direction
+  // of the bulk "Guide curated" toggle.
+  const selectedAllCurated = selectedIds.length > 0
+    && selectedIds.every((id) => amenities.some((a) => a.id === id && a.is_guide_curated));
 
   // Folder membership is resolved in memory, so that view keeps a client-side
   // total; every other filter's total comes straight from the database.
@@ -1098,6 +1116,9 @@ export default function Amenities() {
             <button onClick={() => runBulkPublish(true)} disabled={bulkBusy} className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[15px] font-medium hover:bg-white/10 rounded-lg disabled:opacity-40 cursor-pointer whitespace-nowrap"><i className="ri-eye-line" /> Publish</button>
             <button onClick={() => runBulkPublish(false)} disabled={bulkBusy} className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[15px] font-medium hover:bg-white/10 rounded-lg disabled:opacity-40 cursor-pointer whitespace-nowrap"><i className="ri-eye-off-line" /> Unpublish</button>
             <button onClick={() => runBulkStar(true)} disabled={bulkBusy} className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[15px] font-medium hover:bg-white/10 rounded-lg disabled:opacity-40 cursor-pointer whitespace-nowrap"><i className="ri-star-fill" /> Star</button>
+            <button onClick={() => runBulkGuideCurated(!selectedAllCurated)} disabled={bulkBusy} className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-[15px] font-medium rounded-lg disabled:opacity-40 cursor-pointer whitespace-nowrap ${selectedAllCurated ? 'hover:bg-red-500/40' : 'hover:bg-white/10'}`} title={selectedAllCurated ? 'Remove the selected places from every live guide' : 'Shortlist the selected places in the live guides'}>
+              <i className={selectedAllCurated ? 'ri-bookmark-3-fill' : 'ri-bookmark-3-line'} /> {selectedAllCurated ? 'Uncurate' : 'Guide curated'}
+            </button>
             <button onClick={() => runBulkArchive(true)} disabled={bulkBusy} className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[15px] font-medium hover:bg-white/10 rounded-lg disabled:opacity-40 cursor-pointer whitespace-nowrap"><i className="ri-inbox-archive-line" /> Archive</button>
             <div className="relative">
               <button onClick={() => setBulkMoreOpen((o) => !o)} className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[15px] font-medium hover:bg-white/10 rounded-lg cursor-pointer whitespace-nowrap">
@@ -1111,6 +1132,8 @@ export default function Amenities() {
                     <button onClick={() => { setBulkMoreOpen(false); handleBulkFlag(); }} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] hover:bg-[#f7f8fa] cursor-pointer whitespace-nowrap text-left"><i className="ri-flag-fill" /> Flag</button>
                     <button onClick={() => { setBulkMoreOpen(false); openExport('selected'); }} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] hover:bg-[#f7f8fa] cursor-pointer whitespace-nowrap text-left"><i className="ri-download-2-line" /> Export</button>
                     <button onClick={() => { setBulkMoreOpen(false); runBulkStar(false); }} disabled={bulkBusy} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] hover:bg-[#f7f8fa] disabled:opacity-40 cursor-pointer whitespace-nowrap text-left"><i className="ri-star-line" /> Remove star</button>
+                    <button onClick={() => { setBulkMoreOpen(false); runBulkGuideCurated(true); }} disabled={bulkBusy} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] hover:bg-[#f7f8fa] disabled:opacity-40 cursor-pointer whitespace-nowrap text-left"><i className="ri-bookmark-3-line" /> Shortlist in guide</button>
+                    <button onClick={() => { setBulkMoreOpen(false); runBulkGuideCurated(false); }} disabled={bulkBusy} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] hover:bg-[#f7f8fa] disabled:opacity-40 cursor-pointer whitespace-nowrap text-left"><i className="ri-bookmark-3-fill" /> Remove from guide</button>
                     <button onClick={() => { setBulkMoreOpen(false); runBulkArchive(false); }} disabled={bulkBusy} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] hover:bg-[#f7f8fa] disabled:opacity-40 cursor-pointer whitespace-nowrap text-left"><i className="ri-inbox-unarchive-line" /> Unarchive</button>
                     <div className="my-1 border-t border-[#e8edf2]" />
                     <button onClick={() => { setBulkMoreOpen(false); setBulkConfirm(true); }} disabled={bulkBusy} className="w-full flex items-center gap-2 px-3 py-2 text-[15px] text-red-600 hover:bg-red-50 disabled:opacity-40 cursor-pointer whitespace-nowrap text-left"><i className="ri-delete-bin-line" /> Move to Recycle Bin</button>
@@ -1285,6 +1308,11 @@ export default function Amenities() {
                                   <span className="md:hidden">{compactCount(a.view_count || 0)} views</span>
                                   <span className="hidden md:inline">{(a.view_count || 0).toLocaleString()} views</span>
                                 </span>
+                                {a.is_guide_curated && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-[#eef7f5] text-[#0d5959] text-[11px] sm:text-[12px] font-roboto font-semibold whitespace-nowrap" title="Shortlisted in a live guide">
+                                    <i className="ri-bookmark-3-fill" /> In a guide
+                                  </span>
+                                )}
                                 {a.is_flagged && <span className="inline-flex items-center gap-0.5 text-[12px] sm:text-[15px] font-semibold text-[#c2410c] whitespace-nowrap"><i className="ri-flag-fill" /> {a.flag_reason || 'Flagged'}</span>}
                               </div>
                             </div>

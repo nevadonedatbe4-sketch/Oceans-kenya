@@ -564,14 +564,23 @@ ever blocked from a valid punch-in just because a location *suggestion* was empt
      **Nominatim / OpenStreetMap (keyless)** → nearest known area (≤60 km only) → raw coords;
   3. manual search / selection (Nominatim search + the built-in area registry) with a
      "use what I typed" option.
-- **New `PunchInLocationModal.tsx`** — opened ONLY by pressing **Punch In**:
-  *Detecting location…* → **Location detected** (label + accuracy + source + map preview) →
-  **[Confirm & Punch In]**; on failure it shows *"We couldn't automatically detect your
-  location."* with **[Allow location access]** and **[Search manually]** instead of a blocking
-  error. An empty suggestion list is treated as *no suggestion*, never *no location*.
-- **No more premature failure** — the old hard-fail (`"Location is required to punch in.
-  Please allow location access."`) is gone. Punch-in only blocks if there is genuinely no
-  usable location after device + geocoder + manual have all been attempted.
+- **`PunchInLocationModal.tsx`** — opened ONLY by pressing **Punch In**:
+  *Detecting location…* → *Checking location…* → **Location detected** (label + accuracy +
+  source + map preview) → **[Confirm & Punch In]**. A low-accuracy fix (>500 m) warns with a
+  **Try again** but stays confirmable.
+- **Distinct, recoverable failure states (no generic blob).** Every failure maps to a specific,
+  actionable state with its own icon/copy and a **Try again** / **Search manually** path:
+  permission blocked, permission required, unsupported browser, insecure context, GPS timeout,
+  service temporarily unavailable. A **blocked** state shows the exact steps to re-enable
+  location (lock icon → Allow → reload; iOS Settings path) because browsers will not re-prompt
+  after a remembered "Block". **Try again re-runs the same detector** (and re-prompts when the
+  permission is back to "prompt").
+- **Location is REQUIRED — no office stand-in.** The "Punch in anyway / saved office location"
+  escape hatch was removed. A punch is only offered with valid coordinates (device fix or a
+  manually chosen place); the human-readable label is enrichment only and never a requirement.
+  Enforced on the client (`punchIn` returns `LOCATION_REQUIRED`) AND on the server
+  (`og-checkin` rejects a coordinate-less `punch_in` with `LOCATION_REQUIRED`; `fallbackOfficeLocation`
+  is deleted). An empty suggestion list is treated as *no suggestion*, never *no location*.
 - **Punch-out never prompts** — it only attaches coordinates when the permission is ALREADY
   granted, so ending a shift can't surprise anyone with a location dialog.
 - **Consistent storage** — new columns store the resolved address and the source:
@@ -624,3 +633,150 @@ feeds the neighbourhood cluster, and give mall-focused readers a live, mapped pa
   (listings within 5 km, sorted by distance, each linking to the property plus a browse fallback).
 - `BlogDetail` renders `<MallMapExplorer />` at the end of the article body, gated to the
   `best-shopping-malls-nairobi-2026` slug so no other post is affected.
+
+## 16. Typography Pipeline + Neighbourhood Image Fallback (DONE)
+
+### Root cause 1 — Typography settings had NO frontend consumer
+`typography_settings` was written by Management → Typography / Global Design but **no
+public code read it**, so every font/size/weight/transform change was a no-op.
+- New `src/hooks/useTypography.ts` — reads `typography_settings` and applies the values
+  to the root CSS variables the stylesheet actually consumes (same pattern as
+  `useBrandTheme`). Wired into `App.tsx` (`ThemedApp`), fails silently to the defaults.
+- `src/index.css` — the base layer now consumes the variables instead of hardcoding:
+  body (`--font-body`/`--body-*`), `h1,h2` (`--font-display`), `h3–h6` (`--font-heading`),
+  buttons (`--button-*`), and new scoped rules for `.site-nav`, `.site-footer`,
+  `.site-breadcrumb`, `.card-title` (descendant specificity beats utility classes, no `!important`).
+- `tailwind.config.ts` — `font-prata` / `font-roboto` / `font-jost` / `font-title` now map
+  to the same variables, so a font-family change cascades across every page.
+- `Header` / `Footer` / `PageBreadcrumbTrail` carry the `site-nav` / `site-footer` /
+  `site-breadcrumb` hooks; shared listing card titles carry `card-title`.
+- Editing any typography control in Management now visibly changes the public site.
+
+### Root cause 2 — "Updated the Langata image, page still empty"
+`neighbourhoods.hero_image` was empty even though a real photo existed in
+`neighbourhood_images` (uploaded via the admin Gallery tab). The frontend only reads
+`hero_image`, so the image never appeared.
+- `useNeighbourhoods` + `NeighbourhoodDetail` now fall back to the first gallery image
+  when `hero_image` is empty (the table has a public read policy, so anonymous visitors
+  resolve it too). Cards/detail use `EntityImage` so nothing renders a broken frame.
+- `NeighbourhoodEdit` now promotes the first gallery upload to `hero_image` when none is
+  set, so the field the frontend reads stays in sync going forward.
+
+## 17. Editorial Guides on Real Data — "Where to Eat in Nairobi" flagship (ACTIVE)
+
+Goal: blog guides must be genuinely useful and connected to real, verifiable entities —
+not generic SEO prose with auto-injected properties. The `amenities` directory is the one
+source of truth; the template renders presentation, the database owns content.
+
+### Decision (confirmed with user)
+- Clean + enrich the EXISTING `amenities` dining records (one source of truth) rather than
+  building a parallel venue table.
+- Curated shortlist of ~40-60 key venues enriched with a verified cuisine, an editorial
+  "why go" description, occasion tags, price level, source + last-verified date.
+
+### Data model
+- `amenities`: added `cuisine`, `best_for` (text[]), `source`, `source_url`, `last_verified`,
+  `is_guide_curated`. `blog_posts`: added `article_type` (`editorial` / `dining_guide` /
+  `area_guide` / `lifestyle`).
+- Hidden 28 scraped "review-snippet" junk dining rows + 6 duplicates (`is_published = false`,
+  reversible). 57 venues enriched across Karen, Westlands, Kilimani, Lavington, Kileleshwa,
+  Parklands, Gigiri; Talisman / Cultiva / Five Senses inserted (were missing).
+
+### Template (BlogDetail, gated to `article_type = 'dining_guide'`)
+- `useGuideVenues` (shared public-visibility rule) + `guideVenues.ts` (occasions, area/occasion
+  grouping). Components: `VenueCard`, `DiningQuickGuide`, `VenuesByArea`, `VenuesByOccasion`,
+  `GuideMethodNote`, `ContextualProperties`.
+- Sections render ONLY when real data exists — no empty sections, no `0`/null/placeholder values.
+- Property recommendations are contextual: `ContextualProperties` draws listings only from the
+  guide's actual areas (multi-area search), with an editorial heading.
+
+### Rules
+- Guide areas resolve from `related_neighbourhoods` independently of a neighbourhood page's
+  publish state, so a real area's venues are never silently dropped.
+- Everything (title, body, venues, tags, sources) stays editable from the CMS
+  (Blog editor `article_type`; Amenity editor "Editorial Guide" card).
+
+### Remaining — next stages
+- [ ] Roll the same template to other blogs; add per-guide CMS section ordering/visibility.
+- [ ] Enrich the rest of the dining directory (currently ~57 of ~225 curated).
+
+## 18. Micro-Guide Content Engine — "Best of [Area]" at scale (ACTIVE)
+
+Goal: a genuinely scalable content system. One reusable engine turns a tiny,
+CMS-editable config on any blog post into a real, data-backed "Best Cafés in
+Kilimani" / "Best Restaurants in Nairobi" / "Best Gyms in Lavington" page -
+rendered entirely from the SAME curated `amenities` records the directory uses.
+No hand-built pages per article, no filler, no unrelated property blocks.
+
+### Content = traffic → intent → conversion (the funnel)
+Each micro-guide ends with a **contextual** property section drawn only from the
+guide's own areas ("Where to Stay in Kilimani"), plus the related-neighbourhood
+and area-guide links - so authority content feeds the listings, not the other
+way round.
+
+### The engine
+- **`blog_posts` config columns** (CMS-editable, never hardcoded):
+  - `guide_area` — the neighbourhood the guide is about (`null` = Nairobi-wide)
+  - `guide_categories` — directory categories to draw from (e.g. `dining`, `fitness`)
+  - `guide_match` — subcategory keys, `best_for` tags OR verified `cuisine` words
+    that qualify a place (e.g. `cafe,coffee` · `gym,fitness_studio` · `italian,pizza,pasta`)
+- **`src/lib/microGuides.ts`** — `resolveMicroGuideConfig()` + `filterMicroGuidePlaces()`
+  (category + area + term match) + `areasPresentInPlaces()`.
+- **`src/hooks/useCuratedPlaces.ts`** — the one live source: every published,
+  guide-curated `amenities` record across all categories, via the shared
+  `applyPublicAmenityVisibility` rule (drafts / recycled / archived can never
+  leak; live realtime refresh as the directory changes).
+- **`src/pages/blog/components/MicroGuidePlaces.tsx`** — the picks grid, grouped
+  by area for city-wide guides. Reuses `PlaceCard`, `GuideMethodNote`,
+  `ContextualProperties`.
+- **`BlogDetail`** — `article_type = 'micro_guide'` renders the picks module +
+  sources note + contextual property block, with its own hero eyebrow and TOC.
+
+### Rules upheld
+- Sections render ONLY when real records exist — never an empty section.
+- A property block is drawn only from the guide's own areas.
+- Everything stays editable from the CMS (new **Micro-guide** type + config
+  panel in the Blog editor); editing a venue updates every guide live.
+
+### Delivered
+- Data curated: 16 real cafés flagged/organised (Karen, Kileleshwa, Kilimani,
+  Riverside, Westlands, Spring Valley); 2 Gigiri dining records; 26 real gyms /
+  fitness studios across Lavington, Westlands, Karen, Kileleshwa and Gigiri.
+- 8 micro-guides seeded (each verified to resolve real places):
+  Best Restaurants in Nairobi · Best Cafés in Nairobi · Best Restaurants in
+  Kilimani · Best Cafés in Kilimani · Best Cafés in Westlands · Where to Eat in
+  Karen · Best Gyms & Fitness in Lavington · Best Dining in Gigiri.
+- **Coworking guide wired** — "Best Coworking Spaces in Nairobi 2026" converted
+  to a live micro-guide (`business` / `coworking`); 20 genuine spaces curated
+  (all with images) across 10 areas; junk miscategorised as coworking left uncurated.
+- **Editorial batch wired** (the "last batch" list articles switched from plain
+  prose to the live engine, each verified to resolve real, image-backed places):
+  - **Best Gyms in Nairobi 2026** → `fitness` / `gym,sports_club,fitness_studio,yoga_pilates` — 26 places, 5 areas.
+  - **Best Parks in Nairobi 2026** → `recreation` / `park,botanical_garden,garden,conservation_area` — 12 places (all with images), 7 areas.
+  - **Best Bars in Nairobi 2026** → `night_life` / `night_club,live_music,bar,lounge` — 24 places (all with images), 11 areas.
+- Data curated for bars: 16 genuine bar/lounge/grill records enriched and flagged
+  as guide-curated (Alloy, Gipsy Bar, Hero Rooftop, Kiza, Mercury, Sky Bistro,
+  Tapas Bar, BND Kileleshwa, Tipsy, The Wine & Bottle, Chocolate City, Kengeles,
+  Kettlehouse, Gigiri Social Club, Relax Lounge Muthiga, Triple Two Loresho);
+  casinos / clubs left uncurated so they cannot leak into the guide.
+- **Cuisine-led guides wired** — the engine (`matchesTerms`) now also matches the verified
+  `cuisine` column (free-text like "Italian / Continental", "Brazilian Steakhouse"),
+  tokenised on non-alphanumerics, so cuisine shortlists are driven by real data instead of
+  guesswork. Curated + tagged the genuine venues and switched five editorial posts to the
+  live engine:
+  - **Best Italian Restaurants in Nairobi 2026** → `dining` / `italian,pizza,pasta` — 3 places (all with images).
+  - **Best Indian Restaurants in Nairobi 2026** → `dining` / `indian,tandoor,curry` — 3 places.
+  - **Best Steakhouses in Nairobi 2026** → `dining` / `steakhouse,churrascaria` — 7 places.
+  - **Best Seafood Restaurants in Nairobi 2026** → `dining` / `seafood,oyster,coastal` — 6 places.
+  - **Best Rooftop Restaurants in Nairobi 2026** → `dining,night_life` / `rooftop` — 3 places.
+- **Places console — guide shortlisting** — new bulk **Guide curated** toggle in the Places
+  toolbar (`bulkGuideCurated` / `setGuideCurated` in `src/lib/directory.ts`; button + More-menu
+  actions in `Amenities.tsx`) so many places can be shortlisted (or removed) at once, plus an
+  **"In a guide"** badge on every row that is already `is_guide_curated`, so guide membership
+  is visible at a glance.
+
+### Remaining — next stages
+- [ ] Curate more cafés to thicken the thinner area guides (Westlands/Kilimani).
+- [ ] Thicken the thinner cuisine guides (Italian 3, Indian 3, Rooftop 3) as more venues are listed.
+- [ ] Add a "featured venues" up-weight and per-guide section ordering in the CMS.
+- [ ] Add these micro-guides to the sitemap + internal-link them from area guides.

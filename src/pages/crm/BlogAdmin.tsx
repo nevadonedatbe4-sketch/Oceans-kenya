@@ -6,6 +6,8 @@ import CRMPagination from '@/pages/crm/components/CRMPagination';
 import ImageUploadField from '@/pages/crm/components/ImageUploadField';
 import RowMoreMenu, { type RowMenuItem } from '@/pages/crm/components/RowMoreMenu';
 import { smartTitleCase } from '@/lib/location';
+import EcoBlocksEditor from '@/pages/crm/components/EcoBlocksEditor';
+import type { EcoBlock } from '@/lib/ecosystemBlocks';
 import {
   FileText,
   Plus,
@@ -28,6 +30,11 @@ interface BlogPost {
   seo_title: string | null;
   seo_description: string | null;
   og_image: string | null;
+  article_type: string | null;
+  guide_area: string | null;
+  guide_categories: string[] | null;
+  guide_match: string[] | null;
+  eco_blocks: EcoBlock[] | null;
   status: string;
   published_at: string | null;
   created_at: string;
@@ -41,6 +48,13 @@ const TABS = [
 ] as const;
 
 const perPage = 10;
+
+/** Split a comma-separated field into a clean token list. */
+const toList = (v: string): string[] =>
+  v
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 export default function BlogAdmin() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -124,6 +138,7 @@ export default function BlogAdmin() {
     e.preventDefault();
     if (!editPost) return;
     setSaving(true);
+    const isMicro = editPost.article_type === 'micro_guide';
     const payload = {
       title: editPost.title,
       slug: editPost.slug,
@@ -135,6 +150,11 @@ export default function BlogAdmin() {
       seo_title: editPost.seo_title,
       seo_description: editPost.seo_description,
       og_image: editPost.og_image,
+      article_type: editPost.article_type || 'editorial',
+      guide_area: isMicro ? (editPost.guide_area || null) : null,
+      guide_categories: isMicro ? (editPost.guide_categories || []) : null,
+      guide_match: isMicro ? (editPost.guide_match || []) : null,
+      eco_blocks: editPost.eco_blocks || [],
       status: editPost.status,
       published_at: editPost.status === 'published' ? (editPost.published_at || new Date().toISOString()) : null,
     };
@@ -187,6 +207,11 @@ export default function BlogAdmin() {
       seo_title: '',
       seo_description: '',
       og_image: '',
+      article_type: 'editorial',
+      guide_area: null,
+      guide_categories: [],
+      guide_match: [],
+      eco_blocks: [],
       status: 'draft',
       published_at: null,
       created_at: '',
@@ -466,6 +491,77 @@ export default function BlogAdmin() {
                   </select>
                 </div>
               </div>
+              <div>
+                <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Article Type</label>
+                <select
+                  value={editPost.article_type || 'editorial'}
+                  onChange={(e) => setEditPost({ ...editPost, article_type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary bg-white"
+                >
+                  <option value="editorial">Editorial article</option>
+                  <option value="micro_guide">Micro-guide (Best of [Area] - live picks)</option>
+                  <option value="dining_guide">Dining guide (live venues &amp; occasions)</option>
+                  <option value="things_to_do">Things to do (live places by theme &amp; area)</option>
+                  <option value="attraction">Attraction guide (live places &amp; area)</option>
+                  <option value="area_guide">Area guide</option>
+                  <option value="lifestyle">Lifestyle</option>
+                </select>
+                <p className="text-[13px] text-gray-400 font-roboto mt-1">
+                  A <strong>Micro-guide</strong> renders the verified places matching the config below (e.g. “Best Cafés in Kilimani”); a <strong>Dining guide</strong> renders verified restaurants by area and occasion; a <strong>Things to do</strong> or <strong>Attraction</strong> article renders curated places by theme and area.
+                </p>
+              </div>
+              {editPost.article_type === 'micro_guide' && (
+                <div className="rounded-md border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+                  <p className="text-[12px] font-roboto font-semibold text-amber-800 uppercase tracking-wider">
+                    Micro-guide configuration
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[13px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Area (blank = Nairobi-wide)
+                      </label>
+                      <input
+                        type="text"
+                        value={editPost.guide_area || ''}
+                        onChange={(e) => setEditPost({ ...editPost, guide_area: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary bg-white"
+                        placeholder="e.g. Kilimani"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[13px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Categories (comma-separated)
+                      </label>
+                      <input
+                        type="text"
+                        value={(editPost.guide_categories || []).join(', ')}
+                        onChange={(e) => setEditPost({ ...editPost, guide_categories: toList(e.target.value) })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary bg-white"
+                        placeholder="dining"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[13px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Match - subcategory keys or tags (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={(editPost.guide_match || []).join(', ')}
+                      onChange={(e) => setEditPost({ ...editPost, guide_match: toList(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-md text-[15px] font-roboto font-medium focus:outline-none focus:border-primary bg-white"
+                      placeholder="cafe, coffee"
+                    />
+                    <p className="text-[12px] text-amber-700/80 font-roboto mt-1">
+                      A place appears when its category is listed, it sits in the area (if set), and its subcategory key or one of its “best for” tags matches a term here.
+                    </p>
+                  </div>
+                </div>
+              )}
+              <EcoBlocksEditor
+                value={editPost.eco_blocks || []}
+                onChange={(blocks) => setEditPost({ ...editPost, eco_blocks: blocks })}
+              />
               <div>
                 <label className="block text-[15px] font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
                   Featured Image

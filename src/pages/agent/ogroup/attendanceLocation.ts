@@ -198,11 +198,26 @@ export interface DevicePositionResult {
   permission: GeoPermission;
 }
 
+/** Small non-blocking pause between retry attempts. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const PERMANENT_DENIED: GeoFailure = {
+  code: 'denied',
+  message: 'Location is blocked for this site in your browser settings.',
+};
+
 /**
- * Resolve the device position robustly:
- *   - high-accuracy attempt first, then a coarse / network / cached fallback,
- *     so a slow GPS on a desktop or indoors does not dead-end the punch-in;
- *   - a denied / unsupported permission fails fast (retrying cannot help);
+ * Resolve the device position robustly — the ONE detection path for everyone.
+ *
+ *   - the FIRST `getCurrentPosition` call is what triggers the browser
+ *     permission prompt, so a user who has not yet decided gets asked here;
+ *   - an attempt LADDER (accurate → coarse/network → long coarse) makes a slow
+ *     GPS or a transient failure self-heal WITHOUT the user seeing an error;
+ *   - a hard browser-level `denied` fails fast (retrying cannot re-prompt);
+ *   - a permission still reporting `prompt` is NEVER treated as blocked — the
+ *     user merely hasn't allowed yet, so we re-request rather than give up;
  *   - never throws, never hangs.
  */
 export async function getDevicePosition(opts?: { quick?: boolean }): Promise<DevicePositionResult> {
@@ -212,29 +227,58 @@ export async function getDevicePosition(opts?: { quick?: boolean }): Promise<Dev
   const insecure = typeof window !== 'undefined' && window.isSecureContext === false;
   const permission = await queryGeolocationPermission();
 
+  // Permanently blocked at the browser level — retrying cannot re-prompt. We
+  // still make a single quiet attempt in case the OS-level state changed since.
+  if (permission === 'denied') {
+    const once = await getOnce({ enableHighAccuracy: false, timeout: 6000, maximumAge: 0 });
+    if (once.coords) return { coords: once.coords, error: null, permission: 'denied' };
+    const error: GeoFailure = insecure ? { code: 'insecure_context', message: 'Location needs a secure (https) connection.' } : PERMANENT_DENIED;
+    return { coords: null, error, permission: 'denied' };
+  }
+  if (permission === 'unsupported') {
+    return { coords: null, error: { code: 'unsupported', message: 'This browser does not support location.' }, permission: 'unsupported' };
+  }
+
   if (opts?.quick === true) {
     const quick = await getOnce({ enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
     return { coords: quick.coords, error: quick.error, permission };
   }
 
-  // Attempt 1 — accurate.
-  const first = await getOnce({ enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
-  if (first.coords) return { coords: first.coords, error: null, permission };
+  // Attempt ladder — transient failures (timeout / unavailable / unknown) retry
+  // automatically so the vast majority of users land on the clean geo card
+  // without ever seeing a failure screen.
+  const ladder: GeoOptions[] = [
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 },
+  ];
 
-  // Fail fast: a denied or unsupported permission will not improve by retrying.
-  if (first.error?.code === 'denied' || first.error?.code === 'unsupported') {
-    const error: GeoFailure = insecure && first.error.code === 'denied'
-      ? { code: 'insecure_context', message: 'Location needs a secure (https) connection.' }
-      : first.error;
-    return { coords: null, error, permission: error.code === 'unsupported' ? 'unsupported' : 'denied' };
+  let lastError: GeoFailure | null = null;
+  for (let i = 0; i < ladder.length; i += 1) {
+    const res = await getOnce(ladder[i]);
+    if (res.coords) return { coords: res.coords, error: null, permission };
+    lastError = res.error;
+
+    if (res.error?.code === 'unsupported') {
+      return { coords: null, error: res.error, permission: 'unsupported' };
+    }
+    if (res.error?.code === 'denied') {
+      // Re-check the REAL browser state: still `prompt` means the user simply
+      // dismissed/hasn't decided — NOT permanently blocked, so we can re-ask.
+      const live = await queryGeolocationPermission();
+      if (live === 'denied') {
+        const error: GeoFailure = insecure ? { code: 'insecure_context', message: 'Location needs a secure (https) connection.' } : PERMANENT_DENIED;
+        return { coords: null, error, permission: 'denied' };
+      }
+      // Permission is only `prompt` → surface a re-requestable "permission
+      // required" state (never the permanent "blocked" one).
+      return { coords: null, error: { code: 'timeout', message: 'Location permission has not been granted yet.' }, permission: 'prompt' };
+    }
+
+    if (i < ladder.length - 1) await delay(900);
   }
 
-  // Attempt 2 — coarse / network / cached. This is the fix for "I allowed the
-  // permission but a high-accuracy fix never arrived in time".
-  const second = await getOnce({ enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 });
-  if (second.coords) return { coords: second.coords, error: null, permission };
-
-  const error = second.error ?? first.error ?? { code: 'unavailable', message: 'Your location could not be determined.' };
+  const error = lastError ?? { code: 'unavailable', message: 'Your location could not be determined.' };
   return { coords: null, error, permission };
 }
 
@@ -267,10 +311,22 @@ function nearestAreaLabel(lat: number, lng: number): string | null {
   return null;
 }
 
+/** fetch() that always resolves in bounded time — a hung geocoder must never
+ *  freeze the "Checking location…" step. */
+async function fetchWithTimeout(url: string, opts: { headers?: Record<string, string> } = {}, ms = 6000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function googleReverse(lat: number, lng: number): Promise<string | null> {
   if (!GOOGLE_KEY) return null;
   try {
-    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_KEY}`);
+    const res = await fetchWithTimeout(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${GOOGLE_KEY}`);
     if (!res.ok) return null;
     const data = await res.json();
     if (data?.status === 'OK' && data.results?.[0]?.formatted_address) {
@@ -282,9 +338,10 @@ async function googleReverse(lat: number, lng: number): Promise<string | null> {
 
 async function nominatimReverse(lat: number, lng: number): Promise<string | null> {
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=14&addressdetails=1`,
       { headers: { Accept: 'application/json' } },
+      6000,
     );
     if (!res.ok) return null;
     const data = await res.json();
@@ -374,9 +431,10 @@ export async function searchLocations(query: string): Promise<PunchLocation[]> {
 
   let osm: PunchLocation[] = [];
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=5&addressdetails=1`,
       { headers: { Accept: 'application/json' } },
+      6000,
     );
     if (res.ok) {
       const data = await res.json();

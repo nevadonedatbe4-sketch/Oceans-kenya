@@ -23,9 +23,38 @@
      Defaults to #001731 when no override is set. */
   --color-crm: var(--color-primary);
   --color-crm-navy: var(--color-primary);
-  /* CRM typography tokens */
-  --font-display: 'Space Grotesk', sans-serif;
-  --font-body: 'Inter', sans-serif;
+  /* ------------------------------------------------------------
+     PUBLIC SITE TYPOGRAPHY — single source of truth.
+     Defaults below match the site's built-in look. useTypography()
+     overrides them at runtime from typography_settings (Management →
+     Typography / Global Design), so those controls actually drive the
+     rendered DOM instead of silently doing nothing.
+     ------------------------------------------------------------ */
+  --font-display: 'Prata', serif;
+  --font-heading: 'Jost', sans-serif;
+  --font-body: 'Roboto', sans-serif;
+  --hero-font-size: 48px;
+  --hero-font-weight: 400;
+  --hero-line-height: 1.2;
+  --hero-letter-spacing: 0em;
+  --body-font-size: 16px;
+  --body-font-weight: 400;
+  --body-line-height: 1.6;
+  --body-letter-spacing: 0em;
+  --nav-font-size: 18px;
+  --nav-font-weight: 500;
+  --nav-letter-spacing: 0.02em;
+  --nav-text-transform: none;
+  --card-title-font-size: 16px;
+  --card-title-font-weight: 500;
+  --breadcrumb-font-size: 13px;
+  --breadcrumb-font-weight: 400;
+  --button-font-size: 14px;
+  --button-font-weight: 500;
+  --button-letter-spacing: 0.02em;
+  --button-text-transform: none;
+  --footer-font-size: 15px;
+  --footer-font-weight: 400;
   /* Luxury digital clock face (punch-clock card) */
   --font-digital: 'Orbitron', 'Space Grotesk', sans-serif;
 
@@ -138,30 +167,30 @@
   }
   body {
     color: #2D303D;
-    font-family: 'Roboto', sans-serif;
-    font-weight: 400;
-    font-size: 16px;
-    line-height: 1.6;
-    letter-spacing: 0;
+    font-family: var(--font-body, 'Roboto', sans-serif);
+    font-weight: var(--body-font-weight, 400);
+    font-size: var(--body-font-size, 16px);
+    line-height: var(--body-line-height, 1.6);
+    letter-spacing: var(--body-letter-spacing, 0);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   h1, h2 {
-    font-family: 'Prata', serif;
+    font-family: var(--font-display, 'Prata', serif);
     font-weight: 400;
     font-size: 16px;
     line-height: 1.15;
     letter-spacing: -0.01em;
   }
   h3, h4 {
-    font-family: 'Jost', sans-serif;
+    font-family: var(--font-heading, 'Jost', sans-serif);
     font-weight: 500;
     font-size: 16px;
     line-height: 1.25;
     letter-spacing: -0.01em;
   }
   h5, h6 {
-    font-family: 'Jost', sans-serif;
+    font-family: var(--font-heading, 'Jost', sans-serif);
     font-weight: 400;
     font-size: 16px;
     line-height: 1.3;
@@ -648,11 +677,17 @@ body :is(
   line-height: 1.25rem;
 }
 
-/* Public site button text baseline — 14px (minimum readable size) */
+/* Public site button text baseline — driven by Management → Typography
+   (Button size / weight / letter spacing / transform). Falls back to the
+   previous 14px baseline if no typography_settings row exists. */
 :where(:not(.crm-dashboard) button),
+:where(:not(.crm-dashboard) input[type='button']),
+:where(:not(.crm-dashboard) input[type='submit']),
 :where(:not(.crm-dashboard) a.btn-primary),
 :where(:not(.crm-dashboard) a.btn-secondary) {
-  font-size: 14px;
+  font-size: var(--button-font-size, 14px);
+  letter-spacing: var(--button-letter-spacing, normal);
+  text-transform: var(--button-text-transform, none);
 }
 
 /* ============================================================
@@ -667,7 +702,49 @@ body :is(
   :where(:not(.crm-dashboard)) [role='button'],
   :where(:not(.crm-dashboard)) a.btn-primary,
   :where(:not(.crm-dashboard)) a.btn-secondary {
-    font-weight: 500;
+    font-weight: var(--button-font-weight, 500);
+  }
+
+  /* ------------------------------------------------------------
+     PUBLIC SITE NAV / FOOTER / BREADCRUMB TYPOGRAPHY
+     Driven by Management → Typography. Descendant selectors carry a
+     higher specificity than a single utility class, so these win over
+     the per-element Tailwind size/weight classes without !important.
+     ------------------------------------------------------------ */
+  :where(:not(.crm-dashboard)) .site-nav a,
+  :where(:not(.crm-dashboard)) .site-nav button {
+    font-size: var(--nav-font-size, 14px);
+    font-weight: var(--nav-font-weight, 500);
+    letter-spacing: var(--nav-letter-spacing, normal);
+    text-transform: var(--nav-text-transform, none);
+  }
+
+  :where(:not(.crm-dashboard)) .site-footer a,
+  :where(:not(.crm-dashboard)) .site-footer p,
+  :where(:not(.crm-dashboard)) .site-footer li,
+  :where(:not(.crm-dashboard)) .site-footer button {
+    font-size: var(--footer-font-size, 15px);
+    font-weight: var(--footer-font-weight, 400);
+  }
+  /* Footer column headings keep their own bold weight but adopt the row size. */
+  :where(:not(.crm-dashboard)) .site-footer h3,
+  :where(:not(.crm-dashboard)) .site-footer h4 {
+    font-size: var(--footer-font-size, 15px);
+  }
+
+  :where(:not(.crm-dashboard)) .site-breadcrumb a,
+  :where(:not(.crm-dashboard)) .site-breadcrumb span,
+  :where(:not(.crm-dashboard)) .site-breadcrumb li {
+    font-size: var(--breadcrumb-font-size, 13px);
+    font-weight: var(--breadcrumb-font-weight, 400);
+  }
+
+  /* Card titles — driven by Management → Typography (Card Title size / weight).
+     Doubled class keeps it above Tailwind size utilities regardless of layer
+     order, without !important (so explicit per-card overrides can still win). */
+  :where(:not(.crm-dashboard)) .card-title.card-title {
+    font-size: var(--card-title-font-size, 16px);
+    font-weight: var(--card-title-font-weight, 500);
   }
 
   /* ============================================================
@@ -862,4 +939,49 @@ select,
 input,
 textarea {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================================
+   MOBILE CTA HARDENING — public site
+   Long uppercase button labels that are forced onto one line by
+   the global no-wrap rule (e.g. the JV land-card CTA "Enquire
+   about this plot") overflowed their card on narrow phones. These
+   opt-in classes let a specific CTA shrink + tighten at phone
+   widths only — tablet and desktop are untouched. The doubled
+   class selector outranks the 14px public-site floor so the label
+   can actually fit a 320px screen.
+   ============================================================ */
+@media (max-width: 640px) {
+  body .jv-cta.jv-cta {
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    line-height: 1.15;
+    padding: 0.5rem 0.5rem;
+    gap: 0.375rem;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE HARDENING — shared chrome + dashboards
+   ============================================================ */
+
+/* A horizontal scroll container must never widen its parent. Inside a
+   flex/grid track a child defaults to min-width:auto, so a wide table
+   or row could stretch the whole page instead of scrolling in place.
+   min-width:0 is a no-op outside flex/grid, so this is safe site-wide
+   (CRM dashboards, admin/agent portals, modals, public tables). */
+.overflow-x-auto {
+  min-width: 0;
+}
+
+/* Mobile slide-out nav — the site nav is pinned to the large desktop
+   size by --nav-font-size, and below the desktop breakpoint only the
+   drawer renders. Drop it to a comfortable phone size there so long
+   labels fit without crowding or clipping. Desktop (>=1024px) keeps
+   the larger size untouched. */
+@media (max-width: 1023px) {
+  :where(:not(.crm-dashboard)) .site-nav a,
+  :where(:not(.crm-dashboard)) .site-nav button {
+    font-size: 17px;
+  }
 }

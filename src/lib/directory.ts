@@ -258,6 +258,40 @@ export async function bulkPublish(ids: string[], value: boolean): Promise<{ ok: 
   return { ok };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Guide curation ("shortlist") — the flag the micro-guides read.
+// A place only appears in a live guide when is_guide_curated = true AND it is
+// published, so this is the one switch that decides guide membership.
+// ─────────────────────────────────────────────────────────────
+export async function setGuideCurated(id: string, value: boolean): Promise<boolean> {
+  const { error } = await supabase.from('amenities').update({ is_guide_curated: value }).eq('id', id);
+  if (error) {
+    addToast('Could not update guide status', 'error');
+    return false;
+  }
+  void logActivity(id, value ? 'Added to guide' : 'Removed from guide');
+  return true;
+}
+
+export async function bulkGuideCurated(ids: string[], value: boolean): Promise<number> {
+  if (!ids.length) return 0;
+  let affected = 0;
+  for (const batch of chunk(ids)) {
+    const { data, error } = await supabase
+      .from('amenities')
+      .update({ is_guide_curated: value })
+      .in('id', batch)
+      .select('id');
+    if (error) {
+      addToast('Could not update guide status', 'error');
+      return affected;
+    }
+    affected += (data || []).length;
+  }
+  void logActivity(null, value ? 'Bulk added to guide' : 'Bulk removed from guide', `${ids.length} places`);
+  return affected;
+}
+
 /**
  * Archive / unarchive places. Archived is its own status, stored on the
  * place's attributes so it never collides with Draft / Unpublished.

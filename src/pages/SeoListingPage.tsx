@@ -12,6 +12,7 @@ import { useLoadMoreListings } from '@/hooks/useLoadMoreListings';
 import { useSeoMeta, buildBreadcrumbSchema, buildFaqSchema, buildListingSchema } from '@/hooks/useSeoMeta';
 import { SEO_PAGES, type SeoPageDef } from '@/lib/seoPages';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
+import { useSeoListingContent } from '@/hooks/useDynamicPageTemplates';
 
 const SITE_URL = 'https://www.oceanske.com';
 
@@ -50,13 +51,13 @@ function buildPriceOptions(purpose: 'sale' | 'rent'): string[] {
   return opts;
 }
 
-function SeoFaqSection({ faqs }: { faqs: SeoPageDef['faqs'] }) {
+function SeoFaqSection({ faqs, heading }: { faqs: SeoPageDef['faqs']; heading: string }) {
   const [open, setOpen] = useState<number | null>(0);
   if (!faqs.length) return null;
   return (
     <section className="mt-12 md:mt-16">
       <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-        Frequently Asked Questions
+        {heading}
       </h2>
       <div className="divide-y-2 divide-primary/12 border-y-2 border-primary/12">
         {faqs.map((f, i) => {
@@ -92,12 +93,12 @@ function SeoFaqSection({ faqs }: { faqs: SeoPageDef['faqs'] }) {
   );
 }
 
-function SeoRelatedLinks({ related }: { related: SeoPageDef['related'] }) {
+function SeoRelatedLinks({ related, heading }: { related: SeoPageDef['related']; heading: string }) {
   if (!related.length) return null;
   return (
     <section className="mt-12 md:mt-16 bg-[#F7F9F9] rounded-lg p-6 md:p-8">
       <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-        Explore More Premium Nairobi Property
+        {heading}
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {related.map((r) => (
@@ -120,6 +121,7 @@ function SeoRelatedLinks({ related }: { related: SeoPageDef['related'] }) {
 }
 
 export default function SeoListingPage({ slug }: { slug: string }) {
+  const { content: c } = useSeoListingContent();
   const def = SEO_PAGES[slug];
 
   // ── Shared search-bar refinements (default to the page's canonical search) ──
@@ -257,7 +259,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
             {def.h1}
           </h1>
           <p className="font-roboto text-white/80 text-sm md:text-base max-w-2xl leading-relaxed">
-            Premium homes across Nairobi, Kenya - hand-vetted by Oceans Kenya's estate agents.
+            {c.hero_intro}
           </p>
         </div>
       </section>
@@ -268,12 +270,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
           <PropertySearchBar
             searchQuery={searchQuery}
             onLocationChange={(val) => setSearchQuery(val)}
-            placeholderCycle={[
-              "Looking for a home in a leafy suburb...",
-              "Looking for an apartment with a view...",
-              "Looking for a family house with garden...",
-              "Looking for a prime investment...",
-            ]}
+            placeholderCycle={c.search_placeholders}
             bedsValue={bedsValue}
             onBedsChange={(v) => setBedsValue(v)}
             bedOptions={BED_OPTIONS}
@@ -302,7 +299,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
           {/* SEO intro */}
           <ScrollRevealBlock>
             <div className="max-w-3xl mb-10">
-              <h2 className="font-roboto font-bold text-primary text-lg md:text-xl mb-4">About this collection</h2>
+              <h2 className="font-roboto font-bold text-primary text-lg md:text-xl mb-4">{c.about_title}</h2>
               {def.intro.map((para, i) => (
                 <p key={i} className="font-roboto text-stone-600 text-sm leading-relaxed mb-4">
                   {para}
@@ -315,7 +312,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
           <section>
             <div className="flex items-end justify-between mb-6">
               <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
-                {def.h1.split(',')[0]} - {totalCount} result{totalCount === 1 ? '' : 's'}
+                {def.h1.split(',')[0]} - {totalCount} {c.results_word}
               </h2>
             </div>
 
@@ -340,15 +337,15 @@ export default function SeoListingPage({ slug }: { slug: string }) {
                 <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3 rounded-full">
                   <i className="ri-home-4-line text-white text-xl"></i>
                 </div>
-                <p className="font-roboto font-bold text-primary mb-1">No properties available yet</p>
+                <p className="font-roboto font-bold text-primary mb-1">{c.empty_title}</p>
                 <p className="font-roboto text-stone-500 text-sm max-w-md mx-auto mb-4">
-                  New premium listings arrive regularly. Register your interest to be contacted first.
+                  {c.empty_text}
                 </p>
                 <Link
                   to="/contact"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-roboto font-semibold uppercase hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  Register Interest
+                  {c.empty_button}
                   <i className="ri-arrow-right-line text-xs"></i>
                 </Link>
               </div>
@@ -368,7 +365,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
                       className="inline-flex items-center gap-2 px-7 py-3 bg-primary text-white text-sm font-roboto font-semibold uppercase tracking-wide rounded-md hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60 disabled:cursor-wait"
                     >
                       <i className={loadingMore ? 'ri-loader-4-line animate-spin' : 'ri-add-line'}></i>
-                      {loadingMore ? 'Loading…' : 'Load More Properties'}
+                      {loadingMore ? c.loading_label : c.load_more_label}
                     </button>
                   </div>
                 )}
@@ -378,29 +375,28 @@ export default function SeoListingPage({ slug }: { slug: string }) {
 
           {/* FAQ */}
           <ScrollRevealBlock>
-            <SeoFaqSection faqs={def.faqs} />
+            <SeoFaqSection faqs={def.faqs} heading={c.faq_heading} />
           </ScrollRevealBlock>
 
           {/* Related internal links */}
           <ScrollRevealBlock>
-            <SeoRelatedLinks related={def.related} />
+            <SeoRelatedLinks related={def.related} heading={c.related_heading} />
           </ScrollRevealBlock>
 
           {/* CTA */}
           <ScrollRevealBlock>
             <div className="mt-12 md:mt-16 bg-primary rounded-lg py-12 md:py-16 px-6 text-center">
               <h2 className="font-prata font-semibold text-white text-2xl md:text-3xl mb-4">
-                Speak to a Premium Nairobi Agent
+                {c.cta_title}
               </h2>
               <p className="font-roboto text-white/80 text-sm md:text-base max-w-xl mx-auto leading-relaxed mb-7">
-                Our specialist agents know every premium enclave intimately. Tell us your priorities and we will
-                match you with the ideal property across Nairobi, Kenya.
+                {c.cta_text}
               </p>
               <Link
                 to="/contact"
                 className="inline-flex items-center gap-2 px-8 py-3.5 bg-golden text-white border-2 border-golden text-sm font-roboto font-semibold uppercase hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
               >
-                <i className="ri-chat-3-line"></i> Contact an Agent
+                <i className="ri-chat-3-line"></i> {c.cta_button}
               </Link>
             </div>
           </ScrollRevealBlock>

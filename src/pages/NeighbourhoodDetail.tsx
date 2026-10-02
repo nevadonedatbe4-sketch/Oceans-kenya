@@ -18,6 +18,9 @@ import LifeAroundHere from '@/components/feature/LifeAroundHere';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useNeighbourhoodCommutes } from '@/hooks/useNeighbourhoodCommutes';
 import { smartTitleCase } from '@/lib/location';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_NEIGH_DETAIL } from '@/lib/pageCopy';
+import EntityImage from '@/components/feature/EntityImage';
 
 interface DBListing {
   id: string;
@@ -91,6 +94,7 @@ export default function NeighbourhoodDetail() {
   const [nearbyHoods, setNearbyHoods] = useState<DBNeighbourhood[]>([]);
   const [loading, setLoading] = useState(true);
   const [propertyTab, setPropertyTab] = useState<'sale' | 'rent'>('rent');
+  const { content: c } = usePageContent('neigh_detail', DEFAULT_NEIGH_DETAIL);
 
   // Anchor for the amenities section (kept for deep-linking / scroll targets).
   const amenitiesAnchorRef = useRef<HTMLDivElement>(null);
@@ -109,6 +113,20 @@ export default function NeighbourhoodDetail() {
         .maybeSingle();
 
       if (!hoodError && dbHood) {
+        // Same fallback as the list page: if the hero_image column is empty but
+        // a gallery image exists (uploaded via the admin Gallery tab), use it so
+        // the area hero never renders as a blank image.
+        let resolvedHero = dbHood.hero_image || '';
+        if (!resolvedHero) {
+          const { data: galRows } = await supabase
+            .from('neighbourhood_images')
+            .select('url')
+            .eq('neighbourhood_id', dbHood.id)
+            .order('sort_order', { ascending: true })
+            .limit(1);
+          if (galRows && galRows.length > 0 && galRows[0].url) resolvedHero = galRows[0].url;
+        }
+
         const { data: dbListings } = await supabase
           .from('all_listings')
           .select(
@@ -151,6 +169,7 @@ export default function NeighbourhoodDetail() {
 
         const enriched: DBNeighbourhood = {
           ...dbHood,
+          hero_image: resolvedHero,
           // Normalise the neighbourhood title through the shared casing normaliser
           // so it matches the rest of the site.
           name: smartTitleCase(dbHood.name),
@@ -219,15 +238,15 @@ export default function NeighbourhoodDetail() {
         <Header />
         <main className="pt-32 md:pt-40 lg:pt-44 pb-20 px-4 md:px-6">
           <div className="max-w-[1400px] mx-auto text-center">
-            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">Neighbourhood Not Found</h1>
+            <h1 className="font-roboto font-bold text-3xl text-primary mb-4">{c.notfound_title}</h1>
             <p className="font-roboto text-stone-500 mb-6">
-              We could not find the neighbourhood you are looking for.
+              {c.notfound_text}
             </p>
             <Link
               to="/neighbourhoods"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-sm font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
-              View All Neighbourhoods
+              {c.notfound_button}
               <i className="ri-arrow-right-line text-xs"></i>
             </Link>
           </div>
@@ -245,10 +264,10 @@ export default function NeighbourhoodDetail() {
       {/* Hero */}
       <section className="relative pt-28 md:pt-40 lg:pt-44 pb-16 md:pb-24 overflow-hidden">
         <div className="absolute inset-0">
-          <img
+          <EntityImage
             alt={neighbourhood?.name || 'Neighbourhood'}
             className="w-full h-full object-cover object-center"
-            src={neighbourhood?.hero_image || ''}
+            src={neighbourhood?.hero_image}
           />
           <div className="absolute inset-0 bg-primary/75"></div>
         </div>
@@ -261,10 +280,10 @@ export default function NeighbourhoodDetail() {
             ))}
           </div>
           <p className="text-golden text-xs font-roboto font-semibold uppercase tracking-[0.35em] mb-2">
-            {neighbourhood?.propertyCount} Properties Available
+            {neighbourhood?.propertyCount} {c.hero_badge_suffix}
           </p>
           <h1 className="font-roboto font-bold text-2xl md:text-5xl text-white mb-4 leading-tight">
-            {neighbourhood?.name} Area Guide
+            {neighbourhood?.name} {c.hero_title_suffix}
           </h1>
           <p className="font-roboto text-white/80 text-sm md:text-base max-w-2xl leading-relaxed">
             {neighbourhood?.summary || ''}
@@ -289,24 +308,24 @@ export default function NeighbourhoodDetail() {
           <section className="mb-12 md:mb-16">
             <div className="flex items-end justify-between mb-6">
               <div>
-                <p className="text-golden text-xs font-roboto font-semibold uppercase tracking-[0.3em] mb-1">Properties</p>
+                <p className="text-golden text-xs font-roboto font-semibold uppercase tracking-[0.3em] mb-1">{c.listings_eyebrow}</p>
                 <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
-                  Active Listings in {neighbourhood?.name}
+                  {c.listings_heading_prefix} {neighbourhood?.name}
                 </h2>
               </div>
               <Link
                 to={areaSearchHref(neighbourhood?.name || '')}
                 className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 text-sm font-roboto font-medium text-primary border border-primary/20 rounded-sm hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap"
               >
-                View All
+                {c.view_all_label}
                 <i className="ri-arrow-right-line"></i>
               </Link>
             </div>
 
             <div className="flex items-center gap-1 border-b border-stone-100 mb-6">
               {[
-                { key: 'sale' as const, label: 'For Sale', count: saleListings.length },
-                { key: 'rent' as const, label: 'To Let', count: rentListings.length },
+                { key: 'sale' as const, label: c.tab_sale, count: saleListings.length },
+                { key: 'rent' as const, label: c.tab_rent, count: rentListings.length },
               ].map((t) => (
                 <button
                   key={t.key}
@@ -381,16 +400,16 @@ export default function NeighbourhoodDetail() {
                       <i className="ri-home-4-line text-stone-400 text-xl"></i>
                     </div>
                     <p className="font-roboto font-bold text-base text-primary mb-1">
-                      No Properties {propertyTab === 'sale' ? 'For Sale' : 'To Let'}
+                      {propertyTab === 'sale' ? c.empty_sale_title : c.empty_rent_title}
                     </p>
                     <p className="font-roboto text-stone-400 text-xs max-w-md mx-auto mb-4">
-                      New listings come in regularly in {neighbourhood?.name}. Register your interest to be notified first.
+                      New listings come in regularly in {neighbourhood?.name}. {c.empty_text_suffix}
                     </p>
                     <Link
                       to="/contact"
                       className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs font-roboto font-medium tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
                     >
-                      Register Interest
+                      {c.empty_button}
                       <i className="ri-arrow-right-line text-xs"></i>
                     </Link>
                   </div>
@@ -403,7 +422,7 @@ export default function NeighbourhoodDetail() {
           {/* Map */}
           <Reveal>
           <section className="mb-12 md:mb-16">
-            <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-4">Location</h2>
+            <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-4">{c.location_heading}</h2>
             <div className="w-full h-56 md:h-80 rounded-lg overflow-hidden border border-primary/12">
               <iframe
                 allowFullScreen
@@ -418,8 +437,8 @@ export default function NeighbourhoodDetail() {
           </div>
 
           <AreaOverviewSidebar
-            eyebrow="At a glance"
-            heading="Overview & Vibe"
+            eyebrow={c.sidebar_eyebrow}
+            heading={c.sidebar_heading}
             intro={neighbourhood?.description || neighbourhood?.summary || ''}
             facts={[
               {
@@ -447,7 +466,7 @@ export default function NeighbourhoodDetail() {
                 to={areaSearchHref(neighbourhood?.name || '')}
                 className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-xs font-roboto font-semibold uppercase tracking-wider rounded-sm hover:bg-primary/90 transition-colors whitespace-nowrap cursor-pointer"
               >
-                View All {neighbourhood?.name} Listings
+                {c.sidebar_button_prefix} {neighbourhood?.name} {c.sidebar_button_suffix}
                 <i className="ri-arrow-right-line"></i>
               </Link>
             }
@@ -483,7 +502,7 @@ export default function NeighbourhoodDetail() {
           {/* Nearby Areas */}
           <Reveal>
           <section className="mb-12 md:mb-16">
-            <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">Explore Nearby Areas</h2>
+            <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">{c.nearby_heading}</h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
               {nearbyHoods.slice(0, 4).map((n) => (
                 <Link
@@ -500,7 +519,7 @@ export default function NeighbourhoodDetail() {
                   <div className="absolute bottom-3 left-3">
                     <h3 className="text-white text-base font-roboto font-bold leading-tight">{n.name}</h3>
                     {n.propertyCount > 0 && (
-                      <p className="text-white/70 text-xs font-roboto mt-0.5">{n.propertyCount} Properties</p>
+                      <p className="text-white/70 text-xs font-roboto mt-0.5">{n.propertyCount} {c.nearby_property_word}</p>
                     )}
                   </div>
                 </Link>
@@ -512,8 +531,8 @@ export default function NeighbourhoodDetail() {
           {/* Neighbouring areas - wired to the same filtered area search */}
           <NearbyAreaStrip
             label={neighbourhood?.name || ''}
-            heading="Neighbouring areas"
-            description={`Search live homes in the areas around ${neighbourhood?.name || 'this area'} - each one opens its own filtered results.`}
+            heading={c.strip_heading}
+            description={`${c.strip_desc_prefix} ${neighbourhood?.name || 'this area'} - ${c.strip_desc_suffix}`}
             className="mb-12 md:mb-16"
           />
 
@@ -521,16 +540,16 @@ export default function NeighbourhoodDetail() {
           <Reveal>
           <div className="text-center bg-stone-50 py-12 md:py-16 px-4 md:px-6 rounded-lg">
             <h3 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-3">
-              Talk to an Agent About {neighbourhood?.name}
+              {c.cta_title_prefix} {neighbourhood?.name}
             </h3>
             <p className="font-roboto text-stone-500 text-sm max-w-xl mx-auto mb-6">
-              Our agents know {neighbourhood?.name} inside out - from the best streets and schools to off-market opportunities. Let us match you with the perfect property in this neighbourhood.
+              {c.cta_text}
             </p>
             <Link
               to="/contact"
               className="inline-flex items-center gap-2.5 px-8 md:px-10 py-4 bg-primary text-white border-2 border-primary text-base font-roboto font-semibold tracking-wider uppercase hover:bg-primary/90 transition-colors whitespace-nowrap"
             >
-              Speak to an Agent
+              {c.cta_button}
               <i className="ri-arrow-right-line text-sm"></i>
             </Link>
           </div>
@@ -539,8 +558,8 @@ export default function NeighbourhoodDetail() {
           {/* Top Neighbourhoods Comparison Table */}
           <Reveal>
           <section className="mt-16">
-            <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-2">How Nairobi Neighbourhoods Compare</h2>
-            <p className="font-roboto text-stone-500 text-sm mb-6">Quick reference for the top 6 neighbourhoods - at a glance.</p>
+            <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-2">{c.compare_heading}</h2>
+            <p className="font-roboto text-stone-500 text-sm mb-6">{c.compare_sub}</p>
             <div className="overflow-x-auto rounded-lg border-2 border-primary/12">
               <table className="w-full text-xs font-roboto">
                 <thead>
@@ -567,7 +586,7 @@ export default function NeighbourhoodDetail() {
                     <tr key={row.name} className={`border-b border-stone-50 ${i % 2 === 0 ? 'bg-white' : 'bg-stone-50/50'} ${row.name.toLowerCase() === slug ? 'bg-accent-50/50' : ''}`}>
                       <td className="p-3">
                         <Link to={`/neighbourhood/${row.name.toLowerCase()}`} className="text-primary font-medium hover:underline whitespace-nowrap">
-                          {row.name} {row.name.toLowerCase() === slug && <span className="text-accent-600 text-xs ml-1">(this page)</span>}
+                          {row.name} {row.name.toLowerCase() === slug && <span className="text-accent-600 text-xs ml-1">{c.this_page_label}</span>}
                         </Link>
                       </td>
                       <td className="p-3 text-stone-600">{row.best}</td>

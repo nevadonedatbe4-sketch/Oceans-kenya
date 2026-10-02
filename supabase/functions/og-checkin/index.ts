@@ -141,31 +141,9 @@ async function geofenceStatus(userId: string, lat: number, lng: number, allowRem
   }
 }
 
-/**
- * Stand-in location used when the device cannot provide a fix (permission
- * blocked, GPS timeout, weak signal, unsupported browser). A punch must ALWAYS
- * be recorded with a location, so we record the saved office location instead
- * of blocking the shift. Returns null only when no office is configured at all
- * (the punch still proceeds — a missing location NEVER blocks work).
- */
-async function fallbackOfficeLocation(): Promise<{ lat: number; lng: number; label: string } | null> {
-  try {
-    const cols = 'name, address, latitude, longitude, is_default';
-    let { data } = await admin.from('og_office_locations').select(cols).eq('is_default', true).limit(1).maybeSingle();
-    if (!data) {
-      const res = await admin.from('og_office_locations').select(cols).order('is_default', { ascending: false }).limit(1).maybeSingle();
-      data = res.data;
-    }
-    if (!data) return null;
-    const lat = Number(data.latitude);
-    const lng = Number(data.longitude);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return null;
-    const label = [data.name, data.address].filter(Boolean).join(', ') || 'Office location';
-    return { lat, lng, label };
-  } catch {
-    return null;
-  }
-}
+// NOTE: there is deliberately NO office-stand-in fallback. A punch-in requires
+// real coordinates now (device fix or a manually chosen place). The
+// human-readable label is enrichment only and is never a requirement.
 
 // ── Shift length guard ─────────────────────────────────────────────────────
 // A shift may NEVER run longer than the configured maximum (default 12 hours).
@@ -348,30 +326,20 @@ Deno.serve(async (req) => {
         await logError('duplicate_punch_in', `Open session ${openSession.id} status=${openSession.status}`);
         return json(409, { error: 'ALREADY_PUNCHED_IN', message: 'You already have an open shift. Punch out first.' });
       }
-      // Location is BEST-EFFORT: a punch is ALWAYS recorded. When the client
-      // sends usable coordinates we store them verbatim; when it cannot (denied
-      // permission, GPS timeout, weak signal, unsupported browser) we stand in
-      // with the saved office location so the shift is never blocked. A missing
-      // location never stops a team from working.
-      let effLat: number | null = coordsValid ? latNum : null;
-      let effLng: number | null = coordsValid ? lngNum : null;
-      let effAcc: number | null = coordsValid ? accuracyNum : null;
-      let effSource: string = locSource;
-      let effLabel: string | null = locLabel;
+      // Location is REQUIRED for a punch-in. The client only submits after the
+      // user explicitly confirms a detected (device) or manually chosen place,
+      // so valid coordinates must be present. Coordinates are the authoritative
+      // evidence; the readable label is enrichment only. A coordinate-less punch
+      // is rejected — there is NO office stand-in.
       if (!coordsValid) {
-        const fallback = await fallbackOfficeLocation();
-        if (fallback) {
-          effLat = fallback.lat;
-          effLng = fallback.lng;
-          effAcc = null;
-          effSource = 'office_fallback';
-          effLabel = fallback.label;
-          await logError('location_fallback_used', `punch_in without device coords; used saved office stand-in (${fallback.lat}, ${fallback.lng})`);
-        } else {
-          effSource = 'unavailable';
-          await logError('location_unavailable', `punch_in without coords and no office configured (lat=${latNum}, lng=${lngNum})`);
-        }
+        await logError('location_required', `punch_in rejected without valid coords (lat=${loc?.lat}, lng=${loc?.lng}, source=${locSource})`);
+        return json(400, { error: 'LOCATION_REQUIRED', message: 'We need your location to punch in. Enable location access and try again.' });
       }
+      const effLat: number | null = latNum;
+      const effLng: number | null = lngNum;
+      const effAcc: number | null = accuracyNum;
+      const effSource: string = locSource;
+      const effLabel: string | null = locLabel;
 
       // The geofence is INFORMATIONAL only: an out-of-radius punch is recorded
       // and flagged for an admin to review, but it is NEVER blocked and never

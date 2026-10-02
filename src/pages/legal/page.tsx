@@ -4,6 +4,8 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useSeoMeta, buildBreadcrumbSchema } from '@/hooks/useSeoMeta';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_LEGAL, buildLegalDefaults } from '@/lib/pageCopy';
 
 interface LegalSection {
   heading: string;
@@ -19,7 +21,7 @@ interface LegalDef {
   sections: LegalSection[];
 }
 
-const LEGAL_PAGES: Record<string, LegalDef> = {
+export const LEGAL_PAGES: Record<string, LegalDef> = {
   'privacy-policy': {
     title: 'Privacy Policy',
     eyebrow: 'Legal',
@@ -239,7 +241,29 @@ interface LegalPageProps {
 }
 
 export default function LegalPage({ pageKey }: LegalPageProps) {
-  const def = LEGAL_PAGES[pageKey];
+  const legalDefaults = buildLegalDefaults(LEGAL_PAGES);
+  const { content: c } = usePageContent('legal', legalDefaults);
+  const base = LEGAL_PAGES[pageKey];
+  const flatKey = pageKey.replace(/-/g, '_');
+
+  const rawSections = Array.isArray(c[`${flatKey}_sections`])
+    ? (c[`${flatKey}_sections`] as { heading: string; body: string }[])
+    : (base?.sections || []).map((s) => ({ heading: s.heading, body: s.body.join('\n\n') }));
+
+  const def: LegalDef | undefined = base
+    ? {
+        ...base,
+        title: String(c[`${flatKey}_title`] ?? base.title),
+        eyebrow: String(c[`${flatKey}_eyebrow`] ?? base.eyebrow),
+        metaTitle: String(c[`${flatKey}_meta_title`] ?? base.metaTitle),
+        metaDescription: String(c[`${flatKey}_meta_description`] ?? base.metaDescription),
+        intro: String(c[`${flatKey}_intro`] ?? base.intro),
+        sections: rawSections.map((s) => ({
+          heading: s.heading,
+          body: String(s.body || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean),
+        })),
+      }
+    : undefined;
 
   useSeoMeta({
     title: def?.metaTitle || 'Information | Oceans Kenya',
@@ -259,9 +283,9 @@ export default function LegalPage({ pageKey }: LegalPageProps) {
       <div className="min-h-screen bg-white">
         <Header />
         <main className="pt-36 pb-24 px-4 md:px-6 text-center">
-          <h1 className="font-roboto font-bold text-3xl text-primary mb-4">Page Not Found</h1>
+          <h1 className="font-roboto font-bold text-3xl text-primary mb-4">{c.notfound_title}</h1>
           <Link to="/" className="text-primary underline cursor-pointer">
-            Return home
+            {c.notfound_link}
           </Link>
         </main>
         <Footer />
@@ -314,13 +338,13 @@ export default function LegalPage({ pageKey }: LegalPageProps) {
 
           <div className="mt-12 bg-[#F7F9F9] rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="font-roboto text-primary text-sm">
-              Need to speak with our team directly?
+              {c.contact_prompt}
             </p>
             <Link
               to="/contact"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-roboto font-semibold uppercase hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-chat-3-line"></i> Contact Us
+              <i className="ri-chat-3-line"></i> {c.contact_button}
             </Link>
           </div>
         </div>

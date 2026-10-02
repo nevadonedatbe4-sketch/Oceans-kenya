@@ -10,6 +10,8 @@ import { supabase } from '@/lib/supabase';
 import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
 import { useLeadSubmit } from '@/hooks/useFormSubmit';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useJointVenturesPageContent } from '@/hooks/useJointVenturesPageContent';
+import { FIELD_CLASS } from '@/lib/formFieldStyles';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
 import LandAdvancedFilters, { defaultLandFilters, type LandFilterState } from '@/pages/joint-ventures/components/LandAdvancedFilters';
 import ProjectCard from '@/pages/joint-ventures/components/ProjectCard';
@@ -66,15 +68,6 @@ const LAND_SIZE_BANDS: Record<string, [number, number]> = {
 // Deal-type filter for the land feed. "Capital venture" surfaces plots whose
 // linked, published JV deal is a capital-only (cash-only) contribution.
 const LAND_DEAL_TYPE_OPTIONS = ['Any deal type', 'Joint venture', 'Outright sale', 'Capital venture'];
-
-const services = [
-  { code: 'SVC/01', title: 'Land Sourcing & Acquisition', desc: 'We identify, verify and secure development-ready parcels with clean titles, proper zoning and access to infrastructure.' },
-  { code: 'SVC/02', title: 'Investment Structuring', desc: 'Tailored JV frameworks that balance risk and reward - from SPV creation to shareholder agreements and profit-sharing models.' },
-  { code: 'SVC/03', title: 'Development & Project Management', desc: 'End-to-end oversight from design brief to contractor selection, milestone tracking, quality control and handover.' },
-  { code: 'SVC/04', title: 'Market Analysis & Feasibility', desc: 'Demand studies, competitive pricing analysis, absorption forecasts and scenario modelling to validate every project before ground breaks.' },
-  { code: 'SVC/05', title: 'Financing & Capital Raising', desc: 'Debt structuring, equity introductions, mezzanine financing and institutional partnerships to close funding gaps.' },
-  { code: 'SVC/06', title: 'Legal & Regulatory Compliance', desc: 'Title verification, NEMA approvals, county permits, building plan approvals and ongoing compliance throughout the project lifecycle.' },
-];
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -195,6 +188,7 @@ interface JvOpportunity {
 
 export default function JointVentures() {
   const { format } = useCurrency();
+  const { content: LC } = useJointVenturesPageContent();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [jvFaqs, setJvFaqs] = useState<{ question: string; answer: string }[]>([]);
   const [landTab, setLandTab] = useState<'all' | 'outright' | 'joint_venture'>('all');
@@ -681,20 +675,17 @@ export default function JointVentures() {
             {/* Left - headline + CTAs */}
             <div className="lg:col-span-3">
               <p className="text-golden text-xs tracking-[0.25em] uppercase mb-5 font-roboto font-bold">
-                Joint Venture &amp; Land Investment Desk
+                {LC.hero_eyebrow}
               </p>
               <h1 className="font-roboto font-bold text-white text-3xl md:text-4xl lg:text-[3.2rem] leading-[1.15] mt-4 mb-8">
-                Land is the asset.
+                {LC.hero_line1}
                 <br />
-                The <em className="text-golden italic">right partner</em> is
+                {LC.hero_line2}
                 <br />
-                the return.
+                {LC.hero_line3}
               </h1>
               <p className="text-white/55 font-roboto font-medium text-sm md:text-base leading-relaxed mb-8 max-w-lg">
-                Post your land and find capital, or submit a brief and find a
-                plot. Oceans Kenya matches landowners with investors for joint
-                ventures - and lists prime land available for outright purchase
-                across Nairobi and beyond.
+                {LC.hero_paragraph}
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-3">
                 <a
@@ -702,14 +693,14 @@ export default function JointVentures() {
                   onClick={(e) => { e.preventDefault(); setRequestTab('landowner'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="inline-flex items-center justify-center gap-2 px-7 py-3 bg-golden text-white text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity font-bold"
                 >
-                  I Own Land
+                  {LC.hero_button1}
                 </a>
                 <a
                   href="#request-desk"
                   onClick={(e) => { e.preventDefault(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
                   className="inline-flex items-center justify-center gap-2 px-7 py-3 border border-white/30 text-white text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors"
                 >
-                  I Have Capital
+                  {LC.hero_button2}
                 </a>
               </div>
             </div>
@@ -719,39 +710,26 @@ export default function JointVentures() {
               <div className="bg-white/5 backdrop-blur-sm border border-white/10 p-6 md:p-7">
                 <div className="flex items-center justify-between mb-5 pb-4 border-b border-white/10">
                   <p className="text-white/50 font-roboto font-medium text-[18px] uppercase tracking-[0.2em]">
-                    JV Desk - Live Figures
+                    {LC.figures_label}
                   </p>
                   <span className="text-white/40 font-roboto font-medium text-[18px] uppercase tracking-wider">
-                    KES/ Usd
+                    {LC.figures_currency}
                   </span>
                 </div>
                 <div className="space-y-5">
-                  <div className="flex items-baseline gap-4">
-                    <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
-                      100+
-                    </span>
-                    <p className="text-white/50 font-roboto text-xs leading-snug">
-                      Acres currently under JV negotiation
-                    </p>
-                  </div>
-                  <div className="h-[2px] bg-white/10" />
-                  <div className="flex items-baseline gap-4">
-                    <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
-                      28
-                    </span>
-                    <p className="text-white/50 font-roboto text-xs leading-snug">
-                      Active investor briefs on file
-                    </p>
-                  </div>
-                  <div className="h-[2px] bg-white/10" />
-                  <div className="flex items-baseline gap-4">
-                    <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
-                      12
-                    </span>
-                    <p className="text-white/50 font-roboto text-xs leading-snug">
-                      Areas with listed opportunities
-                    </p>
-                  </div>
+                  {LC.figures.map((f, i) => (
+                    <div key={i} className="space-y-5">
+                      {i > 0 && <div className="h-[2px] bg-white/10" />}
+                      <div className="flex items-baseline gap-4">
+                        <span className="font-roboto font-bold text-white text-3xl md:text-4xl">
+                          {f.value}
+                        </span>
+                        <p className="text-white/50 font-roboto text-xs leading-snug">
+                          {f.label}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -767,8 +745,8 @@ export default function JointVentures() {
         <div className="max-w-6xl mx-auto px-6 py-6 md:py-7">
           {/* Page identity - makes the Land / JV context unmistakable */}
           <div className="mb-4">
-            <p className="text-golden text-xs md:text-sm tracking-[0.2em] uppercase font-roboto font-bold mb-1">Land &amp; Joint Venture Search</p>
-            <h2 className="font-roboto font-bold text-primary text-xl md:text-2xl">Search land &amp; joint venture opportunities</h2>
+            <p className="text-golden text-xs md:text-sm tracking-[0.2em] uppercase font-roboto font-bold mb-1">{LC.search_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-primary text-xl md:text-2xl">{LC.search_heading}</h2>
           </div>
           {/* Land search - refines the live land feed further down the page */}
           <PropertySearchBar
@@ -824,19 +802,19 @@ export default function JointVentures() {
       <section id="projects" className="px-6 py-14 md:py-20 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">Land &amp; Plots</p>
-            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Land on the desk today.</h2>
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">{LC.land_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">{LC.land_heading}</h2>
             <p className="text-primary/70 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
-              A live feed of open joint venture land opportunities, pulled directly from our listings database.
+              {LC.land_subtitle}
             </p>
           </div>
 
           {/* Filter row */}
           <div className="flex flex-wrap items-center justify-center gap-2 mb-8 md:mb-10">
             {[
-              { key: 'all' as const, label: 'All opportunities' },
-              { key: 'outright' as const, label: 'Outright purchase' },
-              { key: 'joint_venture' as const, label: 'Joint venture' },
+              { key: 'all' as const, label: LC.land_tab_all },
+              { key: 'outright' as const, label: LC.land_tab_outright },
+              { key: 'joint_venture' as const, label: LC.land_tab_jv },
             ].map((f) => (
               <button
                 key={f.key}
@@ -924,7 +902,7 @@ export default function JointVentures() {
                     </svg>
 
                     {/* Card body - receipt paper */}
-                    <div className="bg-white border-2 border-primary-500 p-6 md:p-7 relative h-full flex flex-col">
+                    <div className="bg-white border-2 border-primary-500 p-4 md:p-7 relative h-full flex flex-col">
                       {/* Centered badge */}
                       <div className="flex items-center justify-center gap-2 flex-wrap mb-3">
                         <span className="inline-block px-3 py-1 text-[10px] uppercase tracking-[0.14em] font-medium font-roboto bg-accent/15 text-accent">
@@ -1002,7 +980,7 @@ export default function JointVentures() {
                       {/* CTA - full width, outlined */}
                       <div
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
-                        className="mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-[11px] tracking-wider uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
+                        className="jv-cta mt-auto inline-flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-[11px] tracking-wider uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
                       >
                         Enquire about this plot <i className="ri-arrow-right-line"></i>
                       </div>
@@ -1076,10 +1054,10 @@ export default function JointVentures() {
       <section className="px-6 py-12 md:py-16">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-10 md:mb-12">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">How It Works</p>
-            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Two starting points, one deal room.</h2>
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">{LC.how_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">{LC.how_heading}</h2>
             <p className="text-primary/70 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
-              Whichever side of the table you sit on, every request lands with our JV desk, gets verified, and is matched by location, acreage and structure before any introduction is made.
+              {LC.how_intro}
             </p>
           </div>
 
@@ -1087,18 +1065,13 @@ export default function JointVentures() {
             {/* Landowner card */}
             <div className="border-2 border-primary/12 bg-white p-6 md:p-8 flex flex-col">
               <span className="inline-block self-start px-3 py-1 bg-[#6F4E37] text-white font-roboto text-[14px] uppercase tracking-widest font-medium mb-5">
-                Landowner
+                {LC.landowner_badge}
               </span>
               <h3 className="font-roboto font-bold text-primary text-lg md:text-xl mb-5 leading-snug">
-                Bring the land,<br />find the capital.
+                {LC.landowner_heading}
               </h3>
               <ol className="space-y-3 mb-6 flex-1">
-                {[
-                  'Tell us where the land is, its size and title status.',
-                  'Choose a structure - revenue share, equity split, lease-to-JV, or outright sale.',
-                  'We verify title and shortlist matched investors.',
-                  'You review offers and choose who you work with.',
-                ].map((step, i) => (
+                {LC.landowner_steps.map((step, i) => (
                   <li key={i} className="flex items-start gap-3 text-primary/70 font-roboto text-sm leading-relaxed">
                     <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-primary font-roboto text-sm font-extrabold">
                       {i + 1}
@@ -1112,7 +1085,7 @@ export default function JointVentures() {
                 onClick={(e) => { e.preventDefault(); setRequestTab('landowner'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
                 className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-xs tracking-wider uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
               >
-                Post land brief <i className="ri-arrow-right-line"></i>
+                {LC.landowner_button} <i className="ri-arrow-right-line"></i>
               </a>
             </div>
 
@@ -1130,18 +1103,13 @@ export default function JointVentures() {
             {/* Investor card */}
             <div className="border-2 border-primary/12 bg-white p-6 md:p-8 flex flex-col">
               <span className="inline-block self-start px-3 py-1 bg-[#228B22] text-white font-roboto text-[14px] uppercase tracking-widest font-medium mb-5">
-                Investor
+                {LC.investor_badge}
               </span>
               <h3 className="font-roboto font-bold text-primary text-lg md:text-xl mb-5 leading-snug">
-                Bring the capital,<br />find the land.
+                {LC.investor_heading}
               </h3>
               <ol className="space-y-3 mb-6 flex-1">
-                {[
-                  'Tell us your budget, target districts and preferred use.',
-                  'We search verified landowner briefs and live listings.',
-                  'Receive a shortlist with title status and site notes.',
-                  'Structure the JV or purchase directly, your call.',
-                ].map((step, i) => (
+                {LC.investor_steps.map((step, i) => (
                   <li key={i} className="flex items-start gap-3 text-primary/70 font-roboto text-sm leading-relaxed">
                     <span className="flex-shrink-0 w-6 h-6 rounded-full bg-stone-100 flex items-center justify-center text-accent font-roboto text-sm font-extrabold">
                       {i + 1}
@@ -1155,7 +1123,7 @@ export default function JointVentures() {
                 onClick={(e) => { e.preventDefault(); setRequestTab('investor'); document.getElementById('request-desk')?.scrollIntoView({ behavior: 'smooth' }); }}
                 className="inline-flex items-center justify-center gap-2 w-full px-5 py-2.5 bg-[#002349] text-white border-2 border-[#002349] font-roboto text-xs tracking-wider uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-[#003A6C] hover:text-white transition-colors"
               >
-                Submit investment brief <i className="ri-arrow-right-line"></i>
+                {LC.investor_button} <i className="ri-arrow-right-line"></i>
               </a>
             </div>
           </div>
@@ -1166,10 +1134,10 @@ export default function JointVentures() {
       <section className="relative overflow-hidden bg-primary px-6 py-14 md:py-20">
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="text-center mb-10 md:mb-14">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">Full-Service Desk</p>
-            <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">What the Desk Handles</h2>
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">{LC.services_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">{LC.services_heading}</h2>
             <p className="text-white/55 font-roboto text-sm max-w-lg mx-auto">
-              We do not just make introductions. We carry every joint venture from first handshake to final sale.
+              {LC.services_subtitle}
             </p>
           </div>
           <MobileCollapsible
@@ -1180,7 +1148,7 @@ export default function JointVentures() {
             summary="Sourcing · Structuring · Management · Finance · Legal"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-white/10">
-              {services.map((svc) => (
+              {LC.services.map((svc) => (
                 <div key={svc.code} className="bg-primary p-6 md:p-7 hover:bg-primary/80 transition-colors">
                   <div className="flex items-center gap-3 mb-4">
                     <span className="text-golden font-roboto text-xs tracking-widest uppercase font-extrabold">{svc.code}</span>
@@ -1199,10 +1167,10 @@ export default function JointVentures() {
       <section className="px-6 py-14 md:py-20">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">Development Projects</p>
-            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">Projects Seeking Partners</h2>
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">{LC.projects_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl mb-3">{LC.projects_heading}</h2>
             <p className="text-primary/70 font-roboto text-sm max-w-xl mx-auto leading-relaxed">
-              Verified developments currently open for joint venture - each with approved plans, verified titles and a clear capital ask.
+              {LC.projects_subtitle}
             </p>
           </div>
 
@@ -1265,35 +1233,35 @@ export default function JointVentures() {
       <section id="request-desk" className="bg-[#152238] px-6 py-14 md:py-20">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8 md:mb-10">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">Submit a Request</p>
-            <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">Open a file with the JV desk.</h2>
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">{LC.request_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-white text-2xl md:text-3xl mb-3">{LC.request_heading}</h2>
             <p className="text-white/55 font-roboto text-sm max-w-lg mx-auto leading-relaxed">
-              Fill in whichever side applies to you. A member of the Oceans Kenya land team reviews every submission and responds within 48 hours.
+              {LC.request_paragraph}
             </p>
           </div>
 
           {/* Tab switcher */}
           <div className="flex items-center justify-center mb-8 md:mb-10">
-            <div className="inline-flex items-center bg-white/10 px-1 py-1">
+            <div className="inline-flex items-center bg-white/10 px-1 py-1 w-full max-w-sm sm:w-auto sm:max-w-none">
               <button
                 onClick={() => setRequestTab('landowner')}
-                className={`px-6 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-all font-bold ${
+                className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 text-xs sm:text-sm whitespace-normal sm:whitespace-nowrap leading-tight sm:leading-normal cursor-pointer transition-all font-bold ${
                   requestTab === 'landowner'
                     ? 'bg-golden text-white'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
-                I Own Land
+                {LC.request_tab_landowner}
               </button>
               <button
                 onClick={() => setRequestTab('investor')}
-                className={`px-6 py-2.5 text-sm font-roboto whitespace-nowrap cursor-pointer transition-all font-bold ${
+                className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 text-xs sm:text-sm whitespace-normal sm:whitespace-nowrap leading-tight sm:leading-normal cursor-pointer transition-all font-bold ${
                   requestTab === 'investor'
                     ? 'bg-accent text-white'
                     : 'text-white/60 hover:text-white'
                 }`}
               >
-                I Have Capital
+                {LC.request_tab_investor}
               </button>
             </div>
           </div>
@@ -1307,27 +1275,27 @@ export default function JointVentures() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-6">
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full name</label>
-                  <input required name="full_name" placeholder="e.g. Sarah Namutebi" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="full_name" placeholder="e.g. Sarah Namutebi" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone / WhatsApp</label>
-                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email</label>
-                  <input required type="email" name="email" placeholder="you@email.com" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="email" name="email" placeholder="you@email.com" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">District / location</label>
-                  <input required name="land_location" placeholder="e.g. Wakiso, Kira" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="land_location" placeholder="e.g. Wakiso, Kira" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Acreage</label>
-                  <input required name="land_size" placeholder="e.g. 12 acres" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="land_size" placeholder="e.g. 12 acres" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Title status</label>
-                  <select required name="title_status" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="title_status" className={`${FIELD_CLASS} cursor-pointer bg-white`}>
                     <option value="">Select one</option>
                     <option value="freehold">Freehold</option>
                     <option value="leasehold">Leasehold</option>
@@ -1338,7 +1306,7 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred structure</label>
-                  <select required name="preferred_structure" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="preferred_structure" className={`${FIELD_CLASS} cursor-pointer bg-white`}>
                     <option value="">Select one</option>
                     <option value="revenue_share">Joint venture - revenue share</option>
                     <option value="equity_split">Joint venture - equity split</option>
@@ -1349,7 +1317,7 @@ export default function JointVentures() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Tell us about the land</label>
-                  <textarea name="message" rows={3} maxLength={500} placeholder="Access road, current use, nearby landmarks, any existing survey or valuation, ideal type of investor..." className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                  <textarea name="message" rows={3} maxLength={500} placeholder="Access road, current use, nearby landmarks, any existing survey or valuation, ideal type of investor..." className={`${FIELD_CLASS} resize-none`}></textarea>
                   <p className="text-right text-xs text-primary/50 font-roboto mt-1">Max 500 characters</p>
                 </div>
               </div>
@@ -1389,19 +1357,19 @@ export default function JointVentures() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5 mb-6">
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Full name</label>
-                  <input required name="full_name" placeholder="e.g. David Okello" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required name="full_name" placeholder="e.g. David Okello" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Phone / WhatsApp</label>
-                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="tel" name="phone" placeholder="+256 7XX XXX XXX" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Email</label>
-                  <input required type="email" name="email" placeholder="you@email.com" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input required type="email" name="email" placeholder="you@email.com" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Investment range (KES)</label>
-                  <select required name="budget_range" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="budget_range" className={`${FIELD_CLASS} cursor-pointer bg-white`}>
                     <option value="">Select one</option>
                     <option value="below_100m">Below 100M</option>
                     <option value="100m_500m">100M - 500M</option>
@@ -1412,11 +1380,11 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred district(s)</label>
-                  <input name="preferred_location" placeholder="e.g. Karen, Westlands, Kileleshwa" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors" />
+                  <input name="preferred_location" placeholder="e.g. Karen, Westlands, Kileleshwa" className={FIELD_CLASS} />
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Preferred use</label>
-                  <select required name="preferred_use" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select required name="preferred_use" className={`${FIELD_CLASS} cursor-pointer bg-white`}>
                     <option value="">Select one</option>
                     <option value="agriculture">Agriculture / agri-processing</option>
                     <option value="residential">Residential estate development</option>
@@ -1427,7 +1395,7 @@ export default function JointVentures() {
                 </div>
                 <div>
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">Timeline</label>
-                  <select name="timeline" className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary focus:outline-none focus:border-stone-400 cursor-pointer bg-white">
+                  <select name="timeline" className={`${FIELD_CLASS} cursor-pointer bg-white`}>
                     <option value="">Select one</option>
                     <option value="within_30_days">Ready to move within 30 days</option>
                     <option value="1_3_months">1-3 months</option>
@@ -1437,7 +1405,7 @@ export default function JointVentures() {
                 </div>
                 <div className="sm:col-span-2">
                   <label className="block text-primary font-roboto text-sm font-semibold mb-1.5">What are you looking for?</label>
-                  <textarea name="message" rows={3} maxLength={500} placeholder="Minimum acreage, access requirements, JV structure preference, or any land you've already seen..." className="w-full border border-primary/12 px-3.5 py-2.5 text-sm font-roboto text-primary placeholder:text-primary/50 focus:outline-none focus:border-stone-400 transition-colors resize-none"></textarea>
+                  <textarea name="message" rows={3} maxLength={500} placeholder="Minimum acreage, access requirements, JV structure preference, or any land you've already seen..." className={`${FIELD_CLASS} resize-none`}></textarea>
                   <p className="text-right text-xs text-primary/50 font-roboto mt-1">Max 500 characters</p>
                 </div>
               </div>
@@ -1474,8 +1442,8 @@ export default function JointVentures() {
       <section className="px-6 py-14 md:py-20">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-8 md:mb-12">
-            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">Questions</p>
-            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl">Frequently Asked</h2>
+            <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-2 font-roboto font-bold">{LC.faq_eyebrow}</p>
+            <h2 className="font-roboto font-bold text-primary text-2xl md:text-3xl">{LC.faq_heading}</h2>
           </div>
           <div className="space-y-2.5 md:space-y-3">
             {jvFaqs.map((faq, idx) => (
@@ -1502,17 +1470,17 @@ export default function JointVentures() {
       {/* CTA */}
       <section className="bg-primary px-6 py-12 md:py-16">
         <div className="max-w-3xl mx-auto text-center">
-          <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-3 font-roboto font-bold">Ready to Partner?</p>
-          <h2 className="text-white font-roboto font-bold mb-3 leading-snug text-2xl md:text-3xl">Let\'s Build Something Worthwhile</h2>
+          <p className="text-golden text-sm md:text-base tracking-[0.2em] uppercase mb-3 font-roboto font-bold">{LC.cta_eyebrow}</p>
+          <h2 className="text-white font-roboto font-bold mb-3 leading-snug text-2xl md:text-3xl">{LC.cta_heading}</h2>
           <p className="text-white/65 font-roboto text-sm leading-relaxed mb-7 max-w-lg mx-auto">
-            Whether you hold land or capital, our desk is built to structure deals that work for every partner. Submit a brief and let\'s talk.
+            {LC.cta_paragraph}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <a href="#request-desk" className="inline-flex items-center gap-2 px-6 py-2.5 bg-golden text-white text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-golden/90 transition-opacity w-full sm:w-auto justify-center">
-              <i className="ri-file-list-3-line"></i>Submit a Brief
+              <i className="ri-file-list-3-line"></i>{LC.cta_button1}
             </a>
             <Link to="/contact" className="inline-flex items-center gap-2 px-6 py-2.5 border border-white/30 text-white text-xs tracking-widest uppercase font-bold cursor-pointer whitespace-nowrap hover:bg-white/10 transition-colors w-full sm:w-auto justify-center">
-              <i className="ri-mail-send-line"></i>Speak to the Desk
+              <i className="ri-mail-send-line"></i>{LC.cta_button2}
             </Link>
           </div>
         </div>

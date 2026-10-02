@@ -155,6 +155,7 @@ export default function AdminPortalLayout() {
             { label: 'Approvals', icon: <CheckSquare size={18} />, path: '/admin/approvals', match: '/admin/approvals' },
           ],
         },
+        { label: 'System Settings', icon: <Settings size={18} />, path: '/admin/system-management', match: '/admin/system-management' },
       ],
     },
   ];
@@ -258,15 +259,6 @@ export default function AdminPortalLayout() {
       </nav>
 
       <div className="p-3 border-t border-white/10 space-y-1">
-        <Link
-          to="/admin/system-management"
-          onClick={() => setSidebarOpen(false)}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-base font-roboto font-medium transition-all cursor-pointer ${location.pathname === '/admin/system-management' ? 'bg-[#012144] text-[#00ddb4] font-semibold' : 'text-white/80 hover:bg-white/5 hover:text-white'}`}
-        >
-          <Settings size={18} className={location.pathname === '/admin/system-management' ? 'text-[#00ddb4]' : 'text-white/60'} />
-          <span className="flex-1">System Settings</span>
-          {location.pathname === '/admin/system-management' && <Chevron className="text-[#00ddb4] flex-shrink-0" />}
-        </Link>
         <Link to="/" onClick={() => setSidebarOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-md text-base font-roboto font-medium text-white/80 hover:bg-white/5 transition-all cursor-pointer">
           <Home size={18} className="text-white/60" />
           View public site

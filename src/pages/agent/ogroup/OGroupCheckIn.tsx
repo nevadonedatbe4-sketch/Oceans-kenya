@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import usePortalBase from '@/hooks/usePortalBase';
 import { useGlobalPresence } from '@/hooks/useGlobalPresence';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_CHECKIN_COPY, fillTemplate } from '@/lib/ogroupCopy';
 import { useAttendance, type AttendanceEvent, type PunchOutcome } from './useAttendance';
 import { ACCENTS, type AccentKey, CTA_COLOR, CTA_HOVER, fmtTime, fmtDur, fmtDate } from './checkInTheme';
 import TodayCard from './components/TodayCard';
@@ -23,21 +25,15 @@ interface ApptRow {
   property_title: string | null;
 }
 
-const EVENT_COPY: Record<AttendanceEvent['type'], { title: string; sub: (e: AttendanceEvent) => string }> = {
-  punch_in: { title: "You're punched in", sub: () => 'Shift started.' },
-  punch_out: { title: "You're punched out", sub: (e) => `Worked today: ${fmtDur(e.workedSec || 0)}` },
-  break_start: { title: 'Break started', sub: () => 'Enjoy your break.' },
-  break_end: { title: 'Back on the clock', sub: (e) => `Break lasted ${fmtDur(e.addedBreakSec || 0)}` },
-};
-
 export default function OGroupCheckIn() {
   const { user } = useAuth();
   const portalBase = usePortalBase();
   const navigate = useNavigate();
   const presence = useGlobalPresence();
+  const { content: c } = usePageContent('ogroup_checkin', DEFAULT_CHECKIN_COPY);
   const {
     session, todays, policy, schedule, breakTypes, openShift, state,
-    loading, busy, error, lastEvent, autoClosed,
+    loading, busy, error, errorCode, lastEvent, autoClosed,
     punchIn, punchOut, startBreak, endBreak, clearError, clearEvent, clearAutoClosed,
   } = useAttendance(`${portalBase}/check-in`);
 
@@ -56,6 +52,15 @@ export default function OGroupCheckIn() {
   const [corrBusy, setCorrBusy] = useState(false);
   const [toast, setToast] = useState<AttendanceEvent | null>(null);
   const [accent, setAccent] = useState<AccentKey>(() => (localStorage.getItem('og-punch-accent') === 'teal' ? 'teal' : 'navy'));
+
+  // Toast copy — driven by the editable content so confirmation wording is
+  // managed from the Check-In & Breaks editor like everything else.
+  const eventCopy = useMemo<Record<AttendanceEvent['type'], { title: string; sub: (e: AttendanceEvent) => string }>>(() => ({
+    punch_in: { title: c.toast_punch_in_title, sub: () => c.toast_punch_in_sub },
+    punch_out: { title: c.toast_punch_out_title, sub: (e) => fillTemplate(c.toast_punch_out_sub, { duration: fmtDur(e.workedSec || 0) }) },
+    break_start: { title: c.toast_break_start_title, sub: () => c.toast_break_start_sub },
+    break_end: { title: c.toast_break_end_title, sub: (e) => fillTemplate(c.toast_break_end_sub, { duration: fmtDur(e.addedBreakSec || 0) }) },
+  }), [c]);
 
   useEffect(() => { localStorage.setItem('og-punch-accent', accent); }, [accent]);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
@@ -110,7 +115,7 @@ export default function OGroupCheckIn() {
   const liveClock = new Date(now).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   const liveDate = new Date(now).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const hour = new Date(now).getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? c.greet_morning : hour < 18 ? c.greet_afternoon : c.greet_evening;
   const firstName = (user?.name || '').trim().split(/\s+/)[0] || 'there';
 
   const todayTotal = todays.reduce((s, t) => s + (t.hours_worked_sec || 0), 0);
@@ -134,11 +139,11 @@ export default function OGroupCheckIn() {
   };
 
   // Only ever runs from the punch-in dialog's explicit confirm - never from
-  // sign-in, page load, refresh or session restoration. `loc` is null when the
-  // device could not provide a fix; the punch still proceeds and the server
-  // records the saved office location.
-  const confirmPunchIn = async (loc: PunchLocation | null, note?: string): Promise<PunchOutcome> => {
-    const res = await punchIn(note || punchNote || undefined, loc || undefined);
+  // sign-in, page load, refresh or session restoration. `loc` is always a real
+  // confirmed location (device fix or a manually chosen place) — a punch
+  // without valid coordinates is not offered and is rejected by the server.
+  const confirmPunchIn = async (loc: PunchLocation): Promise<PunchOutcome> => {
+    const res = await punchIn(punchNote || undefined, loc);
     if (res.ok) {
       setPunchModalOpen(false);
       setPunchNote('');
@@ -153,10 +158,10 @@ export default function OGroupCheckIn() {
     : 'https://maps.google.com/maps?q=-1.2921,36.8219&z=14&output=embed';
 
   const statePill = state === 'on_break'
-    ? { text: 'On break', cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' }
+    ? { text: c.state_on_break, cls: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' }
     : state === 'punched_in'
-      ? { text: 'Punched in', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' }
-      : { text: 'Off clock', cls: 'bg-neutral-50 text-neutral-500 border-neutral-200', dot: 'bg-neutral-400' };
+      ? { text: c.state_punched_in, cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' }
+      : { text: c.state_off_clock, cls: 'bg-neutral-50 text-neutral-500 border-neutral-200', dot: 'bg-neutral-400' };
 
   return (
     <div className="bg-white rounded-3xl p-4 md:p-7 space-y-6">
@@ -167,8 +172,8 @@ export default function OGroupCheckIn() {
             <i className="ri-arrow-left-line" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-neutral-900">Punch Clock</h1>
-            <p className="text-sm text-neutral-500 mt-0.5">Attendance &amp; time tracking</p>
+            <h1 className="text-2xl font-bold text-neutral-900">{c.page_title}</h1>
+            <p className="text-sm text-neutral-500 mt-0.5">{c.page_subtitle}</p>
           </div>
         </div>
 
@@ -184,7 +189,7 @@ export default function OGroupCheckIn() {
           {/* Presence (online — a SEPARATE system) */}
           <span className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border bg-neutral-50 text-neutral-500 border-neutral-200" title="Online status is separate from attendance">
             <span className={`w-1.5 h-1.5 rounded-full ${presenceState === 'online' ? 'bg-emerald-500' : presenceState === 'away' ? 'bg-amber-400' : 'bg-neutral-300'}`} />
-            {presenceState === 'online' ? 'Online' : presenceState === 'away' ? 'Away' : 'Offline'}
+            {presenceState === 'online' ? c.presence_online : presenceState === 'away' ? c.presence_away : c.presence_offline}
           </span>
 
           <div className="inline-flex items-center gap-1 rounded-full bg-neutral-100 p-1" role="group" aria-label="Accent colour">
@@ -197,7 +202,7 @@ export default function OGroupCheckIn() {
           </div>
 
           <button onClick={() => setCorrectionOpen(true)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#012144] hover:underline underline-offset-2 cursor-pointer whitespace-nowrap transition-colors">
-            <i className="ri-error-warning-line" /> Request correction
+            <i className="ri-error-warning-line" /> {c.request_correction}
           </button>
         </div>
       </div>
@@ -214,17 +219,17 @@ export default function OGroupCheckIn() {
             <p className="text-sm text-white/70 mt-2">{liveDate}</p>
             <div className="mt-6 flex items-center gap-5 flex-wrap">
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-white/55 font-semibold">Punched in at</p>
+                <p className="text-[11px] uppercase tracking-wider text-white/55 font-semibold">{c.label_punched_in_at}</p>
                 <p className="text-lg font-semibold tabular-nums mt-0.5">{state !== 'off_clock' && session ? fmtTime(session.clock_in_at) : '—:—'}</p>
               </div>
               <span className="w-px h-9 bg-white/20" />
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-white/55 font-semibold">Elapsed</p>
+                <p className="text-[11px] uppercase tracking-wider text-white/55 font-semibold">{c.label_elapsed}</p>
                 <p className="text-lg font-semibold tabular-nums mt-0.5">{state !== 'off_clock' ? fmtDur(elapsed) : '0h 0m'}</p>
               </div>
               <span className="w-px h-9 bg-white/20" />
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-white/55 font-semibold">Today</p>
+                <p className="text-[11px] uppercase tracking-wider text-white/55 font-semibold">{c.label_today}</p>
                 <p className="text-lg font-semibold tabular-nums mt-0.5">{fmtDur(todayTotal)}</p>
               </div>
             </div>
@@ -241,12 +246,12 @@ export default function OGroupCheckIn() {
                     {busy ? <i className="ri-loader-4-line animate-spin text-3xl" /> : (
                       <>
                         <i className="ri-fingerprint-2-line text-3xl" />
-                        <span className="text-xs font-bold tracking-widest mt-1">PUNCH IN</span>
+                        <span className="text-xs font-bold tracking-widest mt-1">{c.punch_in_label}</span>
                       </>
                     )}
                   </span>
                 </button>
-                <p className="text-[11px] text-white/70 text-center max-w-[190px]">Tap to punch in. Your shift is recorded right away — location is optional.</p>
+                <p className="text-[11px] text-white/70 text-center max-w-[190px]">{c.punch_in_hint}</p>
               </>
             ) : (
               <div className="flex flex-col items-center gap-3">
@@ -254,15 +259,15 @@ export default function OGroupCheckIn() {
                   <span className={`absolute inset-0 rounded-full border-2 border-dashed ${state === 'on_break' ? 'border-amber-300' : 'border-emerald-300'}`} />
                   <div className={`w-28 h-28 md:w-32 md:h-32 rounded-full flex flex-col items-center justify-center text-center ${state === 'on_break' ? 'bg-amber-500' : 'bg-emerald-600'}`}>
                     <i className={`text-2xl ${state === 'on_break' ? 'ri-cup-line' : 'ri-checkbox-circle-line'}`} />
-                    <p className="text-xs font-semibold mt-1 px-2">{state === 'on_break' ? 'On break' : 'Active'}</p>
+                    <p className="text-xs font-semibold mt-1 px-2">{state === 'on_break' ? c.state_on_break : c.state_active}</p>
                   </div>
                 </div>
                 {state === 'on_break' ? (
-                  <button onClick={() => endBreak()} disabled={busy} className={`px-7 py-2.5 rounded-full bg-white ${theme.btnText} font-bold text-sm hover:bg-white/90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50`}>End break</button>
+                  <button onClick={() => endBreak()} disabled={busy} className={`px-7 py-2.5 rounded-full bg-white ${theme.btnText} font-bold text-sm hover:bg-white/90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50`}>{c.btn_end_break}</button>
                 ) : (
                   <div className="flex gap-2">
-                    <button onClick={() => setBreakPickerOpen(true)} disabled={busy} className="px-4 py-2.5 rounded-full bg-white/15 text-white font-semibold text-sm hover:bg-white/25 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"><i className="ri-cup-line mr-1" />Break</button>
-                    <button onClick={() => punchOut(punchNote || undefined)} disabled={busy} className={`px-5 py-2.5 rounded-full bg-white ${theme.btnText} font-bold text-sm hover:bg-white/90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50`}>Punch out</button>
+                    <button onClick={() => setBreakPickerOpen(true)} disabled={busy} className="px-4 py-2.5 rounded-full bg-white/15 text-white font-semibold text-sm hover:bg-white/25 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50"><i className="ri-cup-line mr-1" />{c.btn_break}</button>
+                    <button onClick={() => punchOut(punchNote || undefined)} disabled={busy} className={`px-5 py-2.5 rounded-full bg-white ${theme.btnText} font-bold text-sm hover:bg-white/90 transition-all cursor-pointer whitespace-nowrap disabled:opacity-50`}>{c.btn_punch_out}</button>
                   </div>
                 )}
               </div>
@@ -277,7 +282,16 @@ export default function OGroupCheckIn() {
       {error && (
         <div className="flex items-start gap-2 rounded-2xl bg-red-50 border border-red-100 p-3.5 text-red-600">
           <i className="ri-error-warning-line mt-0.5" />
-          <p className="flex-1 text-sm font-medium">{error}</p>
+          <div className="flex-1">
+            <p className="text-sm font-medium">{error}</p>
+            {errorCode === 'SESSION_EXPIRED' && (
+              <button
+                onClick={async () => { await supabase.auth.signOut(); navigate(`${portalBase}/login`); }}
+                className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors cursor-pointer whitespace-nowrap">
+                <i className="ri-login-box-line" /> {c.error_sign_in_again}
+              </button>
+            )}
+          </div>
           <button onClick={clearError} className="text-red-400 cursor-pointer"><i className="ri-close-line" /></button>
         </div>
       )}
@@ -286,8 +300,8 @@ export default function OGroupCheckIn() {
         <div className="flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-amber-800">
           <i className="ri-alarm-warning-line mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-semibold">You have an open shift</p>
-            <p className="text-xs mt-0.5">You punched in on {session ? fmtDate(session.clock_in_at) : ''} at {session ? fmtTime(session.clock_in_at) : ''} and never punched out. Punch out below, or request a correction.</p>
+            <p className="text-sm font-semibold">{c.open_shift_title}</p>
+            <p className="text-xs mt-0.5">{fillTemplate(c.open_shift_body, { date: session ? fmtDate(session.clock_in_at) : '', time: session ? fmtTime(session.clock_in_at) : '' })}</p>
           </div>
           <button onClick={() => dismissAlert(`open-${session?.id || 'shift'}`)} aria-label="Dismiss" className="text-amber-500 hover:text-amber-700 transition-colors cursor-pointer flex-shrink-0"><i className="ri-close-line" /></button>
         </div>
@@ -297,8 +311,8 @@ export default function OGroupCheckIn() {
         <div className="flex items-start gap-2 rounded-2xl bg-red-50 border border-red-200 p-3.5 text-red-700">
           <i className="ri-error-warning-line mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-semibold">You were automatically punched out</p>
-            <p className="text-xs mt-0.5">Your shift reached the {Math.round(maxShiftSec / 3600)}-hour limit and was closed at {autoClosedNotice.clockOutAt ? fmtTime(autoClosedNotice.clockOutAt) : '—'}. An admin can review it.</p>
+            <p className="text-sm font-semibold">{c.auto_closed_title}</p>
+            <p className="text-xs mt-0.5">{fillTemplate(c.auto_closed_body, { hours: Math.round(maxShiftSec / 3600), time: autoClosedNotice.clockOutAt ? fmtTime(autoClosedNotice.clockOutAt) : '—' })}</p>
           </div>
           <button onClick={() => setAutoClosedNotice(null)} className="text-red-400 cursor-pointer"><i className="ri-close-line" /></button>
         </div>
@@ -308,8 +322,8 @@ export default function OGroupCheckIn() {
         <div className="flex items-start gap-2 rounded-2xl bg-amber-50 border border-amber-200 p-3.5 text-amber-800">
           <i className="ri-timer-line mt-0.5" />
           <div className="flex-1">
-            <p className="text-sm font-semibold">Approaching the {Math.round(maxShiftSec / 3600)}-hour limit</p>
-            <p className="text-xs mt-0.5">You&apos;ll be automatically punched out in {fmtDur(Math.max(0, maxShiftSec - elapsed))}. Punch out sooner if you&apos;re done.</p>
+            <p className="text-sm font-semibold">{fillTemplate(c.limit_title, { hours: Math.round(maxShiftSec / 3600) })}</p>
+            <p className="text-xs mt-0.5">{fillTemplate(c.limit_body, { remaining: fmtDur(Math.max(0, maxShiftSec - elapsed)) })}</p>
           </div>
           <button onClick={() => dismissAlert(`limit-${session?.id || 'shift'}`)} aria-label="Dismiss" className="text-amber-500 hover:text-amber-700 transition-colors cursor-pointer flex-shrink-0"><i className="ri-close-line" /></button>
         </div>
@@ -323,7 +337,7 @@ export default function OGroupCheckIn() {
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className="flex items-center gap-2 text-sm font-semibold text-neutral-800">
             <i className={`text-base ${session?.clock_in_latitude ? 'ri-map-pin-2-fill text-emerald-600' : 'ri-map-pin-2-line text-neutral-400'}`} />
-            {session?.clock_in_latitude ? 'Punch-in location' : 'No location on record yet'}
+            {session?.clock_in_latitude ? c.location_punch_in : c.location_none}
           </span>
           <span className="text-xs font-medium text-neutral-400">{session?.clock_in_location_label || (session?.location_source ? session.location_source.replace(/_/g, ' ') : '')}</span>
         </div>
@@ -333,14 +347,14 @@ export default function OGroupCheckIn() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">Punch note (optional)</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">{c.note_label}</p>
           {noteOpen || punchNote ? (
             <textarea value={punchNote} autoFocus onChange={(e) => setPunchNote(e.target.value)} onBlur={() => { if (!punchNote.trim()) setNoteOpen(false); }}
-              rows={2} maxLength={200} placeholder="e.g. Working from Westlands office"
+              rows={2} maxLength={200} placeholder={c.note_placeholder}
               className="mt-2 w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-neutral-200 resize-none" />
           ) : (
             <button onClick={() => setNoteOpen(true)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-neutral-100 text-neutral-600 hover:bg-neutral-200 transition-colors cursor-pointer">
-              <i className="ri-add-line" /> Add a note
+              <i className="ri-add-line" /> {c.note_add}
             </button>
           )}
         </div>
@@ -350,17 +364,17 @@ export default function OGroupCheckIn() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className={`rounded-2xl border p-4 ${theme.softBg} ${theme.softBorder}`}>
           <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${theme.tileIcon}`}><i className="ri-time-line" /></span>
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold mt-3">Total today</p>
+          <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold mt-3">{c.stat_total_today}</p>
           <p className="text-xl font-bold text-neutral-900 tabular-nums mt-0.5">{fmtDur(todayTotal)}</p>
         </div>
         <div className="rounded-2xl border border-neutral-200 bg-neutral-50/60 p-4">
           <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-100 text-amber-700"><i className="ri-alarm-warning-line" /></span>
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold mt-3">Late today</p>
+          <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold mt-3">{c.stat_late_today}</p>
           <p className="text-xl font-bold text-neutral-900 tabular-nums mt-0.5">{fmtDur(todays.reduce((s, t) => s + (t.late_sec || 0), 0))}</p>
         </div>
         <div className="rounded-2xl border border-neutral-200 bg-neutral-50/60 p-4">
           <span className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-100 text-emerald-700"><i className="ri-timer-flash-line" /></span>
-          <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold mt-3">Overtime today</p>
+          <p className="text-[11px] uppercase tracking-wider text-neutral-500 font-semibold mt-3">{c.stat_overtime_today}</p>
           <p className="text-xl font-bold text-neutral-900 tabular-nums mt-0.5">{fmtDur(todays.reduce((s, t) => s + (t.overtime_sec || 0), 0))}</p>
         </div>
       </div>
@@ -369,12 +383,12 @@ export default function OGroupCheckIn() {
       <div className="rounded-2xl border border-neutral-200 p-4">
         <div className="flex items-center gap-2 mb-3">
           <i className={`ri-calendar-schedule-line ${theme.softText}`} />
-          <p className="text-sm font-semibold text-neutral-800">Today&apos;s appointments</p>
+          <p className="text-sm font-semibold text-neutral-800">{c.appts_title}</p>
         </div>
         {appts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <span className="w-12 h-12 rounded-2xl bg-neutral-50 flex items-center justify-center text-neutral-300 mb-2"><i className="ri-calendar-line text-xl" /></span>
-            <p className="text-sm text-neutral-400">Nothing scheduled today</p>
+            <p className="text-sm text-neutral-400">{c.appts_empty}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -397,26 +411,26 @@ export default function OGroupCheckIn() {
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-neutral-100">
           <div className="flex items-center gap-2">
             <i className={`ri-history-line ${theme.softText}`} />
-            <p className="text-sm font-semibold text-neutral-800">Today&apos;s sessions</p>
+            <p className="text-sm font-semibold text-neutral-800">{c.sessions_title}</p>
           </div>
           <button onClick={() => navigate(`${portalBase}/timesheet`)} className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 transition-colors cursor-pointer whitespace-nowrap">
-            My Timesheet <i className="ri-arrow-right-line" />
+            {c.sessions_timesheet} <i className="ri-arrow-right-line" />
           </button>
         </div>
         {todays.length === 0 ? (
           <div className="px-4 py-8 text-center">
-            <p className="text-sm text-neutral-400">No sessions recorded yet today</p>
+            <p className="text-sm text-neutral-400">{c.sessions_empty}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-neutral-50 text-xs text-neutral-500">
                 <tr>
-                  <th className="text-left px-4 py-2.5 font-semibold">In</th>
-                  <th className="text-left px-4 py-2.5 font-semibold">Out</th>
-                  <th className="text-left px-4 py-2.5 font-semibold">Break</th>
-                  <th className="text-left px-4 py-2.5 font-semibold">Worked</th>
-                  <th className="text-left px-4 py-2.5 font-semibold">Status</th>
+                  <th className="text-left px-4 py-2.5 font-semibold">{c.col_in}</th>
+                  <th className="text-left px-4 py-2.5 font-semibold">{c.col_out}</th>
+                  <th className="text-left px-4 py-2.5 font-semibold">{c.col_break}</th>
+                  <th className="text-left px-4 py-2.5 font-semibold">{c.col_worked}</th>
+                  <th className="text-left px-4 py-2.5 font-semibold">{c.col_status}</th>
                 </tr>
               </thead>
               <tbody>
@@ -453,7 +467,7 @@ export default function OGroupCheckIn() {
 
       {loading && (
         <div className="flex items-center justify-center gap-2 text-sm text-neutral-400 py-2">
-          <i className="ri-loader-4-line animate-spin" /> Loading attendance…
+          <i className="ri-loader-4-line animate-spin" /> {c.loading}
         </div>
       )}
 
@@ -471,21 +485,21 @@ export default function OGroupCheckIn() {
           <div className="absolute inset-0 bg-black/50" onClick={() => setCorrectionOpen(false)} />
           <div className="relative w-full max-w-md bg-white rounded-2xl p-5 border border-neutral-200">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-base font-semibold text-neutral-900">Request attendance correction</h3>
+              <h3 className="text-base font-semibold text-neutral-900">{c.correction_title}</h3>
               <button onClick={() => setCorrectionOpen(false)} className="text-neutral-400 hover:text-neutral-600 cursor-pointer"><i className="ri-close-line text-xl" /></button>
             </div>
-            <p className="text-xs text-neutral-500 mb-3">e.g. you forgot to clock out. An Admin will review and approve or reject this.</p>
-            <label className="text-xs font-semibold text-neutral-600">Reason</label>
-            <textarea value={corrReason} onChange={(e) => setCorrReason(e.target.value)} rows={3} maxLength={300} placeholder="Forgot to clock out" className="mt-1 w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 resize-none" />
-            <label className="text-xs font-semibold text-neutral-600 block mt-3">Requested clock-out time (optional)</label>
+            <p className="text-xs text-neutral-500 mb-3">{c.correction_hint}</p>
+            <label className="text-xs font-semibold text-neutral-600">{c.correction_reason_label}</label>
+            <textarea value={corrReason} onChange={(e) => setCorrReason(e.target.value)} rows={3} maxLength={300} placeholder={c.correction_reason_placeholder} className="mt-1 w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 resize-none" />
+            <label className="text-xs font-semibold text-neutral-600 block mt-3">{c.correction_time_label}</label>
             <input type="datetime-local" value={corrTime} onChange={(e) => setCorrTime(e.target.value)} className="mt-1 w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300" />
             <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setCorrectionOpen(false)} className="px-4 py-2 rounded-lg text-sm text-neutral-500 hover:bg-neutral-50 cursor-pointer">Cancel</button>
+              <button onClick={() => setCorrectionOpen(false)} className="px-4 py-2 rounded-lg text-sm text-neutral-500 hover:bg-neutral-50 cursor-pointer">{c.correction_cancel}</button>
               <button onClick={submitCorrection} disabled={corrBusy || !corrReason.trim()} style={{ backgroundColor: CTA_COLOR }}
                 onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = CTA_HOVER; }}
                 onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = CTA_COLOR; }}
                 className="px-4 py-2 rounded-lg text-white text-sm font-semibold transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap">
-                {corrBusy ? 'Submitting...' : 'Submit request'}
+                {corrBusy ? c.correction_submitting : c.correction_submit}
               </button>
             </div>
           </div>
@@ -496,8 +510,8 @@ export default function OGroupCheckIn() {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-neutral-900 text-white rounded-2xl px-5 py-3 shadow-lg flex items-center gap-3 max-w-[90vw]">
           <i className="ri-checkbox-circle-fill text-emerald-400 text-xl" />
           <div>
-            <p className="text-sm font-semibold">{EVENT_COPY[toast.type].title} · {fmtTime(toast.at)}</p>
-            <p className="text-xs text-white/70">{EVENT_COPY[toast.type].sub(toast)}</p>
+            <p className="text-sm font-semibold">{eventCopy[toast.type].title} · {fmtTime(toast.at)}</p>
+            <p className="text-xs text-white/70">{eventCopy[toast.type].sub(toast)}</p>
           </div>
         </div>
       )}

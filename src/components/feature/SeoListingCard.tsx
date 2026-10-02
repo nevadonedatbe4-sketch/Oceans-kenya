@@ -54,7 +54,7 @@ export default function SeoListingCard({ property: p }: SeoListingCardProps) {
         <p className="text-[color:var(--card-category-text)] text-[13px] font-roboto font-medium uppercase tracking-[0.1em] mb-1">
           {p.category}
         </p>
-        <h3 className="font-roboto font-medium text-sm md:text-base text-[color:var(--card-title-text)] leading-snug mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+        <h3 className="card-title font-roboto font-medium text-sm md:text-base text-[color:var(--card-title-text)] leading-snug mb-2 line-clamp-2 group-hover:text-primary transition-colors">
           {smartTitleCase(p.title)}
         </h3>
         {snippet && (
@@ -66,12 +66,12 @@ export default function SeoListingCard({ property: p }: SeoListingCardProps) {
           <span className="w-3.5 h-3.5 flex items-center justify-center shrink-0 mt-0.5">
             <i className="ri-map-pin-line text-[#6b7280] text-xs"></i>
           </span>
-          <span className="text-xs md:text-sm font-roboto font-normal text-[#2D303D] leading-snug">
+          <span className="text-xs md:text-sm font-roboto font-medium text-[#2D303D] leading-snug">
             {smartTitleCase(p.area || p.location)}
           </span>
         </address>
 
-        <div className="flex items-center gap-3 flex-wrap text-[#2D303D] text-xs font-roboto font-normal mb-3">
+        <div className="flex items-center gap-3 flex-wrap text-[#2D303D] text-xs font-roboto font-medium mb-3">
           {getPropertySpecs(p.propertyType, {
             beds: p.beds,
             baths: p.baths,

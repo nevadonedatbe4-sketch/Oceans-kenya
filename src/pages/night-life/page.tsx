@@ -23,12 +23,15 @@ import NightLifeFilterBar, {
   type NightLifeAreaOption,
   type NightLifeSubcat,
 } from '@/pages/night-life/components/NightLifeFilterBar';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_NIGHTLIFE } from '@/lib/pageCopy';
 
 const PER_PAGE = 12;
 const NIGHT_CATEGORY = 'night_life';
 
 export default function NightLifePage() {
   const { amenities, loading, error, refetch } = useAmenities();
+  const { content: c } = usePageContent('nightlife', DEFAULT_NIGHTLIFE);
 
   const [search, setSearch] = useState('');
   const [activeSub, setActiveSub] = useState<string>('all');
@@ -224,14 +227,13 @@ export default function NightLifePage() {
               style={{ backgroundColor: accent }}
             >
               <i className="ri-moon-clear-line text-sm"></i>
-              After Dark
+              {c.hero_badge}
             </span>
             <h1 className="text-white font-prata font-bold text-4xl md:text-6xl mb-4">
-              Night Life in Nairobi
+              {c.hero_title}
             </h1>
             <p className="text-white/80 font-roboto text-sm md:text-base max-w-2xl mx-auto leading-relaxed">
-              From thumping nightclubs and rooftop sundowners to cocktail lounges, casinos, karaoke and
-              late-night eats - discover the city after dark and filter it your way.
+              {c.hero_subtitle}
             </p>
             <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
               <a
@@ -247,7 +249,7 @@ export default function NightLifePage() {
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-md border border-white/40 text-white text-sm font-jost font-semibold uppercase tracking-[0.08em] hover:bg-white/10 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <i className="ri-grid-line"></i>
-                Full Directory
+                {c.hero_button_secondary}
               </Link>
             </div>
           </div>
@@ -259,10 +261,10 @@ export default function NightLifePage() {
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-6 md:py-8">
           <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {[
-              { label: 'Night Spots', value: stats.total, icon: 'ri-map-pin-2-line' },
-              { label: 'Areas Covered', value: stats.areas, icon: 'ri-map-2-line' },
-              { label: 'Clubs & Lounges', value: stats.clubs + stats.lounges, icon: 'ri-disc-line' },
-              { label: 'Casinos', value: stats.casinos, icon: 'ri-copper-coin-line' },
+              { label: c.stat_spots, value: stats.total, icon: 'ri-map-pin-2-line' },
+              { label: c.stat_areas, value: stats.areas, icon: 'ri-map-2-line' },
+              { label: c.stat_clubs, value: stats.clubs + stats.lounges, icon: 'ri-disc-line' },
+              { label: c.stat_casinos, value: stats.casinos, icon: 'ri-copper-coin-line' },
             ].map((s) => (
               <div key={s.label} className="flex items-center gap-3">
                 <span className="w-11 h-11 flex items-center justify-center rounded-full bg-white/5 border border-white/10 shrink-0">
@@ -296,10 +298,10 @@ export default function NightLifePage() {
               ]}
             />
             <h2 className="font-prata font-bold text-[#160A0D] text-[26px] md:text-[34px]">
-              Find your kind of night
+              {c.intro_heading}
             </h2>
             <p className="font-roboto text-sm text-[#6b6b6b] mt-1.5 max-w-2xl">
-              Filter by vibe, area, price and rating to build the perfect night out across Nairobi.
+              {c.intro_sub}
             </p>
           </div>
 
@@ -329,8 +331,7 @@ export default function NightLifePage() {
           {/* Result summary */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-6 mb-5">
             <p className="text-xs font-roboto text-[#6b6b6b]">
-              Showing <span className="text-[#9B1B30] font-semibold">{filtered.length}</span> night
-              spot{filtered.length === 1 ? '' : 's'}
+              Showing <span className="text-[#9B1B30] font-semibold">{filtered.length}</span> {c.spot_word}{filtered.length === 1 ? '' : 's'}
               {activeSub !== 'all' && ` · ${subcategoryLabel(activeSub)}`}
               {area !== 'all' && ` · ${area}`}
             </p>
@@ -341,7 +342,7 @@ export default function NightLifePage() {
                 className="self-start sm:self-auto inline-flex items-center gap-1.5 text-xs font-jost font-semibold uppercase tracking-[0.08em] text-[#9B1B30] hover:opacity-80 transition-opacity cursor-pointer whitespace-nowrap"
               >
                 <i className="ri-close-circle-line"></i>
-                Clear all
+                {c.clear_all}
               </button>
             )}
           </div>
@@ -358,13 +359,13 @@ export default function NightLifePage() {
               <div className="w-12 h-12 flex items-center justify-center mx-auto mb-3 bg-[#F3F0E9] rounded-full">
                 <i className="ri-error-warning-line text-[#9B1B30] text-xl"></i>
               </div>
-              <p className="font-semibold text-[#160A0D] text-sm mb-1">Unable to load night spots</p>
+              <p className="font-semibold text-[#160A0D] text-sm mb-1">{c.error_title}</p>
               <p className="text-xs text-[#6b6b6b] mb-3">{error}</p>
               <button
                 onClick={refetch}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#9B1B30] text-white rounded-md text-xs font-semibold cursor-pointer whitespace-nowrap"
               >
-                <i className="ri-refresh-line"></i> Try again
+                <i className="ri-refresh-line"></i> {c.retry_button}
               </button>
             </div>
           ) : visibleItems.length > 0 ? (
@@ -388,7 +389,7 @@ export default function NightLifePage() {
                     className="inline-flex items-center gap-2 px-6 py-3 text-white text-xs font-jost font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer whitespace-nowrap"
                     style={{ backgroundColor: accent }}
                   >
-                    Load more ({sorted.length - visibleCount} remaining)
+                    {c.load_more_prefix} ({sorted.length - visibleCount} {c.remaining_word})
                     <i className="ri-arrow-down-s-line"></i>
                   </button>
                 </div>
@@ -399,11 +400,11 @@ export default function NightLifePage() {
               <div className="w-12 h-12 flex items-center justify-center mx-auto mb-3 bg-[#F3F0E9] rounded-full">
                 <i className="ri-moon-clear-line text-[#9B1B30] text-xl"></i>
               </div>
-              <p className="font-semibold text-[#160A0D] text-sm mb-1">Nothing matches that yet</p>
+              <p className="font-semibold text-[#160A0D] text-sm mb-1">{c.empty_title}</p>
               <p className="text-xs text-[#6b6b6b] max-w-sm mx-auto">
                 {hasActiveFilters
-                  ? 'Try widening your filters - clear a couple and the night comes back to life.'
-                  : 'Night Life venues are being added regularly. Check back soon for the full line-up.'}
+                  ? c.empty_text_filtered
+                  : c.empty_text_default}
               </p>
               {hasActiveFilters && (
                 <button
@@ -412,7 +413,7 @@ export default function NightLifePage() {
                   className="mt-4 inline-flex items-center gap-1.5 px-5 py-2.5 text-white rounded-md text-xs font-jost font-semibold uppercase tracking-[0.08em] transition-colors cursor-pointer whitespace-nowrap"
                   style={{ backgroundColor: accent }}
                 >
-                  <i className="ri-refresh-line"></i> Reset filters
+                  <i className="ri-refresh-line"></i> {c.reset_filters}
                 </button>
               )}
             </div>
@@ -423,11 +424,10 @@ export default function NightLifePage() {
       {/* CTA */}
       <section className="bg-[#160A0D] py-14 md:py-20 px-4 md:px-6 text-center">
         <h3 className="font-prata font-semibold text-white text-[27px] md:text-[33px] mb-3">
-          Live where the night never ends
+          {c.cta_title}
         </h3>
         <p className="font-roboto text-white/70 text-[15px] md:text-base max-w-xl mx-auto leading-relaxed mb-6">
-          Homes in Westlands, Kilimani and the city centre put you minutes from the best bars, clubs and
-          late-night kitchens.
+          {c.cta_text}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link

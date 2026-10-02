@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_CHECKIN_COPY, fillTemplate } from '@/lib/ogroupCopy';
 import {
   getDevicePosition,
   reverseGeocode,
@@ -15,56 +17,124 @@ import type { PunchOutcome } from '../useAttendance';
 interface Props {
   busy: boolean;
   onCancel: () => void;
-  /** `location` is null when the device could not provide a fix — the punch
-   *  still proceeds and the server records the saved office location. */
-  onConfirm: (location: PunchLocation | null, note?: string) => Promise<PunchOutcome>;
+  /** A punch is only ever submitted with a REAL location (device fix or a
+   *  manually chosen place). There is no coordinate-less fallback. */
+  onConfirm: (location: PunchLocation) => Promise<PunchOutcome>;
 }
 
 /**
- * Phases mirror the real pipeline, so the UI never claims "location required"
- * while the browser is still resolving:
- *   detecting → "Getting your location…"  (permission prompt happens here)
- *   checking  → "Checking location…"      (reverse-geocoding the coords)
- *   ready     → coords confirmed, user confirms the punch
- *   failed    → no fix, but the punch STILL proceeds using the office stand-in
+ * ONE authoritative punch-in location flow, shared by every role and team.
  *
- * There is no blocking state: a missing location never stops a punch-in.
+ * Phases mirror the real pipeline so the UI never lies about what is happening:
+ *   detecting → "Detecting your location…"  (the browser permission prompt fires here)
+ *   checking  → "Checking location…"        (reverse-geocoding the coordinates)
+ *   ready     → a real fix + accuracy + map → user explicitly confirms the punch
+ *   failed    → a SPECIFIC, recoverable state (no generic "something went wrong")
+ *
+ * There is NO "punch in anyway" escape hatch: without valid coordinates a punch
+ * is not offered. Every failure path is recoverable (retry / search / cancel).
+ *
+ * Every visible string is editable from the "Check-In & Breaks" editor.
  */
 type Phase = 'detecting' | 'checking' | 'ready' | 'failed';
 
-function failureCopy(failure: GeoFailure | null, permission: GeoPermission): { title: string; hint: string } {
+type Copy = typeof DEFAULT_CHECKIN_COPY;
+
+interface FailureView {
+  title: string;
+  hint: string;
+  icon: string;
+  tone: 'amber' | 'red' | 'neutral';
+  /** Extra, ordered recovery instructions (e.g. how to un-block location). */
+  steps?: string[];
+  /** Whether "Try again" makes sense for this state. */
+  canRetry: boolean;
+}
+
+/** Map the REAL failure (never a generic one) onto a specific, recoverable state. */
+function failureView(failure: GeoFailure | null, permission: GeoPermission, c: Copy): FailureView {
   const code = failure?.code;
-  if (code === 'denied' || permission === 'denied') {
+
+  // PERMANENTLY blocked — the browser remembered "Block" at the site level.
+  // (We only reach here when the live permission query really says `denied`.)
+  if (permission === 'denied') {
     return {
-      title: 'Location access is blocked',
-      hint: 'No problem — you can still punch in and we’ll use your saved office location. To share your exact position, allow Location for this site in your browser.',
+      title: c.pm_blocked_title,
+      hint: c.pm_blocked_hint,
+      icon: 'ri-lock-2-line',
+      tone: 'red',
+      steps: [c.pm_blocked_step1, c.pm_blocked_step2, c.pm_blocked_step3],
+      canRetry: true,
+    };
+  }
+  // Reported as denied but NOT permanently blocked — the user simply hasn't
+  // allowed yet (prompt dismissed / not yet decided). Re-request, never a scary
+  // "blocked" screen.
+  if (code === 'denied') {
+    return {
+      title: c.pm_required_title,
+      hint: c.pm_required_hint,
+      icon: 'ri-map-pin-user-line',
+      tone: 'amber',
+      canRetry: true,
+    };
+  }
+  if (code === 'unsupported' || permission === 'unsupported') {
+    return {
+      title: c.pm_unsupported_title,
+      hint: c.pm_unsupported_hint,
+      icon: 'ri-window-line',
+      tone: 'neutral',
+      canRetry: false,
     };
   }
   if (code === 'insecure_context') {
     return {
-      title: 'Location needs a secure connection',
-      hint: 'You can still punch in — we’ll use your saved office location.',
-    };
-  }
-  if (code === 'unsupported') {
-    return {
-      title: 'This browser can’t share location',
-      hint: 'You can still punch in — we’ll use your saved office location.',
+      title: c.pm_insecure_title,
+      hint: c.pm_insecure_hint,
+      icon: 'ri-lock-line',
+      tone: 'neutral',
+      canRetry: false,
     };
   }
   if (code === 'timeout') {
+    if (permission === 'prompt') {
+      return {
+        title: c.pm_required_title,
+        hint: c.pm_required_hint,
+        icon: 'ri-map-pin-user-line',
+        tone: 'amber',
+        canRetry: true,
+      };
+    }
     return {
-      title: 'Getting your location timed out',
-      hint: 'You can still punch in — we’ll use your saved office location. Or retry for your exact position.',
+      title: c.pm_timeout_title,
+      hint: c.pm_timeout_hint,
+      icon: 'ri-timer-line',
+      tone: 'amber',
+      canRetry: true,
     };
   }
   return {
-    title: 'We couldn’t detect your location',
-    hint: 'You can still punch in — we’ll record your shift using your saved office location. You can also retry or search manually.',
+    title: c.pm_unavailable_title,
+    hint: c.pm_unavailable_hint,
+    icon: 'ri-map-pin-2-line',
+    tone: 'amber',
+    canRetry: true,
   };
 }
 
+const TONE: Record<FailureView['tone'], { card: string; icon: string; title: string; hint: string }> = {
+  amber: { card: 'bg-amber-50 border-amber-200', icon: 'text-amber-600', title: 'text-amber-900', hint: 'text-amber-800' },
+  red: { card: 'bg-red-50 border-red-200', icon: 'text-red-600', title: 'text-red-900', hint: 'text-red-800' },
+  neutral: { card: 'bg-neutral-50 border-neutral-200', icon: 'text-neutral-500', title: 'text-neutral-900', hint: 'text-neutral-600' },
+};
+
+/** Accuracy beyond this (metres) is shown as a low-accuracy warning. */
+const LOW_ACCURACY_M = 500;
+
 export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Props) {
+  const { content: c } = usePageContent('ogroup_checkin', DEFAULT_CHECKIN_COPY);
   const [phase, setPhase] = useState<Phase>('detecting');
   const [location, setLocation] = useState<PunchLocation | null>(null);
   const [failure, setFailure] = useState<GeoFailure | null>(null);
@@ -79,52 +149,72 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
   const [inlineError, setInlineError] = useState<string | null>(null);
   const runIdRef = useRef(0);
 
-  // Submit the punch to the parent. Works with OR without coordinates — when
-  // there is no fix the server falls back to the saved office location, so a
-  // punch is never blocked.
+  const hasValidLocation = !!location && isValidCoords(location.lat, location.lng);
+
   const submitPunch = useCallback(async () => {
+    if (!location || !isValidCoords(location.lat, location.lng)) return;
     setSubmitting(true);
     setInlineError(null);
-    const out = await onConfirm(location, undefined);
+    const out = await onConfirm(location);
     setSubmitting(false);
     if (out.ok) return; // parent closes the dialog
     setInlineError(out.message || 'Something went wrong. Please try again.');
   }, [location, onConfirm]);
 
+  // Re-run detection. Always safe to call — this is the ONE detection path used
+  // by open, "Try again", and "Change location" → back.
   const runDetect = useCallback(async () => {
     const runId = ++runIdRef.current;
     setPhase('detecting');
     setFailure(null);
     setLocation(null);
     setTypedError(null);
+    setSearchOpen(false);
+    setInlineError(null);
 
-    // 1. Ask the browser for a fix (this is where the permission prompt happens).
-    const { coords, error, permission: perm } = await getDevicePosition();
-    if (runId !== runIdRef.current) return; // a newer attempt superseded this one
-    setPermission(perm);
+    // Give the flow a second, silent pass when the browser still reports the
+    // permission as merely "not decided" (prompt). This re-raises the browser's
+    // own "Allow location" prompt for anyone who dismissed it — no scary error
+    // card, and never for a genuinely blocked permission (retrying can't help).
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      // 1. Ask the browser for a fix (this is where the permission prompt fires).
+      const { coords, error, permission: perm } = await getDevicePosition();
+      if (runId !== runIdRef.current) return; // a newer attempt superseded this one
+      setPermission(perm);
 
-    if (!coords) {
+      if (coords) {
+        // 2. Coords obtained — resolve a readable label. A label failure NEVER
+        //    blocks the punch: reverseGeocode always returns something (coords at
+        //    worst) and coordinates are the authoritative evidence.
+        setPhase('checking');
+        const label = await reverseGeocode(coords.lat, coords.lng);
+        if (runId !== runIdRef.current) return;
+        setLocation({
+          lat: coords.lat,
+          lng: coords.lng,
+          accuracy: coords.accuracy,
+          label,
+          source: 'browser_geolocation',
+        });
+        setPhase('ready');
+        return;
+      }
+
+      // Only a not-yet-decided permission is worth an automatic re-ask.
+      const reaskable = perm === 'prompt';
+      if (attempt === 0 && reaskable) {
+        await new Promise((r) => setTimeout(r, 700));
+        if (runId !== runIdRef.current) return;
+        continue;
+      }
+
       setFailure(error);
       setPhase('failed');
       return;
     }
-
-    // 2. Coords obtained — resolve a readable label (this is the "checking" step).
-    setPhase('checking');
-    const label = await reverseGeocode(coords.lat, coords.lng);
-    if (runId !== runIdRef.current) return;
-
-    setLocation({
-      lat: coords.lat,
-      lng: coords.lng,
-      accuracy: coords.accuracy,
-      label,
-      source: 'browser_geolocation',
-    });
-    setPhase('ready');
   }, []);
 
-  // Auto-detect as soon as the dialog opens — opening the dialog IS the punch-in action.
+  // Opening the dialog IS the punch-in intent — kick off detection immediately.
   useEffect(() => {
     void runDetect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,7 +260,7 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
     if (resolved) {
       chooseResult(resolved);
     } else {
-      setTypedError(`We couldn’t find coordinates for “${typed}”. Try a more specific place.`);
+      setTypedError(fillTemplate(c.pm_typed_error, { query: typed }));
     }
   };
 
@@ -179,26 +269,28 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
     setTypedError(null);
   };
 
-  // Back from search returns to whatever we actually have, never a false failure.
+  // Back from search returns to whatever we actually have — never a false failure.
   const closeSearch = () => {
     setSearchOpen(false);
     setQuery('');
     setResults([]);
     setTypedError(null);
-    setPhase(location && isValidCoords(location.lat, location.lng) ? 'ready' : 'failed');
+    setPhase(hasValidLocation ? 'ready' : 'failed');
   };
 
-  const hasValidLocation = !!location && isValidCoords(location.lat, location.lng);
   const mapSrc = hasValidLocation && location
     ? `https://maps.google.com/maps?q=${location.lat},${location.lng}&z=16&output=embed`
     : null;
-  const copy = failureCopy(failure, permission);
-  const showReadyFooter = phase === 'ready' && hasValidLocation && !searchOpen;
-  const showFallbackFooter = phase === 'failed' && !searchOpen;
+
+  const view = failureView(failure, permission, c);
+  const tone = TONE[view.tone];
+  const lowAccuracy = phase === 'ready' && location?.accuracy != null && location.accuracy > LOW_ACCURACY_M;
+
+  const secondaryBtn = 'flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 text-sm font-semibold hover:bg-neutral-200 transition-colors cursor-pointer whitespace-nowrap disabled:opacity-40';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={busy ? undefined : onCancel} />
+      <div className="absolute inset-0 bg-black/50" onClick={busy || submitting ? undefined : onCancel} />
       <div className="relative w-full max-w-md bg-white rounded-2xl border border-neutral-200 overflow-hidden max-h-[92vh] flex flex-col">
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-neutral-100">
           <div className="flex items-center gap-2.5">
@@ -206,17 +298,17 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
               <i className="ri-fingerprint-2-line text-lg" />
             </span>
             <div>
-              <h3 className="text-base font-semibold text-neutral-900">Punch in</h3>
-              <p className="text-xs text-neutral-500">Confirm your location to start your shift</p>
+              <h3 className="text-base font-semibold text-neutral-900">{c.pm_title}</h3>
+              <p className="text-xs text-neutral-500">{c.pm_subtitle}</p>
             </div>
           </div>
-          <button onClick={onCancel} disabled={busy} className="text-neutral-400 hover:text-neutral-600 cursor-pointer disabled:opacity-40">
+          <button onClick={onCancel} disabled={busy || submitting} className="text-neutral-400 hover:text-neutral-600 cursor-pointer disabled:opacity-40">
             <i className="ri-close-line text-xl" />
           </button>
         </div>
 
         <div className="p-5 overflow-y-auto">
-          {/* ── Resolving location ── */}
+          {/* ── Detecting ── */}
           {phase === 'detecting' && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <span className="relative w-16 h-16 flex items-center justify-center">
@@ -225,21 +317,19 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
                   <i className="ri-map-pin-line text-xl" />
                 </span>
               </span>
-              <p className="mt-5 text-sm font-semibold text-neutral-800">Getting your location…</p>
-              <p className="mt-1 text-xs text-neutral-500 max-w-[260px]">
-                If your browser asks for location access, choose <strong>Allow</strong>. Either way you can punch in next.
-              </p>
+              <p className="mt-5 text-sm font-semibold text-neutral-800">{c.pm_detecting_title}</p>
+              <p className="mt-1 text-xs text-neutral-500 max-w-[280px]">{c.pm_detecting_hint}</p>
             </div>
           )}
 
-          {/* ── Location obtained, resolving the label ── */}
+          {/* ── Checking (coordinates in hand, resolving the label) ── */}
           {phase === 'checking' && (
             <div className="flex flex-col items-center justify-center py-10 text-center">
               <span className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
                 <i className="ri-loader-4-line animate-spin text-xl" />
               </span>
-              <p className="mt-5 text-sm font-semibold text-neutral-800">Checking location…</p>
-              <p className="mt-1 text-xs text-neutral-500 max-w-[260px]">Got your coordinates — matching them to a place.</p>
+              <p className="mt-5 text-sm font-semibold text-neutral-800">{c.pm_checking_title}</p>
+              <p className="mt-1 text-xs text-neutral-500 max-w-[260px]">{c.pm_checking_hint}</p>
             </div>
           )}
 
@@ -249,7 +339,7 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
               <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5">
                 <i className="ri-checkbox-circle-fill text-emerald-600 text-lg mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-emerald-900">Location detected</p>
+                  <p className="text-sm font-semibold text-emerald-900">{c.pm_detected_title}</p>
                   <p className="text-sm text-emerald-800 mt-0.5 break-words">{location.label}</p>
                   <div className="mt-2 flex items-center gap-2 flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-white text-emerald-700 border border-emerald-200">
@@ -262,6 +352,18 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
                 </div>
               </div>
 
+              {lowAccuracy && (
+                <div className="flex items-start gap-3 rounded-2xl bg-amber-50 border border-amber-200 p-3.5">
+                  <i className="ri-error-warning-line text-amber-600 text-lg mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-900">{c.pm_low_acc_title}</p>
+                    <p className="text-xs text-amber-800 mt-1">
+                      {fillTemplate(c.pm_low_acc_hint, { accuracy: Math.round(location.accuracy || 0) })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {mapSrc && (
                 <div className="w-full h-[180px] rounded-2xl overflow-hidden bg-neutral-100 border border-neutral-200">
                   <iframe title="Punch-in location" src={mapSrc} className="w-full h-full border-0" referrerPolicy="no-referrer-when-downgrade" />
@@ -270,62 +372,62 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
 
               <button
                 onClick={openSearch}
-                disabled={busy}
+                disabled={busy || submitting}
                 className="w-full inline-flex items-center justify-center gap-2 text-sm font-semibold text-neutral-600 hover:text-neutral-900 py-2 transition-colors cursor-pointer disabled:opacity-40"
               >
-                <i className="ri-search-line" /> Change location
+                <i className="ri-search-line" /> {c.pm_change_location}
               </button>
             </div>
           )}
 
-          {/* ── No fix detected — but the punch still proceeds ── */}
+          {/* ── A specific, recoverable failure (NO punch shortcut) ── */}
           {phase === 'failed' && !searchOpen && (
             <div className="space-y-4">
-              <div className="flex items-start gap-3 rounded-2xl bg-amber-50 border border-amber-200 p-3.5">
-                <i className="ri-map-pin-2-line text-amber-600 text-lg mt-0.5" />
+              <div className={`flex items-start gap-3 rounded-2xl border p-3.5 ${tone.card}`}>
+                <i className={`${view.icon} text-lg mt-0.5 ${tone.icon}`} />
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-amber-900">{copy.title}</p>
-                  <p className="text-xs text-amber-800 mt-1">{copy.hint}</p>
+                  <p className={`text-sm font-semibold ${tone.title}`}>{view.title}</p>
+                  <p className={`text-xs mt-1 ${tone.hint}`}>{view.hint}</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 rounded-2xl bg-emerald-50 border border-emerald-200 p-3.5">
-                <i className="ri-checkbox-circle-fill text-emerald-600 text-lg mt-0.5" />
-                <p className="text-xs text-emerald-800">
-                  You can still punch in — your shift will be recorded using your saved office location.
-                </p>
-              </div>
+              {view.steps && (
+                <ol className="space-y-1.5 rounded-2xl bg-neutral-50 border border-neutral-200 p-3.5">
+                  {view.steps.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-neutral-600">
+                      <span className="w-4 h-4 rounded-full bg-neutral-200 text-neutral-700 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
 
               {failure?.message && (
                 <p className="text-[11px] text-neutral-400 break-words">
-                  Reason: {failure.message}{failure.code !== 'unknown' ? ` (${failure.code})` : ''}
+                  {c.pm_reason_prefix} {failure.message}{failure.code !== 'unknown' ? ` (${failure.code})` : ''}
                 </p>
               )}
 
               <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  onClick={runDetect}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 text-sm font-semibold hover:bg-neutral-200 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <i className="ri-refresh-line" /> Retry location
-                </button>
-                <button
-                  onClick={openSearch}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-100 text-neutral-700 text-sm font-semibold hover:bg-neutral-200 transition-colors cursor-pointer whitespace-nowrap"
-                >
-                  <i className="ri-search-line" /> Search manually
+                {view.canRetry && (
+                  <button onClick={() => void runDetect()} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors cursor-pointer whitespace-nowrap">
+                    <i className="ri-refresh-line" /> {c.pm_try_again}
+                  </button>
+                )}
+                <button onClick={openSearch} className={secondaryBtn}>
+                  <i className="ri-search-line" /> {c.pm_search_manually}
                 </button>
               </div>
             </div>
           )}
 
-          {/* ── Manual search ── */}
+          {/* ── Manual search (real coordinates only) ── */}
           {searchOpen && (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-neutral-800">Search location</p>
+                <p className="text-sm font-semibold text-neutral-800">{c.pm_search_title}</p>
                 <button onClick={closeSearch} className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 cursor-pointer whitespace-nowrap">
-                  <i className="ri-arrow-left-line" /> Back
+                  <i className="ri-arrow-left-line" /> {c.pm_search_back}
                 </button>
               </div>
               <div className="relative">
@@ -334,19 +436,19 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
                   value={query}
                   autoFocus
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="e.g. Westlands, Nairobi"
+                  placeholder={c.pm_search_placeholder}
                   className="w-full pl-9 pr-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-emerald-200"
                 />
               </div>
 
               {searching && (
                 <div className="flex items-center gap-2 text-xs text-neutral-400 py-1">
-                  <i className="ri-loader-4-line animate-spin" /> Searching…
+                  <i className="ri-loader-4-line animate-spin" /> {c.pm_searching}
                 </div>
               )}
 
               {!searching && results.length > 0 && (
-                <ul className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
+                <ul className="rounded-xl border border-neutral-200 divide-y divide-neutral-100 overflow-hidden max-h-[240px] overflow-y-auto">
                   {results.map((r, i) => (
                     <li key={`${r.label}-${i}`}>
                       <button
@@ -363,12 +465,12 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
 
               {!searching && query.trim() && results.length === 0 && searched && !typedError && (
                 <div className="rounded-xl border border-neutral-200 p-3.5 text-center">
-                  <p className="text-xs text-neutral-500">No suggestions for “{query.trim()}”.</p>
+                  <p className="text-xs text-neutral-500">{fillTemplate(c.pm_no_suggestions, { query: query.trim() })}</p>
                   <button
                     onClick={useTyped}
                     className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-neutral-900 text-white text-xs font-semibold hover:bg-neutral-800 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <i className="ri-map-pin-2-line" /> Find “{query.trim()}”
+                    <i className="ri-map-pin-2-line" /> {fillTemplate(c.pm_find, { query: query.trim() })}
                   </button>
                 </div>
               )}
@@ -380,45 +482,33 @@ export default function PunchInLocationModal({ busy, onCancel, onConfirm }: Prop
           )}
         </div>
 
-        {/* ── Footer: confirm with coordinates ── */}
-        {showReadyFooter && (
+        {/* ── Footer: confirm with real coordinates ── */}
+        {phase === 'ready' && hasValidLocation && !searchOpen && (
           <div className="px-5 py-4 border-t border-neutral-100">
             {inlineError && (
               <p className="mb-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl p-3">{inlineError}</p>
             )}
             <div className="flex items-center justify-end gap-2">
               <button onClick={onCancel} disabled={busy || submitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-500 hover:bg-neutral-50 cursor-pointer disabled:opacity-40 whitespace-nowrap">
-                Cancel
+                {c.pm_cancel}
               </button>
               <button
                 onClick={() => void submitPunch()}
                 disabled={busy || submitting}
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
               >
-                {submitting ? <><i className="ri-loader-4-line animate-spin" /> Punching in…</> : <><i className="ri-fingerprint-2-line" /> Confirm &amp; Punch In</>}
+                {submitting ? <><i className="ri-loader-4-line animate-spin" /> {c.pm_punching}</> : <><i className="ri-fingerprint-2-line" /> {c.pm_confirm}</>}
               </button>
             </div>
           </div>
         )}
 
-        {/* ── Footer: punch in without a location (office stand-in) ── */}
-        {showFallbackFooter && (
-          <div className="px-5 py-4 border-t border-neutral-100">
-            {inlineError && (
-              <p className="mb-3 text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl p-3">{inlineError}</p>
-            )}
-            <div className="flex items-center justify-end gap-2">
-              <button onClick={onCancel} disabled={busy || submitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-500 hover:bg-neutral-50 cursor-pointer disabled:opacity-40 whitespace-nowrap">
-                Cancel
-              </button>
-              <button
-                onClick={() => void submitPunch()}
-                disabled={busy || submitting}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700 transition-colors cursor-pointer disabled:opacity-50 whitespace-nowrap"
-              >
-                {submitting ? <><i className="ri-loader-4-line animate-spin" /> Punching in…</> : <><i className="ri-fingerprint-2-line" /> Punch in anyway</>}
-              </button>
-            </div>
+        {/* ── Footer: failure — no shortcut, just a clean way out ── */}
+        {phase === 'failed' && !searchOpen && (
+          <div className="px-5 py-4 border-t border-neutral-100 flex justify-end">
+            <button onClick={onCancel} disabled={busy || submitting} className="px-4 py-2.5 rounded-xl text-sm font-medium text-neutral-500 hover:bg-neutral-50 cursor-pointer disabled:opacity-40 whitespace-nowrap">
+              {c.pm_cancel}
+            </button>
           </div>
         )}
       </div>

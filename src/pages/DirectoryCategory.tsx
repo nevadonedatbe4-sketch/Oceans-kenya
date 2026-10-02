@@ -19,11 +19,13 @@ import {
 import AmenityCard from '@/components/feature/AmenityCard';
 import AmenityDetailModal from '@/components/feature/AmenityDetailModal';
 import CategoryIcon from '@/components/base/CategoryIcon';
+import { useDirectoryCategoryContent } from '@/hooks/useDirectoryPageContent';
 
 const SUB_PER_ROW = 10;
 const PER_PAGE_INITIAL = 12;
 
 export default function DirectoryCategory() {
+  const { content: dc } = useDirectoryCategoryContent();
   const { categorySlug } = useParams<{ categorySlug: string }>();
   const { amenities, loading, error, refetch } = useAmenities();
   const [activeSub, setActiveSub] = useState<string>('all');
@@ -111,16 +113,15 @@ export default function DirectoryCategory() {
             <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-[#F3F0E9] rounded-full">
               <i className="ri-map-pin-2-line text-2xl text-primary"></i>
             </div>
-            <h1 className="font-prata font-bold text-primary text-3xl mb-3">Category not found</h1>
+            <h1 className="font-prata font-bold text-primary text-3xl mb-3">{dc.notfound_title}</h1>
             <p className="font-roboto text-[#636363] text-sm mb-6 leading-relaxed">
-              We couldn&rsquo;t find that category. Browse all places and services from the Directory
-              instead.
+              {dc.notfound_text}
             </p>
             <Link
               to="/directory"
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white text-sm font-jost font-semibold uppercase tracking-[0.08em] hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-arrow-left-line"></i> Back to Directory
+              <i className="ri-arrow-left-line"></i> {dc.notfound_button}
             </Link>
           </div>
         </main>
@@ -151,8 +152,7 @@ export default function DirectoryCategory() {
               {categoryLabel(meta.key)}
             </h1>
             <p className="text-white/80 font-roboto text-sm md:text-base max-w-xl mx-auto leading-relaxed">
-              {meta.description}. Explore verified {categoryLabel(meta.key).toLowerCase()} spots
-              across our neighbourhoods.
+              {meta.description}. {dc.hero_intro.replace('{category}', categoryLabel(meta.key).toLowerCase())}
             </p>
           </div>
         </div>
@@ -175,15 +175,15 @@ export default function DirectoryCategory() {
                 </span>
                 <span>
                   <span className="block font-prata font-semibold text-primary text-base leading-tight">
-                    Night Life has its own guide
+                    {dc.nightlife_title}
                   </span>
                   <span className="block text-xs text-[#636363] mt-0.5">
-                    Filter clubs, lounges, casinos and late-night spots by vibe, area, price and rating.
+                    {dc.nightlife_text}
                   </span>
                 </span>
               </span>
               <span className="inline-flex items-center gap-1.5 text-xs font-jost font-semibold uppercase tracking-[0.08em] text-primary whitespace-nowrap">
-                Open Night Life
+                {dc.nightlife_button}
                 <i className="ri-arrow-right-line group-hover:translate-x-1 transition-transform"></i>
               </span>
             </Link>
@@ -195,7 +195,7 @@ export default function DirectoryCategory() {
               <div className="flex items-center gap-2.5 mb-3">
                 <CategoryIcon icon={categoryIcon(meta.key)} color={colour} />
                 <h2 className="font-prata font-semibold text-primary text-lg leading-none">
-                  What are you after?
+                  {dc.subcat_heading}
                 </h2>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -205,7 +205,7 @@ export default function DirectoryCategory() {
                   className="dir-chip px-3.5 py-1.5 rounded-[3px] text-[12px] font-jost font-semibold tracking-[0.04em] cursor-pointer whitespace-nowrap"
                   style={chipStyle(activeSub === 'all')}
                 >
-                  All
+                  {dc.subcat_all_label}
                   <span className={activeSub === 'all' ? 'ml-1' : 'ml-1 opacity-70'}>
                     {categoryItems.length}
                   </span>
@@ -241,9 +241,8 @@ export default function DirectoryCategory() {
               ]}
             />
             <p className="text-xs font-roboto text-[#636363]">
-              Showing <span className="text-primary font-semibold">{filtered.length}</span> place
-              {filtered.length === 1 ? '' : 's'}
-              {activeSub !== 'all' && ` in ${subcategoryLabel(activeSub)}`}
+              {dc.showing_label} <span className="text-primary font-semibold">{filtered.length}</span> {dc.place_word}
+              {activeSub !== 'all' && ` ${subcategoryLabel(activeSub)}`}
             </p>
           </div>
 
@@ -259,13 +258,13 @@ export default function DirectoryCategory() {
               <div className="w-12 h-12 flex items-center justify-center mx-auto mb-3 bg-stone-100 rounded-full">
                 <i className="ri-error-warning-line text-stone-400 text-xl"></i>
               </div>
-              <p className="font-semibold text-primary text-sm mb-1">Unable to verify results</p>
+              <p className="font-semibold text-primary text-sm mb-1">{dc.error_title}</p>
               <p className="text-xs text-stone-500 mb-3">{error}</p>
               <button
                 onClick={refetch}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-md text-xs font-semibold cursor-pointer whitespace-nowrap"
               >
-                <i className="ri-refresh-line"></i> Try again
+                <i className="ri-refresh-line"></i> {dc.error_retry_label}
               </button>
             </div>
           ) : visibleItems.length > 0 ? (
@@ -288,7 +287,7 @@ export default function DirectoryCategory() {
                     onClick={() => setVisibleCount((c) => c + PER_PAGE_INITIAL)}
                     className="inline-flex items-center gap-1.5 px-6 py-3 bg-primary text-white text-xs font-jost font-semibold uppercase tracking-[0.08em] hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    Load more ({filtered.length - visibleCount} remaining)
+                    {dc.load_more_label} ({filtered.length - visibleCount} {dc.remaining_label})
                     <i className="ri-arrow-down-s-line"></i>
                   </button>
                 </div>
@@ -300,12 +299,12 @@ export default function DirectoryCategory() {
                 <i className="ri-map-pin-line text-stone-400 text-xl"></i>
               </div>
               <p className="font-semibold text-primary text-sm mb-1">
-                No verified listings in this category yet
+                {dc.empty_title}
               </p>
               <p className="text-xs text-stone-500 max-w-sm mx-auto">
                 {activeSub !== 'all'
                   ? `There aren&rsquo;t any verified ${subcategoryLabel(activeSub)} spots here yet - data is being updated regularly.`
-                  : 'We don\u2019t have verified listings for this yet - data is being updated regularly.'}
+                  : dc.empty_text}
               </p>
             </div>
           )}
@@ -315,25 +314,24 @@ export default function DirectoryCategory() {
       {/* CTA */}
       <section className="bg-primary py-14 md:py-20 px-4 md:px-6 text-center">
         <h3 className="font-prata font-semibold text-white text-[27px] md:text-[33px] mb-3">
-          Find a home near the things you love
+          {dc.cta_heading}
         </h3>
         <p className="font-roboto text-white/80 text-[15px] md:text-base max-w-xl mx-auto leading-relaxed mb-6">
-          From top schools to the best restaurants and green spaces, explore neighbourhoods that match
-          your lifestyle.
+          {dc.cta_text}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             to="/neighbourhoods"
             className="inline-flex items-center gap-2 px-6 py-3 bg-golden text-white text-sm font-jost font-semibold uppercase tracking-[0.08em] hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap"
           >
-            Explore Neighbourhoods
+            {dc.cta_button_primary}
             <i className="ri-arrow-right-line"></i>
           </Link>
           <Link
             to="/directory"
             className="inline-flex items-center gap-2 px-6 py-3 border border-white/50 text-white text-sm font-jost font-semibold uppercase tracking-[0.08em] hover:bg-white/10 transition-colors cursor-pointer whitespace-nowrap"
           >
-            Back to Directory
+            {dc.cta_button_secondary}
             <i className="ri-arrow-right-line"></i>
           </Link>
         </div>

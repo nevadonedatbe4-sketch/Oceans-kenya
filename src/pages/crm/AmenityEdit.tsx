@@ -14,6 +14,7 @@ import type { AmenityFolder } from '@/lib/directory';
 import {
   AMENITY_CATEGORIES,
   PURPOSE_OPTIONS,
+  PRICE_TIERS,
   categoryLabel,
   subcategoryLabel,
   isGeneratedImage,
@@ -55,6 +56,12 @@ interface AmenityForm {
   price_tier: string;
   services: string[];
   price_range: string;
+  cuisine: string;
+  best_for: string[];
+  source: string;
+  source_url: string;
+  last_verified: string;
+  is_guide_curated: boolean;
   google_review_text: string;
   image: string;
   gallery: string[];
@@ -129,6 +136,12 @@ const emptyForm: AmenityForm = {
   price_tier: '',
   services: [],
   price_range: '',
+  cuisine: '',
+  best_for: [],
+  source: '',
+  source_url: '',
+  last_verified: '',
+  is_guide_curated: false,
   google_review_text: '',
   image: '',
   gallery: [],
@@ -300,6 +313,12 @@ export default function AmenityEdit() {
         price_tier: data.price_tier || '',
         services: Array.isArray(data.services) ? (data.services as string[]) : [],
         price_range: data.price_range || '',
+        cuisine: data.cuisine || '',
+        best_for: Array.isArray(data.best_for) ? (data.best_for as string[]) : [],
+        source: data.source || '',
+        source_url: data.source_url || '',
+        last_verified: data.last_verified || '',
+        is_guide_curated: !!data.is_guide_curated,
         google_review_text: data.google_review_text || '',
         image: data.image || '',
         gallery: Array.isArray(data.gallery) ? (data.gallery as string[]) : [],
@@ -461,6 +480,12 @@ export default function AmenityEdit() {
       price_tier: form.price_tier || null,
       services: form.services.filter(Boolean),
       price_range: form.price_range.trim() || null,
+      cuisine: form.cuisine.trim() || null,
+      best_for: form.best_for.filter(Boolean),
+      source: form.source.trim() || null,
+      source_url: form.source_url.trim() ? normalizeUrl(form.source_url) : null,
+      last_verified: form.last_verified || null,
+      is_guide_curated: form.is_guide_curated,
       google_review_text: form.google_review_text.trim() || null,
       image: form.image || null,
       gallery: form.gallery.filter(Boolean),
@@ -684,6 +709,52 @@ export default function AmenityEdit() {
                 suggestions={['Dine-in', 'Takeaway', 'Delivery', 'Catering', 'Parking', 'Wi-Fi', 'Card payments', 'Booking required']}
                 hint="Add as many as you like — type one and press Enter."
               />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl border border-[#e8edf2] p-6 space-y-4">
+            <div>
+              <h2 className="font-jost text-sm font-semibold text-[#001731] uppercase tracking-wider">Editorial Guide</h2>
+              <p className="text-xs text-[#7a8a99] mt-1">Powers the Where-to-Eat style guides. Tick &quot;Guide curated&quot; for a venue to appear in them.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Cuisine / Concept</label>
+                <input type="text" value={form.cuisine} onChange={(e) => handleChange('cuisine', e.target.value)} className={inputClass} placeholder="e.g. Japanese / Asian" />
+              </div>
+              <div>
+                <label className={labelClass}>Price Level</label>
+                <select value={form.price_tier} onChange={(e) => handleChange('price_tier', e.target.value)} className={inputClass}>
+                  <option value="">— None —</option>
+                  {PRICE_TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <TagListField
+                  label="Best For (occasions)"
+                  value={form.best_for}
+                  onChange={(next) => handleChange('best_for', next)}
+                  placeholder="e.g. date night, family, brunch"
+                  suggestions={['kenyan food','swahili','african','brunch','breakfast','family','date night','business lunch','budget','garden dining','outdoor','seafood','indian','ethiopian','asian','japanese','fine dining']}
+                  hint="Used to build the Quick guide and by-occasion sections."
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Source</label>
+                <input type="text" value={form.source} onChange={(e) => handleChange('source', e.target.value)} className={inputClass} placeholder="e.g. Oceans Kenya editorial review" />
+              </div>
+              <div>
+                <label className={labelClass}>Source URL</label>
+                <input type="text" value={form.source_url} onChange={(e) => handleChange('source_url', e.target.value)} className={inputClass} placeholder="https://..." />
+              </div>
+              <div>
+                <label className={labelClass}>Last Verified</label>
+                <input type="date" value={form.last_verified} onChange={(e) => handleChange('last_verified', e.target.value)} className={inputClass} />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer self-end pb-1">
+                <input type="checkbox" checked={form.is_guide_curated} onChange={(e) => handleChange('is_guide_curated', e.target.checked)} className="w-4 h-4 text-[#0d5959] border-[#e8edf2] rounded focus:ring-[#0d5959]" />
+                <span className="text-sm font-roboto text-[#001731]">Guide curated</span>
+              </label>
             </div>
           </div>
 

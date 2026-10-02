@@ -8,6 +8,8 @@ import PageContactSection from '@/components/feature/PageContactSection';
 import { useAmenities } from '@/hooks/useAmenities';
 import { haversineDistance, formatDistance } from '@/lib/distance';
 import { withReturnFrom, useCurrentPath } from '@/lib/navigation';
+import { usePageContent } from '@/hooks/usePageContent';
+import { DEFAULT_SCHOOLS } from '@/lib/pageCopy';
 import { CARD_HEIGHT, CARD_IMAGE_FRAME, CARD_IMAGE, CARD_BODY } from '@/lib/cardLayout';
 import {
   schoolCategoryLabel,
@@ -103,6 +105,7 @@ function distanceFromCbd(school: Amenity): number | null {
 
 export default function Schools() {
   const currentPath = useCurrentPath();
+  const { content: c } = usePageContent('schools', DEFAULT_SCHOOLS);
   // ── Filters live in the URL, so every pill / sidebar item is a real,
   //    shareable link that always drives the results below. ──
   const [params, setParams] = useSearchParams();
@@ -239,9 +242,9 @@ export default function Schools() {
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-primary/40"></div>
         <div className="absolute inset-0 flex items-center justify-center text-center px-4">
           <div className="w-full">
-            <h1 className="text-white font-roboto font-bold text-3xl md:text-4xl mb-3">Schools in Nairobi</h1>
+            <h1 className="text-white font-roboto font-bold text-3xl md:text-4xl mb-3">{c.hero_title}</h1>
             <p className="text-white/80 font-roboto text-sm md:text-base max-w-lg mx-auto">
-              International, Montessori, and university options across every neighbourhood - find your family&apos;s fit.
+              {c.hero_subtitle}
             </p>
           </div>
         </div>
@@ -262,7 +265,7 @@ export default function Schools() {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search schools, areas or curriculums"
+                  placeholder={c.search_placeholder}
                   className="flex-1 min-w-0 text-sm font-roboto text-gray-800 placeholder:text-gray-400 focus:outline-none bg-transparent"
                 />
                 {searchQuery && (
@@ -281,7 +284,7 @@ export default function Schools() {
                   className="appearance-none h-9 pl-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                   aria-label="Filter by area"
                 >
-                  <option value="all">All areas</option>
+                  <option value="all">{c.all_areas_label}</option>
                   {areaOptions.map((a) => (
                     <option key={a.name} value={a.name}>{a.name}</option>
                   ))}
@@ -295,7 +298,7 @@ export default function Schools() {
                   className="appearance-none h-9 pl-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                   aria-label="Filter by level"
                 >
-                  <option value="all">All levels</option>
+                  <option value="all">{c.all_levels_label}</option>
                   {levelOptions.map((l) => (
                     <option key={l} value={l}>{l}</option>
                   ))}
@@ -309,7 +312,7 @@ export default function Schools() {
                   className="appearance-none h-9 pl-3 pr-8 text-xs font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                   aria-label="Filter by curriculum"
                 >
-                  <option value="all">All curriculums</option>
+                  <option value="all">{c.all_curriculums_label}</option>
                   {curriculumOptions.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -323,14 +326,14 @@ export default function Schools() {
               className="md:hidden flex items-center gap-1.5 px-3 py-1.5 border border-primary/20 rounded-lg text-xs font-roboto text-primary cursor-pointer whitespace-nowrap"
             >
               <i className="ri-equalizer-line text-xs"></i>
-              Filters
+              {c.filters_label}
             </button>
           </div>
 
           {/* School Type pills (desktop) - real links that filter the results */}
           <div className="hidden md:flex items-center gap-2 flex-wrap">
             <Link to={{ pathname: '/schools', search: buildSearch({ type: 'all' }) }} className={pillClass(type === 'all')}>
-              All schools
+              {c.all_types_label}
             </Link>
             {typeOptions.map((t) => (
               <Link
@@ -371,7 +374,7 @@ export default function Schools() {
                   className="flex-1 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                   aria-label="Filter by area"
                 >
-                  <option value="all">All areas</option>
+                  <option value="all">{c.all_areas_label}</option>
                   {areaOptions.map((a) => (
                     <option key={a.name} value={a.name}>{a.name}</option>
                   ))}
@@ -382,7 +385,7 @@ export default function Schools() {
                   className="flex-1 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                   aria-label="Filter by level"
                 >
-                  <option value="all">All levels</option>
+                  <option value="all">{c.all_levels_label}</option>
                   {levelOptions.map((l) => (
                     <option key={l} value={l}>{l}</option>
                   ))}
@@ -393,7 +396,7 @@ export default function Schools() {
                   className="flex-1 h-10 px-3 text-sm font-roboto text-primary bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer"
                   aria-label="Filter by curriculum"
                 >
-                  <option value="all">All curriculums</option>
+                  <option value="all">{c.all_curriculums_label}</option>
                   {curriculumOptions.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
@@ -405,7 +408,7 @@ export default function Schools() {
           {/* Active filters */}
           {hasActiveFilter && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-roboto font-semibold text-gray-400 uppercase tracking-wider">Active</span>
+              <span className="text-[11px] font-roboto font-semibold text-gray-400 uppercase tracking-wider">{c.active_label}</span>
               {type !== 'all' && (
                 <Link
                   to={{ pathname: '/schools', search: buildSearch({ type: 'all' }) }}
@@ -451,7 +454,7 @@ export default function Schools() {
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-roboto font-medium text-primary/70 hover:bg-gray-100 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <i className="ri-refresh-line text-xs"></i>
-                Reset
+                {c.reset_label}
               </button>
             </div>
           )}
@@ -461,7 +464,7 @@ export default function Schools() {
       {/* Results count */}
       <div className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <p className="text-xs font-roboto text-gray-500">
-          Showing <span className="text-primary font-semibold">{filtered.length}</span> schools
+          Showing <span className="text-primary font-semibold">{filtered.length}</span> {c.schools_word}
           {type !== 'all' && ` in ${typeLabel(type)}`}
           {area !== 'all' && ` in ${area}`}
           {level !== 'all' && ` at ${level} level`}
@@ -486,10 +489,10 @@ export default function Schools() {
                 <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-full">
                   <i className="ri-error-warning-line text-gray-400 text-xl" />
                 </div>
-                <p className="text-sm font-roboto font-semibold text-primary mb-1">Something went wrong</p>
+                <p className="text-sm font-roboto font-semibold text-primary mb-1">{c.error_title}</p>
                 <p className="text-xs font-roboto text-gray-500 mb-3">{error}</p>
                 <button onClick={refetch} className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-md text-xs font-roboto font-semibold cursor-pointer">
-                  <i className="ri-refresh-line"></i> Try again
+                  <i className="ri-refresh-line"></i> {c.retry_button}
                 </button>
               </div>
             ) : (
@@ -513,7 +516,7 @@ export default function Schools() {
                               <i className="ri-school-line text-primary/45 text-2xl"></i>
                             </span>
                             <span className="text-[10px] font-roboto font-semibold uppercase tracking-wider text-primary/45">
-                              Photo coming soon
+                              {c.photo_coming_label}
                             </span>
                           </div>
                         )}
@@ -534,8 +537,8 @@ export default function Schools() {
                             <span className="w-4 h-4 flex items-center justify-center">
                               <i className="ri-map-pin-line text-primary text-sm"></i>
                             </span>
-                            {school.neighbourhood_name || 'Nairobi'}, Nairobi
-                            {dist != null && <span className="text-primary/50">· {formatDistance(dist)} from CBD</span>}
+                            {school.neighbourhood_name || 'Nairobi'}, {c.address_suffix}
+                            {dist != null && <span className="text-primary/50">· {formatDistance(dist)} {c.from_cbd_label}</span>}
                           </p>
                           <div className="flex items-center gap-3 mb-2 text-xs font-roboto text-primary/60 flex-wrap">
                             {getCurriculum(school) && (
@@ -547,13 +550,13 @@ export default function Schools() {
                             {school.attributes?.established != null && (
                               <span className="flex items-center gap-1">
                                 <i className="ri-calendar-line text-primary text-xs"></i>
-                                Est. {school.attributes.established}
+                                {c.established_prefix} {school.attributes.established}
                               </span>
                             )}
                             {school.attributes?.student_count != null && (
                               <span className="flex items-center gap-1">
                                 <i className="ri-user-line text-primary text-xs"></i>
-                                {school.attributes.student_count.toLocaleString()} students
+                                {school.attributes.student_count.toLocaleString()} {c.students_word}
                               </span>
                             )}
                           </div>
@@ -591,13 +594,13 @@ export default function Schools() {
                             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white border-2 border-primary rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                           >
                             <i className="ri-home-4-line text-[10px]"></i>
-                            Properties nearby
+                            {c.properties_nearby}
                           </Link>
                           <Link
                             to={withReturnFrom(`/directory/place/${school.id}`, currentPath)}
                             className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-primary/20 text-primary rounded-md text-[10px] font-roboto font-semibold hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap"
                           >
-                            View school
+                            {c.view_school}
                             <i className="ri-arrow-right-line text-[10px]"></i>
                           </Link>
                         </div>
@@ -613,18 +616,18 @@ export default function Schools() {
                 <div className="w-14 h-14 flex items-center justify-center mx-auto mb-4 bg-gray-100 rounded-full">
                   <i className="ri-school-line text-gray-400 text-xl"></i>
                 </div>
-                <h3 className="text-sm font-roboto font-semibold text-primary mb-1">No schools found</h3>
+                <h3 className="text-sm font-roboto font-semibold text-primary mb-1">{c.empty_title}</h3>
                 <p className="text-xs font-roboto text-gray-500 mb-3">
                   {area !== 'all' || type !== 'all'
-                    ? 'Try widening your filters or clearing them to see every school.'
-                    : 'Try adjusting your filters or search query'}
+                    ? c.empty_text_filtered
+                    : c.empty_text_default}
                 </p>
                 {hasActiveFilter && (
                   <button
                     onClick={clearAll}
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-md text-xs font-roboto font-semibold cursor-pointer whitespace-nowrap"
                   >
-                    <i className="ri-refresh-line"></i> Clear all filters
+                    <i className="ri-refresh-line"></i> {c.clear_filters}
                   </button>
                 )}
               </div>
@@ -636,7 +639,7 @@ export default function Schools() {
             <div className="sticky top-[200px] space-y-4">
               <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-sm font-roboto font-semibold text-primary">Schools by Neighbourhood</h3>
+                  <h3 className="text-sm font-roboto font-semibold text-primary">{c.by_neighbourhood_title}</h3>
                 </div>
                 <div className="px-4 py-3 space-y-2">
                   <Link
@@ -646,7 +649,7 @@ export default function Schools() {
                   >
                     <span className="flex items-center gap-2">
                       <i className="ri-map-pin-2-line text-xs"></i>
-                      All neighbourhoods
+                      {c.all_neighbourhoods_label}
                     </span>
                     <span className="text-gray-400">{amenities.length}</span>
                   </Link>
@@ -669,7 +672,7 @@ export default function Schools() {
 
               <div className="bg-white border border-primary/12 rounded-lg overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-100">
-                  <h3 className="text-sm font-roboto font-semibold text-primary">School Types</h3>
+                  <h3 className="text-sm font-roboto font-semibold text-primary">{c.types_title}</h3>
                 </div>
                 <div className="px-4 py-3 space-y-2">
                   {typeOptions.map((t) => (
@@ -679,17 +682,17 @@ export default function Schools() {
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-roboto cursor-pointer transition-colors ${type === t.key ? 'bg-primary/5 text-primary font-semibold' : 'text-primary/60 hover:bg-gray-50'}`}
                     >
                       <span>{t.label}</span>
-                      <span className="text-gray-400">{t.count} schools</span>
+                      <span className="text-gray-400">{t.count} {c.schools_count_word}</span>
                     </Link>
                   ))}
                 </div>
               </div>
 
               <div className="bg-primary rounded-lg p-4 text-center">
-                <h3 className="text-white font-roboto font-bold text-sm mb-2">Looking for a family home?</h3>
-                <p className="text-white/70 font-roboto text-xs mb-3">Find properties near the best schools in Nairobi</p>
+                <h3 className="text-white font-roboto font-bold text-sm mb-2">{c.cta_title}</h3>
+                <p className="text-white/70 font-roboto text-xs mb-3">{c.cta_text}</p>
                 <Link to="/rent" className="inline-flex items-center gap-1 px-4 py-2 bg-golden text-white font-roboto text-xs font-semibold rounded-md hover:bg-golden/90 transition-colors cursor-pointer whitespace-nowrap">
-                  Browse rentals
+                  {c.cta_button}
                 </Link>
               </div>
             </div>

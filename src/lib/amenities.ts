@@ -715,6 +715,17 @@ export interface Amenity {
   services: string[] | null;
   /** Human-entered price range, e.g. "KSh 500 - 2,000". */
   price_range: string | null;
+  /** Verified cuisine / concept, e.g. "Japanese / Asian". */
+  cuisine?: string | null;
+  /** Occasion / use-case tags, e.g. ["date night", "family"]. */
+  best_for?: string[] | null;
+  /** Where the record was verified from (editorial review, official site, etc.). */
+  source?: string | null;
+  source_url?: string | null;
+  /** ISO date the record was last verified. */
+  last_verified?: string | null;
+  /** True when the record has been curated for the editorial guides. */
+  is_guide_curated?: boolean | null;
   /** Quick-pasted Google review text for this place. */
   google_review_text: string | null;
   attributes: AmenityAttributes | null;

@@ -91,6 +91,25 @@ export function useNeighbourhoods(): UseNeighbourhoodsReturn {
 
       const hoodList = dbHoods || [];
 
+      // Resolve a real photo for every neighbourhood. The public card/detail
+      // render `hero_image`, but a photo uploaded through the admin Gallery tab
+      // is stored in `neighbourhood_images` (the `hero_image` column can
+      // legitimately be empty). Fall back to the first gallery image so a
+      // neighbourhood that HAS an uploaded photo never shows an empty card.
+      // (neighbourhood_images has a public read policy, so this works for
+      // anonymous visitors too.)
+      const { data: galleryRows } = await supabase
+        .from('neighbourhood_images')
+        .select('neighbourhood_id, url, sort_order')
+        .order('sort_order', { ascending: true });
+
+      const galleryFirst: Record<string, string> = {};
+      (galleryRows || []).forEach((g: { neighbourhood_id: string | null; url: string | null }) => {
+        if (g.neighbourhood_id && g.url && !galleryFirst[g.neighbourhood_id]) {
+          galleryFirst[g.neighbourhood_id] = g.url;
+        }
+      });
+
       // Step 2: Fetch listings for property counts.
       // Visibility rules MUST match the search engine (is_published, non-sold,
       // not a new-development row) so the page count equals what a search shows.
@@ -114,8 +133,15 @@ export function useNeighbourhoods(): UseNeighbourhoodsReturn {
             (l.neighbourhood && l.neighbourhood.toLowerCase() === name.toLowerCase()) ||
             (l.location && l.location.toLowerCase().includes(name.toLowerCase()))
         );
+        const rawHero = (h as { hero_image?: string | null }).hero_image;
+        const resolvedHero =
+          (rawHero && rawHero.trim()) ||
+          galleryFirst[(h as { id: string }).id] ||
+          rawHero ||
+          null;
         return {
           ...(h as unknown as DBNeighbourhood),
+          hero_image: resolvedHero,
           // Normalise the display name through the shared casing normaliser so
           // neighbourhood titles stay consistent with the rest of the site.
           name: smartTitleCase(name),
@@ -134,13 +160,16 @@ export function useNeighbourhoods(): UseNeighbourhoodsReturn {
         forRent: allListings.filter((l) => l.purpose === 'rent').length,
       });
 
-      // Step 3: Fetch blog posts
+      // Step 3: Fetch blog posts.
+      // Pull a generous slice so the Neighbourhoods "Blog" tab surfaces the full
+      // publishing library (area guides, living guides, dining, market reports),
+      // not just the most recent handful.
       const { data: posts, error: blogError } = await supabase
         .from('blog_posts')
         .select('id, title, slug, category, author, featured_image, excerpt, published_at')
         .eq('status', 'published')
         .order('published_at', { ascending: false })
-        .limit(24);
+        .limit(120);
 
       if (controller.signal.aborted) return;
 

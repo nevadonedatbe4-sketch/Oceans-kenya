@@ -3,7 +3,9 @@ import { useContactSections } from '@/hooks/useContactSections';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import PageLoader from '@/components/feature/PageLoader';
+import { getSiteOffices } from '@/lib/siteOffices';
 import { DEFAULT_CONTACT, formatPhoneDisplay, toTelHref } from '@/lib/contactDefaults';
+import { FIELD_CLASS } from '@/lib/formFieldStyles';
 
 const FALLBACK = {
   name: 'Oceans Kenya',
@@ -28,6 +30,8 @@ export default function PageContactSection() {
   const companyPhone = section?.phone || getSite('contact_phone') || FALLBACK.phone;
   const companyEmail = section?.email || getSite('contact_email') || FALLBACK.email;
   const companyAddress = getSite('address') || FALLBACK.address;
+  const offices = getSiteOffices(getSite);
+  const officeList = offices.length > 0 ? offices : [{ label: '', address: companyAddress }];
   const companyImage = section?.profile_image || FALLBACK.image;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -78,15 +82,24 @@ export default function PageContactSection() {
               {companyTagline}
             </p>
             <div className="mb-4">
-              <p className="font-roboto text-lg font-normal text-primary mb-0.5">{FALLBACK.cityLine}</p>
-              <a
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(companyAddress)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="font-roboto text-lg text-stone-500 leading-relaxed hover:text-primary hover:underline underline-offset-4 transition-colors cursor-pointer"
-              >
-                {companyAddress}
-              </a>
+              <p className="font-roboto text-lg font-normal text-primary mb-1.5">{FALLBACK.cityLine}</p>
+              <div className="space-y-1.5">
+                {officeList.map((office, index) => (
+                  <div key={`${office.label}-${index}`}>
+                    {office.label && (
+                      <p className="font-roboto text-sm font-semibold text-primary mb-0.5">{office.label}</p>
+                    )}
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(office.address)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-roboto text-lg text-stone-500 leading-relaxed hover:text-primary hover:underline underline-offset-4 transition-colors cursor-pointer"
+                    >
+                      {office.address}
+                    </a>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-5 h-5 flex items-center justify-center">
@@ -117,31 +130,31 @@ export default function PageContactSection() {
                 Buying, Renting or Leasing Prime<br className="md:hidden" /> Residential?
               </p>
             </div>
-            <div className="bg-white p-6 sm:p-8 md:p-10 w-full border border-primary/10" style={{ boxShadow: '0 1px 2px rgba(0, 23, 49, 0.04), 0 4px 12px rgba(0, 23, 49, 0.06), 0 16px 48px rgba(0, 23, 49, 0.08)', borderRadius: '2px' }}>
+            <div className="bg-white p-6 sm:p-8 md:p-10 w-full border border-primary/20" style={{ boxShadow: '0 1px 2px rgba(0, 23, 49, 0.04), 0 4px 12px rgba(0, 23, 49, 0.06), 0 16px 48px rgba(0, 23, 49, 0.08)', borderRadius: '2px' }}>
               <form data-readdy-form="true" onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">First Name</label>
-                    <input required name="first_name" placeholder="Enter your name" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input required name="first_name" placeholder="Enter your name" className={FIELD_CLASS} style={{ borderRadius: '1px' }} />
                   </div>
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">Last Name</label>
-                    <input required name="last_name" placeholder="Enter your last name" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input required name="last_name" placeholder="Enter your last name" className={FIELD_CLASS} style={{ borderRadius: '1px' }} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">Email</label>
-                    <input required type="email" name="email" placeholder="Enter your email" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input required type="email" name="email" placeholder="Enter your email" className={FIELD_CLASS} style={{ borderRadius: '1px' }} />
                   </div>
                   <div>
                     <label className="block text-sm font-roboto font-semibold text-primary mb-2">Phone Number</label>
-                    <input type="tel" name="phone" placeholder="Enter your phone" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors" style={{ borderRadius: '1px' }} />
+                    <input type="tel" name="phone" placeholder="Enter your phone" className={FIELD_CLASS} style={{ borderRadius: '1px' }} />
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-roboto font-semibold text-primary mb-2">Enquiry Type</label>
-                  <select name="enquiry_type" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary focus:outline-none focus:border-primary cursor-pointer" style={{ borderRadius: '1px' }}>
+                  <select name="enquiry_type" className={`${FIELD_CLASS} cursor-pointer`} style={{ borderRadius: '1px' }}>
                     <option value="buy">Buying a Property</option>
                     <option value="rent">Renting a Property</option>
                     <option value="sell">Selling a Property</option>
@@ -153,7 +166,7 @@ export default function PageContactSection() {
                 </div>
                 <div>
                   <label className="block text-sm font-roboto font-semibold text-primary mb-2">Message</label>
-                  <textarea name="message" rows={5} required maxLength={500} placeholder="How can we help you?" className="w-full px-4 py-3 border border-primary/20 text-base font-roboto font-normal text-primary placeholder:text-stone-400 focus:outline-none focus:border-primary transition-colors resize-none" style={{ borderRadius: '1px' }}></textarea>
+                  <textarea name="message" rows={5} required maxLength={500} placeholder="How can we help you?" className={`${FIELD_CLASS} resize-none`} style={{ borderRadius: '1px' }}></textarea>
                 </div>
 
                 {/* Anti-spam honeypot */}

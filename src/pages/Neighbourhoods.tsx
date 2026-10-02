@@ -15,8 +15,12 @@ import { countAmenitiesNearby, type AmenityCounts } from '@/lib/amenities';
 import { AREA_GUIDE_PAGES } from '@/lib/areaGuides';
 import { areaSearchHref } from '@/lib/areaSearch';
 import HoodFilterBar from '@/pages/Neighbourhoods/components/HoodFilterBar';
-import QuickDecisionGuide from '@/pages/Neighbourhoods/components/QuickDecisionGuide';
+import QuickDecisionGuide, { DEFAULT_GUIDE_ITEMS, DEFAULT_GUIDE_TIP, DEFAULT_GUIDE_TITLE, DEFAULT_GUIDE_HINT, DEFAULT_GUIDE_HELPER } from '@/pages/Neighbourhoods/components/QuickDecisionGuide';
+import type { DecisionGuideItem } from '@/pages/Neighbourhoods/components/QuickDecisionGuide';
+import OtherNotableAreas, { DEFAULT_NOTABLE_AREAS, DEFAULT_NOTABLE_EYEBROW, DEFAULT_NOTABLE_TITLE, DEFAULT_NOTABLE_FOOTNOTE } from '@/pages/Neighbourhoods/components/OtherNotableAreas';
+import type { NotableAreaItem } from '@/pages/Neighbourhoods/components/OtherNotableAreas';
 import { useImageFocalPoint } from '@/hooks/useImageFocalPoint';
+import { useNeighbourhoodsPageContent } from '@/hooks/useNeighbourhoodsPageContent';
 
 // Prefer the SEO area-guide cluster page when one exists for this slug,
 // otherwise fall back to the DB neighbourhood detail page.
@@ -185,7 +189,21 @@ type FilterKey =
   | 'young-professionals'
   | 'secure'
   | 'nightlife';
-type BlogCategoryKey = 'all' | 'Area Guides' | 'Market Trends' | 'Schools & Family' | 'Lifestyle & Dining';
+type BlogCategoryKey =
+  | 'all'
+  | 'Area Guides'
+  | 'Living in Nairobi'
+  | 'Food & Drink'
+  | 'Market Trends'
+  | 'Things to Do'
+  | 'Lifestyle & Dining'
+  | 'Schools & Family'
+  | 'Culture & History'
+  | 'Wildlife & Nature'
+  | 'Health & Fitness'
+  | 'Day Trips'
+  | 'Nature & Outdoors'
+  | 'Art & Culture';
 
 // ── Neighbourhood category filters ────────────────────────────
 const hasAnyTag = (tags: string[], keywords: string[]) =>
@@ -669,6 +687,7 @@ function FloatingScrollArrows({
 }
 
 export default function Neighbourhoods() {
+  const { content: c } = useNeighbourhoodsPageContent();
   const [activeTab, setActiveTab] = useState<TabKey>('neighbourhoods');
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -677,10 +696,23 @@ export default function Neighbourhoods() {
   const [compareA, setCompareA] = useState<string>('');
   const [compareB, setCompareB] = useState<string>('');
   const [guideExpanded, setGuideExpanded] = useState(false);
+  const [featuredBlogSlug, setFeaturedBlogSlug] = useState<string>('');
   const [tagColors, setTagColors] = useState<TagColorOverrides>(DEFAULT_TAG_COLORS);
   const [tagStyle, setTagStyle] = useState<TagStyle>(DEFAULT_TAG_STYLE);
   const [tagMap, setTagMap] = useState<TagMap>(DEFAULT_TAG_MAP);
   const [blogCatColors, setBlogCatColors] = useState<BlogCatColors>(DEFAULT_BLOG_CATEGORY_COLORS);
+  const [guideItems, setGuideItems] = useState<DecisionGuideItem[]>(DEFAULT_GUIDE_ITEMS);
+  const [guideTip, setGuideTip] = useState<string>(DEFAULT_GUIDE_TIP);
+  const [guideTitle, setGuideTitle] = useState<string>(DEFAULT_GUIDE_TITLE);
+  const [guideHint, setGuideHint] = useState<string>(DEFAULT_GUIDE_HINT);
+  const [guideHelper, setGuideHelper] = useState<string>(DEFAULT_GUIDE_HELPER);
+  const [guideVisible, setGuideVisible] = useState<boolean>(true);
+  const [notableItems, setNotableItems] = useState<NotableAreaItem[]>(DEFAULT_NOTABLE_AREAS);
+  const [notableEyebrow, setNotableEyebrow] = useState<string>(DEFAULT_NOTABLE_EYEBROW);
+  const [notableTitle, setNotableTitle] = useState<string>(DEFAULT_NOTABLE_TITLE);
+  const [notableFootnote, setNotableFootnote] = useState<string>(DEFAULT_NOTABLE_FOOTNOTE);
+  const [notableVisible, setNotableVisible] = useState<boolean>(true);
+  const guideUserToggledRef = useRef(false);
   const [amenityRadius, setAmenityRadius] = useState(3000);
   const tabScrollRef = useRef<HTMLDivElement | null>(null);
   const filterScrollRef = useRef<HTMLDivElement | null>(null);
@@ -702,6 +734,12 @@ export default function Neighbourhoods() {
       'page_neighbourhoods_tag_text_color', 'page_neighbourhoods_tag_text_size', 'page_neighbourhoods_tag_radius',
       'page_neighbourhoods_tag_pad_x', 'page_neighbourhoods_tag_pad_y', 'page_neighbourhoods_tag_tracking',
       'page_neighbourhoods_tag_weight', 'page_neighbourhoods_tag_map', 'page_neighbourhoods_blogcat_map',
+      'page_neighbourhoods_guide_items', 'page_neighbourhoods_guide_tip',
+      'page_neighbourhoods_guide_title', 'page_neighbourhoods_guide_hint', 'page_neighbourhoods_guide_helper',
+      'page_neighbourhoods_guide_visible', 'page_neighbourhoods_guide_default_expanded',
+      'page_neighbourhoods_notable_eyebrow', 'page_neighbourhoods_notable_title',
+      'page_neighbourhoods_notable_footnote', 'page_neighbourhoods_notable_items', 'page_neighbourhoods_notable_visible',
+      'page_neighbourhoods_featured_blog',
     ];
     supabase
       .from('site_settings')
@@ -747,6 +785,43 @@ export default function Neighbourhoods() {
             if (parsed && typeof parsed === 'object') setBlogCatColors(parsed);
           } catch { /* ignore malformed map */ }
         }
+        const guideRaw = m['page_neighbourhoods_guide_items'];
+        if (guideRaw) {
+          try {
+            const parsed = JSON.parse(guideRaw);
+            if (Array.isArray(parsed) && parsed.length) setGuideItems(parsed as DecisionGuideItem[]);
+          } catch { /* ignore malformed guide items */ }
+        }
+        const tipRaw = m['page_neighbourhoods_guide_tip'];
+        if (tipRaw !== undefined && tipRaw !== null) setGuideTip(tipRaw);
+
+        const gTitle = m['page_neighbourhoods_guide_title'];
+        if (gTitle !== undefined && gTitle !== null && gTitle !== '') setGuideTitle(gTitle);
+        const gHint = m['page_neighbourhoods_guide_hint'];
+        if (gHint !== undefined && gHint !== null) setGuideHint(gHint);
+        const gHelper = m['page_neighbourhoods_guide_helper'];
+        if (gHelper !== undefined && gHelper !== null && gHelper !== '') setGuideHelper(gHelper);
+        if (m['page_neighbourhoods_guide_visible'] === 'false') setGuideVisible(false);
+        if (m['page_neighbourhoods_guide_default_expanded'] === 'true' && !guideUserToggledRef.current) {
+          setGuideExpanded(true);
+        }
+
+        const notableRaw = m['page_neighbourhoods_notable_items'];
+        if (notableRaw) {
+          try {
+            const parsed = JSON.parse(notableRaw);
+            if (Array.isArray(parsed) && parsed.length) setNotableItems(parsed as NotableAreaItem[]);
+          } catch { /* ignore malformed notable items */ }
+        }
+        const nEyebrow = m['page_neighbourhoods_notable_eyebrow'];
+        if (nEyebrow !== undefined && nEyebrow !== null && nEyebrow !== '') setNotableEyebrow(nEyebrow);
+        const nTitle = m['page_neighbourhoods_notable_title'];
+        if (nTitle !== undefined && nTitle !== null && nTitle !== '') setNotableTitle(nTitle);
+        const nFootnote = m['page_neighbourhoods_notable_footnote'];
+        if (nFootnote !== undefined && nFootnote !== null) setNotableFootnote(nFootnote);
+        if (m['page_neighbourhoods_notable_visible'] === 'false') setNotableVisible(false);
+        const featuredBlog = m['page_neighbourhoods_featured_blog'];
+        if (featuredBlog) setFeaturedBlogSlug(featuredBlog);
       });
     return () => { active = false; };
   }, []);
@@ -798,11 +873,40 @@ export default function Neighbourhoods() {
   const displayBlogPosts = useMemo(() => supabaseBlogPosts, [supabaseBlogPosts]);
 
   const filteredBlogPosts = useMemo(() => {
-    if (blogCategory === 'all') return displayBlogPosts;
-    return displayBlogPosts.filter((bp) => bp.category === blogCategory);
-  }, [displayBlogPosts, blogCategory]);
+    const base =
+      blogCategory === 'all'
+        ? displayBlogPosts
+        : displayBlogPosts.filter((bp) => bp.category === blogCategory);
+    // Pin the editorially-featured guide (e.g. the investor market report) to the
+    // front so it is always the headline card in its category view.
+    if (!featuredBlogSlug) return base;
+    const idx = base.findIndex((bp) => bp.slug === featuredBlogSlug);
+    if (idx <= 0) return base;
+    const copy = [...base];
+    const [pinned] = copy.splice(idx, 1);
+    copy.unshift(pinned);
+    return copy;
+  }, [displayBlogPosts, blogCategory, featuredBlogSlug]);
 
-  const blogCategories: BlogCategoryKey[] = ['all', 'Area Guides', 'Market Trends', 'Schools & Family', 'Lifestyle & Dining'];
+  const blogCategories: BlogCategoryKey[] = [
+    'all',
+    'Area Guides',
+    'Living in Nairobi',
+    'Market Trends',
+    'Schools & Family',
+    'Lifestyle & Dining',
+    'Food & Drink',
+    'Things to Do',
+    'Wildlife & Nature',
+    'Culture & History',
+    'Health & Fitness',
+    'Day Trips',
+    'Nature & Outdoors',
+    'Art & Culture',
+  ];
+
+  const featuredBlogPost = filteredBlogPosts.length > 0 ? filteredBlogPosts[0] : null;
+  const restBlogPosts = filteredBlogPosts.slice(1);
 
   const filteredHoods = useMemo(() => {
     let result = [...hoods];
@@ -879,14 +983,14 @@ export default function Neighbourhoods() {
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between">
           <div>
             <span className="font-prata font-bold text-golden text-[24px] md:text-[33px] uppercase tracking-[0.04em]">
-              THE LOCAL
+              {c.masthead_title}
             </span>
             <span className="block font-roboto text-white/60 text-xs uppercase tracking-[0.12em] mt-0.5">
-              Oceans Kenya&apos;s Guide to the City
+              {c.masthead_subtitle}
             </span>
           </div>
           <span className="font-roboto text-white/60 text-xs uppercase tracking-[0.12em] hidden sm:block">
-            ISSUE - NAIROBI 2026
+            {c.masthead_issue}
           </span>
         </div>
       </div>
@@ -897,21 +1001,18 @@ export default function Neighbourhoods() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 pt-10 md:pt-14">
             <div className="lg:col-span-8">
               <p className="font-jost font-bold text-golden text-[15px] uppercase tracking-[0.18em] mb-4">
-                Explore the City
+                {c.hero_eyebrow}
               </p>
               <h1 className="font-prata font-bold text-white text-[30px] sm:text-[38px] md:text-[61px] leading-[1.08] mb-5">
-                Neighbourhoods &amp; Guides
+                {c.hero_title}
               </h1>
               <p className="font-roboto text-white/85 text-[14px] leading-[1.7] max-w-[60ch]">
-                Discover Nairobi&apos;s most desirable residential enclaves. From the diplomatic grandeur
-                of Runda to the urban energy of Kilimani, each neighbourhood offers a distinct lifestyle
-                and investment opportunity.
+                {c.hero_intro}
               </p>
             </div>
             <div className="lg:col-span-4 flex items-end">
               <p className="font-roboto text-white/60 text-[15px] leading-relaxed border-l-4 border-golden pl-4">
-                A curated field guide to Nairobi&apos;s residential enclaves - safety, lifestyle,
-                schools, and value, area by area.
+                {c.hero_note}
               </p>
             </div>
           </div>
@@ -919,91 +1020,64 @@ export default function Neighbourhoods() {
       </section>
 
       {/* Quick links to Schools & Living guides */}
+      {c.show_quicklinks && (
       <Reveal>
         <section className="bg-[#F7F9F9] border-b-2 border-[#1a1a1a]/10">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-8 md:py-10">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link
-                to="/directory"
-                className="group flex items-center gap-4 bg-white border-2 border-[#1a1a1a]/10 p-5 hover:border-primary/40 transition-colors cursor-pointer"
-              >
-                <div className="w-14 h-14 flex items-center justify-center bg-[#C05621] text-white shrink-0">
-                  <i className="ri-store-2-line text-2xl"></i>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-prata font-semibold text-primary text-[21px] leading-tight group-hover:text-[#0D5959] transition-colors">
-                    Social Directory
-                  </h3>
-                  <p className="font-roboto text-[15px] text-[#636363] leading-relaxed mt-0.5">
-                    Hotels, restaurants, hospitals, schools, gyms &amp; every essential service across the city.
-                  </p>
-                </div>
-                <i className="ri-arrow-right-line text-primary text-xl group-hover:translate-x-1 transition-transform shrink-0"></i>
-              </Link>
-              <Link
-                to="/schools"
-                className="group flex items-center gap-4 bg-white border-2 border-[#1a1a1a]/10 p-5 hover:border-primary/40 transition-colors cursor-pointer"
-              >
-                <div className="w-14 h-14 flex items-center justify-center bg-primary text-white shrink-0">
-                  <i className="ri-graduation-cap-line text-2xl"></i>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-prata font-semibold text-primary text-[21px] leading-tight group-hover:text-[#0D5959] transition-colors">
-                    Schools in Nairobi
-                  </h3>
-                  <p className="font-roboto text-[15px] text-[#636363] leading-relaxed mt-0.5">
-                    International, Montessori &amp; top private schools - and which neighbourhoods sit nearest.
-                  </p>
-                </div>
-                <i className="ri-arrow-right-line text-primary text-xl group-hover:translate-x-1 transition-transform shrink-0"></i>
-              </Link>
-              <Link
-                to="/living-in-nairobi"
-                className="group flex items-center gap-4 bg-white border-2 border-[#1a1a1a]/10 p-5 hover:border-primary/40 transition-colors cursor-pointer"
-              >
-                <div className="w-14 h-14 flex items-center justify-center bg-[#0D5959] text-white shrink-0">
-                  <i className="ri-book-open-line text-2xl"></i>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-prata font-semibold text-primary text-[21px] leading-tight group-hover:text-[#0D5959] transition-colors">
-                    Living in Nairobi
-                  </h3>
-                  <p className="font-roboto text-[15px] text-[#636363] leading-relaxed mt-0.5">
-                    Guides on eating, shopping, things to do, healthcare &amp; family life across the city.
-                  </p>
-                </div>
-                <i className="ri-arrow-right-line text-primary text-xl group-hover:translate-x-1 transition-transform shrink-0"></i>
-              </Link>
+              {c.quicklinks.map((q, i) => (
+                <Link
+                  key={`${q.title}-${i}`}
+                  to={q.link || '/'}
+                  className="group flex items-center gap-4 bg-white border-2 border-[#1a1a1a]/10 p-5 hover:border-primary/40 transition-colors cursor-pointer"
+                >
+                  <div className={`w-14 h-14 flex items-center justify-center text-white shrink-0 ${q.color ? '' : 'bg-primary'}`} style={{ backgroundColor: q.color || undefined }}>
+                    <i className={`${q.icon} text-2xl`}></i>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-prata font-semibold text-primary text-[21px] leading-tight group-hover:text-[#0D5959] transition-colors">
+                      {q.title}
+                    </h3>
+                    <p className="font-roboto text-[15px] text-[#636363] leading-relaxed mt-0.5">
+                      {q.text}
+                    </p>
+                  </div>
+                  <i className="ri-arrow-right-line text-primary text-xl group-hover:translate-x-1 transition-transform shrink-0"></i>
+                </Link>
+              ))}
             </div>
           </div>
         </section>
       </Reveal>
+      )}
 
       {/* Stats Strip */}
+      {c.show_stats && (
       <Reveal>
         <section className="bg-white border-y-2 border-[#1a1a1a]/10 py-2 md:py-0">
           <div className="max-w-6xl mx-auto px-4 md:px-6">
             <div className="grid grid-cols-2 md:grid-cols-4 overflow-hidden">
               <div className="px-4 py-5 md:py-6 text-center border-r-2 border-b-2 md:border-b-0 border-[#1a1a1a]/10 overflow-hidden">
                 <p className="font-prata text-primary text-[18px] sm:text-[24px] md:text-[40px] leading-none">{supabaseStats.totalNeighbourhoods}</p>
-                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">Neighbourhoods</p>
+                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">{c.stat1_label}</p>
               </div>
               <div className="px-4 py-5 md:py-6 text-center border-b-2 md:border-b-0 md:border-r-2 border-[#1a1a1a]/10 overflow-hidden">
                 <p className="font-prata text-primary text-[18px] sm:text-[24px] md:text-[40px] leading-none">{supabaseStats.totalListings}</p>
-                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">Active Listings</p>
+                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">{c.stat2_label}</p>
               </div>
               <div className="px-4 py-5 md:py-6 text-center border-r-2 border-[#1a1a1a]/10 overflow-hidden">
                 <p className="font-prata text-primary text-[18px] sm:text-[24px] md:text-[40px] leading-none">{supabaseStats.forSale}</p>
-                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">For Sale</p>
+                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">{c.stat3_label}</p>
               </div>
               <div className="px-4 py-5 md:py-6 text-center overflow-hidden">
                 <p className="font-prata text-primary text-[18px] sm:text-[24px] md:text-[40px] leading-none">{supabaseStats.forRent}</p>
-                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">To Let</p>
+                <p className="font-jost text-golden text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-[0.02em] sm:tracking-[0.08em] md:tracking-[0.14em] mt-2 whitespace-nowrap">{c.stat4_label}</p>
               </div>
             </div>
           </div>
         </section>
       </Reveal>
+      )}
 
       <main className="py-10 md:py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8">
@@ -1023,10 +1097,10 @@ export default function Neighbourhoods() {
               className="flex items-center gap-0 border-b-2 border-[#1a1a1a]/10 mb-8 md:mb-10 overflow-x-auto no-scrollbar -mx-4 px-4 pr-20 md:mx-0 md:px-0 md:pr-0"
             >
               {[
-                { key: 'neighbourhoods' as TabKey, label: 'Neighbourhoods', icon: 'ri-map-pin-2-line' },
-                { key: 'guides' as TabKey, label: 'Area Guides', icon: 'ri-book-open-line' },
-                { key: 'blog' as TabKey, label: 'Blog', icon: 'ri-article-line' },
-                { key: 'compare' as TabKey, label: 'Compare', icon: 'ri-scales-line' },
+                { key: 'neighbourhoods' as TabKey, label: c.tab_neighbourhoods, icon: 'ri-map-pin-2-line' },
+                { key: 'guides' as TabKey, label: c.tab_guides, icon: 'ri-book-open-line' },
+                { key: 'blog' as TabKey, label: c.tab_blog, icon: 'ri-article-line' },
+                { key: 'compare' as TabKey, label: c.tab_compare, icon: 'ri-scales-line' },
               ].map((tab) => (
                 <button
                   key={tab.key}
@@ -1069,20 +1143,34 @@ export default function Neighbourhoods() {
                 onFilterChange={setActiveFilter}
                 resultCount={filteredHoods.length}
                 totalCount={hoods.length}
+                searchPlaceholder={c.search_placeholder}
+                areasWord={c.areas_word}
+                heading={c.filterbar_heading}
+                resetLabel={c.filterbar_reset}
               />
 
               {/* Quick Decision Guide - Collapsible */}
-              <QuickDecisionGuide
-                expanded={guideExpanded}
-                onExpandedChange={setGuideExpanded}
-                activeMatches={guideFilter}
-                onSelectProfile={(matches) => {
-                  setGuideFilter(matches);
-                  if (matches.length > 0) setSearchQuery('');
-                }}
-                onClear={() => setGuideFilter([])}
-                areaHref={areaHref}
-              />
+              {guideVisible && (
+                <QuickDecisionGuide
+                  expanded={guideExpanded}
+                  onExpandedChange={(v) => {
+                    guideUserToggledRef.current = true;
+                    setGuideExpanded(v);
+                  }}
+                  activeMatches={guideFilter}
+                  onSelectProfile={(matches) => {
+                    setGuideFilter(matches);
+                    if (matches.length > 0) setSearchQuery('');
+                  }}
+                  onClear={() => setGuideFilter([])}
+                  areaHref={areaHref}
+                  items={guideItems}
+                  tip={guideTip}
+                  title={guideTitle}
+                  hint={guideHint}
+                  helperText={guideHelper}
+                />
+              )}
 
               {/* Error State */}
               {error && !loading && (
@@ -1090,14 +1178,14 @@ export default function Neighbourhoods() {
                   <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                     <i className="ri-error-warning-line text-white text-xl"></i>
                   </div>
-                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Something went wrong</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.error_title}</p>
                   <p className="font-roboto text-[15px] text-[#636363] mb-4">{error}</p>
                   <button
                     onClick={refetch}
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] hover:bg-[#002349] transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-refresh-line"></i>
-                    Try Again
+                    {c.error_retry_label}
                   </button>
                 </div>
               )}
@@ -1117,8 +1205,8 @@ export default function Neighbourhoods() {
                         <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                           <i className="ri-map-pin-line text-white text-xl"></i>
                         </div>
-                        <p className="font-prata font-semibold text-primary text-[23px] mb-1">No Neighbourhoods Found</p>
-                        <p className="font-roboto text-[15px] text-[#636363]">Try adjusting your search or filters.</p>
+                        <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.hood_empty_title}</p>
+                        <p className="font-roboto text-[15px] text-[#636363]">{c.hood_empty_text}</p>
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1129,10 +1217,12 @@ export default function Neighbourhoods() {
                                 to={`/neighbourhood/${n.slug}`}
                                 className="block relative aspect-[4/5] overflow-hidden cursor-pointer"
                               >
-                                <img
+                                <EntityImage
+                                  src={n.hero_image}
                                   alt={n.name}
+                                  compact
+                                  icon="ri-map-pin-2-line"
                                   className="w-full h-full object-cover object-center transition-transform duration-1000 ease-out group-hover:scale-110"
-                                  src={n.hero_image || ''}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/30 to-transparent"></div>
                                 <div className="absolute top-3 left-3 flex flex-wrap gap-2">
@@ -1162,13 +1252,13 @@ export default function Neighbourhoods() {
                                     to={areaSearchHref(n.name)}
                                     className="font-jost text-golden text-[13px] font-semibold uppercase tracking-[0.08em] cursor-pointer hover:text-[#8a6d1f] transition-colors"
                                   >
-                                    {n.propertyCount} Properties
+                                    {n.propertyCount} {c.card_properties_label}
                                   </Link>
                                   <Link
                                     to={`/neighbourhood/${n.slug}`}
                                     className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-[12px] font-jost font-semibold uppercase tracking-[0.08em] whitespace-nowrap transition-colors hover:bg-[#002349]"
                                   >
-                                    Explore
+                                    {c.card_explore_label}
                                     <i className="ri-arrow-right-line"></i>
                                   </Link>
                                 </div>
@@ -1183,77 +1273,13 @@ export default function Neighbourhoods() {
               )}
 
               {/* Other Notable Areas */}
-              {!loading && (
-                <Reveal delay={200}>
-                  <div className="mt-12 md:mt-16 bg-[#FAFAF8] border-y-2 border-[#1a1a1a]/10 -mx-4 md:-mx-6 lg:-mx-8 px-4 md:px-6 lg:px-8 py-8 md:py-10">
-                    <div className="mb-8">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="w-2 h-5 bg-golden"></div>
-                        <span className="font-jost text-golden text-[12px] uppercase tracking-[0.15em] font-semibold">
-                          Also Worth Knowing
-                        </span>
-                      </div>
-                      <h3 className="font-prata font-bold text-primary text-[25px] md:text-[35px]">Other Notable Areas</h3>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 md:gap-x-6 gap-y-0">
-                      <div className="py-6 border-b-2 border-[#1a1a1a]/10">
-                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">South B &amp; South C</h4>
-                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
-                          More local, affordable, and close to Nairobi National Park - ideal for experienced residents and budget-conscious travellers who want space without the Karen price tag. Strong community feel with markets, local eateries, and easy access to the CBD.
-                        </p>
-                        <Link
-                          to={areaSearchHref('South B & South C')}
-                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
-                        >
-                          Browse South B &amp; South C
-                          <i className="ri-arrow-right-line"></i>
-                        </Link>
-                      </div>
-                      <div className="py-6 border-b-2 border-[#1a1a1a]/10 md:pl-8">
-                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">City Centre &amp; Upper Hill</h4>
-                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
-                          Busy, central, and all business - ideal for short stays and professionals who need to be in the thick of it. Upper Hill hosts major corporate HQs and hotels. The CBD offers unmatched convenience but can be hectic.
-                        </p>
-                        <Link
-                          to={areaSearchHref('City Centre & Upper Hill')}
-                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
-                        >
-                          Browse City Centre &amp; Upper Hill
-                          <i className="ri-arrow-right-line"></i>
-                        </Link>
-                      </div>
-                      <div className="py-6 border-b-2 border-[#1a1a1a]/10">
-                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">Langata</h4>
-                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
-                          Nature-focused living on a budget - bordering Nairobi National Park and close to the Giraffe Centre and Elephant Orphanage. More affordable than neighbouring Karen while sharing the same green, relaxed atmosphere. Popular with families seeking space.
-                        </p>
-                        <Link
-                          to={areaSearchHref('Langata')}
-                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
-                        >
-                          Browse Langata
-                          <i className="ri-arrow-right-line"></i>
-                        </Link>
-                      </div>
-                      <div className="py-6 border-b-2 border-[#1a1a1a]/10 md:pl-8">
-                        <h4 className="font-prata font-semibold text-primary text-[23px] mb-2">Ruaka</h4>
-                        <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-3 mb-3">
-                          A fast-growing satellite suburb north of the city - significantly cheaper rents than Gigiri or Runda but only 15-20 minutes from the UN and diplomatic quarter. Popular with young professionals and families priced out of the core northern suburbs.
-                        </p>
-                        <Link
-                          to={areaSearchHref('Ruaka')}
-                          className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-golden hover:text-[#8a6d1f] transition-colors"
-                        >
-                          Browse Ruaka
-                          <i className="ri-arrow-right-line"></i>
-                        </Link>
-                      </div>
-                    </div>
-                    <p className="font-roboto text-[15px] text-[#636363] mt-6 pt-4 border-t-2 border-[#1a1a1a]/10 leading-relaxed">
-                      These areas are not yet covered by full Area Guides but have active property listings. Our agents can provide detailed local knowledge on any of them.
-                    </p>
-                  </div>
-                </Reveal>
+              {!loading && notableVisible && (
+                <OtherNotableAreas
+                  eyebrow={notableEyebrow}
+                  title={notableTitle}
+                  footnote={notableFootnote}
+                  items={notableItems}
+                />
               )}
             </div>
           )}
@@ -1266,14 +1292,14 @@ export default function Neighbourhoods() {
                   <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                     <i className="ri-error-warning-line text-white text-xl"></i>
                   </div>
-                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Something went wrong</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.error_title}</p>
                   <p className="font-roboto text-[15px] text-[#636363] mb-4">{error}</p>
                   <button
                     onClick={refetch}
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] hover:bg-[#002349] transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-refresh-line"></i>
-                    Try Again
+                    {c.error_retry_label}
                   </button>
                 </div>
               ) : loading ? (
@@ -1287,8 +1313,8 @@ export default function Neighbourhoods() {
                   <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                     <i className="ri-book-open-line text-white text-xl"></i>
                   </div>
-                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">No Guides Yet</p>
-                  <p className="font-roboto text-[15px] text-[#636363]">Area guides are coming soon.</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.guides_empty_title}</p>
+                  <p className="font-roboto text-[15px] text-[#636363]">{c.guides_empty_text}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1327,7 +1353,7 @@ export default function Neighbourhoods() {
                                 ))}
                             </div>
                             <Link to={areaGuideHref(h.slug)} className="block cursor-pointer">
-                              <h3 className="font-prata font-semibold text-primary text-[23px] mb-1 group-hover:text-[#0D5959] transition-colors">{h.name} Guide</h3>
+                              <h3 className="font-prata font-semibold text-primary text-[23px] mb-1 group-hover:text-[#0D5959] transition-colors">{h.name} {c.guide_card_suffix}</h3>
                             </Link>
                             <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2">
                               {h.summary || h.description || ''}
@@ -1342,13 +1368,13 @@ export default function Neighbourhoods() {
                               to={areaSearchHref(h.name)}
                               className="font-jost text-golden text-[13px] font-semibold uppercase tracking-[0.08em] cursor-pointer hover:text-[#8a6d1f] transition-colors whitespace-nowrap"
                             >
-                              {h.propertyCount} Properties
+                              {h.propertyCount} {c.card_properties_label}
                             </Link>
                             <Link
                               to={areaGuideHref(h.slug)}
                               className="flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-[#1a1a1a] hover:text-[#0D5959] transition-colors cursor-pointer whitespace-nowrap"
                             >
-                              Read Guide
+                              {c.guide_read_label}
                               <i className="ri-arrow-right-line"></i>
                             </Link>
                           </div>
@@ -1367,7 +1393,7 @@ export default function Neighbourhoods() {
               {/* Blog Category Filters */}
               <div className="relative">
                 <div ref={blogScrollRef} className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar pr-14">
-                  {blogCategories.map((cat) => (
+                  {blogCategories.filter((cat) => cat !== 'all').map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setBlogCategory(cat)}
@@ -1377,7 +1403,7 @@ export default function Neighbourhoods() {
                           : 'border-primary text-primary hover:bg-primary hover:text-white'
                       }`}
                     >
-                      {cat === 'all' ? 'All Posts' : cat}
+                      {cat}
                     </button>
                   ))}
                 </div>
@@ -1399,14 +1425,14 @@ export default function Neighbourhoods() {
                   <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                     <i className="ri-error-warning-line text-white text-xl"></i>
                   </div>
-                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Something went wrong</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.error_title}</p>
                   <p className="font-roboto text-[15px] text-[#636363] mb-4">{error}</p>
                   <button
                     onClick={refetch}
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] hover:bg-[#002349] transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-refresh-line"></i>
-                    Try Again
+                    {c.error_retry_label}
                   </button>
                 </div>
               ) : loading ? (
@@ -1420,52 +1446,115 @@ export default function Neighbourhoods() {
                   <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                     <i className="ri-article-line text-white text-xl"></i>
                   </div>
-                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">No Blog Posts Yet</p>
-                  <p className="font-roboto text-[15px] text-[#636363]">Check back soon for neighbourhood insights.</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.blog_empty_title}</p>
+                  <p className="font-roboto text-[15px] text-[#636363]">{c.blog_empty_text}</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredBlogPosts.map((post, i) => (
-                    <Reveal key={post.id} delay={i * 90}>
+                <div className="space-y-10 md:space-y-14">
+                  {/* Featured guide */}
+                  {featuredBlogPost && (
+                    <Reveal>
                       <Link
-                        to={`/blog/${post.slug}`}
-                        className="group block bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-shadow duration-300"
+                        to={`/blog/${featuredBlogPost.slug}`}
+                        className="group grid grid-cols-1 lg:grid-cols-2 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-shadow duration-300 cursor-pointer"
                       >
-                        <div className="relative aspect-[16/10] overflow-hidden">
+                        <div className="relative aspect-[16/10] lg:aspect-auto lg:h-full min-h-[240px] overflow-hidden">
                           <EntityImage
-                            src={post.featured_image}
-                            alt={post.title}
+                            src={featuredBlogPost.featured_image}
+                            alt={featuredBlogPost.title}
                             icon="ri-article-line"
-                            className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                            className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-105"
                             style={{ objectPosition: focalPoint }}
                           />
-                          {post.category && (
-                            <div className="absolute top-3 left-3">
-                              <span
-                                className="font-jost uppercase"
-                                style={{ ...getTagPillStyle(tagStyle), backgroundColor: getBlogCategoryColorHex(post.category, tagColors, blogCatColors, tagMap) }}
-                              >
-                                {post.category}
-                              </span>
-                            </div>
-                          )}
+                          <span className="absolute top-3 left-3 px-3 py-1 bg-golden text-white text-[11px] font-jost font-semibold uppercase tracking-[0.12em]">
+                            Featured Guide
+                          </span>
                         </div>
-                        <div className="p-5">
-                          <h3 className="font-prata font-semibold text-primary text-[21px] leading-snug mb-2 line-clamp-2 group-hover:text-[#0D5959] transition-colors">
-                            {post.title}
+                        <div className="p-6 md:p-9 flex flex-col justify-center">
+                          {featuredBlogPost.category && (
+                            <span
+                              className="font-jost uppercase self-start mb-3"
+                              style={{ ...getTagPillStyle(tagStyle), backgroundColor: getBlogCategoryColorHex(featuredBlogPost.category, tagColors, blogCatColors, tagMap) }}
+                            >
+                              {featuredBlogPost.category}
+                            </span>
+                          )}
+                          <h3 className="font-prata font-semibold text-primary text-[26px] md:text-[34px] leading-[1.15] mb-3 group-hover:text-[#0D5959] transition-colors">
+                            {featuredBlogPost.title}
                           </h3>
-                          <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2 mb-3">
-                            {post.excerpt || ''}
+                          <p className="font-roboto text-[16px] text-[#1a1a1a] leading-[1.7] mb-5 line-clamp-3">
+                            {featuredBlogPost.excerpt || ''}
                           </p>
-                          <div className="flex items-center gap-2 font-jost text-[#636363] text-xs uppercase tracking-[0.1em]">
-                            {post.author && <span>{post.author}</span>}
-                            {post.author && post.published_at && <span>&middot;</span>}
-                            {post.readTime && <span>{post.readTime}</span>}
+                          <div className="flex items-center gap-3 font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-6">
+                            {featuredBlogPost.author && <span>{featuredBlogPost.author}</span>}
+                            {featuredBlogPost.author && featuredBlogPost.readTime && <span>&middot;</span>}
+                            {featuredBlogPost.readTime && <span>{featuredBlogPost.readTime}</span>}
                           </div>
+                          <span className="inline-flex items-center gap-2 self-start px-5 py-2.5 bg-primary text-white text-[13px] font-jost font-semibold uppercase tracking-[0.08em] whitespace-nowrap group-hover:bg-[#002349] transition-colors">
+                            Read guide
+                            <i className="ri-arrow-right-line"></i>
+                          </span>
                         </div>
                       </Link>
                     </Reveal>
-                  ))}
+                  )}
+
+                  {/* More guides */}
+                  {restBlogPosts.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-2 h-5 bg-golden"></div>
+                        <h3 className="font-prata font-bold text-primary text-[22px] md:text-[28px]">More Neighbourhood Guides</h3>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {restBlogPosts.map((post, i) => (
+                          <Reveal key={post.id} delay={i * 70}>
+                            <Link
+                              to={`/blog/${post.slug}`}
+                              className="group flex flex-col h-full bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,23,49,0.04),0_4px_12px_rgba(0,23,49,0.06),0_16px_48px_rgba(0,23,49,0.08)] hover:shadow-[0_2px_4px_rgba(0,23,49,0.06),0_8px_24px_rgba(0,23,49,0.10),0_24px_64px_rgba(0,23,49,0.12)] transition-shadow duration-300 cursor-pointer"
+                            >
+                              <div className="relative aspect-[16/10] overflow-hidden">
+                                <EntityImage
+                                  src={post.featured_image}
+                                  alt={post.title}
+                                  icon="ri-article-line"
+                                  className="w-full h-full object-cover transition-transform duration-1000 ease-out group-hover:scale-110"
+                                  style={{ objectPosition: focalPoint }}
+                                />
+                                {post.category && (
+                                  <div className="absolute top-3 left-3">
+                                    <span
+                                      className="font-jost uppercase"
+                                      style={{ ...getTagPillStyle(tagStyle), backgroundColor: getBlogCategoryColorHex(post.category, tagColors, blogCatColors, tagMap) }}
+                                    >
+                                      {post.category}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-5 flex flex-col flex-1">
+                                <h3 className="font-prata font-semibold text-primary text-[20px] leading-snug mb-2 line-clamp-2 group-hover:text-[#0D5959] transition-colors">
+                                  {post.title}
+                                </h3>
+                                <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2 mb-4">
+                                  {post.excerpt || ''}
+                                </p>
+                                <div className="mt-auto flex items-center justify-between pt-3 border-t-2 border-[#1a1a1a]/10">
+                                  <span className="font-jost text-[#636363] text-[11px] uppercase tracking-[0.1em]">
+                                    {post.readTime || ''}
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 font-jost text-[12px] font-semibold uppercase tracking-[0.08em] text-[#0D5959] whitespace-nowrap">
+                                    Read guide
+                                    <i className="ri-arrow-right-line"></i>
+                                  </span>
+                                </div>
+                              </div>
+                            </Link>
+                          </Reveal>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1482,16 +1571,16 @@ export default function Neighbourhoods() {
                       <i className="ri-scales-line text-white"></i>
                     </div>
                     <div>
-                      <h3 className="font-prata font-semibold text-primary text-[25px] mb-1">Compare Neighbourhoods</h3>
+                      <h3 className="font-prata font-semibold text-primary text-[25px] mb-1">{c.compare_title}</h3>
                       <p className="font-roboto text-[15px] text-[#636363] leading-relaxed">
-                        Pick two neighbourhoods to see how they stack up across safety, lifestyle, schools, value, and more.
+                        {c.compare_text}
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-4 items-center">
                     <div className="flex-1 w-full">
                       <NeighbourhoodSearchSelect
-                        label="First Neighbourhood"
+                        label={c.compare_first_label}
                         value={compareA}
                         options={comparisonData}
                         excludedSlug={compareB}
@@ -1503,7 +1592,7 @@ export default function Neighbourhoods() {
                     </div>
                     <div className="flex-1 w-full">
                       <NeighbourhoodSearchSelect
-                        label="Second Neighbourhood"
+                        label={c.compare_second_label}
                         value={compareB}
                         options={comparisonData}
                         excludedSlug={compareA}
@@ -1513,7 +1602,7 @@ export default function Neighbourhoods() {
                   </div>
                   {/* Quick suggestions */}
                   <div className="mt-6 pt-6 border-t-2 border-[#1a1a1a]/10">
-                    <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-3">Popular Comparisons</p>
+                    <p className="font-jost text-[#636363] text-xs uppercase tracking-[0.1em] mb-3">{c.compare_popular_label}</p>
                     <div className="relative">
                       <div ref={compareScrollRef} className="flex flex-nowrap md:flex-wrap gap-2 overflow-x-auto md:overflow-visible pb-1 no-scrollbar pr-14 md:pr-0">
                         {[
@@ -1600,13 +1689,13 @@ export default function Neighbourhoods() {
                               <p className="font-jost font-bold text-[#636363] text-xs uppercase tracking-[0.1em]">HEAD-TO-HEAD</p>
                               <div className="flex items-center justify-center gap-3 mt-2">
                                 {winnerA && (
-                                  <span className="px-2 py-0.5 bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.08em]">Winner</span>
+                                  <span className="px-2 py-0.5 bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.08em]">{c.compare_winner_label}</span>
                                 )}
                                 {!winnerA && !winnerB && (
-                                  <span className="px-2 py-0.5 bg-[#F5F5F5] text-[#636363] text-xs font-jost font-medium uppercase tracking-[0.08em]">Tie</span>
+                                  <span className="px-2 py-0.5 bg-[#F5F5F5] text-[#636363] text-xs font-jost font-medium uppercase tracking-[0.08em]">{c.compare_tie_label}</span>
                                 )}
                                 {winnerB && (
-                                  <span className="px-2 py-0.5 bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.08em]">Winner</span>
+                                  <span className="px-2 py-0.5 bg-[#0D5959]/10 text-[#0D5959] text-xs font-jost font-semibold uppercase tracking-[0.08em]">{c.compare_winner_label}</span>
                                 )}
                               </div>
                             </div>
@@ -1833,9 +1922,9 @@ export default function Neighbourhoods() {
                   <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3">
                     <i className="ri-scales-line text-white text-xl"></i>
                   </div>
-                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">Select Two Neighbourhoods</p>
+                  <p className="font-prata font-semibold text-primary text-[23px] mb-1">{c.compare_empty_title}</p>
                   <p className="font-roboto text-[15px] text-[#636363] max-w-sm mx-auto">
-                    Pick any two neighbourhoods from the dropdowns above to see a detailed side-by-side comparison across safety, lifestyle, schools, value, and more.
+                    {c.compare_empty_text}
                   </p>
                 </div>
               )}
@@ -1843,21 +1932,21 @@ export default function Neighbourhoods() {
           )}
 
           {/* Area Guides & Insights Section */}
-          {activeTab === 'neighbourhoods' && !loading && filteredHoods.length > 0 && (
+          {activeTab === 'neighbourhoods' && c.show_featured && !loading && filteredHoods.length > 0 && (
             <div className="mt-16 md:mt-24 bg-[#F7F9F9]">
               <Reveal>
                 <div className="mb-8 md:mb-10 px-4 md:px-6 lg:px-8 pt-8 md:pt-10">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-2 h-5 bg-[#0D5959]"></div>
                     <span className="font-jost text-[#0D5959] text-[12px] uppercase tracking-[0.15em] font-semibold">
-                      Featured Area Guides
+                      {c.featured_eyebrow}
                     </span>
                   </div>
                   <h2 className="font-prata font-bold text-primary text-[25px] md:text-[35px]">
-                    Area Guides &amp; Insights
+                    {c.featured_title}
                   </h2>
                   <p className="font-roboto text-[15px] text-[#636363] max-w-2xl mt-2 leading-relaxed">
-                    In-depth guides to help you understand each neighbourhood&apos;s unique character, property market, and lifestyle.
+                    {c.featured_text}
                   </p>
                 </div>
               </Reveal>
@@ -1884,13 +1973,13 @@ export default function Neighbourhoods() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h4 className="font-prata font-semibold text-primary text-[21px] mb-1 group-hover:text-[#0D5959] transition-colors">
-                          {n.name} Guide
+                          {n.name} {c.guide_card_suffix}
                         </h4>
                         <p className="font-roboto text-[15px] text-[#1a1a1a] leading-[1.6] line-clamp-2">
                           {n.summary || n.description || ''}
                         </p>
                         <span className="inline-flex items-center gap-1 font-jost text-[13px] font-semibold uppercase tracking-[0.08em] text-[#0D5959] mt-2 group-hover:text-[#084242] transition-colors">
-                          Read more
+                          {c.featured_read_more}
                           <i className="ri-arrow-right-line"></i>
                         </span>
                       </div>
@@ -1902,14 +1991,16 @@ export default function Neighbourhoods() {
           )}
 
           {/* CTA */}
+          {c.show_cta && (
           <Reveal>
             <div className="mt-16 md:mt-24 bg-primary py-14 md:py-20 px-4 md:px-6 text-center -mx-4 md:-mx-6 lg:-mx-8">
-              <h3 className="font-prata font-semibold text-white text-[25px] md:text-[33px] mb-4">Let Our Agents Guide You</h3>
+              <h3 className="font-prata font-semibold text-white text-[25px] md:text-[33px] mb-4">{c.cta_title}</h3>
               <p className="font-roboto text-white/80 text-[17px] max-w-xl mx-auto leading-relaxed">
-                Not sure which neighbourhood fits your lifestyle and budget? Our experienced agents have deep local knowledge of every Nairobi enclave. Tell us your priorities and we will match you with the perfect area.
+                {c.cta_text}
               </p>
             </div>
           </Reveal>
+          )}
         </div>
       </main>
 

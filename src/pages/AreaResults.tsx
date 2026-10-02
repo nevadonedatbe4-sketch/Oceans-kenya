@@ -21,6 +21,7 @@ import {
 } from '@/lib/areaSearch';
 import NearbyAreaStrip from '@/components/feature/NearbyAreaStrip';
 import AreaOverviewSidebar from '@/components/feature/AreaOverviewSidebar';
+import { useAreaResultsContent } from '@/hooks/useDynamicPageTemplates';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -74,6 +75,7 @@ function AreaResultsSkeleton() {
  * for every Area Guide / Neighbourhood property CTA (via @/lib/areaSearch).
  */
 export default function AreaResults() {
+  const { content: c } = useAreaResultsContent();
   const { slug: routeSlug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
 
@@ -179,14 +181,13 @@ export default function AreaResults() {
           {/* Header */}
           <div className="border-b-2 border-[#1a1a1a]/10 pb-6 mb-6">
             <p className="font-jost text-golden text-[13px] uppercase tracking-[0.15em] font-semibold mb-2">
-              Area Property Search
+              {c.eyebrow}
             </p>
             <h1 className="font-prata font-bold text-primary text-[26px] md:text-[38px] leading-tight mb-3">
-              Properties in {resolved.label}
+              {c.heading_prefix} {resolved.label}
             </h1>
             <p className="font-roboto text-[15px] text-[#636363] max-w-2xl leading-relaxed">
-              Live, verified listings for this area - filtered from the same published
-              inventory used across Oceans Kenya.
+              {c.intro}
             </p>
 
             <div className="flex items-center gap-2 mt-4">
@@ -204,7 +205,7 @@ export default function AreaResults() {
                       : 'bg-white text-primary border-primary/25 hover:border-primary'
                   }`}
                 >
-                  {p === 'sale' ? 'For Sale' : 'For Rent'}
+                  {p === 'sale' ? c.tab_sale : c.tab_rent}
                 </button>
               ))}
             </div>
@@ -219,13 +220,13 @@ export default function AreaResults() {
               <div className="min-w-0">
                 <p className="font-roboto font-semibold text-primary text-[15px]">
                   {active.key === 'nearby'
-                    ? `No current listings in ${resolved.label}`
-                    : `No current listings in ${resolved.label} or nearby areas`}
+                    ? c.fallback_nearby_title.replace('{area}', resolved.label)
+                    : c.fallback_broad_title.replace('{area}', resolved.label)}
                 </p>
                 <p className="font-roboto text-[14px] text-[#636363] leading-relaxed mt-0.5">
                   {active.key === 'nearby'
-                    ? `Showing nearby areas instead (${active.label}) so you still see relevant options.`
-                    : 'Showing all published properties here so you are never left on an empty page. Refine the area below or speak to an agent.'}
+                    ? c.fallback_nearby_text.replace('{areas}', active.label)
+                    : c.fallback_broad_text}
                 </p>
               </div>
             </div>
@@ -238,12 +239,12 @@ export default function AreaResults() {
             <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
               <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
                 {active.key === 'exact'
-                  ? `Homes in ${resolved.label}`
+                  ? `${c.results_exact_prefix} ${resolved.label}`
                   : active.key === 'nearby'
-                    ? `Nearby homes`
-                    : `All published properties`}{' '}
+                    ? c.results_nearby
+                    : c.results_all}{' '}
                 <span className="text-primary/50 font-medium text-base">
-                  - {totalCount} result{totalCount === 1 ? '' : 's'}
+                  - {totalCount} {c.results_word}
                 </span>
               </h2>
             </div>
@@ -268,24 +269,23 @@ export default function AreaResults() {
               <div className="w-12 h-12 flex items-center justify-center bg-primary mx-auto mb-3 rounded-full">
                 <i className="ri-home-4-line text-white text-xl"></i>
               </div>
-              <p className="font-roboto font-bold text-primary mb-1">No published properties right now</p>
+              <p className="font-roboto font-bold text-primary mb-1">{c.empty_title}</p>
               <p className="font-roboto text-stone-500 text-sm max-w-md mx-auto mb-5">
-                There is currently no live inventory for this search. New listings arrive
-                regularly - register your interest or browse the full collection.
+                {c.empty_text}
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link
                   to="/buy"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-roboto font-semibold uppercase hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  Browse for sale
+                  {c.empty_browse_sale}
                   <i className="ri-arrow-right-line text-xs"></i>
                 </Link>
                 <Link
                   to="/rent"
                   className="inline-flex items-center gap-2 px-5 py-2.5 bg-white border-2 border-primary/25 text-primary text-sm font-roboto font-semibold uppercase hover:border-primary transition-colors cursor-pointer whitespace-nowrap"
                 >
-                  Browse to rent
+                  {c.empty_browse_rent}
                   <i className="ri-arrow-right-line text-xs"></i>
                 </Link>
               </div>
@@ -312,7 +312,7 @@ export default function AreaResults() {
           <ScrollRevealBlock>
             <div className="mt-14 md:mt-16 bg-[#F7F9F9] rounded-lg p-6 md:p-8">
               <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary mb-5">
-                Explore other neighbourhoods
+                {c.explore_title}
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Link
@@ -320,7 +320,7 @@ export default function AreaResults() {
                   className="group flex items-center justify-between gap-3 bg-white border-2 border-primary/12 rounded-lg px-5 py-4 hover:border-primary/40 transition-colors cursor-pointer"
                 >
                   <span className="font-roboto font-medium text-primary text-sm md:text-base group-hover:text-[#2d4a7a] transition-colors">
-                    All neighbourhoods &amp; area guides
+                    {c.explore_all_label}
                   </span>
                   <span className="w-7 h-7 flex items-center justify-center text-primary shrink-0 group-hover:translate-x-1 transition-transform">
                     <i className="ri-arrow-right-line"></i>
@@ -331,7 +331,7 @@ export default function AreaResults() {
                   className="group flex items-center justify-between gap-3 bg-white border-2 border-primary/12 rounded-lg px-5 py-4 hover:border-primary/40 transition-colors cursor-pointer"
                 >
                   <span className="font-roboto font-medium text-primary text-sm md:text-base group-hover:text-[#2d4a7a] transition-colors">
-                    Ask an agent about {resolved.label}
+                    {c.explore_contact_label.replace('{area}', resolved.label)}
                   </span>
                   <span className="w-7 h-7 flex items-center justify-center text-primary shrink-0 group-hover:translate-x-1 transition-transform">
                     <i className="ri-arrow-right-line"></i>
@@ -343,9 +343,9 @@ export default function AreaResults() {
           </div>
 
           <AreaOverviewSidebar
-            eyebrow="Area search"
+            eyebrow={c.sidebar_eyebrow}
             heading={resolved.label}
-            intro="Live, verified listings filtered from the same published inventory used across Oceans Kenya."
+            intro={c.sidebar_intro}
             facts={[
               { label: 'Area', value: resolved.label },
               {
@@ -368,7 +368,7 @@ export default function AreaResults() {
                 to="/neighbourhoods"
                 className="inline-flex w-full items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white text-xs font-roboto font-semibold uppercase tracking-wider rounded-sm hover:bg-primary/90 transition-colors whitespace-nowrap cursor-pointer"
               >
-                Browse All Areas
+                {c.sidebar_browse_label}
                 <i className="ri-arrow-right-line"></i>
               </Link>
             }
