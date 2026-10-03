@@ -41,6 +41,19 @@ export interface DevelopmentBrochure {
   size: number;
 }
 
+/**
+ * A real floor-plan / layout attachment captured on the project's units. The
+ * `label` is derived from the unit the plan belongs to (its bedroom count), so
+ * the plans can be grouped and titled honestly ("2 Bedroom layout").
+ */
+export interface DevelopmentFloorPlan {
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+  label: string;
+}
+
 export interface Development {
   /** Stable grouping key (the real project link when present, else the name). */
   key: string;
@@ -104,6 +117,8 @@ export interface Development {
   percentSold: number;
   /** True when at least one unit in the project carries a real floor plan. */
   hasFloorPlan: boolean;
+  /** Real floor-plan / layout attachments across the project (deduped by URL). */
+  floorPlans: DevelopmentFloorPlan[];
   /** Project map coordinates, when captured in the CRM (0 = unknown). */
   latitude: number;
   longitude: number;
@@ -214,6 +229,22 @@ export const toNumber = (v: unknown): number => {
 
 export const toString = (v: unknown): string => (v == null ? '' : String(v));
 
+/**
+ * Reduce a full marketing/project title down to just the project's own name.
+ *
+ * Project records are stored with their full SEO/marketing title, e.g.
+ * "AYA Luxury Residences – Premium Apartments, Duplexes & Sky Villas in
+ * Kileleshwa." The pages should present only "AYA Luxury Residences", so we
+ * keep everything before the first descriptor separator (en/em dash, hyphen,
+ * pipe, middle dot or colon) and ignore what follows.
+ */
+export function shortProjectName(title: string): string {
+  const full = toString(title).trim();
+  if (!full) return '';
+  const head = full.split(/\s+[\u2013\u2014-]\s+|\s*[|\u00b7]\s*|\s*:\s+/)[0].trim();
+  return head || full;
+}
+
 export function stripHtml(html: string): string {
   if (!html) return '';
   return html
@@ -281,6 +312,59 @@ export function resolveBrochure(rows: ListingRow[]): DevelopmentBrochure | null 
     }
   }
   return null;
+}
+
+function looksLikeFloorPlan(category: string, name: string): boolean {
+  const c = (category || '').toLowerCase();
+  const n = (name || '').toLowerCase();
+  if (c.includes('floor')) return true;
+  if (/floor[\s_-]*plan/.test(n)) return true;
+  if (/\blayout\b/.test(n)) return true;
+  return false;
+}
+
+/**
+ * Collect every real floor-plan / layout attachment across a project's units -
+ * CRM `documents` entries filed under a floor/plan category, plus the legacy
+ * `floor_plans` URL array. Deduped by URL so a plan shared by several units
+ * appears once. Only well-formed absolute http(s) URLs are kept.
+ */
+export function resolveFloorPlans(rows: ListingRow[]): DevelopmentFloorPlan[] {
+  const out: DevelopmentFloorPlan[] = [];
+  const seen = new Set<string>();
+  const add = (rawUrl: unknown, name: string, type: string, size: unknown, beds: number) => {
+    const url = toString(rawUrl).trim();
+    if (!url || seen.has(url)) return;
+    if (!/^https?:\/\//i.test(url)) return;
+    seen.add(url);
+    out.push({
+      url,
+      name,
+      type,
+      size: toNumber(size),
+      label: beds <= 0 ? 'Studio' : `${beds} Bedroom`,
+    });
+  };
+
+  for (const row of rows) {
+    const beds = toNumber(row.bedrooms);
+    const docs = row.documents;
+    if (Array.isArray(docs)) {
+      docs.forEach((d) => {
+        if (!d || typeof d !== 'object') return;
+        const doc = d as ListingRow;
+        const category = toString(doc.category);
+        const name = toString(doc.name);
+        if (!looksLikeFloorPlan(category, name)) return;
+        add(doc.url, name || 'Floor plan', toString(doc.type), doc.size, beds);
+      });
+    }
+    const legacy = row.floor_plans;
+    if (Array.isArray(legacy)) {
+      legacy.forEach((u) => add(u, 'Floor plan', '', 0, beds));
+    }
+  }
+  return out;
 }
 
 const COLUMNS =
@@ -445,6 +529,7 @@ export function buildDevelopment(groupRows: ListingRow[], opts: BuildDevelopment
     showUrgencyMessage: boolField('show_urgency_message', true),
     urgencyMessage: toString(primaryMapped(groupRows, 'urgency_message')),
     hasFloorPlan: groupRows.some((r) => listingHasFloorPlan(r)),
+    floorPlans: resolveFloorPlans(groupRows),
     latitude: toNumber(primaryMapped(groupRows, 'latitude')),
     longitude: toNumber(primaryMapped(groupRows, 'longitude')),
     projectInfo: buildProjectInfo(primaryRow),
@@ -484,6 +569,12 @@ export function applyProjectRecord(dev: Development, rec: ListingRow): Developme
     : [];
   const gallery = unique([...recGallery, ...dev.gallery]);
 
+  // Merge any floor plans captured on the project entity with the units' own.
+  const planByUrl = new Map<string, DevelopmentFloorPlan>();
+  [...dev.floorPlans, ...resolveFloorPlans([rec])].forEach((p) => {
+    if (!planByUrl.has(p.url)) planByUrl.set(p.url, p);
+  });
+
   const totalUnits = toNumber(rec.total_units) || dev.totalUnits;
   const unitsSold = toNumber(rec.units_sold) || dev.unitsSold;
   const unitsReserved = toNumber(rec.units_reserved) || dev.unitsReserved;
@@ -502,10 +593,12 @@ export function applyProjectRecord(dev: Development, rec: ListingRow): Developme
 
   return {
     ...dev,
-    name: toString(rec.title) || dev.name,
+    // Prefer the editor-set short project name; fall back to trimming the full title.
+    name: toString(rec.project_name) || (toString(rec.title) ? shortProjectName(toString(rec.title)) : dev.name),
     description: toString(rec.description) || dev.description,
     descriptionText: stripHtml(toString(rec.description)) || dev.descriptionText,
     gallery,
+    floorPlans: Array.from(planByUrl.values()),
     developer: toString(rec.developer_name) || dev.developer,
     developerPhone: toString(rec.developer_phone) || dev.developerPhone,
     developerEmail: toString(rec.developer_email) || dev.developerEmail,

@@ -985,3 +985,15 @@ textarea {
     font-size: 17px;
   }
 }
+
+/* ============================================================
+   DEVELOPMENT DETAIL PAGE — ROBOTO HEADINGS (scoped)
+   On this page only, the display font (Prata) that the base h1/h2
+   rule and the .font-prata utility consume is swapped for Roboto.
+   Applied on the page's <main>, so it cascades to every heading in
+   the content area — including shared blocks rendered here — while
+   leaving the Header, Footer and every other page untouched.
+   ============================================================ */
+.dev-detail-roboto {
+  --font-display: 'Roboto', sans-serif;
+}

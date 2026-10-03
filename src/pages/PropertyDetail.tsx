@@ -15,6 +15,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useSeoMeta, buildBreadcrumbSchema } from '@/hooks/useSeoMeta';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatLocation, smartTitleCase } from '@/lib/location';
+import { listingHasFloorPlan } from '@/lib/listingMeta';
 import { buildPropertySpecs, type DetailSpecRow } from '@/lib/propertyDetailSpecs';
 import PropertyGallery from '@/pages/PropertyDetail/components/Gallery';
 import PropertyLeftColumn from '@/pages/PropertyDetail/components/LeftColumn';
@@ -25,7 +26,7 @@ import PropertyPrevNext from '@/pages/PropertyDetail/components/PrevNext';
 import MobileStickyBar from '@/pages/PropertyDetail/components/MobileStickyBar';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
 import PageLoader from '@/components/feature/PageLoader';
-import { type DocItem } from '@/pages/PropertyDetail/components/PropertyDocuments';
+import PropertyDocuments, { type DocItem } from '@/pages/PropertyDetail/components/PropertyDocuments';
 import PropertyDetailSections from '@/pages/PropertyDetail/components/DetailSections';
 import LandDescription from '@/pages/PropertyDetail/components/LandDescription';
 import VideoTour from '@/pages/PropertyDetail/components/VideoTour';
@@ -120,6 +121,8 @@ interface ListingDetail {
   // Video / virtual tour links captured in the CRM
   videoUrl: string;
   virtualTourUrl: string;
+  // True when the listing genuinely carries a floor plan (documents or legacy array)
+  hasFloorPlan: boolean;
   // Every other populated CRM field (condition, rooms, year built, etc.)
   specs: DetailSpecRow[];
   // Attachments captured in the CRM (floor plans, brochures, plans, …)
@@ -634,6 +637,7 @@ export default function PropertyDetail() {
           developerEmail: String(row.developer_email || ''),
           videoUrl: String(row.video_url || ''),
           virtualTourUrl: String(row.virtual_tour_url || ''),
+          hasFloorPlan: listingHasFloorPlan({ floor_plans: row.floor_plans, documents: row.documents }),
           specs: buildPropertySpecs(row, { currency: currencyLabel, isLand }),
           documents: Array.isArray(row.documents)
             ? (row.documents as Record<string, unknown>[])
@@ -1050,6 +1054,12 @@ export default function PropertyDetail() {
                     backOnMarket={activeListing.backOnMarket}
                     propertyOfTheWeek={activeListing.propertyOfTheWeek}
                     jointVenture={activeListing.isJointVenture}
+                    videoTour={!!activeListing.videoUrl}
+                    virtualTour={!!activeListing.virtualTourUrl}
+                    floorPlan={activeListing.hasFloorPlan}
+                    onVideoClick={activeListing.videoUrl ? () => window.open(activeListing.videoUrl, '_blank', 'noopener,noreferrer') : undefined}
+                    onVirtualTourClick={activeListing.virtualTourUrl ? () => window.open(activeListing.virtualTourUrl, '_blank', 'noopener,noreferrer') : undefined}
+                    onFloorPlanClick={() => document.getElementById('section-documents')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                     className="mb-4"
                   />
                   <h1 className="font-roboto font-semibold text-2xl md:text-4xl text-primary mb-4 leading-tight">{activeListing.title}</h1>
@@ -1117,6 +1127,7 @@ export default function PropertyDetail() {
                       {activeListing.county || activeListing.district}{activeListing.area ? `, ${activeListing.area}` : ''}
                     </p>
                   </div>
+                  <PropertyDocuments documents={activeListing.documents} title={activeListing.title} />
                   <div className="bg-primary p-6 md:p-8 rounded-lg">
                     <h3 className="font-roboto font-bold text-white text-xl mb-2">{pd.land_enquiry_title}</h3>
                     <p className="text-white/70 font-roboto text-sm mb-5">{pd.land_enquiry_text}</p>
@@ -1278,6 +1289,12 @@ export default function PropertyDetail() {
                     backOnMarket={activeListing.backOnMarket}
                     propertyOfTheWeek={activeListing.propertyOfTheWeek}
                     jointVenture={activeListing.isJointVenture}
+                    videoTour={!!activeListing.videoUrl}
+                    virtualTour={!!activeListing.virtualTourUrl}
+                    floorPlan={activeListing.hasFloorPlan}
+                    onVideoClick={activeListing.videoUrl ? () => window.open(activeListing.videoUrl, '_blank', 'noopener,noreferrer') : undefined}
+                    onVirtualTourClick={activeListing.virtualTourUrl ? () => window.open(activeListing.virtualTourUrl, '_blank', 'noopener,noreferrer') : undefined}
+                    onFloorPlanClick={() => document.getElementById('section-documents')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                     className="mt-2"
                   />
                 </div>

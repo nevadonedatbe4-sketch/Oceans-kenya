@@ -26,7 +26,7 @@ interface ApptRow {
 }
 
 export default function OGroupCheckIn() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const portalBase = usePortalBase();
   const navigate = useNavigate();
   const presence = useGlobalPresence();
@@ -286,7 +286,7 @@ export default function OGroupCheckIn() {
             <p className="text-sm font-medium">{error}</p>
             {errorCode === 'SESSION_EXPIRED' && (
               <button
-                onClick={async () => { await supabase.auth.signOut(); navigate(`${portalBase}/login`); }}
+                onClick={async () => { await signOut(); navigate(`${portalBase}/login`); }}
                 className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors cursor-pointer whitespace-nowrap">
                 <i className="ri-login-box-line" /> {c.error_sign_in_again}
               </button>

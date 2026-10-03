@@ -19,13 +19,6 @@ export default function DevelopmentAmenitiesStep({ form, update }: Props) {
     <div className="w-full space-y-5">
       <SectionHeader icon="ri-sparkling-2-line" title="Amenities" subtitle="Facilities available to ALL units in this development" />
 
-      <div className="border-l-2 border-[#0d5959] pl-5 py-1 mb-4">
-        <p className="text-xs font-bold text-[#1a1e24] mb-2 uppercase tracking-widest">Global amenities</p>
-        <p className="text-xs text-[#7a8a99] font-light leading-relaxed">
-          These apply across every unit type. Select all shared facilities such as the pool, gym, lifts and security.
-        </p>
-      </div>
-
       <div className="border border-[#e8ecf0] bg-white rounded-xl p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2">
           {AMENITY_OPTIONS.map((a) => (

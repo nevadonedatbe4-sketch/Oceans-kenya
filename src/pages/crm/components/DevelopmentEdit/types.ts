@@ -36,6 +36,7 @@ export interface DeveloperProject {
 
 export interface DevelopmentFormState {
   title: string;
+  projectName: string;
   slug: string;
   description: string;
   location: string;

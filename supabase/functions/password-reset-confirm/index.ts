@@ -75,11 +75,20 @@ serve(async (req: Request) => {
   // ── VALIDATE-ONLY (page opens): report validity without consuming. ──
   if (payload.validate === true) {
     if (!isValid) {
+      let role: string | undefined;
       if (record && !findErr) {
         const status = record.used_at ? "reused" : record.revoked_at ? "revoked" : "expired";
         await logSecurityEvent(supabaseAdmin, record.user_id, `password_reset_token_${status}`, {});
+        // The account still exists behind an expired/used token, so we can tell
+        // the page which portal this reset belonged to before routing back.
+        const { data: prof } = await supabaseAdmin
+          .from("profiles")
+          .select("role")
+          .eq("user_id", record.user_id)
+          .maybeSingle();
+        role = prof?.role;
       }
-      return json({ error: invalidMsg, code: "INVALID_TOKEN", valid: false }, 400);
+      return json({ error: invalidMsg, code: "INVALID_TOKEN", valid: false, role }, 400);
     }
     // Return authoritative role so the reset page can route to the right portal.
     const { data: prof } = await supabaseAdmin
@@ -93,11 +102,18 @@ serve(async (req: Request) => {
   // ── ACTUAL RESET ──
   const newPassword = payload.new_password || "";
   if (!isValid) {
+    let role: string | undefined;
     if (record && !findErr) {
       const status = record.used_at ? "reused" : record.revoked_at ? "revoked" : "expired";
       await logSecurityEvent(supabaseAdmin, record.user_id, `password_reset_token_${status}`, {});
+      const { data: prof } = await supabaseAdmin
+        .from("profiles")
+        .select("role")
+        .eq("user_id", record.user_id)
+        .maybeSingle();
+      role = prof?.role;
     }
-    return json({ error: invalidMsg, code: "INVALID_TOKEN", valid: false }, 400);
+    return json({ error: invalidMsg, code: "INVALID_TOKEN", valid: false, role }, 400);
   }
 
   if (newPassword.length < 8) {

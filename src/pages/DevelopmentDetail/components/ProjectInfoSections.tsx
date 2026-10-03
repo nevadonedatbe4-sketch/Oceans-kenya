@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import type { Development } from '@/lib/developmentModel';
 import { buildDevelopmentInfo, type InfoRow } from '@/lib/developmentInfo';
+import SectionFold from '@/pages/DevelopmentDetail/components/SectionFold';
 
 interface ProjectInfoSectionsProps {
   development: Development;
@@ -25,17 +26,11 @@ function RowList({ rows, columns = 2 }: { rows: InfoRow[]; columns?: 1 | 2 }) {
   );
 }
 
-function SectionCard({ title, icon, children }: { title: string; icon: string; children: ReactNode }) {
+function SectionCard({ id, title, icon, children }: { id: string; title: string; icon: string; children: ReactNode }) {
   return (
-    <section className="rounded-lg border border-[#e5e5e5] bg-white p-5 md:p-7">
-      <h2 className="flex items-center gap-2 text-xl md:text-2xl font-bold text-primary mb-4">
-        <span className="w-6 h-6 flex items-center justify-center text-[#c9a84c]">
-          <i className={`${icon} text-lg`}></i>
-        </span>
-        {title}
-      </h2>
+    <SectionFold id={id} title={title} icon={icon} defaultOpen>
       {children}
-    </section>
+    </SectionFold>
   );
 }
 
@@ -59,17 +54,14 @@ export default function ProjectInfoSections({ development, priceLabel, currency,
     <div className="space-y-6">
       {/* ── Key information ── */}
       {keyInformation.length > 0 && (
-        <SectionCard title="Key information" icon="ri-file-list-3-line">
+        <SectionCard id="info-key" title="Key information" icon="ri-file-list-3-line">
           <RowList rows={keyInformation} columns={2} />
-          <p className="mt-3 text-xs font-roboto text-[#9aa0a6] leading-relaxed">
-            Figures shown are provided by the developer or agent. Where a field is unknown it is marked “Ask agent” - we never guess ownership or cost details.
-          </p>
         </SectionCard>
       )}
 
       {/* ── Ownership & purchase options ── */}
       {(ownership.schemes.length > 0 || ownership.rows.length > 0) && (
-        <SectionCard title="Ownership & purchase options" icon="ri-key-2-line">
+        <SectionCard id="info-ownership" title="Ownership & purchase options" icon="ri-key-2-line">
           {ownership.schemes.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {ownership.schemes.map((s) => (
@@ -89,7 +81,7 @@ export default function ProjectInfoSections({ development, priceLabel, currency,
 
       {/* ── Finance & how to buy ── */}
       {(finance.length > 0 || costs.length > 0) && (
-        <SectionCard title="Finance & how to buy" icon="ri-bank-card-line">
+        <SectionCard id="info-finance" title="Finance & how to buy" icon="ri-bank-card-line">
           {finance.length > 0 ? (
             <RowList rows={finance} columns={2} />
           ) : (
@@ -111,7 +103,7 @@ export default function ProjectInfoSections({ development, priceLabel, currency,
 
       {/* ── Costs to consider ── */}
       {costs.length > 0 && (
-        <SectionCard title="Costs to consider" icon="ri-money-dollar-circle-line">
+        <SectionCard id="info-costs" title="Costs to consider" icon="ri-money-dollar-circle-line">
           <div className="border border-[#eef0f2] rounded-md overflow-hidden">
             <table className="w-full">
               <tbody className="divide-y divide-[#eef0f2]">
@@ -124,15 +116,12 @@ export default function ProjectInfoSections({ development, priceLabel, currency,
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-xs font-roboto text-[#9aa0a6] leading-relaxed">
-            Indicative only - final costs are confirmed by the developer or agent and may change.
-          </p>
         </SectionCard>
       )}
 
       {/* ── Utilities & more details ── */}
       {utilities.length > 0 && (
-        <SectionCard title="Utilities &amp; more details" icon="ri-plug-line">
+        <SectionCard id="info-utilities" title="Utilities &amp; more details" icon="ri-plug-line">
           <RowList rows={utilities} columns={2} />
         </SectionCard>
       )}

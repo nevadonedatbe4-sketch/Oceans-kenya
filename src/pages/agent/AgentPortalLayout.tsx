@@ -17,6 +17,7 @@ import {
 import Chevron from '@/components/base/Chevron';
 import NavSubmenu from '@/components/feature/NavSubmenu';
 import { QuickSetHeaderButton } from '@/pages/agent/ogroup/components/QuickSetButton';
+import IdleSignOutGuard from '@/pages/agent/components/IdleSignOutGuard';
 
 interface NavEntry {
   label: string;
@@ -373,6 +374,9 @@ export default function AgentPortalLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Shared-computer protection: idle agents are warned, then signed out. */}
+      <IdleSignOutGuard />
     </div>
     </AgentCountsProvider>
   );

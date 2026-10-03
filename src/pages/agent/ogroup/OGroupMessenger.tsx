@@ -67,6 +67,7 @@ export default function OGroupMessenger() {
   const [highlightMsgId, setHighlightMsgId] = useState<string | null>(null);
   const [modal, setModal] = useState<'none' | 'newchat' | 'newgroup' | 'share' | 'manage' | 'addcontact' | 'profile'>('none');
   const [directory, setDirectory] = useState<TeamMember[]>([]);
+  const directoryRef = useRef<TeamMember[]>([]);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showNotify, setShowNotify] = useState(false);
@@ -130,6 +131,10 @@ export default function OGroupMessenger() {
   // load directory (regenerated whenever contacts change)
   useEffect(() => { loadDirectory(); }, [loadDirectory]);
 
+  // Live copy of the directory so realtime messages can resolve the sender's
+  // name/avatar (the realtime payload only carries the raw sender_id).
+  useEffect(() => { directoryRef.current = directory; }, [directory]);
+
   // ⌘K / Ctrl+K opens global search
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -170,7 +175,14 @@ export default function OGroupMessenger() {
       if (event === 'UPDATE') {
         setMessages((prev) => prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m)));
       } else {
-        setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+        const person = directoryRef.current.find((d) => d.user_id === msg.sender_id);
+        const enriched: MessageItem = {
+          ...msg,
+          sender_name: msg.sender_name || person?.name || null,
+          sender_avatar: msg.sender_avatar || person?.avatar_url || null,
+          reactions: msg.reactions || [],
+        };
+        setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, enriched]));
       }
       if (msg.sender_id !== user?.id) markConversationRead(activeId, user?.id || '');
       refresh();
@@ -353,6 +365,26 @@ export default function OGroupMessenger() {
     setReplyTo(null);
     refresh();
   }, [activeId, user, refresh]);
+
+  /** Retry a message that failed to send: drop the failed bubble and re-send. */
+  const handleRetry = useCallback((msg: MessageItem) => {
+    if (!activeId || !user || !msg.failed) return;
+    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+    sendOptimistic({
+      message_type: msg.message_type,
+      body: msg.body,
+      attachment_url: msg.attachment_url,
+      attachment_name: msg.attachment_name,
+      attachment_size: msg.attachment_size,
+      attachment_mime: msg.attachment_mime,
+      duration_seconds: msg.duration_seconds,
+      reply_to_message_id: msg.reply_to_message_id,
+      shared_object_type: msg.shared_object_type,
+      shared_object_id: msg.shared_object_id,
+      shared_object_title: msg.shared_object_title,
+      shared_object_subtitle: msg.shared_object_subtitle,
+    });
+  }, [activeId, user, sendOptimistic]);
 
   const handleSend = (text: string, attachment?: OutgoingAttachment) => {
     sendOptimistic({
@@ -659,6 +691,7 @@ export default function OGroupMessenger() {
                       onReply={(msg) => setReplyTo(msg)}
                       onReact={handleReact}
                       onDelete={handleDelete}
+                      onRetry={handleRetry}
                     />
                   </div>
                 ))

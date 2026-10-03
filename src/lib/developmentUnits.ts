@@ -228,11 +228,22 @@ export function priceBounds(dev: Development): { min: number; max: number; curre
  * unit records rather than a vague status flag.
  */
 export function unitTypeBadge(group: UnitTypeGroup): { label: string; className: string } {
-  const badge = availabilityBadge(group.status);
-  if (group.status === 'sold_out') return { ...badge, label: 'Sold Out' };
-  if (group.status === 'limited') return { ...badge, label: `${group.available} Left` };
-  if (group.status === 'available') return { ...badge, label: `${group.available} Available` };
-  return badge;
+  switch (group.status) {
+    case 'sold_out':
+      return { label: 'Sold out', className: 'text-red-600' };
+    case 'limited':
+      return {
+        label:
+          group.available === 1
+            ? 'Last one at this price'
+            : `Only ${group.available} left at this price`,
+        className: 'text-red-600',
+      };
+    case 'available':
+      return { label: `${group.available} available`, className: 'text-green-700' };
+    default:
+      return { label: 'Enquire', className: 'text-stone-500' };
+  }
 }
 
 /** "studio units" | "one-bedroom units" | "3-bedroom units" */

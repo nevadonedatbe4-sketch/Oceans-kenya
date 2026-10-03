@@ -12,6 +12,8 @@ interface NearbyPlacesProps {
   name: string;
   /** Free-text "nearby" note captured on the project, if any. */
   proximityNote?: string;
+  /** Render as a standalone card instead of a border-topped sub-block. */
+  card?: boolean;
 }
 
 interface Group {
@@ -41,7 +43,7 @@ function distanceTo(a: Amenity, lat: number, lng: number): number | null {
  * When there is no reliable nearby data the whole block renders nothing rather
  * than inventing "nearby" claims.
  */
-export default function NearbyPlaces({ lat, lng, name, proximityNote }: NearbyPlacesProps) {
+export default function NearbyPlaces({ lat, lng, name, proximityNote, card = false }: NearbyPlacesProps) {
   const { amenities, loading } = useAmenities();
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
 
@@ -64,8 +66,12 @@ export default function NearbyPlaces({ lat, lng, name, proximityNote }: NearbyPl
   // Nothing reliable to show and no note → render nothing at all.
   if (!note && (loading || grouped.length === 0)) return null;
 
+  const wrapperClass = card
+    ? 'rounded-lg border border-[#e5e5e5] bg-white p-5 md:p-7'
+    : 'mt-5 pt-5 border-t border-[#f0f0f0]';
+
   return (
-    <div className="mt-5 pt-5 border-t border-[#f0f0f0]">
+    <div className={wrapperClass}>
       <h3 className="text-base font-bold text-primary mb-1">Getting around &amp; nearby</h3>
       <p className="text-sm font-roboto text-[#6b7280] mb-4">
         Real, distance-verified places close to {name}.
@@ -80,7 +86,7 @@ export default function NearbyPlaces({ lat, lng, name, proximityNote }: NearbyPl
           {grouped.map(({ group, items }) => (
             <div key={group.key}>
               <div className="flex items-center gap-2 mb-2">
-                <span className="w-6 h-6 flex items-center justify-center text-[#c9a84c]">
+                <span className="w-6 h-6 flex items-center justify-center text-accent">
                   <i className={`${group.icon} text-base`}></i>
                 </span>
                 <h4 className="text-sm font-bold uppercase tracking-wider text-primary">{group.label}</h4>

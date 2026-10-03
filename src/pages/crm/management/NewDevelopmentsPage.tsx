@@ -297,7 +297,7 @@ export default function NewDevelopmentsPage() {
         {activeTab === 'layout' && (
           <div className="space-y-5">
             <SC title="Section Order" icon="ri-layout-4-line">
-              <T label="Order (comma separated)" value={c.section_order} onChange={(v) => upd('section_order', v)} placeholder="benefits,featured,browse,devcta" />
+              <T label="Order (comma separated)" value={c.section_order} onChange={(v) => upd('section_order', v)} placeholder="featured,browse,benefits,devcta" />
               <p className="text-xs text-stone-400">Available keys: <span className="font-mono">benefits, featured, browse, devcta</span>. The hero always sits at the top.</p>
             </SC>
             <SC title="Section Visibility" icon="ri-eye-line">

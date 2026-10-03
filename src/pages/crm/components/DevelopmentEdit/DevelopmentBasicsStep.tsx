@@ -16,17 +16,29 @@ export default function DevelopmentBasicsStep({ form, update }: Props) {
     <div className="w-full space-y-5">
       <SectionHeader icon="ri-building-2-line" title="Development Overview" subtitle="Name, location and developer details" />
 
-      <CollapsibleCard icon="ri-edit-2-line" title="Identity" defaultOpen={true}>
+      <CollapsibleCard icon="ri-edit-2-line" title="About This Property" defaultOpen={true}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-3">
           <div className="sm:col-span-2">
-            <label className={labelClass}>Development Name *</label>
+            <label className={labelClass}>Project Name (short)</label>
+            <input
+              type="text"
+              value={form.projectName}
+              onChange={(e) => update({ projectName: e.target.value })}
+              className={inputBase}
+              placeholder="e.g. Aya Luxury Residences"
+            />
+            <p className={hintClass}>The clean name shown across the site (page heading, breadcrumbs, cards, enquiries). Leave blank to auto-derive it from the full title below.</p>
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelClass}>Full Title *</label>
             <input
               type="text"
               value={form.title}
               onChange={(e) => update({ title: e.target.value, slug: form.slug || '' })}
               className={inputBase}
-              placeholder="e.g. Riverside Azure"
+              placeholder="e.g. Aya Luxury Residences – Premium Apartments, Duplexes & Sky Villas in Kileleshwa"
             />
+            <p className={hintClass}>The complete marketing / SEO title used for search engines.</p>
           </div>
           <div>
             <label className={labelClass}>Property Type</label>
@@ -110,16 +122,6 @@ export default function DevelopmentBasicsStep({ form, update }: Props) {
               onChange={(e) => update({ latitude: e.target.value })}
               className={inputBase}
               placeholder="-1.2800"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Longitude</label>
-            <input
-              type="text"
-              value={form.longitude}
-              onChange={(e) => update({ longitude: e.target.value })}
-              className={inputBase}
-              placeholder="36.8200"
             />
           </div>
         </div>

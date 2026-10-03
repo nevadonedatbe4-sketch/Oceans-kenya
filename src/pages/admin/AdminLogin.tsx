@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { isAdminRole, resolvePostLoginRoute } from '@/lib/authz';
@@ -27,7 +27,10 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading, signIn, signOut } = useAuth();
+  const { user, loading: authLoading, signIn, signOut, sessionNotice, dismissSessionNotice } = useAuth();
+  // Guards against a duplicate submit (e.g. double-click / Enter+click) firing
+  // two authentication requests before React re-renders the disabled state.
+  const submittingRef = useRef(false);
 
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
 
@@ -47,17 +50,20 @@ export default function AdminLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     setError('');
     setAgentDetected(false);
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password.');
       return;
     }
+    submittingRef.current = true;
     setLoading(true);
     // Decide on the real credentials just submitted, not any existing session.
     const { error: signInError, role } = await signIn(email, password);
     if (signInError) {
       setError(signInError.message || 'Invalid credentials');
+      submittingRef.current = false;
       setLoading(false);
       return;
     }
@@ -70,6 +76,7 @@ export default function AdminLogin() {
       // pure session setup - it is NOT a punch-in and triggers no attendance.
       await new Promise((resolve) => setTimeout(resolve, 1000));
       navigate('/admin/dashboard', { replace: true });
+      submittingRef.current = false;
       setLoading(false);
       return;
     }
@@ -82,6 +89,7 @@ export default function AdminLogin() {
     setError('');
     setAgentDetected(true);
     await signOut();
+    submittingRef.current = false;
     setLoading(false);
   };
 
@@ -112,6 +120,21 @@ export default function AdminLogin() {
               This is a private area. There is no public registration. If you are not an existing administrator you will not gain access.
             </p>
           </div>
+
+          {sessionNotice && (
+            <div className="mb-6 flex items-start gap-2 rounded-md border border-amber-300/50 bg-amber-50 px-4 py-3">
+              <i className="ri-time-line text-amber-600 mt-0.5" />
+              <p className="flex-1 text-sm font-roboto text-amber-800 leading-relaxed">{sessionNotice}</p>
+              <button
+                type="button"
+                onClick={dismissSessionNotice}
+                aria-label="Dismiss notice"
+                className="text-amber-600 hover:text-amber-800 transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line" />
+              </button>
+            </div>
+          )}
 
           {agentDetected && (
             <div className="mb-6 rounded-lg border border-golden/40 bg-[#012144] p-5">

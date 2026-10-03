@@ -84,9 +84,13 @@ export default function FeaturedDevelopmentCard({ development, imageLeft, onOpen
                 <span className="text-white text-xs font-medium uppercase tracking-wide px-2.5 py-1 bg-[#001731] rounded-sm">
                   Featured
                 </span>
-                <span className="text-white text-xs font-semibold uppercase tracking-wide px-2.5 py-1 bg-[#0d5959] rounded-sm">
+                <Link
+                  to="/new-developments"
+                  aria-label="Show all new developments"
+                  className="text-white text-xs font-semibold uppercase tracking-wide px-2.5 py-1 bg-[#0d5959] rounded-sm cursor-pointer hover:opacity-90 transition-opacity"
+                >
                   New Development
-                </span>
+                </Link>
               </div>
             }
           />
@@ -111,21 +115,43 @@ export default function FeaturedDevelopmentCard({ development, imageLeft, onOpen
         {/* Header: price + stage badge */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-xl md:text-[24px] font-bold text-[#001731] leading-tight">
-              {development.hasPriceRange && bounds.max > bounds.min ? (
-                <>
-                  <span className="text-base md:text-base font-semibold text-[#8a6d1f] mr-1.5">From</span>
-                  {format(bounds.min, (development.currency as CurrencyCode) || 'KES')}
-                  <span className="text-base font-semibold text-[#001731]/70"> {'\u2013'} {format(bounds.max, (development.currency as CurrencyCode) || 'KES')}</span>
-                </>
-              ) : (
-                format(bounds.min, (development.currency as CurrencyCode) || 'KES')
-              )}
-            </p>
+            {projectHref ? (
+              <Link
+                to={projectHref}
+                aria-label={`View property details for ${displayName}`}
+                className="text-xl md:text-[24px] font-bold text-[#001731] leading-tight cursor-pointer hover:underline"
+              >
+                {development.hasPriceRange && bounds.max > bounds.min ? (
+                  <>
+                    <span className="text-base md:text-base font-semibold text-[#8a6d1f] mr-1.5">From</span>
+                    {format(bounds.min, (development.currency as CurrencyCode) || 'KES')}
+                    <span className="text-base font-semibold text-[#001731]/70"> {'\u2013'} {format(bounds.max, (development.currency as CurrencyCode) || 'KES')}</span>
+                  </>
+                ) : (
+                  format(bounds.min, (development.currency as CurrencyCode) || 'KES')
+                )}
+              </Link>
+            ) : (
+              <p className="text-xl md:text-[24px] font-bold text-[#001731] leading-tight">
+                {development.hasPriceRange && bounds.max > bounds.min ? (
+                  <>
+                    <span className="text-base md:text-base font-semibold text-[#8a6d1f] mr-1.5">From</span>
+                    {format(bounds.min, (development.currency as CurrencyCode) || 'KES')}
+                    <span className="text-base font-semibold text-[#001731]/70"> {'\u2013'} {format(bounds.max, (development.currency as CurrencyCode) || 'KES')}</span>
+                  </>
+                ) : (
+                  format(bounds.min, (development.currency as CurrencyCode) || 'KES')
+                )}
+              </p>
+            )}
             {badge && (
-              <span className={`shrink-0 text-white text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-sm ${badge.color}`}>
+              <Link
+                to={`/new-developments?stage=${encodeURIComponent(badge.label)}`}
+                aria-label={`Show ${badge.label} developments`}
+                className={`shrink-0 text-white text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-sm cursor-pointer hover:opacity-90 transition-opacity ${badge.color}`}
+              >
                 {badge.label}
-              </span>
+              </Link>
             )}
           </div>
           {/* Save / favourite interaction */}
@@ -139,7 +165,7 @@ export default function FeaturedDevelopmentCard({ development, imageLeft, onOpen
         </div>
 
         {/* Project name - clickable through to the project page */}
-        <h3 className="text-xl md:text-2xl font-medium text-[#2D303D] leading-snug mt-3">
+        <h3 className="font-opensans text-xl md:text-2xl font-medium text-[#2D303D] leading-snug mt-3">
           {projectHref ? (
             <Link to={projectHref} className="hover:text-[#8a6d1f] transition-colors">{displayName}</Link>
           ) : (
@@ -199,10 +225,20 @@ export default function FeaturedDevelopmentCard({ development, imageLeft, onOpen
 
         {/* Floor plan availability - so buyers spot plans before opening */}
         {development.hasFloorPlan && (
-          <span className="mt-3 inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full bg-[#eef2f7] border border-[#dbe3ec] text-sm font-semibold text-[#001731] whitespace-nowrap">
-            <i className="ri-map-2-line text-[#0d5959]"></i>
-            Floor Plan Available
-          </span>
+          developmentHref ? (
+            <Link
+              to={`${developmentHref}?tab=floor-plans`}
+              className="mt-3 inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full bg-[#eef2f7] border border-[#dbe3ec] text-sm font-semibold text-[#001731] whitespace-nowrap cursor-pointer hover:border-primary/40 transition-colors"
+            >
+              <i className="ri-map-2-line text-[#0d5959]"></i>
+              Floor Plan Available
+            </Link>
+          ) : (
+            <span className="mt-3 inline-flex items-center gap-1.5 self-start px-3 py-1.5 rounded-full bg-[#eef2f7] border border-[#dbe3ec] text-sm font-semibold text-[#001731] whitespace-nowrap">
+              <i className="ri-map-2-line text-[#0d5959]"></i>
+              Floor Plan Available
+            </span>
+          )
         )}
 
         {/* See more of this development - leads to the full project page */}

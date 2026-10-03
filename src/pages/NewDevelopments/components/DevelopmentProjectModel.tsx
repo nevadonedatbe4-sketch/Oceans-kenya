@@ -130,10 +130,10 @@ export default function DevelopmentProjectModel({ development }: { development: 
           <h4 className="text-base font-bold text-primary mb-2.5">Unit Types</h4>
           <div className="border border-[#eef0f2] rounded-sm overflow-hidden">
             <div className="hidden sm:flex items-center gap-x-4 px-4 py-2.5 bg-[#f7f8f9] border-b border-[#eef0f2]">
-              <span className="flex-1 min-w-[140px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Unit type</span>
-              <span className="w-[130px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Size</span>
-              <span className="w-[190px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Price</span>
-              <span className="w-[130px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Availability</span>
+              <span className="flex-1 min-w-[150px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Unit type</span>
+              <span className="w-[100px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Size</span>
+              <span className="flex-1 min-w-[210px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Price</span>
+              <span className="w-[190px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Availability</span>
             </div>
             <div className="divide-y divide-[#eef0f2]">
               {typeGroups.map((g) => {
@@ -148,14 +148,14 @@ export default function DevelopmentProjectModel({ development }: { development: 
                   : 'P.O.R';
                 return (
                   <div key={g.beds} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                    <div className="flex items-center gap-2 flex-1 min-w-[140px]">
+                    <div className="flex items-center gap-2 flex-1 min-w-[150px]">
                       <i className="ri-home-5-line text-golden text-base"></i>
                       <span className="text-base font-semibold text-primary">{g.longLabel}</span>
                       <span className="text-sm text-primary/50">&middot; {typeLabel(development.propertyType)}</span>
                     </div>
-                    <span className="w-[130px] text-base text-primary/70">{sizeLabel}</span>
-                    <span className="w-[190px] text-base font-semibold text-primary">{priceLabel}</span>
-                    <span className={`w-[130px] inline-flex items-center justify-center px-2.5 py-1 rounded-full border text-[13px] font-bold uppercase tracking-wide ${badge.className}`}>
+                    <span className="w-[100px] text-base text-primary/70">{sizeLabel}</span>
+                    <span className="flex-1 min-w-[210px] text-base font-semibold text-primary">{priceLabel}</span>
+                    <span className={`w-[190px] text-[13px] font-semibold ${badge.className}`}>
                       {badge.label}
                     </span>
                   </div>
@@ -199,7 +199,7 @@ export default function DevelopmentProjectModel({ development }: { development: 
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-base font-bold text-primary truncate">{titleCase(development.developer)}</p>
-              <p className="text-sm text-primary/60">Project Developer</p>
+              <p className="text-sm text-primary/60">Marketing Consultant</p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {development.developerPhone && (

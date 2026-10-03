@@ -16,6 +16,7 @@ interface MessageBubbleProps {
   onReply: (msg: MessageItem) => void;
   onReact: (msgId: string, reaction: string) => void;
   onDelete: (msg: MessageItem) => void;
+  onRetry: (msg: MessageItem) => void;
 }
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '🙏', '🎉'];
@@ -41,7 +42,7 @@ function Ticks({ readCount, deliveredCount, pending, failed }: { readCount?: num
 }
 
 export function MessageBubble({
-  message, isOwn, isGroup, presence, highlight, onReply, onReact, onDelete,
+  message, isOwn, isGroup, presence, highlight, onReply, onReact, onDelete, onRetry,
 }: MessageBubbleProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reactOpen, setReactOpen] = useState(false);
@@ -144,7 +145,13 @@ export function MessageBubble({
         </div>
 
         {message.failed && (
-          <span className="text-[10px] text-red-300 mt-0.5 px-1">Not sent — tap to retry</span>
+          <button
+            type="button"
+            onClick={() => onRetry(message)}
+            className="text-[10px] text-red-300 mt-0.5 px-1 cursor-pointer hover:text-red-200 inline-flex items-center gap-1"
+          >
+            <i className="ri-refresh-line" /> Not sent — tap to retry
+          </button>
         )}
 
         {/* reactions */}
@@ -184,7 +191,7 @@ export function MessageBubble({
             </button>
             {isOwn && (
               <button onClick={() => { onDelete(message); setMenuOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 hover:bg-red-500/10 cursor-pointer text-red-400">
-                <i className="ri-delete-bin-line" /> Delete for me
+                <i className="ri-delete-bin-line" /> Delete message
               </button>
             )}
           </div>

@@ -9,6 +9,8 @@ interface RecentlyViewedDevelopmentsProps {
   /** Hide the development currently being viewed. */
   excludeSlug?: string;
   className?: string;
+  /** Remove the rounded card corners (square image corners) on the host page. */
+  square?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface RecentlyViewedDevelopmentsProps {
  * just opened, linking straight back to their project pages. Renders nothing
  * when there is no history, so it never leaves an empty shell on the page.
  */
-export default function RecentlyViewedDevelopments({ excludeSlug, className = '' }: RecentlyViewedDevelopmentsProps) {
+export default function RecentlyViewedDevelopments({ excludeSlug, className = '', square = false }: RecentlyViewedDevelopmentsProps) {
   const { items, clear } = useRecentlyViewedDevelopments(excludeSlug);
   const { format } = useCurrency();
 
@@ -44,7 +46,7 @@ export default function RecentlyViewedDevelopments({ excludeSlug, className = ''
           <Link
             key={item.slug}
             to={`/property/${item.slug}`}
-            className="group shrink-0 w-[220px] rounded-lg border border-[#e5e5e5] bg-white overflow-hidden hover:border-primary/30 transition-colors"
+            className={`group shrink-0 w-[220px] border border-[#e5e5e5] bg-white overflow-hidden hover:border-primary/30 transition-colors ${square ? '' : 'rounded-lg'}`}
           >
             <div className="relative w-full h-[130px] bg-stone-100 overflow-hidden">
               <EntityImage

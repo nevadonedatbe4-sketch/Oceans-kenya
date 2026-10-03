@@ -13,7 +13,6 @@ export const hintClass = 'text-[15px] text-[#4a5568] mt-2 leading-relaxed';
 export function SectionHeader({
   icon,
   title,
-  subtitle,
 }: {
   icon: string;
   title: string;
@@ -27,7 +26,6 @@ export function SectionHeader({
         </div>
         <div className="flex-1 min-w-0">
           <h4 className="text-base font-semibold text-[#0d1f2d] tracking-wide">{title}</h4>
-          <p className="text-[13px] text-[#7a8a99] mt-0.5 leading-relaxed">{subtitle}</p>
         </div>
       </div>
       <div className="h-px bg-[#e5e7eb] mt-4" />

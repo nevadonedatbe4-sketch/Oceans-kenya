@@ -871,6 +871,31 @@ is unit-specific vs shared, and advertise floor plans on the cards themselves.
   the home `PropertyCard` (now maps `floorPlan` from the live row), and the New Development cards via
   a new `Development.hasFloorPlan` flag in `developmentModel` (groupRows → any unit has a plan).
 
+### 20.4 Detail-page quick actions & media-badge parity
+- **Development detail quick actions** (`DevelopmentDetail`) gained a **"Video Tour Available"** pill
+  shown only when `project.videoUrl` is present — the same soft rounded-full pill style as the existing
+  "Floor Plan Available" pill, and the same behaviour as the card's video control (opens the project's
+  video in a new tab).
+- **Property detail** (`PropertyDetail`) now surfaces the media badges through the SAME shared
+  `PropertyMetaBadges` component the property cards use, so card and detail stay visually identical:
+  `floorPlan` (driven by a new `ListingDetail.hasFloorPlan` computed via `listingHasFloorPlan()`),
+  plus `videoTour` / `virtualTour` when the listing carries `video_url` / `virtual_tour_url`.
+  The "Floor Plan Available" badge scrolls to the floor-plan/documents section (`#section-documents`);
+  the video / virtual-tour badges open the asset in a new tab.
+
+### 20.5 Land & Joint Venture media-badge parity (global detail consistency)
+- The **Land & Joint Venture** detail layout (`PropertyDetail` land/JV branch) previously rendered the
+  shared `PropertyMetaBadges` row WITHOUT the media props, so land / JV listings silently lost the
+  Video Tour / Virtual Tour / Floor Plan pills even when the CRM record carried those assets.
+- Fixed: the land/JV branch now passes `videoTour` / `virtualTour` / `floorPlan` (same shared component,
+  same behaviour as the regular property branch) — video / virtual-tour open in a new tab, floor plan
+  scrolls to `#section-documents`.
+- Added the `PropertyDocuments` section to the land/JV layout so the floor-plan pill has a real
+  destination and land/JV attachments render (matching the regular property page).
+- **Result:** every property-type detail page (regular property, land, JV opportunity, new development)
+  now surfaces the same media pills. The standalone `jv_projects` project page carries no
+  video/tour/floor-plan columns in its data model, so there is nothing to surface there yet.
+
 ## 21. Project ↔ Unit Entity Separation + Development Card Badge (DONE)
 
 Goal: guarantee the PROJECT page and the UNIT page can never collapse into one, and stop

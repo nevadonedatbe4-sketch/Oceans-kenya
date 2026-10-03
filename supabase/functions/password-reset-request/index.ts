@@ -146,7 +146,11 @@ serve(async (req: Request) => {
     // here too. The generic response never changes, but every real outcome is
     // still recorded in the audit log so a missing send is always diagnosable.
     const origin = (req.headers.get("origin") || "https://oceans.co.ke").replace(/\/$/, "");
-    const resetLink = `${origin}/reset-password?token=${token}`;
+    // Carry the account's portal in the link so a stale/expired link (where the
+    // token can no longer resolve a role) still routes the user back to the
+    // correct sign-in / forgot-password flow instead of always the agent one.
+    const portal = profile.role === "admin" || profile.role === "super_admin" ? "admin" : "agent";
+    const resetLink = `${origin}/reset-password?token=${token}&portal=${portal}`;
 
     try {
       const sendRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-templated-email`, {

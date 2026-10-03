@@ -66,15 +66,24 @@ export default function DevelopmentCard({ development, onOpen }: DevelopmentCard
         <DevelopmentGallery
           images={development.gallery}
           name={displayName}
+          detailHref={projectHref}
           overlay={
             <div className="absolute top-3 left-3 right-3 z-20 flex items-start justify-between gap-2">
-              <span className="text-white text-[10px] sm:text-[11px] leading-none font-bold uppercase tracking-wide px-2 py-1 bg-[#001731] rounded-sm whitespace-nowrap">
+              <Link
+                to="/new-developments"
+                aria-label="Show all new developments"
+                className="text-white text-[10px] sm:text-[11px] leading-none font-bold uppercase tracking-wide px-2 py-1 bg-[#001731] rounded-sm whitespace-nowrap cursor-pointer hover:opacity-90 transition-opacity"
+              >
                 New Development
-              </span>
+              </Link>
               {badge && (
-                <span className={`text-white text-[10px] sm:text-[11px] leading-none font-semibold uppercase tracking-wide px-2 py-1 rounded-sm whitespace-nowrap ${badge.color}`}>
+                <Link
+                  to={`/new-developments?stage=${encodeURIComponent(badge.label)}`}
+                  aria-label={`Show ${badge.label} developments`}
+                  className={`text-white text-[10px] sm:text-[11px] leading-none font-semibold uppercase tracking-wide px-2 py-1 rounded-sm whitespace-nowrap cursor-pointer hover:opacity-90 transition-opacity ${badge.color}`}
+                >
                   {badge.label}
-                </span>
+                </Link>
               )}
             </div>
           }
@@ -98,27 +107,45 @@ export default function DevelopmentCard({ development, onOpen }: DevelopmentCard
       <div className="flex flex-col flex-1 p-4 md:p-5">
         {/* Block 1 - headline identity */}
         <div>
-          {/* PRIMARY - Price */}
+          {/* PRIMARY - Price (clickable through to the property detail page) */}
           <div className="mb-1.5">
             {bounds.min > 0 ? (
-              <p className="text-xl md:text-[24px] font-bold text-[#001731] leading-tight">
-                {development.hasPriceRange && bounds.max > bounds.min && (
-                  <span className="text-base font-semibold text-[#8a6d1f] mr-1">From</span>
-                )}
-                {format(bounds.min, (development.currency as CurrencyCode) || 'KES')}
-                {development.hasPriceRange && bounds.max > bounds.min && (
-                  <span className="text-base font-semibold text-[#001731]/70">
-                    {' '}&ndash; {format(bounds.max, (development.currency as CurrencyCode) || 'KES')}
-                  </span>
-                )}
-              </p>
+              projectHref ? (
+                <Link
+                  to={projectHref}
+                  aria-label={`View property details for ${displayName}`}
+                  className="inline-block text-xl md:text-[24px] font-bold text-[#001731] leading-tight cursor-pointer hover:underline"
+                >
+                  {development.hasPriceRange && bounds.max > bounds.min && (
+                    <span className="text-base font-semibold text-[#8a6d1f] mr-1">From</span>
+                  )}
+                  {format(bounds.min, (development.currency as CurrencyCode) || 'KES')}
+                  {development.hasPriceRange && bounds.max > bounds.min && (
+                    <span className="text-base font-semibold text-[#001731]/70">
+                      {' '}&ndash; {format(bounds.max, (development.currency as CurrencyCode) || 'KES')}
+                    </span>
+                  )}
+                </Link>
+              ) : (
+                <p className="text-xl md:text-[24px] font-bold text-[#001731] leading-tight">
+                  {development.hasPriceRange && bounds.max > bounds.min && (
+                    <span className="text-base font-semibold text-[#8a6d1f] mr-1">From</span>
+                  )}
+                  {format(bounds.min, (development.currency as CurrencyCode) || 'KES')}
+                  {development.hasPriceRange && bounds.max > bounds.min && (
+                    <span className="text-base font-semibold text-[#001731]/70">
+                      {' '}&ndash; {format(bounds.max, (development.currency as CurrencyCode) || 'KES')}
+                    </span>
+                  )}
+                </p>
+              )
             ) : (
               <p className="text-base text-[#6b7280]">Price on request</p>
             )}
           </div>
 
           {/* PRIMARY - Development name, clickable through to the project page */}
-          <h3 className="text-[20px] md:text-[24px] font-medium text-[#2D303D] leading-snug line-clamp-2">
+          <h3 className="font-opensans text-[20px] md:text-[24px] font-medium text-[#2D303D] leading-snug line-clamp-2">
             {projectHref ? (
               <Link to={projectHref} className="hover:text-[#8a6d1f] transition-colors">{displayName}</Link>
             ) : (
@@ -193,10 +220,20 @@ export default function DevelopmentCard({ development, onOpen }: DevelopmentCard
         {hasActions && (
           <div className="mt-3 pt-3 border-t border-[#eef0f2] flex flex-wrap items-center gap-2">
             {development.hasFloorPlan && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eef2f7] border border-[#dbe3ec] text-[12px] font-semibold text-[#001731] whitespace-nowrap">
-                <i className="ri-map-2-line text-[#0d5959]"></i>
-                Floor Plan Available
-              </span>
+              developmentHref ? (
+                <Link
+                  to={`${developmentHref}?tab=floor-plans`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eef2f7] border border-[#dbe3ec] text-[12px] font-semibold text-[#001731] whitespace-nowrap cursor-pointer hover:border-primary/40 transition-colors"
+                >
+                  <i className="ri-map-2-line text-[#0d5959]"></i>
+                  Floor Plan Available
+                </Link>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#eef2f7] border border-[#dbe3ec] text-[12px] font-semibold text-[#001731] whitespace-nowrap">
+                  <i className="ri-map-2-line text-[#0d5959]"></i>
+                  Floor Plan Available
+                </span>
+              )
             )}
             {development.videoUrl && (
               <button

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { resolvePostLoginRoute } from '@/lib/authz';
@@ -19,7 +19,10 @@ export default function AgentLogin() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signIn } = useAuth();
+  const { user, signIn, sessionNotice, dismissSessionNotice } = useAuth();
+  // Guards against a duplicate submit (e.g. double-click / Enter+click) firing
+  // two authentication requests before React re-renders the disabled state.
+  const submittingRef = useRef(false);
 
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
 
@@ -32,15 +35,18 @@ export default function AgentLogin() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
     setError('');
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password.');
       return;
     }
+    submittingRef.current = true;
     setLoading(true);
     const { error: signInError } = await signIn(email, password);
     if (signInError) {
       setError(signInError.message || 'Invalid credentials');
+      submittingRef.current = false;
       setLoading(false);
       return;
     }
@@ -48,6 +54,7 @@ export default function AgentLogin() {
     // initialise while "Signing in…" stays on screen. Signing in is separate
     // from attendance - nothing is punched in here.
     await new Promise((resolve) => setTimeout(resolve, 1000));
+    submittingRef.current = false;
     setLoading(false);
   };
 
@@ -67,6 +74,20 @@ export default function AgentLogin() {
         </div>
 
         <div className="bg-white rounded-lg p-8 md:p-10">
+          {sessionNotice && (
+            <div className="mb-6 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+              <i className="ri-time-line text-amber-600 mt-0.5" />
+              <p className="flex-1 text-sm font-roboto text-amber-800 leading-relaxed">{sessionNotice}</p>
+              <button
+                type="button"
+                onClick={dismissSessionNotice}
+                aria-label="Dismiss notice"
+                className="text-amber-600 hover:text-amber-800 transition-colors cursor-pointer"
+              >
+                <i className="ri-close-line" />
+              </button>
+            </div>
+          )}
           {error && <div className="bg-[#fef2f2] text-[#dc2626] text-sm px-4 py-3 rounded-md mb-6 font-roboto">{error}</div>}
 
           <form onSubmit={handleSubmit} className="space-y-5">

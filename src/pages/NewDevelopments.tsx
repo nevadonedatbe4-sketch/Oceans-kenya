@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
@@ -118,6 +118,7 @@ export default function NewDevelopments() {
   const [savedSearch, setSavedSearch] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showLetAgreed, setShowLetAgreed] = useState(false);
+  const [searchParams] = useSearchParams();
 
   // ---- options derived from real records ----
   const areaOptions = useMemo(() => {
@@ -222,6 +223,16 @@ export default function NewDevelopments() {
   useEffect(() => {
     setPage(1);
   }, [searchQuery, filterArea, filterType, filterBeds, filterDeveloper, filterCompletion, filterPrice, filterStage, sortBy]);
+
+  // Deep-link support: a card badge like "Off-Plan" links to
+  // /new-developments?stage=Off-Plan, which lands on a pre-filtered grid.
+  useEffect(() => {
+    const stageParam = searchParams.get('stage');
+    if (!stageParam || !content.stage_options.includes(stageParam)) return;
+    setFilterStage(stageParam);
+    const el = document.getElementById('browse');
+    if (el) window.setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+  }, [searchParams, content.stage_options]);
 
   const resetFilters = useCallback(() => {
     setSearchQuery('');

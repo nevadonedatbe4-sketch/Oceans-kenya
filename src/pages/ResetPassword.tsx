@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabaseUrl, supabaseKey } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseKey } from '@/lib/supabase';
 import type { Role } from '@/lib/authz';
 import { Eye, EyeOff, KeyRound, CheckCircle, Loader2, AlertTriangle, ArrowLeft, RotateCcw } from 'lucide-react';
 
@@ -8,8 +8,12 @@ type Stage = 'checking' | 'form' | 'invalid' | 'success';
 
 const fnUrl = `${supabaseUrl}/functions/v1/password-reset-confirm`;
 
+function portalBaseFor(role: Role): string {
+  return role === 'admin' || role === 'super_admin' ? '/admin' : '/agent';
+}
+
 function portalLoginFor(role: Role): string {
-  return role === 'admin' || role === 'super_admin' ? '/admin/login' : '/agent/login';
+  return `${portalBaseFor(role)}/login`;
 }
 
 /**
@@ -28,7 +32,9 @@ export default function ResetPassword() {
   const token = searchParams.get('token') || '';
 
   const [stage, setStage] = useState<Stage>('checking');
-  const [role, setRole] = useState<Role>('agent');
+  // Which portal this reset belongs to. Defaults to the portal carried in the
+  // link, then gets upgraded by the authoritative role the server returns.
+  const [role, setRole] = useState<Role>(() => (searchParams.get('portal') === 'admin' ? 'admin' : 'agent'));
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,6 +64,10 @@ export default function ResetPassword() {
           setRole((data.role as Role) || 'agent');
           setStage('form');
         } else {
+          // Even an invalid/expired link may carry the account's role (when the
+          // token record still exists) — use it so the fallback links land in
+          // the right portal instead of always the agent flow.
+          if (data?.role) setRole(data.role as Role);
           setStage('invalid');
         }
       } catch {
@@ -99,13 +109,20 @@ export default function ResetPassword() {
       const data = await res.json().catch(() => null);
       if (res.ok && data.success) {
         setRole((data.role as Role) || 'agent');
+        // The server just revoked ALL of this account's sessions. Clear any
+        // session this tab is still holding so we don't keep a now-invalid
+        // token in client storage after a successful reset.
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
         setStage('success');
       } else {
         setError(
           (typeof data.error === 'string' && data.error) ||
             'Unable to reset your password. Please request a new reset link.',
         );
-        if (data.code === 'INVALID_TOKEN') setStage('invalid');
+        if (data.code === 'INVALID_TOKEN') {
+          if (data.role) setRole(data.role as Role);
+          setStage('invalid');
+        }
       }
     } catch {
       setError('Could not reach the reset service. Please try again.');
@@ -144,7 +161,7 @@ export default function ResetPassword() {
               been used, or too much time has passed. Please request a new one.
             </p>
             <Link
-              to="/agent/forgot-password"
+              to={`${portalBaseFor(role)}/forgot-password`}
               className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-3 rounded-md text-sm font-roboto font-semibold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap"
             >
               <RotateCcw size={15} />
@@ -152,7 +169,7 @@ export default function ResetPassword() {
             </Link>
             <div className="mt-5">
               <Link
-                to="/agent/login"
+                to={portalLoginFor(role)}
                 className="inline-flex items-center gap-2 text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
               >
                 <ArrowLeft size={12} />
@@ -276,7 +293,7 @@ export default function ResetPassword() {
 
           <div className="text-center mt-6">
             <Link
-              to="/agent/forgot-password"
+              to={`${portalBaseFor(role)}/forgot-password`}
               className="inline-flex items-center gap-2 text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
             >
               <ArrowLeft size={12} />

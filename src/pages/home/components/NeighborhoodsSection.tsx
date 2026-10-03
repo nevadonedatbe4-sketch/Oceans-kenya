@@ -130,11 +130,6 @@ export default function NeighborhoodsSection() {
   return (
     <section id="neighborhoods" className="relative bg-white">
       <div className="text-center pt-10 md:pt-16 pb-6 md:pb-8 px-4 md:px-6 lg:px-10">
-        {settings.eyebrow && (
-          <p className="text-golden text-xs sm:text-sm font-roboto font-bold uppercase tracking-[0.14em] sm:tracking-[0.18em] md:tracking-[0.22em] mb-2 md:mb-3" style={{ color: settings.accent }}>
-            {settings.eyebrow}
-          </p>
-        )}
         <h2 className="font-roboto font-bold text-2xl md:text-3xl text-primary whitespace-nowrap">
           {settings.title}
         </h2>

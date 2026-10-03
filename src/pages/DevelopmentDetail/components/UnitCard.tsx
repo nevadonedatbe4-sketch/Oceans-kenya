@@ -10,14 +10,6 @@ import type { DevelopmentUnit } from '@/lib/developmentModel';
 
 type CurrencyCode = 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR';
 
-function availability(status: string): { label: string; className: string } {
-  const s = (status || '').trim().toLowerCase();
-  if (s === 'sold') return { label: 'Sold', className: 'bg-red-50 text-red-600 border-red-100' };
-  if (s === 'reserved' || s === 'under_contract') return { label: 'Reserved', className: 'bg-amber-50 text-amber-700 border-amber-100' };
-  if (s === 'rented') return { label: 'Rented', className: 'bg-stone-100 text-stone-600 border-stone-200' };
-  return { label: 'Available', className: 'bg-green-50 text-green-700 border-green-100' };
-}
-
 function formatDate(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -47,7 +39,6 @@ export default function UnitCard({ unit, propertyType, highlight = false, automa
   const { format } = useCurrency();
   const { pathname, search } = useLocation();
   const detailHref = withReturnFrom(`/property/${unit.slug}`, `${pathname}${search}`);
-  const avail = availability(unit.status);
   const listedOn = formatDate(unit.createdAt);
   const typeWord = propertyType ? propertyType.replace(/_/g, ' ') : 'Unit';
   const urgency = resolveUrgency({ manual: unit.urgencyMessage, automatic: automaticMessage, enabled: showUrgency });
@@ -62,7 +53,7 @@ export default function UnitCard({ unit, propertyType, highlight = false, automa
 
   return (
     <article
-      className={`group flex flex-col rounded-lg border bg-white overflow-hidden transition-colors ${
+      className={`group flex flex-col border bg-white overflow-hidden transition-colors ${
         highlight ? 'border-[#c9a84c] ring-1 ring-[#c9a84c]/40' : 'border-[#e5e5e5] hover:border-primary/30'
       }`}
     >
@@ -72,9 +63,6 @@ export default function UnitCard({ unit, propertyType, highlight = false, automa
           alt={unit.name}
           className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
         />
-        <span className={`absolute top-2 left-2 inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-roboto font-bold uppercase tracking-wide ${avail.className}`}>
-          {avail.label}
-        </span>
       </Link>
 
       <div className="flex flex-col flex-1 p-4">

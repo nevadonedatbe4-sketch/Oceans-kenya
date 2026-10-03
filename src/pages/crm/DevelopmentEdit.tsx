@@ -39,6 +39,7 @@ const STEPS = [
 
 const EMPTY: DevelopmentFormState = {
   title: '',
+  projectName: '',
   slug: '',
   description: '',
   location: '',
@@ -216,6 +217,7 @@ export default function DevelopmentEdit() {
     const rawUnits = Array.isArray(data.unit_types) ? data.unit_types : [];
     setForm({
       title: data.title || '',
+      projectName: data.project_name || '',
       slug: data.slug || '',
       description: data.description || '',
       location: data.location || '',
@@ -338,6 +340,7 @@ export default function DevelopmentEdit() {
   const buildDevPayload = (publish: boolean) => {
     return {
       title: form.title,
+      project_name: form.projectName,
       slug: form.slug || generateSlug(form.title),
       description: form.description,
       location: form.location,

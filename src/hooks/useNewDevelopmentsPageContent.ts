@@ -138,7 +138,7 @@ export const DEFAULT_NEWDEV_CONTENT: NewDevelopmentsPageContent = {
   devcta_button1_link: '/contact',
   devcta_button2_label: 'Request Valuation',
   devcta_button2_link: '/landlords',
-  section_order: 'benefits,featured,browse,devcta',
+  section_order: 'featured,browse,benefits,devcta',
 };
 
 const BOOLEAN_KEYS: (keyof NewDevelopmentsPageContent)[] = [

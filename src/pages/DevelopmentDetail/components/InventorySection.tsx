@@ -13,6 +13,8 @@ interface InventorySectionProps {
   highlightUnitId: string;
   /** Whether the CRM display toggle permits showing urgency messages. */
   showUrgency?: boolean;
+  /** Render as an in-column card (used inside the tabbed two-column layout). */
+  contained?: boolean;
 }
 
 function isAvailable(status: string): boolean {
@@ -33,7 +35,7 @@ function bedOptionLabel(beds: number): string {
  * cards. Every count derives from the actual linked unit records; scarcity is
  * never invented.
  */
-export default function InventorySection({ units, propertyType, availableUnits, highlightUnitId, showUrgency = true }: InventorySectionProps) {
+export default function InventorySection({ units, propertyType, availableUnits, highlightUnitId, showUrgency = true, contained = false }: InventorySectionProps) {
   const [bedFilter, setBedFilter] = useState('Any');
   const [availFilter, setAvailFilter] = useState<'All' | 'Available'>('All');
   const [sortBy, setSortBy] = useState('price_asc');
@@ -82,11 +84,15 @@ export default function InventorySection({ units, propertyType, availableUnits, 
 
   if (units.length === 0) return null;
 
+  const wrapperClass = contained
+    ? 'rounded-lg border border-[#e5e5e5] bg-white p-5 md:p-7'
+    : 'py-10 md:py-14 px-4 md:px-6 bg-[#f5f7f7]';
+
   return (
-    <section id="available-homes" className="py-10 md:py-14 px-4 md:px-6 bg-[#f5f7f7]">
-      <div className="max-w-7xl mx-auto">
+    <section id="available-homes" className={wrapperClass}>
+      <div className={contained ? '' : 'max-w-7xl mx-auto'}>
         <div className="mb-6">
-          <h2 className="text-2xl md:text-[28px] font-bold text-primary">Available homes in this development</h2>
+          <h2 className="text-2xl md:text-[28px] font-bold text-primary">See Available homes in this development</h2>
 
           {/* Inventory summary */}
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -120,22 +126,6 @@ export default function InventorySection({ units, propertyType, availableUnits, 
             </div>
           </div>
 
-          {/* Availability */}
-          <div className="inline-flex items-center gap-1 p-1 bg-white border border-[#e5e5e5] rounded-full">
-            {(['All', 'Available'] as const).map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                onClick={() => setAvailFilter(opt)}
-                className={`px-3 py-1 rounded-full text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors ${
-                  availFilter === opt ? 'bg-primary text-white' : 'text-primary/70 hover:bg-primary/5'
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
-          </div>
-
           {/* Sort */}
           <div className="flex items-center gap-2 ml-auto">
             <span className="text-sm font-semibold text-primary/60 whitespace-nowrap">Sort</span>
@@ -153,7 +143,7 @@ export default function InventorySection({ units, propertyType, availableUnits, 
 
         {/* Grid */}
         {visible.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-5">
             {visible.map((u) => (
               <UnitCard
                 key={u.id}
