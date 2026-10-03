@@ -20,6 +20,7 @@ import DevelopmentBasicsStep from './components/DevelopmentEdit/DevelopmentBasic
 import UnitTypesStep from './components/DevelopmentEdit/UnitTypesStep';
 import DevelopmentAmenitiesStep from './components/DevelopmentEdit/DevelopmentAmenitiesStep';
 import DevelopmentPricingStep from './components/DevelopmentEdit/DevelopmentPricingStep';
+import DevelopmentKeyInfoStep from './components/DevelopmentEdit/DevelopmentKeyInfoStep';
 import DevelopmentInternalStep from './components/DevelopmentEdit/DevelopmentInternalStep';
 import DevelopmentMediaStep from './components/DevelopmentEdit/DevelopmentMediaStep';
 import DevelopmentPublishStep from './components/DevelopmentEdit/DevelopmentPublishStep';
@@ -30,6 +31,7 @@ const STEPS = [
   { id: 'units', label: 'Unit Types', desc: 'Sizes, prices & availability' },
   { id: 'amenities', label: 'Amenities', desc: 'Facilities for all units' },
   { id: 'pricing', label: 'Pricing & Plan', desc: 'Payment plan & marketing' },
+  { id: 'keyinfo', label: 'Key Info', desc: 'Ownership, costs & utilities' },
   { id: 'internal', label: 'Internal', desc: 'Agency-only contact & notes' },
   { id: 'media', label: 'Media', desc: 'Photos, plans & videos' },
   { id: 'publish', label: 'Publish', desc: 'Review, SEO & go live' },
@@ -84,6 +86,20 @@ const EMPTY: DevelopmentFormState = {
   seoDescription: '',
   unitTypes: [makeUnitType()],
   paymentPlan: { depositPercent: '', installments: '' },
+  tenure: '',
+  serviceCharge: '',
+  councilTaxBand: '',
+  groundRent: '',
+  groundRentReview: '',
+  leaseLength: '',
+  waterSupply: '',
+  electricity: '',
+  heating: '',
+  sewerage: '',
+  broadband: '',
+  broadbandSpeed: '',
+  mobileCoverage: '',
+  parkingNotes: '',
   sourceName: '',
   sourceUrl: '',
   sourcePoster: '',
@@ -266,6 +282,20 @@ export default function DevelopmentEdit() {
         depositPercent: String((data.payment_plan as { deposit_percent?: number })?.deposit_percent ?? ''),
         installments: String((data.payment_plan as { installments?: string })?.installments ?? ''),
       },
+      tenure: data.tenure || '',
+      serviceCharge: data.service_charge != null ? String(data.service_charge) : '',
+      councilTaxBand: data.council_tax_band || '',
+      groundRent: data.ground_rent || '',
+      groundRentReview: data.ground_rent_review || '',
+      leaseLength: data.lease_length || '',
+      waterSupply: data.water_supply || '',
+      electricity: data.electricity || '',
+      heating: data.heating || '',
+      sewerage: data.sewerage || '',
+      broadband: data.broadband || '',
+      broadbandSpeed: data.broadband_speed || '',
+      mobileCoverage: data.mobile_coverage || '',
+      parkingNotes: data.parking_notes || '',
       sourceName: data.source_name || '',
       sourceUrl: data.source_url || '',
       sourcePoster: data.source_poster || '',
@@ -341,6 +371,20 @@ export default function DevelopmentEdit() {
         deposit_percent: form.paymentPlan.depositPercent ? Number(form.paymentPlan.depositPercent) : null,
         installments: form.paymentPlan.installments,
       },
+      tenure: form.tenure,
+      service_charge: form.serviceCharge ? Number(form.serviceCharge) : null,
+      council_tax_band: form.councilTaxBand,
+      ground_rent: form.groundRent,
+      ground_rent_review: form.groundRentReview,
+      lease_length: form.leaseLength,
+      water_supply: form.waterSupply,
+      electricity: form.electricity,
+      heating: form.heating,
+      sewerage: form.sewerage,
+      broadband: form.broadband,
+      broadband_speed: form.broadbandSpeed,
+      mobile_coverage: form.mobileCoverage,
+      parking_notes: form.parkingNotes,
       price: Number(form.price) || 0,
       currency: form.currency,
       baths: form.baths,
@@ -611,6 +655,9 @@ export default function DevelopmentEdit() {
             )}
             {currentStep.id === 'pricing' && (
               <DevelopmentPricingStep form={form} update={update} />
+            )}
+            {currentStep.id === 'keyinfo' && (
+              <DevelopmentKeyInfoStep form={form} update={update} />
             )}
             {currentStep.id === 'internal' && (
               <DevelopmentInternalStep form={form} update={update} />

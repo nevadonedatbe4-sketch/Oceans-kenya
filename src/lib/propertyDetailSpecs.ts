@@ -53,6 +53,27 @@ function formatDate(v: unknown): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/**
+ * Included items are stored by the CRM as a JSON-encoded array string (and, in
+ * some older records, a plain comma list). Return a clean, de-duplicated list so
+ * the caller can render them as one readable value - never a raw "[...]" blob.
+ */
+function parseIncludedItems(v: unknown): string[] {
+  if (v == null) return [];
+  if (Array.isArray(v)) return v.map((i) => toStr(i)).filter(Boolean);
+  const s = toStr(v);
+  if (!s) return [];
+  if (s.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(s);
+      if (Array.isArray(parsed)) return parsed.map((i) => toStr(i)).filter(Boolean);
+    } catch {
+      // fall through to comma split
+    }
+  }
+  return s.split(',').map((i) => i.trim()).filter(Boolean);
+}
+
 export function buildPropertySpecs(
   row: Row,
   opts: { currency?: string; isLand?: boolean } = {},
@@ -118,6 +139,31 @@ export function buildPropertySpecs(
 
   push('Unique Features', toStr(row.unique_features));
   push('Nearby', toStr(row.proximity_amenities));
+
+  // What is physically included with the sale/rental (kept verbatim).
+  const includedItems = parseIncludedItems(row.included_items);
+  if (includedItems.length > 0) push('Included Items', includedItems.join(', '));
+
+  // Negotiable price - only stated when the agent explicitly marked it so.
+  if (row.negotiable === true) push('Negotiable', 'Yes');
+
+  // Secondary / cross-currency price, when the agent captured one.
+  const secondPrice = toNum(row.second_price);
+  if (secondPrice && secondPrice > 0) {
+    const secondCurrency = toStr(row.original_currency)
+      || (String(row.currency || '').toUpperCase() === 'USD' ? 'KES' : 'USD');
+    push('Second Price', `${secondCurrency} ${secondPrice.toLocaleString()}`);
+  }
+
+  // Public-facing label + postal code captured in the CRM.
+  push('Property Label', toStr(row.property_label));
+  push('Postal Code', toStr(row.zip_code));
+
+  // Acreage is only meaningful outside the dedicated Land branch.
+  const acreage = toNum(row.acreage);
+  if (!opts.isLand && acreage && acreage > 0) {
+    push('Acreage', `${acreage} ${toStr(row.land_unit) || (acreage === 1 ? 'acre' : 'acres')}`);
+  }
 
   // Custom fields added in the CRM (key/value pairs) - surfaced verbatim.
   const cf = row.custom_fields;

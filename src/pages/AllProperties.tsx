@@ -24,6 +24,8 @@ import EntityImage from '@/components/feature/EntityImage';
 import Pagination from '@/components/feature/Pagination';
 import { withReturnFrom } from '@/lib/navigation';
 import { applyPublicVisibility } from '@/lib/publicListings';
+import UrgencyMessage from '@/components/feature/UrgencyMessage';
+import { resolveUrgency, autoUrgency } from '@/lib/urgency';
 
 interface Property {
   id: string;
@@ -67,6 +69,9 @@ interface Property {
   videoUrl?: string;
   virtualTourUrl?: string;
   floorPlanCount?: number;
+  urgencyMessage?: string;
+  showUrgencyMessage?: boolean;
+  availableUnits?: number;
 }
 
 const PAGE_SIZE = 12;
@@ -201,6 +206,11 @@ function mapRow(row: Record<string, unknown>): Property {
     videoUrl: row.video_url ? String(row.video_url) : undefined,
     virtualTourUrl: row.virtual_tour_url ? String(row.virtual_tour_url) : undefined,
     floorPlanCount: Array.isArray(row.floor_plans) ? (row.floor_plans as unknown[]).length : 0,
+    urgencyMessage: row.urgency_message ? String(row.urgency_message) : '',
+    showUrgencyMessage: row.show_urgency_message !== false,
+    availableUnits: Number(row.total_units ?? 0) > 0
+      ? Math.max(0, Number(row.total_units) - Number(row.units_sold ?? 0) - Number(row.units_reserved ?? 0))
+      : 0,
   };
 }
 
@@ -400,7 +410,7 @@ export default function AllProperties() {
     try {
       let query = supabase
         .from('all_listings')
-        .select('id,title,location,address,neighbourhood,city,state_region,is_featured,country,price,property_type,sub_type,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email,is_new_development,property_category,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,video_url,virtual_tour_url,floor_plans', { count: 'exact' })
+        .select('id,title,location,address,neighbourhood,city,state_region,is_featured,country,price,property_type,sub_type,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email,is_new_development,property_category,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,video_url,virtual_tour_url,floor_plans,urgency_message,show_urgency_message,total_units,units_sold,units_reserved', { count: 'exact' })
         .neq('title', '')
         // The All Properties directory is strictly residential - commercial, land,
         // joint ventures and new developments must never appear here, matching the
@@ -903,6 +913,12 @@ function PropertyCard({
   const touchEndRef = useRef(0);
   const totalImages = property.images.length;
 
+  const urgency = resolveUrgency({
+    manual: property.urgencyMessage,
+    automatic: property.availableUnits && property.availableUnits > 0 ? autoUrgency(property.availableUnits, 'unit') : null,
+    enabled: property.showUrgencyMessage !== false,
+  });
+
   const nextImg = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1100,6 +1116,8 @@ function PropertyCard({
             </span>
           ))}
         </div>
+
+        {urgency && <UrgencyMessage message={urgency} className="mb-3" />}
 
         {/* Footer: actions + date - always one line, never wraps */}
         <div className="flex flex-nowrap items-center justify-between gap-x-2 pt-3 border-t-2 border-primary/12 mt-auto">

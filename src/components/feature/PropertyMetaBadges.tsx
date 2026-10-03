@@ -134,7 +134,7 @@ export default function PropertyMetaBadges({
     media.push({ key: 'virtualTour', node: <TourBadge key="virtualTour" label="Virtual Tour" icon="ri-globe-line" onClick={onVirtualTourClick} ariaLabel="Virtual Tour" /> });
   }
   if (floorPlan && isEnabled('tour')) {
-    media.push({ key: 'floorPlan', node: <TourBadge key="floorPlan" label="Floor Plan" icon="ri-map-2-line" onClick={onFloorPlanClick} ariaLabel="Floor Plan" /> });
+    media.push({ key: 'floorPlan', node: <TourBadge key="floorPlan" label="Floor Plan Available" icon="ri-map-2-line" onClick={onFloorPlanClick} ariaLabel="Floor plan available" /> });
   }
 
   // Media badges always survive; status badges fill the remaining slots.
@@ -144,7 +144,7 @@ export default function PropertyMetaBadges({
   if (ordered.length === 0) return null;
 
   return (
-    <div className={`flex flex-nowrap items-center gap-1 overflow-hidden ${className}`}>
+    <div className={`flex flex-wrap items-center gap-1 ${className}`}>
       {ordered.map((b) => b.node)}
     </div>
   );

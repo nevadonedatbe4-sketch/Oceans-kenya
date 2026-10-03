@@ -47,6 +47,8 @@ export default {
         // Titles: Roboto with an Arial fallback. Copy: classic Arial voice.
         title: ['var(--font-body)', 'Arial', 'sans-serif'],
         copy: ['Arial', '"Helvetica Neue"', 'Helvetica', 'sans-serif'],
+        // Foxtons-style listing card voice.
+        opensans: ['"Open Sans"', 'sans-serif'],
         // CRM messenger keeps its own faces (not part of the public type system).
         inter: ['"Inter"', 'sans-serif'],
         spaceGrotesk: ['"Space Grotesk"', 'sans-serif'],

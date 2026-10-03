@@ -9,6 +9,8 @@ import type { MappedListing } from '@/hooks/useListings';
 import PropertyBadge from '@/components/feature/PropertyBadge';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import EntityImage from '@/components/feature/EntityImage';
+import UrgencyMessage from '@/components/feature/UrgencyMessage';
+import { resolveUrgency, autoUrgency } from '@/lib/urgency';
 
 interface SeoListingCardProps {
   property: MappedListing;
@@ -30,6 +32,12 @@ export default function SeoListingCard({ property: p }: SeoListingCardProps) {
   // ALL-CAPS headline is tidied while well-cased prose stays untouched. Empty
   // when there is no description, so the snippet is omitted cleanly.
   const snippet = cleanListingDescription(p.description, { normalizeCase: true });
+
+  const urgency = resolveUrgency({
+    manual: p.urgencyMessage,
+    automatic: p.availableUnits && p.availableUnits > 0 ? autoUrgency(p.availableUnits, 'unit') : null,
+    enabled: p.showUrgencyMessage !== false,
+  });
 
   return (
     <Link
@@ -97,8 +105,11 @@ export default function SeoListingCard({ property: p }: SeoListingCardProps) {
           newHome={p.newHome}
           backOnMarket={p.backOnMarket}
           refurbished={p.refurbished}
+          floorPlan={p.floorPlan}
           className="mb-3"
         />
+
+        {urgency && <UrgencyMessage message={urgency} className="mb-2.5" />}
 
         <div className="pt-2.5 border-t border-stone-100 flex items-center justify-between">
           <p className="font-roboto text-[color:var(--card-price-text)] text-sm font-bold">

@@ -6,6 +6,8 @@ import { formatListingAge } from '@/lib/listingMeta';
 import { cleanListingDescription } from '@/lib/description';
 import { withReturnFrom } from '@/lib/navigation';
 import type { MappedListing } from '@/hooks/useListings';
+import UrgencyMessage from '@/components/feature/UrgencyMessage';
+import { resolveUrgency, autoUrgency } from '@/lib/urgency';
 
 type Currency = 'KES' | 'USD' | 'GBP' | 'EUR';
 
@@ -70,6 +72,14 @@ export default function PropertyCardBody({
   // Empty when no description so the whole snippet is omitted cleanly.
   const snippet = cleanListingDescription(p.description, { normalizeCase: true });
 
+  // Manual agent message wins; otherwise an honest automatic message when a
+  // reliable remaining-unit count exists. Never invents scarcity.
+  const urgency = resolveUrgency({
+    manual: p.urgencyMessage,
+    automatic: p.availableUnits && p.availableUnits > 0 ? autoUrgency(p.availableUnits, 'unit') : null,
+    enabled: p.showUrgencyMessage !== false,
+  });
+
   return (
     <div className="flex-1 p-4 sm:p-5 max-sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
       <div className="min-w-0">
@@ -113,6 +123,8 @@ export default function PropertyCardBody({
             </span>
           ))}
         </div>
+
+        {urgency && <UrgencyMessage message={urgency} className="mb-1.5" />}
 
         {/* Title */}
         <Link to={detailHref} className="block mb-1.5">

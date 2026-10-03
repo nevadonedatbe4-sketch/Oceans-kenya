@@ -169,6 +169,7 @@ export default function ListingEdit() {
   const [showPercentRented, setShowPercentRented] = useState(false);
   const [showDeveloperName, setShowDeveloperName] = useState(true);
   const [showUrgencyMessage, setShowUrgencyMessage] = useState(true);
+  const [urgencyMessage, setUrgencyMessage] = useState('');
   const [developerName, setDeveloperName] = useState('');
   const [developerPhone, setDeveloperPhone] = useState('');
   const [developerEmail, setDeveloperEmail] = useState('');
@@ -447,6 +448,7 @@ export default function ListingEdit() {
     setShowPercentRented(data.show_percent_rented || false);
     setShowDeveloperName(data.show_developer_name !== false);
     setShowUrgencyMessage(data.show_urgency_message !== false);
+    setUrgencyMessage(data.urgency_message || '');
     setDeveloperName(data.developer_name || '');
     setDeveloperPhone(data.developer_phone || '');
     setDeveloperEmail(data.developer_email || '');
@@ -742,6 +744,7 @@ export default function ListingEdit() {
       show_percent_rented: showPercentRented,
       show_developer_name: showDeveloperName,
       show_urgency_message: showUrgencyMessage,
+      urgency_message: urgencyMessage,
       developer_name: developerName,
       developer_phone: developerPhone,
       developer_email: developerEmail,
@@ -1298,6 +1301,7 @@ export default function ListingEdit() {
                   showPercentRented={showPercentRented} setShowPercentRented={setShowPercentRented}
                   showDeveloperName={showDeveloperName} setShowDeveloperName={setShowDeveloperName}
                   showUrgencyMessage={showUrgencyMessage} setShowUrgencyMessage={setShowUrgencyMessage}
+                  urgencyMessage={urgencyMessage} setUrgencyMessage={setUrgencyMessage}
                 />
               </>
             )}

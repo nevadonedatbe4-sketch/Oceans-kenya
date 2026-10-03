@@ -259,10 +259,10 @@ export default function DevelopmentModal({ development, onClose, requestBrochure
         {/* Bottom actions */}
         <div className="sticky bottom-0 z-30 flex flex-col sm:flex-row gap-3 px-4 md:px-6 py-4 bg-white border-t border-[#f0f0f0]">
           <a
-            href={`/property/${development.slug}?from=${encodeURIComponent('/new-developments')}`}
+            href={`/property/${development.slug}`}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#001731] text-white text-base font-bold rounded-sm cursor-pointer whitespace-nowrap hover:bg-[#002349] transition-colors"
           >
-            <i className="ri-eye-line text-base"></i>View Development
+            <i className="ri-eye-line text-base"></i>View property
           </a>
           <button
             type="button"

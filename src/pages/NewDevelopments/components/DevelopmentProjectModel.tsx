@@ -1,6 +1,7 @@
 import type { Development } from '@/hooks/useNewDevelopments';
 import { useCurrency } from '@/hooks/useCurrency';
-import { titleCase, pluralCount } from '@/pages/NewDevelopments/components/typography';
+import { titleCase } from '@/pages/NewDevelopments/components/typography';
+import { groupUnitTypes, unitTypeBadge } from '@/lib/developmentUnits';
 
 /**
  * DevelopmentProjectModel - the dedicated information model for a New
@@ -40,29 +41,11 @@ function typeLabel(pt: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Unit';
 }
 
-function bedLabel(beds: number): string {
-  if (beds <= 0) return 'Studio';
-  return pluralCount(beds, 'Bedroom', 'Bedrooms');
-}
-
 function formatDate(iso: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-/** Map a raw unit status to a compact, honest availability badge. */
-function availability(status: string): { label: string; className: string } {
-  const s = (status || '').trim().toLowerCase();
-  if (s === 'sold') return { label: 'Sold', className: 'bg-red-50 text-red-600 border-red-100' };
-  if (s === 'under_contract' || s === 'reserved') {
-    return { label: 'Reserved', className: 'bg-amber-50 text-amber-700 border-amber-100' };
-  }
-  if (s === 'available' || s === '') {
-    return { label: 'Available', className: 'bg-green-50 text-green-700 border-green-100' };
-  }
-  return { label: titleCase(status), className: 'bg-stone-50 text-stone-600 border-stone-200' };
 }
 
 interface StatItem {
@@ -82,6 +65,10 @@ export default function DevelopmentProjectModel({ development }: { development: 
   const unitsReserved = development.unitsReserved || 0;
   const availableUnits = totalUnits > 0 ? Math.max(0, totalUnits - unitsSold - unitsReserved) : 0;
 
+  /* ── Grouped unit-type mix (studio / 1 / 2 / 3 bed…), from real units ── */
+  const units = development.units;
+  const typeGroups = groupUnitTypes(units);
+
   /* ── Project scale ── */
   const stats: StatItem[] = [
     totalUnits > 0 ? { key: 'total', icon: 'ri-building-2-line', label: 'Total Units', value: String(totalUnits) } : null,
@@ -89,11 +76,8 @@ export default function DevelopmentProjectModel({ development }: { development: 
     unitsReserved > 0 ? { key: 'reserved', icon: 'ri-bookmark-line', label: 'Reserved', value: String(unitsReserved) } : null,
     unitsSold > 0 ? { key: 'sold', icon: 'ri-hand-coin-line', label: 'Sold', value: String(unitsSold) } : null,
     development.floors > 0 ? { key: 'floors', icon: 'ri-building-line', label: 'Floors', value: String(development.floors) } : null,
-    development.units.length > 0 ? { key: 'types', icon: 'ri-layout-grid-line', label: 'Unit Types', value: String(development.units.length) } : null,
+    development.units.length > 0 ? { key: 'types', icon: 'ri-layout-grid-line', label: 'Unit Types', value: String(typeGroups.length) } : null,
   ].filter(Boolean) as StatItem[];
-
-  /* ── Unit types table ── */
-  const units = development.units;
 
   /* ── Construction timeline ── */
   const timedStages = development.status ? stageLabel(development.status) : '';
@@ -116,7 +100,9 @@ export default function DevelopmentProjectModel({ development }: { development: 
   }
 
   const hasDeveloper = Boolean(development.developer);
-  const hasAnything = stats.length > 0 || units.length > 0 || hasDeveloper || timeline.length > 0;
+  const hasPaymentPlan =
+    development.paymentPlan.depositPercent != null || Boolean(development.paymentPlan.installments);
+  const hasAnything = stats.length > 0 || units.length > 0 || hasDeveloper || timeline.length > 0 || hasPaymentPlan;
   if (!hasAnything) return null;
 
   return (
@@ -137,40 +123,68 @@ export default function DevelopmentProjectModel({ development }: { development: 
         </section>
       )}
 
-      {/* ── Unit types ── */}
-      {units.length > 0 && (
+      {/* ── Unit-type mix ── (the project's bedroom mix, shown only when the
+          project genuinely offers more than one unit type) */}
+      {typeGroups.length > 1 && (
         <section>
           <h4 className="text-base font-bold text-primary mb-2.5">Unit Types</h4>
           <div className="border border-[#eef0f2] rounded-sm overflow-hidden">
             <div className="hidden sm:flex items-center gap-x-4 px-4 py-2.5 bg-[#f7f8f9] border-b border-[#eef0f2]">
-              <span className="flex-1 min-w-[140px] text-[11px] font-bold uppercase tracking-widest text-primary/50">Unit type</span>
-              <span className="w-[120px] text-[11px] font-bold uppercase tracking-widest text-primary/50">Size</span>
-              <span className="w-[150px] text-[11px] font-bold uppercase tracking-widest text-primary/50">Price</span>
-              <span className="w-[100px] text-[11px] font-bold uppercase tracking-widest text-primary/50">Status</span>
+              <span className="flex-1 min-w-[140px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Unit type</span>
+              <span className="w-[130px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Size</span>
+              <span className="w-[190px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Price</span>
+              <span className="w-[130px] text-[13px] font-bold uppercase tracking-widest text-primary/50">Availability</span>
             </div>
             <div className="divide-y divide-[#eef0f2]">
-              {units.map((u) => {
-                const avail = availability(u.status);
+              {typeGroups.map((g) => {
+                const badge = unitTypeBadge(g);
+                const sizeLabel = g.maxSize > 0
+                  ? `${g.minSize.toLocaleString()}${g.maxSize > g.minSize ? `\u2013${g.maxSize.toLocaleString()}` : ''} ${g.sizeUnit}`
+                  : '\u2014';
+                const priceLabel = g.minPrice > 0
+                  ? (g.maxPrice > g.minPrice
+                      ? `${format(g.minPrice, (g.currency as CurrencyCode) || 'KES')} \u2013 ${format(g.maxPrice, (g.currency as CurrencyCode) || 'KES')}`
+                      : format(g.minPrice, (g.currency as CurrencyCode) || 'KES'))
+                  : 'P.O.R';
                 return (
-                  <div key={u.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+                  <div key={g.beds} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
                     <div className="flex items-center gap-2 flex-1 min-w-[140px]">
                       <i className="ri-home-5-line text-golden text-base"></i>
-                      <span className="text-base font-semibold text-primary">{bedLabel(u.bedrooms)}</span>
+                      <span className="text-base font-semibold text-primary">{g.longLabel}</span>
                       <span className="text-sm text-primary/50">&middot; {typeLabel(development.propertyType)}</span>
                     </div>
-                    <span className="w-[120px] text-base text-primary/70">
-                      {u.size > 0 ? `${u.size.toLocaleString()} ${u.sizeUnit}` : '\u2014'}
-                    </span>
-                    <span className="w-[150px] text-base font-semibold text-primary">
-                      {u.price > 0 ? format(u.price, (u.currency as CurrencyCode) || 'KES') : 'P.O.R'}
-                    </span>
-                    <span className={`w-[100px] inline-flex items-center justify-center px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wide ${avail.className}`}>
-                      {avail.label}
+                    <span className="w-[130px] text-base text-primary/70">{sizeLabel}</span>
+                    <span className="w-[190px] text-base font-semibold text-primary">{priceLabel}</span>
+                    <span className={`w-[130px] inline-flex items-center justify-center px-2.5 py-1 rounded-full border text-[13px] font-bold uppercase tracking-wide ${badge.className}`}>
+                      {badge.label}
                     </span>
                   </div>
                 );
               })}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* ── Payment plan ── */}
+      {hasPaymentPlan && (
+        <section>
+          <h4 className="text-base font-bold text-primary mb-2.5">Payment Plan</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {development.paymentPlan.depositPercent != null && (
+              <div className="p-3.5 bg-[#f7f8f9] rounded-sm border border-[#eef0f2]">
+                <i className="ri-percent-line text-golden text-base"></i>
+                <p className="text-sm text-primary/60 mt-1">Deposit</p>
+                <p className="text-lg font-bold text-primary">{development.paymentPlan.depositPercent}%</p>
+              </div>
+            )}
+            {development.paymentPlan.installments && (
+              <div className="p-3.5 bg-[#f7f8f9] rounded-sm border border-[#eef0f2]">
+                <i className="ri-calendar-schedule-line text-golden text-base"></i>
+                <p className="text-sm text-primary/60 mt-1">Instalments</p>
+                <p className="text-lg font-bold text-primary">{development.paymentPlan.installments}</p>
+              </div>
+            )}
           </div>
         </section>
       )}

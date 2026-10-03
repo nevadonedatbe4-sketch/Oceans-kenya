@@ -28,7 +28,7 @@ interface SeoMetaOptions {
 }
 
 /** Compute an absolute URL for the canonical tag + OG url, honouring base path. */
-function absoluteUrl(path: string): string {
+export function absoluteUrl(path: string): string {
   const base = typeof __BASE_PATH__ === 'string' ? __BASE_PATH__ : '';
   const prefix = base === '/' ? '' : base;
   const cleanPath = path.startsWith('/') ? path : `/${path}`;

@@ -5,6 +5,7 @@ import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
 import { normalizePropertyImages, type NormalizedImage } from '@/lib/propertyImages';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { formatLocation, formatAreaName, smartTitleCase } from '@/lib/location';
+import { listingHasFloorPlan } from '@/lib/listingMeta';
 import QuickViewModal from '@/components/feature/QuickViewModal';
 import PropertyCard, { type Property } from './PropertyCard';
 import Pagination from '@/components/feature/Pagination';
@@ -37,6 +38,8 @@ interface ListingRow {
   is_featured: boolean;
   currency: string;
   sub_type: string | null;
+  floor_plans?: string[] | null;
+  documents?: Record<string, unknown>[] | null;
   property_category?: string | null;
   is_new_development?: boolean | null;
   new_home?: boolean | null;
@@ -44,6 +47,11 @@ interface ListingRow {
   reduced_price?: boolean | null;
   back_on_market?: boolean | null;
   property_of_the_week?: boolean | null;
+  urgency_message?: string | null;
+  show_urgency_message?: boolean | null;
+  total_units?: number | null;
+  units_sold?: number | null;
+  units_reserved?: number | null;
 }
 
 function buildSlug(id: string, title: string): string {
@@ -112,7 +120,13 @@ function mapRow(row: ListingRow): Property {
     backOnMarket: Boolean(row.back_on_market),
     propertyOfTheWeek: Boolean(row.property_of_the_week),
     isJointVenture: (row.sub_type || '').toLowerCase() === 'joint_venture',
+    floorPlan: listingHasFloorPlan(row),
     createdAt: row.created_at,
+    urgencyMessage: row.urgency_message ? String(row.urgency_message) : '',
+    showUrgencyMessage: row.show_urgency_message !== false,
+    availableUnits: Number(row.total_units ?? 0) > 0
+      ? Math.max(0, Number(row.total_units) - Number(row.units_sold ?? 0) - Number(row.units_reserved ?? 0))
+      : 0,
   };
 }
 
@@ -176,7 +190,7 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange, co
 
         let query = supabase
           .from('all_listings')
-          .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,sub_type,property_category,is_new_development,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,cover_image,images,purpose,is_featured,currency,new_home,refurbished,reduced_price,back_on_market,property_of_the_week')
+          .select('id,title,location,address,neighbourhood,city,state_region,price,property_type,sub_type,property_category,is_new_development,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,cover_image,images,purpose,is_featured,currency,new_home,refurbished,reduced_price,back_on_market,property_of_the_week,floor_plans,documents,urgency_message,show_urgency_message,total_units,units_sold,units_reserved')
           .eq('is_published', true)
           .neq('title', '')
           .not('status', 'in', NON_PUBLIC_STATUS_LIST)

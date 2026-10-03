@@ -4,6 +4,7 @@ import RichTextContent from '@/components/feature/RichTextContent';
 import { descriptionToNormalizedPlainText } from '@/lib/richText';
 import type { DetailSpecRow } from '@/lib/propertyDetailSpecs';
 import { usePropertyDetailContent } from '@/hooks/useDynamicPageTemplates';
+import PropertyDocuments, { type DocItem } from './PropertyDocuments';
 
 interface LeftColumnProps {
   description: string;
@@ -33,6 +34,7 @@ interface LeftColumnProps {
   commissionApplicable?: boolean;
   commissionDetails?: string;
   specs?: DetailSpecRow[];
+  documents?: DocItem[] | null;
 }
 
 const featureIcons: Record<string, string> = {
@@ -102,7 +104,7 @@ void getStatusLabel;
 export default function PropertyLeftColumn({
   description, features, amenities, beds, baths, parking, garages, sqft,
   propertyType, ref, price, location, title, latitude, longitude, district, area, city, country, furnished, createdAt,
-  commissionApplicable, commissionDetails, specs,
+  commissionApplicable, commissionDetails, specs, documents,
 }: LeftColumnProps) {
   const [descExpanded, setDescExpanded] = useState(false);
   const [featuresExpanded, setFeaturesExpanded] = useState(false);
@@ -266,6 +268,9 @@ export default function PropertyLeftColumn({
           </div>
         </section>
       )}
+
+      {/* Floor Plans & Documents (only when the agent attached real files) */}
+      <PropertyDocuments documents={documents} title={title} />
 
       {/* Features & Amenities */}
       {allFeatures.length > 0 && (

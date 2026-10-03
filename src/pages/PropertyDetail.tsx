@@ -6,6 +6,7 @@ import { type LocationSuggestion } from '@/components/feature/LocationSearch';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
 import ShareButton from '@/components/feature/ShareButton';
 import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
+import { recordRecentlyViewedDevelopment } from '@/hooks/useRecentlyViewedDevelopments';
 import PropertyBreadcrumbBar from '@/components/feature/PropertyBreadcrumbBar';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -24,7 +25,7 @@ import PropertyPrevNext from '@/pages/PropertyDetail/components/PrevNext';
 import MobileStickyBar from '@/pages/PropertyDetail/components/MobileStickyBar';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
 import PageLoader from '@/components/feature/PageLoader';
-import NewDevAvailabilityPanel from '@/pages/PropertyDetail/components/NewDevAvailabilityPanel';
+import { type DocItem } from '@/pages/PropertyDetail/components/PropertyDocuments';
 import PropertyDetailSections from '@/pages/PropertyDetail/components/DetailSections';
 import LandDescription from '@/pages/PropertyDetail/components/LandDescription';
 import VideoTour from '@/pages/PropertyDetail/components/VideoTour';
@@ -67,6 +68,7 @@ interface ListingDetail {
   parking: number | null;
   sqft: number | null;
   garages: number | null;
+  floorNumber: string;
   status: string;
   category: string;
   size: string;
@@ -120,6 +122,8 @@ interface ListingDetail {
   virtualTourUrl: string;
   // Every other populated CRM field (condition, rooms, year built, etc.)
   specs: DetailSpecRow[];
+  // Attachments captured in the CRM (floor plans, brochures, plans, …)
+  documents: DocItem[];
 }
 
 function mockToListing(mock: any): ListingDetail {
@@ -573,6 +577,7 @@ export default function PropertyDetail() {
           parking: row.parking ? Number(row.parking) : null,
           sqft: row.sqft ? Number(row.sqft) : null,
           garages: row.garages ? Number(row.garages) : null,
+          floorNumber: String(row.floor_number || ''),
           status: String(row.status || 'available'),
           category: isLand
             ? (row.sub_type === 'joint_venture' ? 'joint_venture' : 'outright')
@@ -630,6 +635,17 @@ export default function PropertyDetail() {
           videoUrl: String(row.video_url || ''),
           virtualTourUrl: String(row.virtual_tour_url || ''),
           specs: buildPropertySpecs(row, { currency: currencyLabel, isLand }),
+          documents: Array.isArray(row.documents)
+            ? (row.documents as Record<string, unknown>[])
+                .filter((d) => d && typeof d === 'object')
+                .map((d) => ({
+                  url: d.url ? String(d.url) : '',
+                  name: d.name ? String(d.name) : '',
+                  type: d.type ? String(d.type) : '',
+                  size: d.size != null ? Number(d.size) : undefined,
+                  category: d.category ? String(d.category) : '',
+                }))
+            : [],
         };
 
         // Track recently viewed for DB listing
@@ -732,6 +748,21 @@ export default function PropertyDetail() {
     })();
     return () => { cancelled = true; };
   }, [listing?.slug, listing?.propertyType, listing?.id, listing?.isJointVenture]);
+
+  // ── Dynamic SEO: title, meta description, canonical, OG image + structured data ──
+  // Remember this unit's development so the recently-viewed rail on unit pages
+  // brings the visitor back into the project.
+  useEffect(() => {
+    if (!listing || listing.category !== 'new_development' || !listing.slug) return;
+    recordRecentlyViewedDevelopment({
+      slug: listing.slug,
+      name: listing.title,
+      image: listing.image,
+      location: listing.area || listing.city || '',
+      priceRaw: listing.priceRaw,
+      currency: listing.currency,
+    });
+  }, [listing?.slug, listing?.category, listing?.title, listing?.image, listing?.area, listing?.city, listing?.priceRaw, listing?.currency]);
 
   // ── Dynamic SEO: title, meta description, canonical, OG image + structured data ──
   const seoTitle = listing
@@ -1326,6 +1357,7 @@ export default function PropertyDetail() {
                 commissionApplicable={activeListing.commissionApplicable}
                 commissionDetails={activeListing.commissionDetails}
                 specs={activeListing.specs}
+                documents={activeListing.documents}
               />
 
               {/* Video / virtual tour - shown only when the listing has one */}
@@ -1351,28 +1383,6 @@ export default function PropertyDetail() {
 
             {/* Right Column - Sticky Sidebar */}
             <div className="lg:col-span-1" id="section-contact">
-              {/* New Development Availability Panel */}
-              {activeListing.category === 'new_development' && (
-                <div className="mb-5">
-                  <NewDevAvailabilityPanel
-                    totalUnits={activeListing.totalUnits}
-                    unitsSold={activeListing.unitsSold}
-                    unitsReserved={activeListing.unitsReserved}
-                    unitsRented={activeListing.unitsRented}
-                    unitsOccupied={activeListing.unitsOccupied}
-                    currentPrice={activeListing.currentPrice}
-                    previousPrice={activeListing.previousPrice}
-                    currency={activeListing.currency}
-                    marketingType={activeListing.marketingType}
-                    showUnitsRemaining={activeListing.showUnitsRemaining}
-                    showPercentSold={activeListing.showPercentSold}
-                    showPercentRented={activeListing.showPercentRented}
-                    showDeveloperName={activeListing.showDeveloperName}
-                    showUrgencyMessage={activeListing.showUrgencyMessage}
-                    developerName={activeListing.developerName}
-                  />
-                </div>
-              )}
               <PropertyContactCard
                 agents={agents}
                 propertyTitle={activeListing.title}

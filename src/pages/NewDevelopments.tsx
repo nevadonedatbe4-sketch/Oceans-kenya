@@ -18,6 +18,7 @@ import FeaturedSection from '@/pages/NewDevelopments/components/FeaturedSection'
 import DeveloperCta from '@/pages/NewDevelopments/components/DeveloperCta';
 import DevelopmentModal from '@/pages/NewDevelopments/components/DevelopmentModal';
 import DevelopmentAdvancedFilters, { type DevelopmentFilterState } from '@/pages/NewDevelopments/components/DevelopmentAdvancedFilters';
+import RecentlyViewedDevelopments from '@/components/feature/RecentlyViewedDevelopments';
 
 const ITEMS_PER_PAGE = 9;
 const AREA_ANY = 'All Areas';
@@ -539,6 +540,8 @@ export default function NewDevelopments() {
           {key === 'browse' ? browseSection : sectionNodes[key] || null}
         </Fragment>
       ))}
+
+      <RecentlyViewedDevelopments />
 
       <PageContactSection />
       <Footer />

@@ -83,6 +83,21 @@ export interface DevelopmentFormState {
   seoDescription: string;
   unitTypes: UnitType[];
   paymentPlan: PaymentPlan;
+  // Project-level key information & utilities (public "Key information" block).
+  tenure: string;
+  serviceCharge: string;
+  councilTaxBand: string;
+  groundRent: string;
+  groundRentReview: string;
+  leaseLength: string;
+  waterSupply: string;
+  electricity: string;
+  heating: string;
+  sewerage: string;
+  broadband: string;
+  broadbandSpeed: string;
+  mobileCoverage: string;
+  parkingNotes: string;
   // Internal continuity (agency-only)
   sourceName: string;
   sourceUrl: string;

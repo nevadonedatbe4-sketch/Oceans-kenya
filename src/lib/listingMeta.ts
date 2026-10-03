@@ -131,6 +131,36 @@ export function formatListingAge(dateInput: unknown, options?: { prefix?: string
  * zero / invalid value. An optional formatter (e.g. the currency converter) is
  * only invoked once the value has passed validation.
  */
+/**
+ * True when a listing row genuinely carries a floor plan.
+ *
+ * Floor plans can live in two places: the legacy `floor_plans` URL array, OR
+ * inside the CRM `documents` jsonb payload (category "floorplans"). Detection
+ * is deliberately strict so a generic document ("payment plan", "master
+ * plan") never turns the Floor Plan badge on.
+ */
+export function listingHasFloorPlan(row: {
+  floor_plans?: unknown;
+  documents?: unknown;
+}): boolean {
+  const fp = row.floor_plans;
+  if (Array.isArray(fp) && fp.some((u) => String(u || '').trim() !== '')) return true;
+
+  const docs = row.documents;
+  if (Array.isArray(docs)) {
+    return docs.some((d) => {
+      if (!d || typeof d !== 'object') return false;
+      const doc = d as Record<string, unknown>;
+      const category = String(doc.category || '').toLowerCase();
+      const name = String(doc.name || '').toLowerCase();
+      if (category.includes('floor')) return true;
+      if (/floor[\s_-]*plan/.test(name)) return true;
+      return false;
+    });
+  }
+  return false;
+}
+
 export function formatListingPrice(
   amount: unknown,
   currency?: string | null,

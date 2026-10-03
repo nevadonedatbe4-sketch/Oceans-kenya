@@ -127,38 +127,46 @@ export default function SimilarProperties({ currentId, propertyType, purpose }: 
   if (properties.length === 0) return null;
 
   return (
-    <div className="bg-white border border-primary/12 rounded-[2px] p-5 md:p-6">
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-primary/12">
+    <div className="bg-white border border-primary/12 rounded-lg p-3.5 md:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-primary/12">
         <h2 className="font-roboto text-[13px] font-bold uppercase tracking-[0.1em] text-primary">Similar Properties</h2>
-        <Link to="/all-properties" className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-roboto font-medium text-primary border border-primary/20 rounded-sm hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
-          View All <i className="ri-arrow-right-line"></i>
+        <Link to="/all-properties" className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-roboto font-semibold text-primary border border-primary/20 rounded-md hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
+          View All <i className="ri-arrow-right-line text-xs"></i>
         </Link>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-3.5">
         {properties.map((p) => (
-          <Link key={p.id} to={withReturnFrom(`/property/${p.slug}`, currentPath)} className="block group">
-            <div className="relative h-[180px] overflow-hidden rounded-[2px] mb-3">
+          <Link
+            key={p.id}
+            to={withReturnFrom(`/property/${p.slug}`, currentPath)}
+            className="group flex flex-col rounded-md border border-[#e5e5e5] overflow-hidden hover:border-primary/30 transition-colors"
+          >
+            <div className="relative aspect-[4/3] overflow-hidden bg-[#F5F5F5]">
               <EntityImage
                 src={p.image}
                 alt={p.title}
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
               />
             </div>
-            <p className="text-[13px] font-roboto font-medium uppercase tracking-[0.1em] text-[#2D303D] mb-1">{p.propertyType}</p>
-            <p className="text-base font-roboto font-bold text-[color:var(--card-price-text)] mb-1">{p.price}</p>
-            <h3 className="text-sm font-roboto font-medium text-[color:var(--card-title-text)] leading-snug line-clamp-2 mb-1 group-hover:text-primary transition-colors">{p.title}</h3>
-            <p className="text-xs font-roboto text-[color:var(--card-location-text)] mb-2">{p.area}</p>
-            <div className="flex items-center gap-3 flex-wrap text-xs font-roboto text-[color:var(--card-specs-text)]">
-              {getPropertySpecs(p.propertyType, {
-                beds: p.beds,
-                baths: p.baths,
-                parking: p.parking,
-                sqft: p.sqft,
-              }).map((spec) => (
-                <span key={spec.key} className="flex items-center gap-1">
-                  <i className={`${spec.icon} text-[color:var(--card-specs-text)] text-xs`}></i>{spec.label}
-                </span>
-              ))}
+            <div className="flex flex-col flex-1 p-2.5">
+              <p className="text-[10px] font-roboto font-semibold uppercase tracking-wide text-[#888] mb-0.5 truncate">{p.propertyType || 'Property'}</p>
+              <h3 className="text-[13px] font-roboto font-medium text-[color:var(--card-title-text)] leading-snug line-clamp-1 mb-1 group-hover:text-primary transition-colors">{p.title}</h3>
+              <p className="text-[11px] font-roboto text-[color:var(--card-location-text)] mb-1.5 truncate">
+                <i className="ri-map-pin-line text-[10px] mr-0.5"></i>{p.area}
+              </p>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-roboto text-[color:var(--card-specs-text)] mb-2">
+                {getPropertySpecs(p.propertyType, {
+                  beds: p.beds,
+                  baths: p.baths,
+                  parking: p.parking,
+                  sqft: p.sqft,
+                }).map((spec) => (
+                  <span key={spec.key} className="flex items-center gap-1 whitespace-nowrap">
+                    <i className={`${spec.icon} text-[color:var(--card-specs-text)] text-[11px]`}></i>{spec.label}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-auto text-sm font-roboto font-bold text-[color:var(--card-price-text)] leading-none whitespace-nowrap">{p.price}</p>
             </div>
           </Link>
         ))}

@@ -269,8 +269,23 @@ build a genuine project model for New Developments.
   "Land & Joint Venture Search" band and "Joint Venture Opportunities" / "Land & Plots"
   section identity so no page is dominated by the generic word "Properties".
 
+### Delivered — New Development project page (DONE)
+- New dedicated route `/development/:slug` + `src/pages/DevelopmentDetail.tsx` — the full inventory
+  destination for a development (NOT a modal/preview): hero gallery → project name + from-price +
+  location → overview → project highlights → project model (scale, unit types, developer, timeline)
+  → location + map → **Available homes in this development** (inventory summary + bedroom/availability
+  filters + unit cards) → enquiry.
+- `src/hooks/useDevelopmentProject.ts` — resolves the parent project for any unit slug (real
+  `listings.development_id` project link, title fallback) and loads every published unit.
+- `src/pages/DevelopmentDetail/components/` — `UnitCard` (approved listing-card UI) +
+  `InventorySection` (live inventory summary + filters).
+- "See more of this development/project →" on both the grid and featured cards now LINKS to the
+  project page (never the modal/preview); the property detail page gained "See all homes in this
+  development →" back to the project page, so the unit ↔ project relationship works both ways.
+- Development cards (grid + featured) gained section dividers, listed-on dates and a Sale/Rent-style
+  "Preview" control; unit cards also carry their listing date.
+
 ### Remaining — next stages
-- [ ] New Development detail page (as opposed to the modal) rendering the project model
 - [ ] Live CRM data-flow test per type (search → card → detail → mobile)
 
 ### Delivered — JV Opportunity Search + Feed (DONE)
@@ -780,3 +795,228 @@ way round.
 - [ ] Thicken the thinner cuisine guides (Italian 3, Indian 3, Rooftop 3) as more venues are listed.
 - [ ] Add a "featured venues" up-weight and per-guide section ordering in the CMS.
 - [ ] Add these micro-guides to the sitemap + internal-link them from area guides.
+
+## 19. Public Property Detail — Full CRM Parity + Project/Unit Model (DONE)
+
+Goal: the property detail page must render EVERY populated, public-facing CRM field,
+and never present a unit as an isolated property when it belongs to a larger project.
+
+### Backend/frontend field audit (the gap that was closed)
+- `src/lib/propertyDetailSpecs.ts` (the CRM→detail field mapper) was silently dropping
+  populated columns. Added: **Included Items** (JSON-array string on 463 listings),
+  **Negotiable**, **Second Price** (+currency), **Property Label**, **Postal Code**,
+  **Acreage** (non-land). All render conditionally — empty values never show a row.
+- **Floor plans / brochures** were captured in the CRM `documents` jsonb (category
+  `floorplans`) but rendered nowhere. New `PropertyDocuments` component shows floor-plan
+  image thumbnails (with lightbox) + download rows for non-image files; legacy
+  `floor_plans` URL arrays are still honoured. Wired into `LeftColumn`.
+
+### Project ↔ unit relationship
+- New `src/hooks/useProjectUnits.ts` — loads every OTHER published unit sharing the
+  project title (withdrawn/draft excluded; SOLD kept so inventory reads honestly) and
+  derives a project summary (count, available, from-price).
+- New `src/pages/PropertyDetail/components/ProjectUnitsSection.tsx` — "Other units in
+  this project": compact, dense unit cards (image → unit type → specs → price →
+  availability badge → link to the specific unit), each linking via `?from=` for
+  context-aware back navigation. Renders nothing for a standalone property.
+
+### Compact cards + responsiveness
+- `SimilarProperties` cards redesigned to be compact/dense (aspect-ratio image, tight
+  padding, single-line title, inline spec chips, price pinned to the bottom) — no fixed
+  pixel heights, consistent grid alignment, no overflow at any breakpoint.
+- All new sections are desktop-first with `sm` / `lg` breakpoints and stack cleanly on
+  mobile/tablet.
+
+### Notes
+- Public visibility continues to flow through the canonical `publicListings` rule;
+  owner/private/internal columns are never surfaced.
+- `all_listings` remains the public read view (union of listings + land_listings);
+  project-unit sibling lookup reads `listings` directly with published + non-live filters.
+
+## 20. Real Project Link, Unit-vs-Project Strip & Site-wide Floor-Plan Badge (DONE)
+
+Goal: make every unit know its project (not just the few that share a title), label what
+is unit-specific vs shared, and advertise floor plans on the cards themselves.
+
+### 20.1 Real project link (`listings.development_id`)
+- **Column:** `listings.development_id uuid` (the real project key, pointing at `developments.id`).
+- **Triggers (DB-enforced, SECURITY DEFINER):**
+  - `trg_link_listings_to_development` — on `developments` insert/update of slug/title, stamps
+    `development_id` onto any unpublished-link listing whose `slug` or lowercased `title` matches.
+  - `trg_resolve_listing_development` — BEFORE insert/update on `listings`, resolves
+    `development_id` from `developments` (slug OR lowercased title) when it is null.
+  - Index `idx_listings_development_id`.
+- **Backfill:** existing rows linked by slug/title → **78 listings now carry a real `development_id`**
+  (77 are new developments).
+- **`useProjectUnits`** now resolves the current listing's `development_id` and fetches siblings by
+  that key (title match is the fallback only), so "Other units in this project" shows for every
+  linked development instead of the ~4 titmatched ones.
+
+### 20.2 "This unit vs The project" strip
+- New `src/pages/PropertyDetail/components/UnitVsProjectStrip.tsx`, rendered on the detail page for
+  new developments. Two columns: **This unit** (type, beds, baths, size, floor, price, ref, status,
+  furnishing) and **The project** (total units, floors, available, developer, completion, deposit,
+  installments, marketing, stage, location, facilities). Every row is conditioned on real data, and
+  the whole strip hides unless there is a project to compare against.
+- `PropertyDetail` gained `floorNumber` (from `listings.floor_number`) to feed the unit column.
+
+### 20.3 Site-wide "Floor Plan Available" badge
+- New shared detector `listingHasFloorPlan()` in `src/lib/listingMeta.ts` — true when the legacy
+  `floor_plans` array is populated, OR the CRM `documents` payload contains a floor-plan entry
+  (strict match so "payment plan" / "master plan" docs never trigger it). `documents` added to the
+  `useListings` select and mapped into `MappedListing.floorPlan`.
+- `PropertyMetaBadges` floor-plan label is now **"Floor Plan Available"**, and the badge row wraps
+  (instead of clipping) so the longer label never gets cut off.
+- Surfaced on: shared `PropertyCardBody` (Buy / Rent / All Properties / Commercial), `SeoListingCard`,
+  the home `PropertyCard` (now maps `floorPlan` from the live row), and the New Development cards via
+  a new `Development.hasFloorPlan` flag in `developmentModel` (groupRows → any unit has a plan).
+
+## 21. Project ↔ Unit Entity Separation + Development Card Badge (DONE)
+
+Goal: guarantee the PROJECT page and the UNIT page can never collapse into one, and stop
+the "bedroom-range" badge from appearing as a misplaced duplicate on development cards.
+
+### Entity model (how the two entities resolve)
+- **PROJECT** — the whole development. Route: `/development/{projectSlug}` → `DevelopmentDetail`.
+  **SUPERSEDED by §24** — the separate project page was deleted; every development and unit now
+  resolves to its single `/property/{slug}` page.
+- **UNIT** — one specific listing. Route: `/property/{unitSlug}` → `PropertyDetail` (restored unit
+  page). Always a single listing's own data.
+- **Grouping** — `groupRowsByProject` now groups by the real project link (`listings.development_id`)
+  first, falling back to the shared normalised title only when a listing has no project link. So a
+  project with many different-titled units still groups into ONE project on the index.
+- **Link direction** — the project inventory's **"View property"** → `/property/{unit.slug}` (the
+  specific unit). The unit page's **"See more of this development"** → `/development/{projectSlug}`
+  via the new `useUnitProjectSlug` hook, so every unit in a project returns to the SAME project page
+  (never a different unit, never the unit's own slug).
+
+### Card badge
+- The unit-type range badge ("1, 2 & 3 bedroom properties") is now shown **only when the project
+  genuinely offers more than one unit type** (`hasMultipleUnitTypes`), and on the featured card it is
+  placed **under the "See more of this development" link** so it reads as part of the project, not a
+  stray duplicate.
+
+### Notes
+- Current data is 1:1 (each new-development listing is its own `developments` row with one unit), so
+  the two pages show the same underlying record today; the routes and components are already separate
+  and diverge automatically once real multi-unit projects exist.
+- `developments` is read-only public (`is_published = true`); no schema changes were needed.
+
+## 22. Multi-Unit Project Visibility, Unit-Type Mix Table & 14px Body Minimum (DONE)
+
+Goal: make a real multi-unit project (e.g. **Riverside Apartments**, 5 units) fully visible
+end-to-end, show its bedroom mix as one small table, and keep every detail-page body on the
+global site's minimum body size.
+
+### Project entity is now the source for the project page
+- `buildDevelopment` builds the project from its unit listings; a new `applyProjectRecord()`
+  overlays the canonical `developments` entity onto it. `useDevelopmentProject` now fetches that
+  record (by `development_id`) and applies it, so a multi-unit project shows its **own name,
+  description, gallery, developer, inventory and stage** — not whichever unit sorted first.
+- Riverside Apartments is fully populated (5 units: Studio A / 1 Bed A / 1 Bed B / 2 Bed A /
+  3 Bed Penthouse + 4 `unit_types` rows), so its project page and 5 unit pages render end-to-end.
+
+### Unit-type mix table (project page)
+- `DevelopmentProjectModel` now renders the unit-type table **grouped by bedroom type** via
+  `groupUnitTypes` (Studio / 1 / 2 / 3 bed), each row showing a **size range, price range and
+  availability** badge. It appears **only when the project has more than one unit type**; a
+  single-type project shows no table (the inventory cards already cover it).
+- `UnitTypeGroup` gained `minSize` / `maxSize` / `sizeUnit`.
+
+### "Back to {project name}" on every unit page
+- `useUnitProjectSlug` → **`useUnitProjectLink`**, returning `{ slug, name }` — the canonical
+  project route (cheapest unit slug) **plus the project's real name** from `developments`.
+- `PropertyDetail` shows a compact **"Back to {project name}"** link at the very top of each
+  unit page (new-development listings), so the parent project is always one click away.
+
+### 14px minimum body size
+- `sanitizeRichHtml` now clamps any inline `font-size` below **14px** up to 14px (px + pt), so a
+  legacy or manually-sized description can never render smaller than the global body copy.
+- The editor's `FONT_SIZES` dropped the sub-14px options (8/9/10 pt) so new content can't be
+  created undersized either.
+
+## 23. Unit Page = Single Property Only (DONE)
+
+Goal: the **unit/listing page must present ONE specific property**, never project-level content;
+the full project lives only on the dedicated project page.
+
+### Page contract
+- **Project page** — `/development/:slug` → `DevelopmentDetail` (UNCHANGED): the whole development,
+  reached from a listing via **“See more of this project”.**
+- **Unit page** — `/property/:slug` → `PropertyDetail` (single property only): its own gallery,
+  price, beds/baths/size, description, features/amenities, specs, agent contact, similar units,
+  prev/next. No project sections are rendered on it.
+
+### Changes
+- Removed the project-level blocks that had leaked onto the unit page: the “This home is part of
+  a development” banner block and the separate top “Back to {project}” button.
+- Added a single, compact **“See more of this project →”** link (top of the unit page) that routes
+  to the project page via `useUnitProjectLink` (the canonical cheapest-unit slug) — one link, one
+  direction, no merged pages. **SUPERSEDED by §24** (removed once the project page itself was deleted).
+- Removed the **recently-viewed-developments** rail from the unit page so it shows only this
+  property.
+- Deleted the now-unused, project-on-unit-page components/hook:
+  `ProjectUnitsSection.tsx`, `UnitVsProjectStrip.tsx`, `DevelopmentActions.tsx`,
+  `NewDevAvailabilityPanel.tsx`, `useProjectUnits.ts`.
+
+### Outcome
+- Project ↔ unit stay two distinct pages/entities for every project and every unit (not a single
+  hardcoded example). The unit page is purely the individual listing plus one clear link back up
+  to its parent project.
+
+## 24. Removal of the Separate Development/Project Page — One Detail Page per Property (DONE)
+
+Goal: the design had been going in circles because a “project page” and a “unit page” were both
+resolving for the same underlying record. Decision: **remove the dedicated development/project page
+entirely** and make every listing resolve to its single `/property/{slug}` detail page. The
+individual property page is the one canonical detail page.
+
+### Deleted
+- **Page:** `src/pages/DevelopmentDetail.tsx`.
+- **Its components:** `src/pages/DevelopmentDetail/components/` — `InventorySection.tsx`,
+  `UnitCard.tsx`, `ProjectInfoSections.tsx`, `NearbyPlaces.tsx` (all only used by that page).
+- **Orphaned hooks/libs:** `src/hooks/useDevelopmentProject.ts` (both `useDevelopmentProject` and
+  `useUnitProjectLink`), `src/hooks/useDevelopmentDetail.ts`, `src/lib/developmentInfo.ts`.
+- **Route:** removed `{ path: "/development/:slug" }` and the `DevelopmentDetail` lazy import from
+  `src/router/config.tsx`.
+
+### Re-pointed to the individual property page (`/property/{slug}`)
+- `DevelopmentCard` + `FeaturedDevelopmentCard` — the detail link / “See more” destination and the
+  “View property” CTA now go to `/property/{development.slug}` (a real listing slug).
+- `DevelopmentModal` — the “View property” CTA now opens `/property/{slug}`.
+- `RecentlyViewedDevelopments` rail — each entry links to `/property/{slug}`.
+- `PropertyDetail` — removed the now self-referential “See more of this project” link (it pointed at
+  the deleted project page, and would otherwise link to its own page).
+- `sitemap` edge function — new-development units are emitted under `${SITE}/property/{slug}` and the
+  function was redeployed.
+
+### Kept (still shared / used elsewhere)
+- `DevelopmentGallery` and `DevelopmentProjectModel` (used by the New Developments index cards and
+  the preview modal), `developmentModel.ts`, `developmentUnits.ts`, `useNewDevelopments.ts`.
+  The New Developments index and its preview modal are unchanged apart from the route target above.
+
+## 25. Development Page Restored + CRM-Owned Key Information & Utilities (DONE)
+
+Goal: the dedicated development/project page (`/development/:slug` → `DevelopmentDetail`) is back
+(the "See more of this development" link on a card points at it, while "View property" keeps going
+to the single unit listing), and its **Key information** / **Utilities & more details** blocks are now
+real, CRM-entry fields — not values guessed from a leftover listing row.
+
+### CRM fields (the missing piece)
+- **Table:** `developments` gained project-level columns: `tenure`, `service_charge` (numeric),
+  `council_tax_band`, `ground_rent`, `ground_rent_review`, `lease_length`, `water_supply`,
+  `electricity`, `heating`, `sewerage`, `broadband`, `broadband_speed`, `mobile_coverage`,
+  `parking_notes`.
+- **CRM form:** new **Key Info** step (`DevelopmentKeyInfoStep.tsx`) in `DevelopmentEdit` with
+  *Ownership & Key Information* and *Utilities & Services* cards; wired through
+  `DevelopmentFormState` (`types.ts`), load (`fetchDevelopment`) and save (`buildDevPayload`).
+- A field left blank renders the honest **"Ask agent"** fallback on the public page — never fabricated.
+
+### Public page reads from the CRM DB
+- `developmentModel.ts` gained a `DevelopmentProjectInfo` model (`buildProjectInfo` reads the
+  `developments` record; `applyProjectRecord` overlays it onto the project built from unit rows),
+  exposed on `Development.projectInfo`.
+- `developmentInfo.ts` now prefers `projectInfo` for Tenure / Service charge / Council tax band /
+  Ground rent / Ground rent review / Lease length and for the standard utility rows (Water,
+  Electricity, Heating, Sewerage, Broadband, Broadband speed, Mobile coverage, Parking), falling
+  back to the representative unit's columns/custom fields only when the project field is blank.

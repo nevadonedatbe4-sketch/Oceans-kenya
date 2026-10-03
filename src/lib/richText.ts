@@ -29,9 +29,6 @@ export const FONT_FAMILIES = [
 ];
 
 export const FONT_SIZES = [
-  { label: '8', value: '8pt' },
-  { label: '9', value: '9pt' },
-  { label: '10', value: '10pt' },
   { label: '11', value: '11pt' },
   { label: '12', value: '12pt' },
   { label: '14', value: '14pt' },
@@ -316,6 +313,24 @@ const ALLOWED_STYLE_PROPS = new Set([
   'border', 'border-bottom', 'border-radius', 'max-width', 'width', 'height', 'display',
 ]);
 
+/**
+ * Minimum body font size (in px) enforced site-wide. Any rich-text inline
+ * font-size below this is clamped up, so a legacy or manually-sized description
+ * can never render smaller than the global site body copy.
+ */
+const MIN_FONT_PX = 14;
+
+/** Clamp a CSS font-size so body text never renders below the global minimum. */
+function clampFontSize(value: string): string {
+  const match = value.trim().match(/^([\d.]+)\s*(px|pt)$/i);
+  if (!match) return value;
+  const num = parseFloat(match[1]);
+  const unit = match[2].toLowerCase();
+  const px = unit === 'pt' ? num * 1.3333 : num;
+  if (!Number.isFinite(px) || px >= MIN_FONT_PX) return value;
+  return `${MIN_FONT_PX}px`;
+}
+
 function cleanStyle(style: string): string {
   const out: string[] = [];
   style.split(';').forEach((part) => {
@@ -326,7 +341,9 @@ function cleanStyle(style: string): string {
     if (!ALLOWED_STYLE_PROPS.has(prop) || !val) return;
     // Block anything that could fetch or execute
     if (/url\s*\(|expression|javascript:|@import/i.test(val)) return;
-    out.push(`${prop}: ${val}`);
+    // Keep every detail page on the global site's minimum body size.
+    const finalVal = prop === 'font-size' ? clampFontSize(val) : val;
+    out.push(`${prop}: ${finalVal}`);
   });
   return out.join('; ');
 }

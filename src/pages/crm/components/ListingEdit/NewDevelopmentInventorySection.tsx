@@ -1,4 +1,5 @@
 import { MARKETING_TYPES } from './types';
+import { URGENCY_PRESETS } from '@/lib/urgency';
 
 interface Props {
   isNewDevelopment: boolean;
@@ -28,6 +29,8 @@ interface Props {
   setShowDeveloperName: (v: boolean) => void;
   showUrgencyMessage: boolean;
   setShowUrgencyMessage: (v: boolean) => void;
+  urgencyMessage: string;
+  setUrgencyMessage: (v: string) => void;
 }
 
 const inputBase =
@@ -61,6 +64,7 @@ export default function NewDevelopmentInventorySection({
   showPercentRented, setShowPercentRented,
   showDeveloperName, setShowDeveloperName,
   showUrgencyMessage, setShowUrgencyMessage,
+  urgencyMessage, setUrgencyMessage,
 }: Props) {
   if (!isNewDevelopment) return null;
 
@@ -230,6 +234,32 @@ export default function NewDevelopmentInventorySection({
           </div>
         </div>
       )}
+
+      {/* Manual urgency message - takes priority over the automatic one */}
+      <div className="mb-6">
+        <label className={labelClass}>Urgency Message (shown on the card)</label>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <select
+            value={(URGENCY_PRESETS as readonly string[]).includes(urgencyMessage) ? urgencyMessage : ''}
+            onChange={(e) => { if (e.target.value) setUrgencyMessage(e.target.value); }}
+            className={selectClass}
+          >
+            <option value="">Choose a preset</option>
+            {URGENCY_PRESETS.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={urgencyMessage}
+            onChange={(e) => setUrgencyMessage(e.target.value)}
+            className={inputBase}
+            placeholder="Or type a custom message"
+            maxLength={80}
+          />
+        </div>
+        <p className="text-[11px] text-[#7a8a99] mt-1.5">Takes priority over the automatic message. Leave blank to auto-generate one from real availability.</p>
+      </div>
 
       {/* Marketing Display Toggles */}
       <div className="space-y-1 border border-[#e8ecf0] rounded-xl overflow-hidden">

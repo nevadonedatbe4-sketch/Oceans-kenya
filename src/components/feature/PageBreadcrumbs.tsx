@@ -108,6 +108,11 @@ function autoTrail(pathname: string, current?: string): BreadcrumbCrumb[] {
     trail.push({ label: current || humanize(segments[2] || segments[1] || '') });
     return trail;
   }
+  if (segments[0] === 'development') {
+    trail.push({ label: 'New Projects', to: '/new-developments' });
+    trail.push({ label: current || humanize(segments[1] || '') });
+    return trail;
+  }
 
   // Generic fallback - humanise each segment into its own crumb.
   segments.forEach((seg, i) => {

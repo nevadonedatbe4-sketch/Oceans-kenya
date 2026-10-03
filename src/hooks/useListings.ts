@@ -6,6 +6,7 @@ import { formatLocation, formatLocationParts, formatAreaName, smartTitleCase } f
 import { parsePropertySearch, parseSearchClauses, buildClausesOr, type PropertySearchIntent } from '@/lib/propertySearch';
 import { buildCityOrClause } from '@/lib/locationRegistry';
 import { applyPublicVisibility, applyStatusScope, statusScopeFromFilter } from '@/lib/publicListings';
+import { listingHasFloorPlan } from '@/lib/listingMeta';
 
 // ── Raw DB shape ──────────────────────────────────────────────
 interface ListingRow {
@@ -35,6 +36,7 @@ interface ListingRow {
   amenities: string[] | null;
   features: Record<string, unknown> | null;
   floor_plans: string[] | null;
+  documents?: Record<string, unknown>[] | null;
   property_label: string | null;
   price_prefix: string | null;
   price_postfix: string | null;
@@ -55,6 +57,12 @@ interface ListingRow {
   reduced_price?: boolean | null;
   back_on_market?: boolean | null;
   commission_applicable?: boolean | null;
+  availability_status?: string | null;
+  urgency_message?: string | null;
+  show_urgency_message?: boolean | null;
+  total_units?: number | null;
+  units_sold?: number | null;
+  units_reserved?: number | null;
 }
 
 // ── Mapped shape used by the Buy page ──────────────────────────
@@ -104,6 +112,12 @@ export interface MappedListing {
   commissionApplicable?: boolean;
   agentShortName?: string;
   agentBrandColor?: string;
+  /** Manual agent urgency message ('' when none). */
+  urgencyMessage?: string;
+  /** CRM display toggle for the automatic urgency message. */
+  showUrgencyMessage?: boolean;
+  /** Reliable remaining-unit count for this development unit (0 = unknown). */
+  availableUnits?: number;
   // Distance info
   latitude?: number | null;
   longitude?: number | null;
@@ -280,6 +294,13 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent', agency
   // cards omit the fact instead of inventing a placeholder value.
   const sqft = row.sqft ?? 0;
 
+  // Reliable remaining-unit count for a development unit (total − sold − reserved).
+  // Zero means "unknown", so no automatic scarcity is ever derived from it.
+  const totalUnits = Number(row.total_units ?? 0);
+  const unitsSold = Number(row.units_sold ?? 0);
+  const unitsReserved = Number(row.units_reserved ?? 0);
+  const availableUnits = totalUnits > 0 ? Math.max(0, totalUnits - unitsSold - unitsReserved) : 0;
+
   const agentInfo = deriveAgentInfo(null, agencyName);
   const agentPhone = row.owner_phone || undefined;
   const agentEmail = row.owner_email || undefined;
@@ -325,7 +346,7 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent', agency
     virtualTour: !!row.virtual_tour_url,
     videoUrl: row.video_url || undefined,
     virtualTourUrl: row.virtual_tour_url || undefined,
-    floorPlan: !!(row.floor_plans && row.floor_plans.length > 0),
+    floorPlan: listingHasFloorPlan(row),
     justAdded,
     houseShare: false,
     latitude: row.latitude ?? null,
@@ -335,6 +356,9 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent', agency
     agentPhone,
     agentEmail,
     ...agentInfo,
+    urgencyMessage: row.urgency_message ? String(row.urgency_message) : '',
+    showUrgencyMessage: row.show_urgency_message !== false,
+    availableUnits,
   };
 }
 
@@ -527,7 +551,7 @@ function applyResolved(query: any, resolved: ResolvedFilters) {
 // ── Hook ───────────────────────────────────────────────────────
 const ITEMS_PER_PAGE = 10;
 
-const LISTING_SELECT = 'id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable';
+const LISTING_SELECT = 'id,title,location,address,neighbourhood,city,state_region,price,property_type,bedrooms,bathrooms,sqft,land_size,acreage,land_unit,parking,slug,created_at,description,main_image,images,status,amenities,features,floor_plans,documents,property_label,price_prefix,price_postfix,currency,agent_id,video_url,virtual_tour_url,latitude,longitude,sub_type,is_featured,country,owner_phone,owner_email,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,commission_applicable,availability_status,urgency_message,show_urgency_message,total_units,units_sold,units_reserved';
 
 export function useListings(filters: ListingFilters, page: number): UseListingsReturn {
   const [listings, setListings] = useState<MappedListing[]>([]);

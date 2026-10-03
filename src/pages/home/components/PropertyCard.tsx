@@ -7,6 +7,8 @@ import { withReturnFrom } from '@/lib/navigation';
 import PropertyBadge from '@/components/feature/PropertyBadge';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import PropertyImageCarousel from './PropertyImageCarousel';
+import UrgencyMessage from '@/components/feature/UrgencyMessage';
+import { resolveUrgency, autoUrgency } from '@/lib/urgency';
 
 export interface Property {
   id: string;
@@ -36,7 +38,11 @@ export interface Property {
   refurbished?: boolean;
   backOnMarket?: boolean;
   propertyOfTheWeek?: boolean;
+  floorPlan?: boolean;
   createdAt: string;
+  urgencyMessage?: string;
+  showUrgencyMessage?: boolean;
+  availableUnits?: number;
 }
 
 interface PropertyCardProps {
@@ -60,6 +66,11 @@ export default function PropertyCard({
   const { pathname, search } = useLocation();
   const href = withReturnFrom(`/property/${property.slug}`, `${pathname}${search}`);
   const listedAgo = formatListingAge(property.createdAt);
+  const urgency = resolveUrgency({
+    manual: property.urgencyMessage,
+    automatic: property.availableUnits && property.availableUnits > 0 ? autoUrgency(property.availableUnits, 'unit') : null,
+    enabled: property.showUrgencyMessage !== false,
+  });
 
   return (
     <div className={`bg-[var(--card-bg)] overflow-hidden transition-all duration-300 group flex flex-col w-full h-full ${shadowClass} ${hoverClass}`}>
@@ -104,13 +115,14 @@ export default function PropertyCard({
           refurbished={property.refurbished}
           backOnMarket={property.backOnMarket}
           propertyOfTheWeek={property.propertyOfTheWeek}
+          floorPlan={property.floorPlan}
           className="mb-2"
         />
         <p className="text-[13px] font-medium uppercase tracking-[0.1em] mb-1 text-[color:var(--card-category-text)]">
           {property.category}
         </p>
         <Link to={href} className="block group/title">
-          <h3 className="leading-snug line-clamp-2 transition-colors duration-200 text-[color:var(--card-title-text)] text-[18px] md:text-[19px] font-medium mb-2 break-words hover:text-primary cursor-pointer">
+          <h3 className="font-opensans leading-snug line-clamp-2 transition-colors duration-200 text-[color:var(--card-title-text)] text-[18px] font-medium mb-2 break-words hover:text-primary cursor-pointer">
             {property.title}
           </h3>
         </Link>
@@ -141,6 +153,8 @@ export default function PropertyCard({
         <p className="text-[12px] sm:text-[15px] font-roboto font-medium text-[color:var(--card-time-text)] normal-case tracking-normal whitespace-nowrap pr-1 mb-2">
           {listedAgo}
         </p>
+
+        {urgency && <UrgencyMessage message={urgency} className="mb-2" />}
 
         <div className="mt-auto pt-2 flex items-end justify-between gap-2 border-t border-[#d6d6d6] min-w-0">
           <div className="flex items-baseline gap-1.5 flex-wrap min-w-0">

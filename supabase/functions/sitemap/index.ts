@@ -193,6 +193,34 @@ Deno.serve(async (_req: Request) => {
       }
     }
 
+    // New-development units: each unit is a real individual property listing, so
+    // it is registered under its own /property/ URL (one URL per project).
+    const devRes = await client
+      .from('listings')
+      .select('slug, title, development_id, created_at')
+      .eq('is_new_development', true)
+      .eq('is_published', true)
+      .neq('title', '')
+      .limit(3000);
+
+    if (devRes.data) {
+      const seenProjects = new Set<string>();
+      for (const row of devRes.data as Array<{
+        slug?: string | null;
+        title?: string | null;
+        development_id?: string | null;
+        created_at?: string | null;
+      }>) {
+        const slug = (row.slug ?? '').trim();
+        if (!slug) continue;
+        const key = (row.development_id && String(row.development_id))
+          || (row.title || '').trim().toLowerCase();
+        if (!key || seenProjects.has(key)) continue;
+        seenProjects.add(key);
+        extraUrls.push({ loc: `${SITE}/property/${slug}`, lastmod: row.created_at?.slice(0, 10) });
+      }
+    }
+
     const xml = buildSitemap(extraUrls);
     return new Response(xml, {
       status: 200,

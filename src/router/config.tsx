@@ -18,6 +18,7 @@ const About = lazy(() => import("../pages/About"));
 const Contact = lazy(() => import("../pages/Contact"));
 const Valuation = lazy(() => import("../pages/Valuation"));
 const PropertyDetail = lazy(() => import("../pages/PropertyDetail"));
+const DevelopmentDetail = lazy(() => import("../pages/DevelopmentDetail"));
 const JointVentures = lazy(() => import("../pages/JointVentures"));
 const JointVentureProjectDetail = lazy(() => import("../pages/JointVentureProjectDetail"));
 const ForgotPassword = lazy(() => import("../pages/crm/ForgotPassword"));
@@ -354,6 +355,7 @@ const routes: RouteObject[] = [
   { path: "/contact", element: <Contact /> },
   { path: "/valuation", element: <Valuation /> },
   { path: "/property/:slug", element: <PropertyDetail /> },
+  { path: "/development/:slug", element: <DevelopmentDetail /> },
   { path: "/commercial-property", element: <CommercialProperty /> },
   { path: "/c/commercial-advertising", element: <CommercialAdvertising /> },
   { path: "/commute-time", element: <CommuteTime /> },
