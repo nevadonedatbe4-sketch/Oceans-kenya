@@ -9,6 +9,7 @@ import {
 } from '@/lib/emailTemplate';
 import EmailPreview from './EmailPreview';
 import VariableChips from './VariableChips';
+import { ToggleSwitch } from '@/pages/crm/management/DesignShared';
 
 interface EmailTemplateEditorProps {
   draft: EmailTemplate;
@@ -92,9 +93,9 @@ export default function EmailTemplateEditor({
     subject: previewSubject,
   });
 
-  const label = 'block text-[12px] font-roboto font-semibold text-stone-500 uppercase tracking-[0.1em]';
+  const label = 'block text-xs font-roboto font-semibold text-stone-500 uppercase tracking-[0.1em]';
   const input =
-    'w-full px-3 py-2.5 border border-stone-200 rounded-lg text-[13px] font-roboto focus:outline-none focus:border-[#1B4332] bg-white';
+    'w-full px-3 py-2.5 border border-stone-200 rounded-lg text-sm font-roboto focus:outline-none focus:border-[#1B4332] bg-white';
 
   return (
     <div className="flex flex-col h-full min-w-0">
@@ -102,35 +103,33 @@ export default function EmailTemplateEditor({
       <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-stone-100">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h2 className="text-[17px] font-prata text-stone-800 truncate">{draft.name}</h2>
+            <h2 className="text-lg font-prata text-stone-800 truncate">{draft.name}</h2>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[11px] font-roboto whitespace-nowrap">
               {CATEGORY_LABEL(draft.category)}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onToggleActive}
-              className="flex items-center gap-1.5 text-[12px] font-roboto text-stone-500 hover:text-stone-700 cursor-pointer whitespace-nowrap"
-            >
-              <i className={draft.is_active ? 'ri-toggle-fill text-lg text-[#1B4332]' : 'ri-toggle-line text-lg text-stone-300'}></i>
-              {draft.is_active ? 'Active' : 'Inactive'}
-            </button>
-            <span className="text-[12px] font-roboto text-stone-400">{`{{${draft.key}}}`}</span>
+            <div className="flex items-center gap-2">
+              <ToggleSwitch value={draft.is_active} onChange={() => onToggleActive()} />
+              <span className="text-xs font-roboto text-stone-500 whitespace-nowrap">
+                {draft.is_active ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+            <span className="text-xs font-roboto text-stone-400">{`{{${draft.key}}}`}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={onShowVersions}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-200 text-[13px] font-roboto text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-stone-200 text-sm font-roboto font-medium text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-history-line"></i>
             History
           </button>
           <button
             onClick={onTest}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-200 text-[13px] font-roboto text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-stone-200 text-sm font-roboto font-medium text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-send-plane-line"></i>
             Test
@@ -138,7 +137,7 @@ export default function EmailTemplateEditor({
           <button
             onClick={onSave}
             disabled={!dirty || saving}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4332] text-white text-[13px] font-roboto transition-colors hover:bg-[#15382A] disabled:opacity-40 cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4332] text-white text-sm font-roboto font-medium transition-colors hover:bg-[#15382A] disabled:opacity-40 cursor-pointer whitespace-nowrap"
           >
             {saving ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <i className="ri-save-line"></i>}
             {dirty ? 'Save' : 'Saved'}
@@ -147,11 +146,11 @@ export default function EmailTemplateEditor({
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-stone-100 rounded-lg p-1 my-4 w-fit">
+      <div className="inline-flex items-center gap-1 bg-stone-100 rounded-full p-1 my-4">
         <button
           onClick={() => setTab('edit')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-roboto transition-colors cursor-pointer whitespace-nowrap ${
-            tab === 'edit' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap ${
+            tab === 'edit' ? 'bg-white text-[#1B4332] shadow-sm' : 'text-stone-500 hover:text-stone-700'
           }`}
         >
           <i className="ri-edit-line"></i>
@@ -159,8 +158,8 @@ export default function EmailTemplateEditor({
         </button>
         <button
           onClick={() => setTab('preview')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-roboto transition-colors cursor-pointer whitespace-nowrap ${
-            tab === 'preview' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap ${
+            tab === 'preview' ? 'bg-white text-[#1B4332] shadow-sm' : 'text-stone-500 hover:text-stone-700'
           }`}
         >
           <i className="ri-eye-line"></i>

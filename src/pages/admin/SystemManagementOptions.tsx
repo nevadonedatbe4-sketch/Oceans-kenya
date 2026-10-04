@@ -1,5 +1,5 @@
-import { useSearchParams } from 'react-router-dom';
-import { Settings, SlidersHorizontal, Map, Sparkles, Newspaper, Wand2, LayoutGrid } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Settings, SlidersHorizontal, Map, Sparkles, Newspaper, Wand2, LayoutGrid, Mail, ArrowRight } from 'lucide-react';
 import PageEditorsHub from '@/pages/admin/PageEditorsHub';
 import SiteSettings from '@/pages/crm/SiteSettings';
 import ManagementOptions from '@/pages/crm/ManagementOptions';
@@ -58,7 +58,24 @@ export default function SystemManagementOptions() {
       <p className="text-[15px] text-white/70 font-roboto -mt-1">{current.desc}</p>
 
       {/* Content */}
-      {current.key === 'system' ? <PageEditorsHub /> : current.key === 'names' ? <TidyNamesPanel /> : current.key === 'management' ? <ManagementOptions /> : current.key === 'neighbourhoods' ? <NeighbourhoodsAdmin /> : current.key === 'amenities' ? <AmenitiesAdmin /> : current.key === 'blog' ? <BlogAdmin /> : <SiteSettings />}
+      {current.key === 'system' ? <PageEditorsHub /> : current.key === 'names' ? <TidyNamesPanel /> : current.key === 'management' ? (
+        <div className="space-y-5">
+          <Link
+            to="/admin/management/email"
+            className="group flex items-center gap-2.5 pl-2 pr-3 py-2 rounded-lg bg-white border border-stone-100 hover:border-[#1B4332]/40 hover:bg-stone-50 transition-all cursor-pointer whitespace-nowrap w-fit"
+          >
+            <span className="w-9 h-9 rounded-md bg-[#00ddb4]/15 flex items-center justify-center text-[#1B4332] flex-shrink-0">
+              <Mail size={17} />
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="font-roboto font-semibold text-[15px] text-[#1a1a2e]">Email Management</span>
+              <span className="text-xs text-stone-500 font-roboto">Templates, sender & delivery log</span>
+            </span>
+            <ArrowRight size={15} className="text-stone-300 group-hover:text-[#1B4332] transition-colors ml-1" />
+          </Link>
+          <ManagementOptions />
+        </div>
+      ) : current.key === 'neighbourhoods' ? <NeighbourhoodsAdmin /> : current.key === 'amenities' ? <AmenitiesAdmin /> : current.key === 'blog' ? <BlogAdmin /> : <SiteSettings />}
     </div>
   );
 }

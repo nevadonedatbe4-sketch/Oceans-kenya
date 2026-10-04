@@ -4,7 +4,7 @@ import {
   Settings, Palette, Type, Layout, Image, Search, Globe, Monitor,
   Grid3X3, CreditCard, Play, Building2, Shield, Home, Layers,
   Phone, Share2, MapPin, DollarSign, Menu, Bell, SlidersHorizontal,
-  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X, Mail,
+  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X, Mail, Inbox, ChevronRight,
 } from 'lucide-react';
 import Chevron from '@/components/base/Chevron';
 
@@ -164,12 +164,6 @@ const MIDDLE_RAIL_GROUPS = [
     ],
   },
   {
-    label: 'COMMUNICATION',
-    items: [
-      { label: 'Email Management', path: '/admin/management/email' },
-    ],
-  },
-  {
     label: 'SYSTEM',
     items: [
       { label: 'Save / Sync / Cache', path: '/admin/management/cache' },
@@ -235,6 +229,53 @@ export default function ManagementLayout({ children, title, description, icon }:
 
         {/* Rail Groups */}
         <nav className="flex-1 overflow-y-auto custom-rail-scroll py-2 px-3">
+          {/* Quick Access */}
+          <div className="mb-5">
+            <div className="px-2 mb-2">
+              <span className="text-xs font-bold text-stone-700 uppercase tracking-[0.12em]">
+                Quick Access
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              <Link
+                to="/admin/management/email"
+                onClick={() => setRailOpen(false)}
+                className={`group flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg border transition-all cursor-pointer ${
+                  location.pathname === '/admin/management/email'
+                    ? 'border-[#1B4332]/40 bg-stone-50'
+                    : 'border-stone-200 bg-white hover:border-[#1B4332]/40 hover:bg-stone-50'
+                }`}
+              >
+                <span className="w-8 h-8 rounded-md bg-[#00ddb4]/15 flex items-center justify-center text-[#1B4332] shrink-0">
+                  <Mail size={15} />
+                </span>
+                <span className="flex-1 min-w-0 leading-tight">
+                  <span className="block text-sm font-semibold text-stone-800 truncate">Email Management</span>
+                  <span className="block text-[11px] text-stone-500 truncate">Templates &amp; delivery log</span>
+                </span>
+                <ChevronRight size={14} className="text-stone-300 group-hover:text-[#1B4332] transition-colors shrink-0" />
+              </Link>
+              <Link
+                to="/admin/inbox"
+                onClick={() => setRailOpen(false)}
+                className={`group flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg border transition-all cursor-pointer ${
+                  location.pathname === '/admin/inbox'
+                    ? 'border-[#1B4332]/40 bg-stone-50'
+                    : 'border-stone-200 bg-white hover:border-[#1B4332]/40 hover:bg-stone-50'
+                }`}
+              >
+                <span className="w-8 h-8 rounded-md bg-[#1B4332]/10 flex items-center justify-center text-[#1B4332] shrink-0">
+                  <Inbox size={15} />
+                </span>
+                <span className="flex-1 min-w-0 leading-tight">
+                  <span className="block text-sm font-semibold text-stone-800 truncate">Inbox</span>
+                  <span className="block text-[11px] text-stone-500 truncate">Enquiries &amp; conversations</span>
+                </span>
+                <ChevronRight size={14} className="text-stone-300 group-hover:text-[#1B4332] transition-colors shrink-0" />
+              </Link>
+            </div>
+          </div>
+
           {MIDDLE_RAIL_GROUPS.map((group) => (
             <div key={group.label} className="mb-5 last:mb-2">
               <div className="px-2 mb-2">
@@ -278,19 +319,19 @@ export default function ManagementLayout({ children, title, description, icon }:
         {(title || description) && (
           <div className="px-6 pt-16 md:pt-6 pb-6">
             <div className="max-w-[960px] space-y-5">
-              <div className="flex items-start gap-4 pb-6 border-b border-stone-100">
-                {icon && (
-                  <div className="w-10 h-10 rounded-lg bg-[#1B4332]/10 flex items-center justify-center shrink-0">
-                    {icon}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-xl font-prata text-stone-800 tracking-tight">{title}</h2>
-                  </div>
-                  {description && (
-                    <p className="text-base text-stone-500 mt-1 leading-relaxed">{description}</p>
+              <div className="bg-white rounded-xl border border-stone-100 px-5 py-5">
+                <div className="flex items-start gap-4">
+                  {icon && (
+                    <div className="w-11 h-11 rounded-lg bg-[#1B4332]/10 flex items-center justify-center shrink-0">
+                      {icon}
+                    </div>
                   )}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-prata text-stone-800 tracking-tight">{title}</h2>
+                    {description && (
+                      <p className="text-sm font-roboto text-stone-500 mt-1 leading-relaxed">{description}</p>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="px-0">

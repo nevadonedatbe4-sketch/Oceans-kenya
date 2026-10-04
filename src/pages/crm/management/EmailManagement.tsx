@@ -105,52 +105,52 @@ export default function EmailManagement() {
       icon={<Mail size={20} className="text-[#0d5959]" />}
     >
       {/* Status + actions */}
-      <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-5">
         <div
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] font-roboto ${
-            providerNote ? 'bg-amber-50 text-amber-700' : 'bg-[#1B4332]/8 text-[#1B4332]'
+          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-sm font-roboto font-medium ${
+            providerNote ? 'bg-amber-50 text-amber-700' : 'bg-[#1B4332]/10 text-[#1B4332]'
           }`}
         >
-          <i className={providerNote ? 'ri-alert-line' : 'ri-checkbox-circle-line'}></i>
+          <i className={providerNote ? 'ri-alert-line' : 'ri-checkbox-circle-fill'}></i>
           <span>{providerNote ? 'Outbound email is currently turned off' : 'Outbound email is enabled'}</span>
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={refresh}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-stone-200 text-[13px] font-roboto text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-stone-200 text-sm font-roboto font-medium text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer whitespace-nowrap"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={15} />
             Refresh
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#1B4332] text-white text-[13px] font-roboto hover:bg-[#15382A] transition-colors cursor-pointer whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1B4332] text-white text-sm font-roboto font-medium hover:bg-[#15382A] transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-settings-3-line"></i>
-            Sender & branding
+            Sender &amp; branding
           </button>
         </div>
       </div>
 
       {error && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 text-red-600 text-[13px] font-roboto mb-4">
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 text-red-600 text-sm font-roboto mb-4">
           <i className="ri-error-warning-line mt-0.5"></i>
           <div className="flex-1">
             <p className="font-medium">Could not load email settings</p>
-            <p className="text-[12px] mt-0.5">{error}</p>
+            <p className="text-xs mt-0.5">{error}</p>
           </div>
-          <button onClick={refresh} className="px-3 py-1.5 rounded-md bg-white/70 text-red-600 text-[12px] cursor-pointer whitespace-nowrap">
+          <button onClick={refresh} className="px-3 py-1.5 rounded-md bg-white/70 text-red-600 text-xs cursor-pointer whitespace-nowrap">
             Retry
           </button>
         </div>
       )}
 
-      <div className="flex items-center gap-1 bg-stone-100 rounded-lg p-1 mb-4 w-fit">
+      <div className="inline-flex items-center gap-1 bg-stone-100 rounded-full p-1 mb-5">
         <button
           onClick={() => setView('templates')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-roboto transition-colors cursor-pointer whitespace-nowrap ${
-            view === 'templates' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap ${
+            view === 'templates' ? 'bg-white text-[#1B4332] shadow-sm' : 'text-stone-500 hover:text-stone-700'
           }`}
         >
           <i className="ri-file-text-line"></i>
@@ -158,8 +158,8 @@ export default function EmailManagement() {
         </button>
         <button
           onClick={() => setView('log')}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[13px] font-roboto transition-colors cursor-pointer whitespace-nowrap ${
-            view === 'log' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500 hover:text-stone-700'
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-roboto font-medium transition-colors cursor-pointer whitespace-nowrap ${
+            view === 'log' ? 'bg-white text-[#1B4332] shadow-sm' : 'text-stone-500 hover:text-stone-700'
           }`}
         >
           <i className="ri-history-line"></i>
@@ -202,37 +202,38 @@ export default function EmailManagement() {
                 <div className="w-14 h-14 rounded-full bg-stone-100 flex items-center justify-center mb-3">
                   <i className="ri-mail-open-line text-2xl text-stone-400"></i>
                 </div>
-                <p className="text-[14px] font-roboto text-stone-500">Select a template to edit</p>
+                <p className="text-sm font-roboto text-stone-500">Select a template to edit</p>
               </div>
             )}
           </div>
         </div>
       )}
 
+      {draft && versionsOpen && (
+        <VersionHistoryPanel
+          template={draft}
+          loadVersions={loadVersions}
+          onRestore={handleRestore}
+          onClose={() => setVersionsOpen(false)}
+        />
+      )}
+
       {draft && (
-        <>
-          <VersionHistoryPanel
-            template={draft}
-            loadVersions={loadVersions}
-            onRestore={handleRestore}
-            onClose={() => setVersionsOpen(false)}
-          />
-          <TestSendModal
-            open={testOpen}
-            templateName={draft.name}
-            defaultTo={settings.support_email}
-            onClose={() => setTestOpen(false)}
-            onSend={(to) =>
-              sendTest({
-                to,
-                templateKey: draft.key,
-                subject: draft.subject,
-                heading: draft.heading || '',
-                bodyHtml: draft.body_html,
-              })
-            }
-          />
-        </>
+        <TestSendModal
+          open={testOpen}
+          templateName={draft.name}
+          defaultTo={settings.support_email}
+          onClose={() => setTestOpen(false)}
+          onSend={(to) =>
+            sendTest({
+              to,
+              templateKey: draft.key,
+              subject: draft.subject,
+              heading: draft.heading || '',
+              bodyHtml: draft.body_html,
+            })
+          }
+        />
       )}
 
       <EmailSettingsModal

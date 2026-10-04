@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { EMAIL_CATEGORIES, type EmailTemplate } from '@/lib/emailTemplate';
+import { ToggleSwitch } from '@/pages/crm/management/DesignShared';
 
 interface EmailTemplateListProps {
   templates: EmailTemplate[];
@@ -52,13 +53,13 @@ export default function EmailTemplateList({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search templates..."
-          className="w-full pl-9 pr-3 py-2 border border-stone-200 rounded-lg text-[13px] font-roboto focus:outline-none focus:border-[#1B4332] bg-white"
+          className="w-full pl-9 pr-3 py-2.5 border border-stone-200 rounded-lg text-sm font-roboto focus:outline-none focus:border-[#1B4332] bg-white"
         />
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scroll pr-1 space-y-4">
         {grouped.length === 0 && (
-          <p className="text-[13px] font-roboto text-stone-400 text-center py-10">No templates match your search.</p>
+          <p className="text-sm font-roboto text-stone-400 text-center py-10">No templates match your search.</p>
         )}
         {grouped.map((group) => (
           <div key={group.key}>
@@ -74,8 +75,8 @@ export default function EmailTemplateList({
                 return (
                   <div
                     key={tpl.id}
-                    className={`group flex items-center gap-2 rounded-lg border px-2.5 py-2 transition-colors ${
-                      isActive ? 'border-[#1B4332]/30 bg-[#1B4332]/5' : 'border-transparent hover:bg-stone-50'
+                    className={`group flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+                      isActive ? 'border-[#1B4332]/30 bg-[#1B4332]/5' : 'border-stone-100 bg-white hover:bg-stone-50'
                     }`}
                   >
                     <button
@@ -83,21 +84,17 @@ export default function EmailTemplateList({
                       onClick={() => onSelect(tpl.key)}
                       className="flex-1 min-w-0 text-left cursor-pointer"
                     >
-                      <p className={`text-[13px] font-roboto font-medium truncate ${isActive ? 'text-[#1B4332]' : 'text-stone-700'}`}>
+                      <p className={`text-sm font-roboto font-medium truncate ${isActive ? 'text-[#1B4332]' : 'text-stone-700'}`}>
                         {tpl.name}
                       </p>
-                      <p className="text-[11px] font-roboto text-stone-400 truncate">{tpl.subject || 'No subject'}</p>
+                      <p className="text-xs font-roboto text-stone-400 truncate">{tpl.subject || 'No subject'}</p>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => onToggleActive(tpl)}
+                    <span
                       title={tpl.is_active ? 'Active — click to disable' : 'Inactive — click to enable'}
-                      className={`shrink-0 w-5 h-5 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
-                        tpl.is_active ? 'text-[#1B4332]' : 'text-stone-300'
-                      }`}
+                      className="shrink-0 flex items-center"
                     >
-                      <i className={tpl.is_active ? 'ri-toggle-fill text-lg' : 'ri-toggle-line text-lg'}></i>
-                    </button>
+                      <ToggleSwitch value={tpl.is_active} onChange={() => onToggleActive(tpl)} />
+                    </span>
                   </div>
                 );
               })}
