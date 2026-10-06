@@ -24,6 +24,37 @@ serve(async (req: Request) => {
       }
     );
 
+    // SECURITY: the caller must be an authenticated admin. Without this check
+    // anyone who learns the URL could POST {role:"super_admin"} and mint an
+    // administrator, since this function runs with the service-role key.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user: caller }, error: callerError } = await supabaseAdmin.auth.getUser(token);
+    if (callerError || !caller) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, status")
+      .eq("user_id", caller.id)
+      .maybeSingle();
+    const callerRole = callerProfile?.role;
+    if (callerProfile?.status === "suspended" || (callerRole !== "admin" && callerRole !== "super_admin")) {
+      return new Response(JSON.stringify({ error: "Forbidden: administrator privileges required" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { email, name, role, title, phone, bio, photo_url } = await req.json();
 
     if (!email) {
@@ -35,6 +66,18 @@ serve(async (req: Request) => {
 
     const displayName = name || email.split("@")[0];
     const userRole = role || "agent";
+
+    // SECURITY: never trust the requested role blindly. An admin may create
+    // agents/editors; only a super_admin may create another admin/super_admin.
+    const grantable = callerRole === "super_admin"
+      ? ["agent", "editor", "admin", "super_admin"]
+      : ["agent", "editor"];
+    if (!grantable.includes(userRole)) {
+      return new Response(JSON.stringify({ error: `You are not permitted to grant the '${userRole}' role.` }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Step 1: Create auth user with email auto-confirmed
     const tempPassword = crypto.randomUUID().substring(0, 16) + "Aa1!";

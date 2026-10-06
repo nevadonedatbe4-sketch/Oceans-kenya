@@ -11,6 +11,8 @@
  * The template controls presentation; the authored HTML controls content.
  */
 
+import { sanitizeRichHtml } from '@/lib/richText';
+
 export interface ArticleHeading {
   id: string;
   text: string;
@@ -32,8 +34,16 @@ function slugifyHeading(text: string): string {
 }
 
 export function buildArticle(rawHtml: string | null | undefined): BuiltArticle {
-  const html = rawHtml || '';
-  if (!html || typeof window === 'undefined') return { html, headings: [] };
+  const raw = rawHtml || '';
+  // The article body is rendered via dangerouslySetInnerHTML downstream, so it
+  // must never reach the DOM unsanitised. Strip scripts, event handlers and
+  // unsafe URLs here with the same allow-list sanitiser used for listing
+  // descriptions. Without a DOM (no window) we cannot sanitise, so render
+  // nothing rather than risk raw HTML — this is a client-only SPA, so that
+  // branch is not hit at runtime.
+  if (!raw || typeof window === 'undefined') return { html: '', headings: [] };
+  const html = sanitizeRichHtml(raw);
+  if (!html) return { html: '', headings: [] };
 
   try {
     const doc = new DOMParser().parseFromString(
