@@ -10,6 +10,7 @@ import { useBrandTheme } from "./hooks/useBrandTheme";
 import { useCardTheme } from "./hooks/useCardTheme";
 import { useTypography } from "./hooks/useTypography";
 import PageLoader from "./components/feature/PageLoader";
+import { installRoutePrefetch } from "./router/prefetch";
 import { ChatNotificationCenter } from "./pages/agent/ogroup/components/ChatNotificationCenter";
 import { QuickSetProvider } from "./pages/agent/ogroup/QuickSetProvider";
 
@@ -24,6 +25,13 @@ function ScrollToTop() {
 // No Supabase recovery-hash redirect is needed: password resets go through
 // the secure token-based flow (single-use, hashed, expiring) using the
 // /reset-password page, not the legacy recovery link.
+
+// Warms a route's chunk on link hover/focus so the on-demand load usually
+// finishes before the click lands.
+function RoutePrefetch() {
+  useEffect(() => installRoutePrefetch(__BASE_PATH__), []);
+  return null;
+}
 
 function RouteFallback() {
   return (
@@ -44,6 +52,7 @@ function ThemedApp() {
   return (
     <BrowserRouter basename={__BASE_PATH__}>
       <ScrollToTop />
+      <RoutePrefetch />
       <ChatNotificationCenter />
       <QuickSetProvider>
         <Suspense fallback={<RouteFallback />}>
