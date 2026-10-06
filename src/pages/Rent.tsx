@@ -18,6 +18,7 @@ import CommuteMap from '@/components/feature/CommuteMap';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, ListingFilters, type MappedListing } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from './Rent/components/AdvancedFilters';
+import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
 import { geocodeLocation } from '@/lib/geocode';
 import { radiusLabelToMeters } from '@/lib/distance';
 import { withReturnFrom } from '@/lib/navigation';
@@ -219,8 +220,9 @@ export default function Rent() {
     else if (selectedBeds === '3+') { filters.bedsMin = 3; }
     else if (selectedBeds === '4+') { filters.bedsMin = 4; }
     else if (selectedBeds === '5+') { filters.bedsMin = 5; }
-    return filters;
-  }, [appliedSearchQuery, appliedFilters.advanced.keywords, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
+    // Advanced Filters panel (types, baths, size, must-haves, furnishing).
+    return { ...filters, ...advancedToFilters(appliedFilters.advanced) };
+  }, [appliedSearchQuery, appliedFilters.advanced, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
 
   const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
 

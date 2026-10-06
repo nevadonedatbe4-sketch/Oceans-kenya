@@ -18,6 +18,7 @@ import CommuteMap from '@/components/feature/CommuteMap';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, type MappedListing, type ListingFilters } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
+import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
 import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
 import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
@@ -212,7 +213,8 @@ export default function Buy() {
     else if (selectedBeds === '3+') { filters.bedsMin = 3; }
     else if (selectedBeds === '4+') { filters.bedsMin = 4; }
     else if (selectedBeds === '5+') { filters.bedsMin = 5; }
-    return filters;
+    // Advanced Filters panel (types, baths, size, must-haves, furnishing).
+    return { ...filters, ...advancedToFilters(advancedFilters) };
   };
 
   const { listings, totalCount, loading, error, refetch } = useListings(buildFilters(), currentPage);

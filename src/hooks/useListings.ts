@@ -159,6 +159,9 @@ export interface ListingFilters {
   // Size filters (sqft in DB, but filter by sqm)
   sqmMin?: number;
   sqmMax?: number;
+  // Bathroom range (advanced filter).
+  bathsMin?: number;
+  bathsMax?: number;
   // Amenities filter - additive constraint on the listings.amenities array
   // (e.g. ['Furnished'], ['Serviced'], ['Luxury']). Used by SEO landing pages.
   amenitiesFilter?: string[];
@@ -697,6 +700,10 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       if (filters.sqmMin !== undefined && filters.sqmMin > 0) query = query.gte('sqft', filters.sqmMin * 10.764);
       if (filters.sqmMax !== undefined && filters.sqmMax > 0) query = query.lte('sqft', filters.sqmMax * 10.764);
 
+      // Bathrooms (advanced range)
+      if (filters.bathsMin !== undefined && filters.bathsMin > 0) query = query.gte('bathrooms', filters.bathsMin);
+      if (filters.bathsMax !== undefined && filters.bathsMax > 0) query = query.lte('bathrooms', filters.bathsMax);
+
       // Added since
       if (filters.addedSince && filters.addedSince !== 'Anytime') {
         const now = new Date();
@@ -758,7 +765,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
 
   useEffect(() => {
     fetchListings();
