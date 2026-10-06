@@ -18,7 +18,7 @@ import CommuteMap from '@/components/feature/CommuteMap';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, ListingFilters, type MappedListing } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from './Rent/components/AdvancedFilters';
-import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
+import { advancedToFilters, splitKeywords } from '@/pages/Rent/components/advancedToFilters';
 import { geocodeLocation } from '@/lib/geocode';
 import { radiusLabelToMeters } from '@/lib/distance';
 import { withReturnFrom } from '@/lib/navigation';
@@ -196,7 +196,7 @@ export default function Rent() {
   const buildFilters = useCallback((): ListingFilters => {
     // Fold the advanced "keywords" box into the free-text search so it filters
     // results (matches CommercialProperty's behaviour).
-    const combinedSearch = [appliedSearchQuery, appliedFilters.advanced.keywords].filter(Boolean).join(' ').trim();
+    const combinedSearch = [appliedSearchQuery, splitKeywords(appliedFilters.advanced.keywords).include].filter(Boolean).join(' ').trim();
     const filters: ListingFilters = {
       purpose: 'rent',
       search: combinedSearch,

@@ -20,16 +20,37 @@ const parseIntOrUndef = (v: string): number | undefined => {
 // canonical amenities admins pick from in the listing editor, with synonyms so
 // a near-miss still matches. Groups are AND-combined by useListings, which is
 // the correct meaning of "must have".
+// Synonyms reflect the amenity strings actually stored on listings (verified
+// against live data), not just the canonical editor list, so a "must have"
+// matches real records. Groups are OR-within / AND-across in useListings.
 const MUST_HAVE_GROUPS: Record<string, string[]> = {
-  'Garden': ['Garden / Yard', 'Garden'],
-  'Parking/garage': ['Parking'],
-  'Balcony/terrace': ['Balcony', 'Rooftop Access'],
+  'Garden': ['Mature Gardens', 'Garden / Yard', 'Garden'],
+  'Parking/garage': ['Parking', 'Underground Parking', 'Visitor Parking'],
+  'Balcony/terrace': ['Large Balcony', 'Balcony', 'Rooftop Terrace', 'Rooftop Access'],
   'Pets allowed': ['Pet Friendly'],
   'Bills included': ['Serviced'],
-  'Swimming pool': ['Swimming Pool'],
+  'Swimming pool': ['Swimming Pool', 'Swimming pool'],
   'Gym': ['Gym'],
-  'Power backup': ['Backup Power / Generator', 'Solar Power'],
+  'Power backup': ['Backup Power / Generator', 'Backup power', 'Solar Power'],
 };
+
+/**
+ * Split a keywords string into positive include text and -excluded terms.
+ * "sea view -studio -\"ground floor\"" -> { include: "sea view",
+ *   exclude: ["studio", "ground floor"] }. Quoted phrases are honoured.
+ */
+export function splitKeywords(raw: string): { include: string; exclude: string[] } {
+  const tokens = (raw || '').match(/-?"[^"]+"|-?\S+/g) || [];
+  const include: string[] = [];
+  const exclude: string[] = [];
+  for (const tok of tokens) {
+    const neg = tok.startsWith('-');
+    const body = (neg ? tok.slice(1) : tok).replace(/^"|"$/g, '').trim();
+    if (!body) continue;
+    (neg ? exclude : include).push(body);
+  }
+  return { include: include.join(' '), exclude };
+}
 
 /**
  * Translate the advanced-filter panel state into the subset of ListingFilters
@@ -76,6 +97,14 @@ export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
   }
   if ((a.furnished || []).includes('Furnished')) groups.push(['Furnished']);
   if (groups.length > 0) out.amenitiesGroups = groups;
+
+  // Excluded keywords: the -terms inside the keywords box, plus anything in the
+  // dedicated keywordsExclude field.
+  const exclude = [
+    ...splitKeywords(a.keywords || '').exclude,
+    ...((a.keywordsExclude || '').split(/\s+/).map((t) => t.trim()).filter(Boolean)),
+  ];
+  if (exclude.length > 0) out.excludeTerms = exclude;
 
   return out;
 }

@@ -162,6 +162,9 @@ export interface ListingFilters {
   // Bathroom range (advanced filter).
   bathsMin?: number;
   bathsMax?: number;
+  // Terms to EXCLUDE (from the keywords box, entered as -term). A listing is
+  // dropped when any excluded term appears in its title or description.
+  excludeTerms?: string[];
   // Amenities filter - additive constraint on the listings.amenities array
   // (e.g. ['Furnished'], ['Serviced'], ['Luxury']). Used by SEO landing pages.
   amenitiesFilter?: string[];
@@ -704,6 +707,17 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       if (filters.bathsMin !== undefined && filters.bathsMin > 0) query = query.gte('bathrooms', filters.bathsMin);
       if (filters.bathsMax !== undefined && filters.bathsMax > 0) query = query.lte('bathrooms', filters.bathsMax);
 
+      // Excluded keywords (-term): drop a listing when the term is in its title
+      // or description. Each term adds two AND-ed NOTs, so a row survives only
+      // when it matches neither field.
+      if (filters.excludeTerms && filters.excludeTerms.length > 0) {
+        for (const term of filters.excludeTerms) {
+          const t = term.replace(/[%,()]/g, '').trim();
+          if (!t) continue;
+          query = query.not('title', 'ilike', `%${t}%`).not('description', 'ilike', `%${t}%`);
+        }
+      }
+
       // Added since
       if (filters.addedSince && filters.addedSince !== 'Anytime') {
         const now = new Date();
@@ -765,7 +779,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, filters.excludeTerms, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
 
   useEffect(() => {
     fetchListings();
