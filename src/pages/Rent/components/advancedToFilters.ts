@@ -7,9 +7,8 @@ import type { FilterState } from './AdvancedFilters';
 // affected results (property types, baths, size, must-have features,
 // furnishing). Keywords are handled separately (folded into the search term).
 //
-// Only fields backed by a real UI control and a real DB column/value are
-// mapped. lettingType and the boolean toggles have no control in the current
-// panel, and keywordsExclude has no column, so they are intentionally skipped.
+// Every field here is backed by a real control and real data. Exclusion is
+// handled via -terms in the keywords box (splitKeywords).
 
 const parseIntOrUndef = (v: string): number | undefined => {
   const n = parseInt(v, 10);
@@ -32,6 +31,7 @@ const MUST_HAVE_GROUPS: Record<string, string[]> = {
   'Swimming pool': ['Swimming Pool', 'Swimming pool'],
   'Gym': ['Gym'],
   'Power backup': ['Backup Power / Generator', 'Backup power', 'Solar Power'],
+  'Wheelchair access': ['Wheelchair Accessible', 'Wheelchair Access'],
 };
 
 /**
@@ -98,12 +98,8 @@ export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
   if ((a.furnished || []).includes('Furnished')) groups.push(['Furnished']);
   if (groups.length > 0) out.amenitiesGroups = groups;
 
-  // Excluded keywords: the -terms inside the keywords box, plus anything in the
-  // dedicated keywordsExclude field.
-  const exclude = [
-    ...splitKeywords(a.keywords || '').exclude,
-    ...((a.keywordsExclude || '').split(/\s+/).map((t) => t.trim()).filter(Boolean)),
-  ];
+  // Excluded keywords: the -terms typed in the keywords box.
+  const exclude = splitKeywords(a.keywords || '').exclude;
   if (exclude.length > 0) out.excludeTerms = exclude;
 
   return out;

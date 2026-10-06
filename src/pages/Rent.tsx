@@ -308,14 +308,12 @@ export default function Rent() {
     appliedFilters.advanced.maxPrice !== '' ||
     appliedFilters.advanced.propertyTypes.length > 0 ||
     appliedFilters.advanced.furnished.length > 0 ||
-    appliedFilters.advanced.lettingType.length > 0 ||
     appliedFilters.advanced.minBeds !== '' ||
     appliedFilters.advanced.maxBeds !== '' ||
     appliedFilters.advanced.minBaths !== '' ||
     appliedFilters.advanced.minSize !== '' ||
     appliedFilters.advanced.maxSize !== '' ||
-    appliedFilters.advanced.keywords !== '' ||
-    appliedFilters.advanced.keywordsExclude !== '';
+    appliedFilters.advanced.keywords !== '';
 
   // Reset pagination when quick filters change (skipping the first mount so a
   // page restored from the URL survives).

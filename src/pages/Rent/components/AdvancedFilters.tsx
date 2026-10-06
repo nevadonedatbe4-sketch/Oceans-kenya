@@ -19,22 +19,11 @@ export interface FilterState {
   minBaths: string;
   propertyTypes: string[];
   furnished: string[];
-  lettingType: string[];
   minSize: string;
   maxSize: string;
   keywords: string;
   added: string;
   mustHaves: string[];
-  keywordsExclude: string;
-  pets: boolean;
-  students: boolean;
-  billsIncluded: boolean;
-  parking: boolean;
-  garden: boolean;
-  balcony: boolean;
-  wheelchair: boolean;
-  chainFree: boolean;
-  sharedAccommodation: boolean;
 }
 
 export const defaultFilters: FilterState = {
@@ -45,26 +34,17 @@ export const defaultFilters: FilterState = {
   minBaths: '',
   propertyTypes: [],
   furnished: [],
-  lettingType: [],
   minSize: '',
   maxSize: '',
   keywords: '',
   added: '',
   mustHaves: [],
-  keywordsExclude: '',
-  pets: false,
-  students: false,
-  billsIncluded: false,
-  parking: false,
-  garden: false,
-  balcony: false,
-  wheelchair: false,
-  chainFree: false,
-  sharedAccommodation: false,
 };
 
 const propertyTypeList = ['Apartment', 'House', 'Villa', 'Penthouse', 'Townhouse', 'Studio', 'Land', 'Commercial'];
-const mustHavesList = ['Garden', 'Parking/garage', 'Balcony/terrace', 'Pets allowed', 'Bills included', 'Swimming pool', 'Gym', 'Power backup'];
+// "Wheelchair access" is a must-have checkbox (backed by real amenity data);
+// it maps to the Wheelchair Accessible / Wheelchair Access amenities.
+const mustHavesList = ['Garden', 'Parking/garage', 'Balcony/terrace', 'Pets allowed', 'Bills included', 'Swimming pool', 'Gym', 'Power backup', 'Wheelchair access'];
 const propertyFeaturesList = ['New', 'Period property', 'Cottage', 'Modern', 'Utility room', 'Basement', 'Conservatory', 'Home office', 'En-suite', 'Bathtub', 'Patio', 'Kitchen island'];
 const furnishingOptions = ['Any', 'Furnished', 'Part-furnished', 'Unfurnished'];
 const availabilityOptions = ['Show all', 'Immediately', 'Within 1 month', 'Within 3 months', 'Within 6 months', 'Within 1 year'];
