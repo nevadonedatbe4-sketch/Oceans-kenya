@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 /**
  * Locks body scroll while `locked` is true (used by drawers, modals,
  * bottom sheets, and the mobile nav). Compensates for the scrollbar so

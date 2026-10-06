@@ -39,7 +39,7 @@ export async function persistImageColumns(
   if (readError) return { ok: false, error: readError.message };
   if (!data) return { ok: false, error: 'The change could not be verified - record not found.' };
 
-  const row = data as Record<string, unknown>;
+  const row = data as unknown as Record<string, unknown>;
   const mismatch = columns.some((column) => {
     const saved = row[column] ?? null;
     const wanted = patch[column] ?? null;

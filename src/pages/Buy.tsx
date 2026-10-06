@@ -327,6 +327,16 @@ export default function Buy() {
       baths: 0,
       parking: 0,
       receptions: 0,
+
+      propertyType: '',
+
+      landSize: 0,
+
+      acreage: 0,
+
+      isLand: false,
+
+      isJointVenture: false,
       sqft: 0,
       sqm: 0,
       price: '',
@@ -383,6 +393,16 @@ export default function Buy() {
                   baths: Number(row.bathrooms ?? 0),
                   parking: Number(row.parking ?? 0),
                   receptions: 0,
+
+                  propertyType: '',
+
+                  landSize: 0,
+
+                  acreage: 0,
+
+                  isLand: false,
+
+                  isJointVenture: false,
                   sqft: 0,
                   sqm: 0,
                   price: '',
@@ -401,8 +421,7 @@ export default function Buy() {
                 }));
                 setRecentlyViewed(mapped);
               }
-            })
-            .catch(() => {});
+            }, () => {});
         }
       }
     } catch { /* ignore */ }

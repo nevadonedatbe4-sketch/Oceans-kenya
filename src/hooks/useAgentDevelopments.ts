@@ -80,7 +80,7 @@ export function useAgentDevelopments(): UseAgentDevelopmentsReturn {
 
       if (dbError) throw dbError;
 
-      const rows: AgentDevelopmentRow[] = (data || []).map((r: Record<string, unknown>) => ({
+      const rows: AgentDevelopmentRow[] = ((data || []) as unknown as Record<string, unknown>[]).map((r) => ({
         id: String(r.id),
         title: String(r.title || ''),
         slug: String(r.slug || ''),

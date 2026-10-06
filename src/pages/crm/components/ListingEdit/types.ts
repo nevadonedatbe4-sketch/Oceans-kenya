@@ -258,6 +258,7 @@ export const getAmenities = (propertyType: string) => {
 };
 
 export const PURPOSES = ['sale', 'rent', 'joint_ventures', 'new_development', 'short_stay', 'sold', 'rented'] as const;
+export type ListingPurpose = typeof PURPOSES[number];
 
 export const PURPOSE_LABELS: Record<string, string> = {
   sale: 'For Sale',

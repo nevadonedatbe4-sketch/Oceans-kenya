@@ -359,7 +359,7 @@ export function SharePickerModal({ onShare, onClose }: SharePickerProps) {
     }
   };
 
-  useEffect(() => { if (q.trim().length >= 2) runSearch(); else setResults([]); /* eslint-disable-next-line */ }, [type]);
+  useEffect(() => { if (q.trim().length >= 2) runSearch(); else setResults([]);   }, [type]);
 
   return (
     <ModalShell title="Share from CRM" onClose={onClose}>

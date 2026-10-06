@@ -20,6 +20,9 @@ interface ExchangeRates {
   UGX: number;
   AED: number;
   ZAR: number;
+  // Index signature so the whole rates object can be passed to helpers typed
+  // as Record<string, number> (e.g. the per-page fmtPriceKes formatters).
+  [currency: string]: number;
 }
 
 interface CurrencyContextType {

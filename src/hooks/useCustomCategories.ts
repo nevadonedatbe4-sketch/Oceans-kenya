@@ -64,10 +64,9 @@ function loadSettings(): Promise<Record<string, string>> {
   }
   if (inflight) return inflight;
 
-  inflight = supabase
-    .from('site_settings')
-    .select('key, value')
-    .like('key', `${PREFIX}%`)
+  inflight = Promise.resolve(
+    supabase.from('site_settings').select('key, value').like('key', `${PREFIX}%`)
+  )
     .then(({ data }) => {
       cache = {};
       (data as CustomRow[] | null)?.forEach((r) => {

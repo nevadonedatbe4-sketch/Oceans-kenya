@@ -145,7 +145,7 @@ export function resolvePropertyTypeKey(
   input?: string | PropertyTypeInput | null,
 ): PropertyTypeKey {
   const obj: PropertyTypeInput =
-    typeof input === 'string' || input == null ? { propertyType: input ?? undefined } : input;
+    (typeof input === 'string' || input == null ? { propertyType: input ?? undefined } : input) as PropertyTypeInput;
 
   const t = norm(obj.propertyType);
   const cat = norm(obj.propertyCategory);

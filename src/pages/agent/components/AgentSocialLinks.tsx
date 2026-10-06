@@ -37,7 +37,7 @@ export default function AgentSocialLinks({ agentId }: AgentSocialLinksProps) {
       next[f.key] = (agentProfile as any)[f.key] || '';
     }
     setValues(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [agentProfile, loading]);
 
   const handleSave = async () => {

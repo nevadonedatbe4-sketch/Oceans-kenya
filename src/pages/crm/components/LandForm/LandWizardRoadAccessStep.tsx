@@ -23,6 +23,7 @@ export default function LandWizardRoadAccessStep({ state, update }: Props) {
           </Field>
           <Field label="Road frontage">
             <MultiSelectCheckbox
+              label=""
               options={ROAD_FRONTAGE_OPTIONS}
               value={state.roadFrontage}
               onChange={(v) => update({ roadFrontage: v })}

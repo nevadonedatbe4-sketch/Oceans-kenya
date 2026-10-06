@@ -72,7 +72,7 @@ async function tidyTextColumn(target: TextTarget): Promise<TidyFieldResult> {
       result.error = error.message;
       return result;
     }
-    const rows = (data || []) as Record<string, unknown>[];
+    const rows = (data || []) as unknown as Record<string, unknown>[];
     result.scanned = rows.length;
 
     let updated = 0;
@@ -148,7 +148,7 @@ export async function tidyAllNames(): Promise<TidyReport> {
   const fields: TidyFieldResult[] = [];
   for (const target of TEXT_TARGETS) {
     // Sequential on purpose: keeps the load on the database predictable.
-    // eslint-disable-next-line no-await-in-loop
+     
     fields.push(await tidyTextColumn(target));
   }
   fields.push(await tidySubcategoryLabels());

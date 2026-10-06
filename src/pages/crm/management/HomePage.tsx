@@ -62,7 +62,7 @@ export default function HomePageCMS() {
           return;
         }
         if (!(field in map)) return;
-        if (typeof (map as Record<string, unknown>)[field] === 'boolean') (map as unknown as Record<string, unknown>)[field] = r.value === 'true';
+        if (typeof (map as unknown as Record<string, unknown>)[field] === 'boolean') (map as unknown as Record<string, unknown>)[field] = r.value === 'true';
         else (map as unknown as Record<string, unknown>)[field] = r.value;
       });
     }

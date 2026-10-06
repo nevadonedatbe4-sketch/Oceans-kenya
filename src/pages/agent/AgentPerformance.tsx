@@ -164,7 +164,7 @@ export default function AgentPerformance() {
         ) : (
           <div className="space-y-3">
             {data.topListings.map((p) => (
-              <BarRow key={p.id} label={p.title} count={p.views} value={(p.views / maxBar(data.topListings)) * 100} color="#088135" />
+              <BarRow key={p.id} label={p.title} count={p.views} value={(p.views / maxBar(data.topListings.map((t) => ({ count: t.views })))) * 100} color="#088135" />
             ))}
           </div>
         )}

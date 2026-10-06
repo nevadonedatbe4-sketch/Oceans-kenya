@@ -1482,7 +1482,6 @@ export default function ListingEdit() {
                   requiredFieldMap={requiredFieldMap}
                   validationErrors={validationErrors}
                   description={description}
-                  agentIds={agentIds}
                   sourceSummary={ownerName
                     ? `${ownerName}${sourceContactId ? ' · Linked Contact' : ''}`
                     : 'Not set'}

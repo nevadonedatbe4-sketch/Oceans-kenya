@@ -46,10 +46,11 @@ export const PUBLIC_AMENITY_PAGE_SIZE = 1000;
  * `.order()` / `.range()` / `.maybeSingle()` can still be chained.
  */
 export function applyPublicAmenityVisibility<T>(query: T): T {
-  const q = query as unknown as {
-    eq: (column: string, value: boolean) => unknown;
-    is: (column: string, value: null) => unknown;
+  type Chain = {
+    eq: (column: string, value: boolean) => Chain;
+    is: (column: string, value: null) => Chain;
   };
+  const q = query as unknown as Chain;
   return q
     .eq('is_published', true)
     .is('deleted_at', null)

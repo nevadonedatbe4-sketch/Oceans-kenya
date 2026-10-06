@@ -37,6 +37,7 @@ export interface BlogPost {
   featured_image: string | null;
   excerpt: string | null;
   published_at: string | null;
+  readTime?: string | null;
 }
 
 export interface NeighbourhoodStats {

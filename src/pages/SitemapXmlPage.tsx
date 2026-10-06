@@ -18,13 +18,19 @@ export default function SitemapXmlPage() {
     let mounted = true;
     (async () => {
       try {
-        const res = await supabase.functions.invoke('sitemap');
-        const text = await res.text();
+        // functions.invoke returns { data, error }, not a fetch Response.
+        // The sitemap function returns XML; data arrives as a string or Blob.
+        const { data, error: fnError } = await supabase.functions.invoke('sitemap');
         if (!mounted) return;
-        if (res.ok) {
-          setXml(text);
+        if (fnError) {
+          setError(`Sitemap request failed: ${fnError.message}`);
         } else {
-          setError(`Sitemap returned HTTP ${res.status}`);
+          const text = typeof data === 'string'
+            ? data
+            : data instanceof Blob
+              ? await data.text()
+              : String(data ?? '');
+          setXml(text);
         }
       } catch (e: unknown) {
         if (!mounted) return;

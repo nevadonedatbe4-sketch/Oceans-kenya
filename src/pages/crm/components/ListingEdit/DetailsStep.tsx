@@ -292,7 +292,7 @@ interface Props {
   furnishedStatus: string;
   setFurnishedStatus: (v: string) => void;
   includedItems: string[];
-  setIncludedItems: (v: string[]) => void;
+  setIncludedItems: React.Dispatch<React.SetStateAction<string[]>>;
   featureCheckboxes: Record<string, boolean>;
   setFeatureCheckboxes: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   utilityCheckboxes: Record<string, boolean>;

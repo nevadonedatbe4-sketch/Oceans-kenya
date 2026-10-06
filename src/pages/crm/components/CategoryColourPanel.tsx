@@ -22,7 +22,7 @@ interface CategoryColourPanelProps {
 export default function CategoryColourPanel({ categories, onChanged, onClose }: CategoryColourPanelProps) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>();
+  const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Apply each persisted category colour to its CSS variable on mount.
   useEffect(() => {

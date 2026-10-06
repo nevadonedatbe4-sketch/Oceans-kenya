@@ -50,7 +50,7 @@ export function useNewDevelopments() {
         return;
       }
 
-      const rows = (data || []) as ListingRow[];
+      const rows = (data || []) as unknown as ListingRow[];
       const groups = groupRowsByProject(rows);
 
       const mapped: Development[] = Array.from(groups.values()).map((groupRows) =>

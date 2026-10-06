@@ -30,7 +30,7 @@ import { normalizeEcoBlocks, type EcoBlock } from '@/lib/ecosystemBlocks';
 import { useGuideVenues } from '@/hooks/useGuideVenues';
 import { useGuidePlaces } from '@/hooks/useGuidePlaces';
 import { useCuratedPlaces } from '@/hooks/useCuratedPlaces';
-import { toGuidePlace, groupPlacesByTheme } from '@/lib/guidePlaces';
+import { toGuidePlace, groupPlacesByTheme, type GuidePlace } from '@/lib/guidePlaces';
 import {
   resolveMicroGuideConfig,
   filterMicroGuidePlaces,
@@ -249,7 +249,7 @@ export default function BlogDetail() {
   const { places: guidePlaceRows } = useGuidePlaces();
   const guidePlaces = useMemo(() => guidePlaceRows.map(toGuidePlace), [guidePlaceRows]);
   const scopedPlaces = useMemo(
-    () => scopeVenuesToAreas(guidePlaces, areaNames),
+    () => scopeVenuesToAreas(guidePlaces, areaNames) as GuidePlace[],
     [guidePlaces, areaNames],
   );
   const themePlaceGroups = useMemo(() => groupPlacesByTheme(scopedPlaces), [scopedPlaces]);

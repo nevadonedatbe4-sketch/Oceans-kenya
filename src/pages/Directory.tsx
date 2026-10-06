@@ -51,8 +51,7 @@ export default function Directory() {
           });
           setCategoryColors(overrides);
         }
-      })
-      .catch(() => {});
+      }, () => {});
   }, []);
 
   const categoryCounts = useMemo(() => {

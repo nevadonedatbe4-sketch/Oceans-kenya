@@ -117,8 +117,7 @@ export default function PlaceDetail() {
           });
           setCategoryColors(overrides);
         }
-      })
-      .catch(() => {});
+      }, () => {});
   }, []);
 
   // Close share popover on outside click

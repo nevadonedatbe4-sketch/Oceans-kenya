@@ -90,7 +90,7 @@ export default function LandWizardPriceStep({ state, update }: Props) {
                 <input value={state.installmentPeriod} onChange={(e) => update({ installmentPeriod: e.target.value })} placeholder="e.g. 36 months" className={inputCls} />
               </Field>
               <Field label="Payment frequency">
-                <SelectField value={state.installmentFrequency} onChange={(v) => update({ installmentFrequency: v })} options={INSTALLMENT_FREQUENCY_OPTIONS.filter((o) => o.value !== '')} placeholder="Frequency" />
+                <SelectField value={state.installmentFrequency} onChange={(v) => update({ installmentFrequency: v })} options={INSTALLMENT_FREQUENCY_OPTIONS.map((o) => ({ value: o, label: o }))} placeholder="Frequency" />
               </Field>
               <Field label="Balance terms">
                 <input value={state.balanceTerms} onChange={(e) => update({ balanceTerms: e.target.value })} placeholder="e.g. Balance upon transfer of title" className={inputCls} />

@@ -283,9 +283,9 @@ export default function LegalPage({ pageKey }: LegalPageProps) {
       <div className="min-h-screen bg-white">
         <Header />
         <main className="pt-36 pb-24 px-4 md:px-6 text-center">
-          <h1 className="font-roboto font-bold text-3xl text-primary mb-4">{c.notfound_title}</h1>
+          <h1 className="font-roboto font-bold text-3xl text-primary mb-4">{String(c.notfound_title)}</h1>
           <Link to="/" className="text-primary underline cursor-pointer">
-            {c.notfound_link}
+            {String(c.notfound_link)}
           </Link>
         </main>
         <Footer />
@@ -338,13 +338,13 @@ export default function LegalPage({ pageKey }: LegalPageProps) {
 
           <div className="mt-12 bg-[#F7F9F9] rounded-lg p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="font-roboto text-primary text-sm">
-              {c.contact_prompt}
+              {String(c.contact_prompt)}
             </p>
             <Link
               to="/contact"
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white text-sm font-roboto font-semibold uppercase hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
             >
-              <i className="ri-chat-3-line"></i> {c.contact_button}
+              <i className="ri-chat-3-line"></i> {String(c.contact_button)}
             </Link>
           </div>
         </div>

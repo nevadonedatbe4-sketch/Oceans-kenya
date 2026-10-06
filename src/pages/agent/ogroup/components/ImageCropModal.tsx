@@ -57,7 +57,7 @@ export function ImageCropModal({ file, busy, onCancel, onConfirm }: ImageCropMod
       x: Math.max(-geom.maxX, Math.min(geom.maxX, o.x)),
       y: Math.max(-geom.maxY, Math.min(geom.maxY, o.y)),
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [geom.maxX, geom.maxY]);
 
   const onPointerDown = (e: React.PointerEvent) => {

@@ -32,6 +32,8 @@ export interface CategoryMeta {
   /** Default badge colour (hex). Can be overridden via site_settings. */
   color: string;
   description: string;
+  /** Optional DB override for the category's listing-page heading. */
+  view_category_label?: string | null;
 }
 
 export const AMENITY_CATEGORIES: CategoryMeta[] = [
@@ -748,6 +750,10 @@ export interface Amenity {
   review_count?: number | null;
   avg_rating?: number | null;
   sort_order: number;
+  /** FK to amenity_categories; present on rows read from the DB. */
+  category_id?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────

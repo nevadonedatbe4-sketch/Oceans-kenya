@@ -21,11 +21,11 @@ export function pushNotification(input: {
   contact_id?: string | null;
   deal_id?: string | null;
 }): Promise<void> {
-  return supabase
-    .from('notifications')
-    .insert({ ...input })
-    .then(() => undefined)
-    .catch(() => undefined); // Best-effort; never block the primary action.
+  // Postgrest builders are thenables, not Promises, so wrap to get a real
+  // Promise with .catch. Best-effort; never block the primary action.
+  return Promise.resolve(
+    supabase.from('notifications').insert({ ...input })
+  ).then(() => undefined, () => undefined);
 }
 
 export function useNotifications() {

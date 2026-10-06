@@ -58,8 +58,7 @@ export default function NightLifePage() {
           });
           setCategoryColors(overrides);
         }
-      })
-      .catch(() => {});
+      }, () => {});
   }, []);
 
   const accent = categoryColor(NIGHT_CATEGORY, categoryColors);

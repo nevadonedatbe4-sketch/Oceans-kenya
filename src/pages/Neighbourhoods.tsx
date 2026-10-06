@@ -1140,7 +1140,7 @@ export default function Neighbourhoods() {
                 onSearchChange={setSearchQuery}
                 filters={HOOD_FILTERS.map((f) => ({ key: f.key, label: f.label }))}
                 activeFilter={activeFilter}
-                onFilterChange={setActiveFilter}
+                onFilterChange={(k) => setActiveFilter(k as FilterKey)}
                 resultCount={filteredHoods.length}
                 totalCount={hoods.length}
                 searchPlaceholder={c.search_placeholder}

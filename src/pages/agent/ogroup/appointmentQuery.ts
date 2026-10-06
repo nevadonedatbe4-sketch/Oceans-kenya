@@ -15,7 +15,7 @@ function escapeLike(term: string): string {
  * builder type so it chains transparently for `.select()` results.
  */
 export function applyAppointmentFilters<T>(query: T, filters: CalendarFilters): T {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   let q: any = query;
 
   if (filters.agentId !== 'all') q = q.eq('assigned_user_id', filters.agentId);

@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { categoryColor, categoryRecordName, type AmenityCategoryRecord, type AmenityFolder } from '@/lib/amenities';
+import { categoryColor, categoryRecordName, type AmenityCategoryRecord } from '@/lib/amenities';
+import type { AmenityFolder } from '@/lib/directory';
 import CategoryIcon from '@/components/base/CategoryIcon';
 
 export type PlacesView =

@@ -492,7 +492,7 @@ export default function LandListingEdit() {
     switch (step) {
       case 0: return <LandWizardBasicsStep state={state} update={update} />;
       case 1: return <LandWizardPriceStep state={state} update={update} />;
-      case 2: return <LandWizardMediaStep state={state} update={update} images={images} setImages={setImages} documents={documents} setDocuments={setDocuments} />;
+      case 2: return <LandWizardMediaStep images={images} setImages={setImages} documents={documents} setDocuments={setDocuments} />;
       case 3: return <LandWizardDetailsStep state={state} update={update} />;
       case 4: return <LandWizardFeaturesMarketingStep state={state} update={update} />;
       case 5: return <LandWizardRoadAccessStep state={state} update={update} />;

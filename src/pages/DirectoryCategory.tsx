@@ -50,8 +50,7 @@ export default function DirectoryCategory() {
           });
           setCategoryColors(overrides);
         }
-      })
-      .catch(() => {});
+      }, () => {});
   }, []);
 
   useEffect(() => {

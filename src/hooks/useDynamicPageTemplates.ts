@@ -223,7 +223,10 @@ let seoInflight: Promise<SeoListingContent> | null = null;
 let pdCache: PropertyDetailContent | null = null;
 let pdInflight: Promise<PropertyDetailContent> | null = null;
 
-async function loadSimple<T extends Record<string, unknown>>(prefix: string, defaults: T, listKeys: string[]): Promise<T> {
+// T is not constrained to Record<string, unknown>: the content interfaces have
+// no index signature, so the constraint would reject them. Internal writes cast
+// through Record where needed.
+async function loadSimple<T extends object>(prefix: string, defaults: T, listKeys: string[]): Promise<T> {
   const map = JSON.parse(JSON.stringify(defaults)) as T;
   const { data } = await supabase.from('site_settings').select('key, value').ilike('key', `${prefix}%`);
   if (data) {

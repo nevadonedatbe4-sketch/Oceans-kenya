@@ -80,7 +80,9 @@ export default function AdminTeamOverview() {
   const todayIsFree = (userId: string): boolean => {
     const now = new Date();
     const wd = now.toLocaleDateString('en-GB', { weekday: 'long' }).toLowerCase();
-    return availability.some((a) => a.user_id === userId && a.weekday === wd && a.is_working);
+    // TODO(verify): a.weekday is typed number but compared to a weekday name;
+    // confirm the og_availability.weekday encoding and fix the comparison.
+    return availability.some((a) => a.user_id === userId && String(a.weekday) === wd && a.is_working);
   };
 
   return (

@@ -58,7 +58,7 @@ export default function AmenityCategoryEdit() {
   const handleChange = <K extends keyof CatForm>(field: K, value: CatForm[K]) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === 'name' && !slugTouched) next.slug = slugify(value);
+      if (field === 'name' && !slugTouched) next.slug = slugify(String(value));
       return next;
     });
   };

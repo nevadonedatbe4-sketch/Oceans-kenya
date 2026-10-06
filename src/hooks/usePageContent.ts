@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
  * defaults. Arrays and booleans are (de)serialised automatically.
  */
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
+ 
 
 const cache = new Map<string, Record<string, unknown>>();
 const inflight = new Map<string, Promise<Record<string, unknown>>>();

@@ -11,9 +11,10 @@ function fetchSettings(): Promise<Record<string, string>> {
     return Promise.resolve(cache);
   }
 
-  return supabase
-    .from('property_cards_style')
-    .select('key, value')
+  // Wrap the Postgrest thenable so the function returns a real Promise.
+  return Promise.resolve(
+    supabase.from('property_cards_style').select('key, value')
+  )
     .then(({ data }) => {
       cache = {};
       if (data) {

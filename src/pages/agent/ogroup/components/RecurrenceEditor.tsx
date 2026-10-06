@@ -57,7 +57,7 @@ export default function RecurrenceEditor({ value, onChange }: Props) {
         <select value={preset} onChange={(e) => apply({ preset: e.target.value as typeof preset })} className={INPUT}>
           {RECURRENCE_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
         </select>
-        {(preset === 'custom' || preset === 'daily' || preset === 'weekly' || preset === 'monthly') && preset !== 'none' && (
+        {(preset === 'custom' || preset === 'daily' || preset === 'weekly' || preset === 'monthly') && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-neutral-500 whitespace-nowrap">Every</span>
             <input type="number" min={1} max={12} value={interval} onChange={(e) => apply({ interval: Number(e.target.value) })} className={`${INPUT} w-16`} />

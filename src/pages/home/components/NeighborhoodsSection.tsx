@@ -68,7 +68,7 @@ export default function NeighborhoodsSection() {
             if (f === 'enabled') map.enabled = r.value === 'true';
             else if (f === 'tiles') {
               try { const parsed = JSON.parse(r.value); if (Array.isArray(parsed)) map.tiles = parsed; } catch { /* ignore */ }
-            } else if (f in map) (map as Record<string, unknown>)[f] = r.value;
+            } else if (f in map) (map as unknown as Record<string, unknown>)[f] = r.value;
           });
         }
         // Enrich tiles with each neighbourhood's real hero image so the section

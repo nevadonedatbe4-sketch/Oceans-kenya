@@ -75,7 +75,7 @@ export default function ImageEditor({ src, uploadPath, aspect = 16 / 9, title = 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [src]);
 
   // Reset edit state when a new source arrives
@@ -216,7 +216,7 @@ export default function ImageEditor({ src, uploadPath, aspect = 16 / 9, title = 
       await onSave(url);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Save failed';
-      // eslint-disable-next-line no-alert
+       
       window.alert(message);
     } finally {
       setSaving(false);

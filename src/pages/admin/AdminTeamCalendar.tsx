@@ -381,7 +381,7 @@ export default function AdminTeamCalendar() {
         onDuplicate={openDuplicate}
         onStatus={handleStatus}
         onOutcome={handleOutcome}
-        onRespond={respondToInvite}
+        onRespond={(a, r) => respondToInvite(a.id, r)}
       />
 
       {toast && (

@@ -10,7 +10,7 @@ interface Props { state: LandFormState; update: (p: Partial<LandFormState>) => v
 
 /* SEO — optional, collapsible panel. Details sit behind a clickable header,
    collapsed by default so the Review & Publish step stays lean. */
-function SeoPanel({ state, update }: Props) {
+function SeoPanel({ state, update }: { state: LandFormState; update: (p: Partial<LandFormState>) => void }) {
   const [open, setOpen] = useState(false);
 
   const customised = Boolean(state.seoTitle || state.seoDescription);

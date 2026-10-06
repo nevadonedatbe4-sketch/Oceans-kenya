@@ -87,7 +87,11 @@ export default function AgentApprovals() {
     );
 
     setPending(hydrated.filter((r) => r.status === 'pending'));
-    setDeletions(hydrated.filter((r) => ['deletion_requested', 'deletion_approved', 'deletion_rejected'].includes(r.status)));
+    setDeletions(
+      hydrated
+        .filter((r) => ['deletion_requested', 'deletion_approved', 'deletion_rejected'].includes(r.status))
+        .map((r) => ({ ...r, requested_at: r.created_at })),
+    );
     setLoading(false);
   }, []);
 

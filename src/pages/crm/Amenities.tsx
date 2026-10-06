@@ -1012,7 +1012,7 @@ export default function Amenities() {
         {paletteOpen && (
           <CategoryColourPanel
             categories={categories}
-            onChanged={() => fetchCategories()}
+            onChanged={() => { fetchCategories(); }}
             onClose={() => setPaletteOpen(false)}
           />
         )}

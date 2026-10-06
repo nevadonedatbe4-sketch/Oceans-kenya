@@ -16,7 +16,7 @@ const MINOR_WORDS = new Set([
 // This catches genuine ALL CAPS data while ignoring a stray lowercase
 // character (e.g. "DSQs") that would otherwise defeat a naive check.
 function isMostlyUpperCase(str: string): boolean {
-  const letters = str.match(/[A-Za-z]/g) || [];
+  const letters: string[] = str.match(/[A-Za-z]/g) || [];
   if (letters.length === 0) return false;
   const upperCount = letters.filter((c) => c >= 'A' && c <= 'Z').length;
   return upperCount / letters.length >= 0.7;
