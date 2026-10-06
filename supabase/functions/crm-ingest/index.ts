@@ -367,11 +367,18 @@ serve(async (req: Request) => {
       autoMap[r.key] = r.value || "";
     });
 
-    const autoEnabled = autoMap["auto_response_enabled"] === "true";
-    const autoMessage = (autoMap["auto_response_message"] || "").trim();
+    // Every submitter gets an acknowledgement. The admin-authored message
+    // (Email Management) is used when present; otherwise a sensible default so
+    // a confirmation always goes out. Disable only by explicitly setting
+    // auto_response_enabled to "false".
+    const autoDisabled = autoMap["auto_response_enabled"] === "false";
+    const DEFAULT_AUTO_MESSAGE =
+      "Thank you for getting in touch with Oceans. We've received your enquiry " +
+      "and a member of our team will get back to you shortly.";
+    const autoMessage = (autoMap["auto_response_message"] || "").trim() || DEFAULT_AUTO_MESSAGE;
     const autoSender = (autoMap["auto_response_sender_name"] || "Oceans Kenya").trim();
 
-    if (autoEnabled && autoMessage) {
+    if (!autoDisabled) {
       const autoBody = personalize(autoMessage, fullName, first_name);
 
       await supabaseAdmin.from("conversation_messages").insert({

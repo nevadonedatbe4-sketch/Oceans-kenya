@@ -64,8 +64,14 @@ grant execute on function public.auth_role(), public.is_staff(), public.is_admin
 --    including tables added by future exports. profiles is skipped here and
 --    handled in section 4.
 -- ----------------------------------------------------------------------------
+-- Tables that must be reachable ONLY by the service role (edge functions),
+-- never by any client — not even staff. They get RLS + FORCE but NO policy,
+-- so every anon/authenticated query is denied; the service-role key bypasses
+-- RLS and keeps the functions working. password_reset_tokens holds reset-token
+-- hashes; add other secret/token tables here as they appear.
 do $$
 declare r record;
+  service_only text[] := array['password_reset_tokens'];
 begin
   for r in
     select tablename from pg_tables
@@ -74,9 +80,11 @@ begin
     execute format('alter table public.%I enable row level security;', r.tablename);
     execute format('alter table public.%I force row level security;', r.tablename);
     execute format('drop policy if exists %I on public.%I;', 'staff all baseline', r.tablename);
-    execute format(
-      'create policy %I on public.%I for all to authenticated using (public.is_staff()) with check (public.is_staff());',
-      'staff all baseline', r.tablename);
+    if not (r.tablename = any(service_only)) then
+      execute format(
+        'create policy %I on public.%I for all to authenticated using (public.is_staff()) with check (public.is_staff());',
+        'staff all baseline', r.tablename);
+    end if;
   end loop;
 end $$;
 
