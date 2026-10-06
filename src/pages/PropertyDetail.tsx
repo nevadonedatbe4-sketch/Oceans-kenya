@@ -846,7 +846,7 @@ export default function PropertyDetail() {
   // Loading
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F5F5F5] pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-[#F5F5F5] pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="px-4 md:px-6 py-8 md:py-12 max-w-6xl mx-auto">
           <PageLoader size={56} text={pd.loading_text} />
@@ -860,7 +860,7 @@ export default function PropertyDetail() {
   // Error
   if (error) {
     return (
-      <div className="min-h-screen bg-[#F5F5F5] pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-[#F5F5F5] pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="pt-16 pb-20 px-6">
           <div className="max-w-6xl mx-auto text-center">
@@ -883,7 +883,7 @@ export default function PropertyDetail() {
   // Not found
   if (!listing) {
     return (
-      <div className="min-h-screen bg-[#F5F5F5] pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-[#F5F5F5] pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="pt-16 pb-20 px-6">
           <div className="max-w-6xl mx-auto text-center">
@@ -947,7 +947,7 @@ export default function PropertyDetail() {
     const breadcrumbCategory = { label: 'Land & Joint Ventures', href: '/joint-ventures' };
 
     return (
-      <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="pb-24 md:pb-0">
           {isSoldOrRented && (
@@ -1196,7 +1196,7 @@ export default function PropertyDetail() {
     .join(', ');
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] pt-[60px] md:pt-[130px] lg:pt-[148px]">
+    <div className="min-h-screen bg-[#F5F5F5] pt-[62px] md:pt-[122px] lg:pt-[130px]">
       <Header />
 
       {/* Breadcrumb trail - always visible on property pages */}

@@ -166,7 +166,7 @@ export default function AreaResults() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <main className="pt-[80px] md:pt-[140px] lg:pt-[156px] pb-20">
+      <main className="pt-[62px] md:pt-[122px] lg:pt-[130px] pb-20">
         <div className="max-w-6xl mx-auto px-4 md:px-6">
           {/* Breadcrumb + Back */}
           <PageBreadcrumbTrail

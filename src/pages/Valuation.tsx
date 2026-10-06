@@ -10,7 +10,7 @@ export default function Valuation() {
   const { content: c } = useValuationPageContent();
 
   return (
-    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+    <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
       <Header />
 
       {/* Hero */}

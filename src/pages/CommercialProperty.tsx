@@ -518,7 +518,7 @@ export default function CommercialProperty() {
   const resultsHeading = isBuy ? c.results_heading_buy : c.results_heading_rent;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px]">
+    <div className="min-h-screen bg-white flex flex-col pt-[62px] md:pt-[122px] lg:pt-[130px]">
       <Header />
 
       {/* Hero Section */}

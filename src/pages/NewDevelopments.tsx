@@ -274,7 +274,7 @@ export default function NewDevelopments() {
   // ---- loading skeleton ----
   if (loading) {
     return (
-      <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px] newdev-ui">
+      <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px] newdev-ui">
         <Header />
         <div className="relative flex flex-col items-center justify-center pt-16 pb-16 bg-primary">
           <div className="relative z-10 w-full max-w-3xl mx-auto px-4 md:px-6 text-center">
@@ -313,7 +313,7 @@ export default function NewDevelopments() {
   // ---- error state (real DB/query failure, never "0 results") ----
   if (error) {
     return (
-      <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px] newdev-ui">
+      <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px] newdev-ui">
         <Header />
         <div className="flex flex-col items-center justify-center py-20 px-4">
           <div className="w-16 h-16 flex items-center justify-center bg-red-50 rounded-full mb-4">
@@ -531,7 +531,7 @@ export default function NewDevelopments() {
   ) : null;
 
   return (
-    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px] newdev-ui">
+    <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px] newdev-ui">
       <Header />
 
       {content.hero_visible && (

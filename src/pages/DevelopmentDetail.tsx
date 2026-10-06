@@ -138,7 +138,7 @@ export default function DevelopmentDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="dev-detail-roboto px-4 md:px-6 py-8 md:py-12 max-w-6xl mx-auto">
           <PageLoader size={56} text="Loading development..." />
@@ -151,7 +151,7 @@ export default function DevelopmentDetail() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="dev-detail-roboto pt-16 pb-20 px-6">
           <div className="max-w-6xl mx-auto text-center">
@@ -173,7 +173,7 @@ export default function DevelopmentDetail() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+      <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
         <main className="dev-detail-roboto pt-16 pb-20 px-6">
           <div className="max-w-6xl mx-auto text-center">
@@ -271,7 +271,7 @@ export default function DevelopmentDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+    <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
       <Header />
 
       <PageBreadcrumbs current={projectName} />

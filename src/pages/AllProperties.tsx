@@ -528,7 +528,7 @@ export default function AllProperties() {
       : LC.ap_heading_all;
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] flex flex-col pt-[60px] md:pt-[130px] lg:pt-[148px] pb-16 md:pb-0">
+    <div className="min-h-screen bg-[#F5F5F5] flex flex-col pt-[62px] md:pt-[122px] lg:pt-[130px] pb-16 md:pb-0">
       <Header />
 
       {/* === BREADCRUMBS === */}

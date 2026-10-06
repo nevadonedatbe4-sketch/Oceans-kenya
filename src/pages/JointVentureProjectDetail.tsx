@@ -144,7 +144,7 @@ export default function JointVentureProjectDetail() {
   const goPrev = () => setActiveIdx((prev) => (prev - 1 < 0 ? images.length - 1 : prev - 1));
 
   return (
-    <div className="min-h-screen bg-white pt-[60px] md:pt-[130px] lg:pt-[148px]">
+    <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
       <Header />
 
       {/* Loading */}
