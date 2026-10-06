@@ -185,9 +185,13 @@ export default function Buy() {
 
   // ── Derive numeric filters from dropdown strings ──────────
   const buildFilters = (): ListingFilters => {
+    // Fold the advanced "keywords" box into the free-text search so it filters
+    // results (matches CommercialProperty's behaviour). Without this the
+    // keyword field was collected but never applied.
+    const combinedSearch = [debouncedSearch, advancedFilters.keywords].filter(Boolean).join(' ').trim();
     const filters: ListingFilters = {
       purpose: 'sale',
-      search: debouncedSearch,
+      search: combinedSearch,
       propertyType: selectedType,
       addedSince: selectedAdded,
       sortBy,

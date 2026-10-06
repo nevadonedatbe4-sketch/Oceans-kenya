@@ -193,9 +193,12 @@ export default function Rent() {
 
   // ── Build server-side filters from dropdown state ────────────
   const buildFilters = useCallback((): ListingFilters => {
+    // Fold the advanced "keywords" box into the free-text search so it filters
+    // results (matches CommercialProperty's behaviour).
+    const combinedSearch = [appliedSearchQuery, appliedFilters.advanced.keywords].filter(Boolean).join(' ').trim();
     const filters: ListingFilters = {
       purpose: 'rent',
-      search: appliedSearchQuery,
+      search: combinedSearch,
       propertyType: selectedType,
       addedSince: selectedAdded,
       sortBy,
@@ -217,7 +220,7 @@ export default function Rent() {
     else if (selectedBeds === '4+') { filters.bedsMin = 4; }
     else if (selectedBeds === '5+') { filters.bedsMin = 5; }
     return filters;
-  }, [appliedSearchQuery, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
+  }, [appliedSearchQuery, appliedFilters.advanced.keywords, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
 
   const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
 
