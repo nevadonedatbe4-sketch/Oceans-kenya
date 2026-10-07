@@ -18,7 +18,7 @@ import CommuteMap from '@/components/feature/CommuteMap';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, ListingFilters, type MappedListing } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from './Rent/components/AdvancedFilters';
-import { advancedToFilters, splitKeywords } from '@/pages/Rent/components/advancedToFilters';
+import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
 import { geocodeLocation } from '@/lib/geocode';
 import { radiusLabelToMeters } from '@/lib/distance';
 import { withReturnFrom } from '@/lib/navigation';
@@ -194,12 +194,9 @@ export default function Rent() {
 
   // ── Build server-side filters from dropdown state ────────────
   const buildFilters = useCallback((): ListingFilters => {
-    // Fold the advanced "keywords" box into the free-text search so it filters
-    // results (matches CommercialProperty's behaviour).
-    const combinedSearch = [appliedSearchQuery, splitKeywords(appliedFilters.advanced.keywords).include].filter(Boolean).join(' ').trim();
     const filters: ListingFilters = {
       purpose: 'rent',
-      search: combinedSearch,
+      search: appliedSearchQuery,
       propertyType: selectedType,
       addedSince: selectedAdded,
       sortBy,
@@ -308,12 +305,10 @@ export default function Rent() {
     appliedFilters.advanced.maxPrice !== '' ||
     appliedFilters.advanced.propertyTypes.length > 0 ||
     appliedFilters.advanced.furnished.length > 0 ||
-    appliedFilters.advanced.minBeds !== '' ||
-    appliedFilters.advanced.maxBeds !== '' ||
     appliedFilters.advanced.minBaths !== '' ||
     appliedFilters.advanced.minSize !== '' ||
     appliedFilters.advanced.maxSize !== '' ||
-    appliedFilters.advanced.keywords !== '';
+    appliedFilters.advanced.mustHaves.length > 0;
 
   // Reset pagination when quick filters change (skipping the first mount so a
   // page restored from the URL survives).

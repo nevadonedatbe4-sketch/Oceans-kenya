@@ -3,12 +3,10 @@ import { PROPERTY_TYPE_TO_DB } from '@/pages/crm/components/ListingEdit/types';
 import type { FilterState } from './AdvancedFilters';
 
 // Maps the Advanced Filters panel (FilterState) onto the fields useListings
-// actually applies. Without this, several controls were collected but never
-// affected results (property types, baths, size, must-have features,
-// furnishing). Keywords are handled separately (folded into the search term).
-//
-// Every field here is backed by a real control and real data. Exclusion is
-// handled via -terms in the keywords box (splitKeywords).
+// actually applies: property types, baths, size, price, and must-have
+// features (incl. furnishing). Every field here is backed by a real control
+// and real data. Free-text search and beds are handled by the main search box
+// and the quick beds dropdown, not this panel.
 
 const parseIntOrUndef = (v: string): number | undefined => {
   const n = parseInt(v, 10);
@@ -34,29 +32,6 @@ const MUST_HAVE_GROUPS: Record<string, string[]> = {
   'Wheelchair access': ['Wheelchair Accessible', 'Wheelchair Access'],
 };
 
-/**
- * Split a keywords string into positive include text and -excluded terms.
- * "sea view -studio -\"ground floor\"" -> { include: "sea view",
- *   exclude: ["studio", "ground floor"] }. Quoted phrases are honoured.
- */
-export function splitKeywords(raw: string): { include: string; exclude: string[] } {
-  const tokens = (raw || '').match(/-?"[^"]+"|-?\S+/g) || [];
-  const include: string[] = [];
-  const exclude: string[] = [];
-  for (const tok of tokens) {
-    const neg = tok.startsWith('-');
-    const body = (neg ? tok.slice(1) : tok).replace(/^"|"$/g, '').trim();
-    if (!body) continue;
-    (neg ? exclude : include).push(body);
-  }
-  return { include: include.join(' '), exclude };
-}
-
-/**
- * Translate the advanced-filter panel state into the subset of ListingFilters
- * that useListings understands. Returns only the keys that are set, so callers
- * can spread it over their base filters without clobbering dropdown values.
- */
 export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
   const out: Partial<ListingFilters> = {};
 
@@ -71,11 +46,6 @@ export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
   if (typeLabels.includes('Commercial')) out.propertyCategory = 'commercial';
 
   // Beds / baths / size / price ranges.
-  const minBeds = parseIntOrUndef(a.minBeds);
-  const maxBeds = parseIntOrUndef(a.maxBeds);
-  if (minBeds !== undefined) out.bedsMin = minBeds;
-  if (maxBeds !== undefined) out.bedsMax = maxBeds;
-
   const minBaths = parseIntOrUndef(a.minBaths);
   if (minBaths !== undefined) out.bathsMin = minBaths;
 
@@ -97,10 +67,6 @@ export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
   }
   if ((a.furnished || []).includes('Furnished')) groups.push(['Furnished']);
   if (groups.length > 0) out.amenitiesGroups = groups;
-
-  // Excluded keywords: the -terms typed in the keywords box.
-  const exclude = splitKeywords(a.keywords || '').exclude;
-  if (exclude.length > 0) out.excludeTerms = exclude;
 
   return out;
 }

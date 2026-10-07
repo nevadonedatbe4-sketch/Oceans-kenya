@@ -14,14 +14,11 @@ interface AdvancedFiltersProps {
 export interface FilterState {
   minPrice: string;
   maxPrice: string;
-  minBeds: string;
-  maxBeds: string;
   minBaths: string;
   propertyTypes: string[];
   furnished: string[];
   minSize: string;
   maxSize: string;
-  keywords: string;
   added: string;
   mustHaves: string[];
 }
@@ -29,14 +26,11 @@ export interface FilterState {
 export const defaultFilters: FilterState = {
   minPrice: '',
   maxPrice: '',
-  minBeds: '',
-  maxBeds: '',
   minBaths: '',
   propertyTypes: [],
   furnished: [],
   minSize: '',
   maxSize: '',
-  keywords: '',
   added: '',
   mustHaves: [],
 };
@@ -49,9 +43,6 @@ const propertyFeaturesList = ['New', 'Period property', 'Cottage', 'Modern', 'Ut
 const furnishingOptions = ['Any', 'Furnished', 'Part-furnished', 'Unfurnished'];
 const availabilityOptions = ['Show all', 'Immediately', 'Within 1 month', 'Within 3 months', 'Within 6 months', 'Within 1 year'];
 const addedOptionsDesktop = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
-const bedsAnyOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const bedsMinOptions = ['No min', 'Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
-const bedsMaxOptions = ['No max', 'Studio', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const bathsMinOptions = ['No min', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const bathsMaxOptions = ['No max', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const priceMinOptions = ['No min', '$50K', '$100K', '$200K', '$300K', '$500K', '$750K', '$1M', '$1.5M', '$2.5M', '$5M', '$10M'];
@@ -70,22 +61,17 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
   const [mobileAvailability, setMobileAvailability] = useState('Show all');
   const [mobileFurnishing, setMobileFurnishing] = useState('Any');
   const [mobileAdded, setMobileAdded] = useState('Anytime');
-  const [mobileMinBeds, setMobileMinBeds] = useState('No min');
-  const [mobileMaxBeds, setMobileMaxBeds] = useState('No max');
   const [mobileMinBaths, setMobileMinBaths] = useState('No min');
   const [mobileMaxBaths, setMobileMaxBaths] = useState('No max');
   const [mobileMinPrice, setMobileMinPrice] = useState('No min');
   const [mobileMaxPrice, setMobileMaxPrice] = useState('No max');
   const [mobilePricePer, setMobilePricePer] = useState('Monthly');
-  const [mobileKeywords, setMobileKeywords] = useState('');
   const [mobileShowLetAgreed, setMobileShowLetAgreed] = useState(false);
   const [mobileShowAllTypes, setMobileShowAllTypes] = useState(false);
   // Desktop state
   const [desktopFurnishing, setDesktopFurnishing] = useState('Any');
   const [desktopAvailability, setDesktopAvailability] = useState('Show all');
   const [desktopAdded, setDesktopAdded] = useState('Anytime');
-  const [desktopBeds, setDesktopBeds] = useState('Any beds');
-  const [desktopKeywords, setDesktopKeywords] = useState('');
   const [desktopShowLetAgreed, setDesktopShowLetAgreed] = useState(false);
 
   // Detect mobile so we only lock body scroll for the bottom sheet (not the inline desktop/tablet panel)
@@ -122,7 +108,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
       ...filters,
       furnished: desktopFurnishing !== 'Any' ? [desktopFurnishing] : [],
       added: desktopAdded !== 'Anytime' ? desktopAdded : '',
-      keywords: desktopKeywords || filters.keywords,
     };
     onApply(merged);
     onClose();
@@ -133,8 +118,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
     setDesktopFurnishing('Any');
     setDesktopAvailability('Show all');
     setDesktopAdded('Anytime');
-    setDesktopBeds('Any beds');
-    setDesktopKeywords('');
     setDesktopShowLetAgreed(false);
     setMobileHouseShare(null);
     setMobileStudentAccom(null);
@@ -142,14 +125,11 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
     setMobileAvailability('Show all');
     setMobileFurnishing('Any');
     setMobileAdded('Anytime');
-    setMobileMinBeds('No min');
-    setMobileMaxBeds('No max');
     setMobileMinBaths('No min');
     setMobileMaxBaths('No max');
     setMobileMinPrice('No min');
     setMobileMaxPrice('No max');
     setMobilePricePer('Monthly');
-    setMobileKeywords('');
     setMobileShowLetAgreed(false);
     onApply({ ...defaultFilters });
     onClose();
@@ -158,10 +138,9 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
   if (!isOpen) return null;
 
   const hasActiveFilters =
-    filters.minPrice || filters.maxPrice || filters.minBeds || filters.maxBeds ||
+    filters.minPrice || filters.maxPrice ||
     filters.minBaths || filters.propertyTypes.length > 0 || filters.mustHaves.length > 0 ||
-    desktopFurnishing !== 'Any' || desktopAdded !== 'Anytime' || desktopBeds !== 'Any beds' ||
-    desktopKeywords || desktopShowLetAgreed || filters.keywords;
+    desktopFurnishing !== 'Any' || desktopAdded !== 'Anytime' || desktopShowLetAgreed;
 
   return (
     <>
@@ -307,34 +286,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   <i className="ri-arrow-down-wide-fill text-sm"></i>
                 </span>
               </div>
-              <div className="relative">
-                <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Beds</label>
-                <select
-                  value={desktopBeds}
-                  onChange={(e) => setDesktopBeds(e.target.value)}
-                  className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
-                >
-                  {bedsAnyOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
-                  <i className="ri-arrow-down-wide-fill text-sm"></i>
-                </span>
-              </div>
-            </div>
-
-            {/* Keywords */}
-            <div className="mb-5">
-              <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Keywords</label>
-              <div className="relative">
-                <input
-                  placeholder='e.g. conservatory or "double garage"'
-                  value={desktopKeywords}
-                  onChange={(e) => setDesktopKeywords(e.target.value)}
-                  className="w-full h-11 px-4 text-sm font-roboto font-medium text-primary placeholder:text-primary/50 bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
-                  type="text"
-                />
-                <p className="text-[11px] font-roboto text-primary/50 mt-1 leading-tight">Search for phrases by using quotation marks e.g. "double garage", or exclude terms by prefixing them with a minus sign e.g. -studio.</p>
-              </div>
             </div>
 
             {/* Show sold */}
@@ -381,10 +332,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   filters.mustHaves.length > 0,
                   desktopFurnishing !== 'Any',
                   desktopAdded !== 'Anytime',
-                  desktopBeds !== 'Any beds',
-                  desktopKeywords,
                   desktopShowLetAgreed,
-                  filters.keywords,
                 ].filter(Boolean).length} filter(s) applied` : 'No advanced filters applied'}
               </span>
             </div>
@@ -481,22 +429,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
-              <div className="relative">
-                <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Beds</label>
-                <select value={desktopBeds} onChange={(e) => setDesktopBeds(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {bedsAnyOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
-              </div>
-            </div>
-
-            {/* Keywords */}
-            <div className="mb-5">
-              <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Keywords</label>
-              <div className="relative">
-                <input placeholder='e.g. conservatory or "double garage"' value={desktopKeywords} onChange={(e) => setDesktopKeywords(e.target.value)} className="w-full h-11 px-4 text-sm font-roboto font-medium text-primary placeholder:text-primary/50 bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all" type="text" />
-                <p className="text-[11px] font-roboto text-primary/50 mt-1 leading-tight">Search for phrases by using quotation marks e.g. "double garage", or exclude terms by prefixing them with a minus sign e.g. -studio.</p>
-              </div>
             </div>
 
             {/* Show sold */}
@@ -522,7 +454,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </button>
               <span className="text-xs font-roboto text-primary/50 ml-auto">{hasActiveFilters ? `${[
                 filters.propertyTypes.length > 0, filters.mustHaves.length > 0, desktopFurnishing !== 'Any',
-                desktopAdded !== 'Anytime', desktopBeds !== 'Any beds', desktopKeywords, desktopShowLetAgreed, filters.keywords,
+                desktopAdded !== 'Anytime', desktopShowLetAgreed,
               ].filter(Boolean).length} filter(s) applied` : 'No advanced filters applied'}</span>
             </div>
           </div>
@@ -558,29 +490,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                 <option value="40 miles">40 miles</option>
               </select>
               <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 top-1/2 -translate-y-1/2 text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
-            </div>
-          </div>
-
-          <div className="w-full h-px bg-primary/5 mb-4"></div>
-
-          {/* Bedrooms */}
-          <div className="mb-4">
-            <h4 className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-2">Bedrooms</h4>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="relative">
-                <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Min beds</label>
-                <select value={mobileMinBeds} onChange={(e) => setMobileMinBeds(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {bedsMinOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
-              </div>
-              <div className="relative">
-                <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Max beds</label>
-                <select value={mobileMaxBeds} onChange={(e) => setMobileMaxBeds(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {bedsMaxOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
-              </div>
             </div>
           </div>
 
@@ -772,20 +681,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </select>
               <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>
-          </div>
-
-          <div className="w-full h-px bg-primary/5 mb-4"></div>
-
-          {/* Keywords */}
-          <div className="mb-4">
-            <label className="block text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Keywords</label>
-            <input
-              placeholder='e.g. conservatory or "double garage"'
-              value={mobileKeywords}
-              onChange={(e) => setMobileKeywords(e.target.value)}
-              className="w-full h-11 px-4 text-[13px] font-roboto font-medium text-primary placeholder:text-primary/50 bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all"
-              type="text"
-            />
           </div>
 
           {/* Show sold (sale) / Show let or agreed let (rent) */}

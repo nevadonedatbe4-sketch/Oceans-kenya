@@ -18,7 +18,7 @@ import CommuteMap from '@/components/feature/CommuteMap';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, type MappedListing, type ListingFilters } from '@/hooks/useListings';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
-import { advancedToFilters, splitKeywords } from '@/pages/Rent/components/advancedToFilters';
+import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
 import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
 import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
@@ -186,13 +186,9 @@ export default function Buy() {
 
   // ── Derive numeric filters from dropdown strings ──────────
   const buildFilters = (): ListingFilters => {
-    // Fold the advanced "keywords" box into the free-text search so it filters
-    // results (matches CommercialProperty's behaviour). Without this the
-    // keyword field was collected but never applied.
-    const combinedSearch = [debouncedSearch, splitKeywords(advancedFilters.keywords).include].filter(Boolean).join(' ').trim();
     const filters: ListingFilters = {
       purpose: 'sale',
-      search: combinedSearch,
+      search: debouncedSearch,
       propertyType: selectedType,
       addedSince: selectedAdded,
       sortBy,
