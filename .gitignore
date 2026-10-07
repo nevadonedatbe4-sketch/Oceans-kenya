@@ -33,3 +33,6 @@ supabase/.branches/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Claude Code (local dev tooling — launch config, settings; not needed by Vercel)
+.claude/
