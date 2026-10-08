@@ -111,16 +111,17 @@ insert into public.email_templates (key, subject, heading, body_html, is_active)
 on conflict (key) do nothing;
 
 -- ============================================================================
--- OPTIONAL — sender identity. The engine falls back to built-in defaults when
--- email_settings is empty; set these to brand the sender and reply-to.
--- sender_local_part + RESEND_FROM_DOMAIN form the From address
--- (e.g. noreply@your-domain). Uncomment and edit to apply.
+-- Sender identity. sender_local_part + RESEND_FROM_DOMAIN form the From address
+-- (here: team + oceanske.com = team@oceanske.com). RESEND_FROM_DOMAIN must be a
+-- verified sending domain in Resend; any local part on a verified domain works.
+-- `do nothing` keeps later Email-Management UI edits intact on a re-run; to force
+-- these values again, change it to `do update set value = excluded.value`.
 -- ============================================================================
--- insert into public.email_settings (key, value) values
---   ('agency_name',       'Oceans'),
---   ('sender_name',       'Oceans'),
---   ('sender_local_part', 'noreply'),
---   ('reply_to',          'ask@oceanske.com'),
---   ('support_email',     'ask@oceanske.com'),
---   ('emails_enabled',    'true')
--- on conflict (key) do update set value = excluded.value;
+insert into public.email_settings (key, value) values
+  ('agency_name',       'Oceans'),
+  ('sender_name',       'Oceans'),
+  ('sender_local_part', 'team'),
+  ('reply_to',          'team@oceanske.com'),
+  ('support_email',     'ask@oceanske.com'),
+  ('emails_enabled',    'true')
+on conflict (key) do nothing;

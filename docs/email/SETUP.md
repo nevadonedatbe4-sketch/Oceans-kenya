@@ -47,8 +47,11 @@ Run **`docs/email/seed-email-templates.sql`** in the SQL editor. It inserts all
 nine templates (`enquiry_auto_response`, `new_lead`, `new_message`,
 `deal_created`, `deal_status_update`, `agent_assignment`, `team_invitation`,
 `welcome`, `password_reset`). It is non-destructive — existing rows are kept, so
-later edits in Email Management survive a re-run. Optionally uncomment the
-`email_settings` block at the bottom to set the sender name and reply-to.
+later edits in Email Management survive a re-run. The `email_settings` block at
+the bottom sets the sender identity: all outbound mail is sent from
+**`team@oceanske.com`** (`sender_local_part=team` + `RESEND_FROM_DOMAIN`), with
+`Reply-To` also `team@oceanske.com`. Edit that block (or Email Management) to
+change it.
 
 ### 4. Apply RLS (if not done already)
 Run **`docs/security/rls-policies.sql`**. It secures every table and, relevant
