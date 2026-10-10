@@ -350,6 +350,12 @@ serve(async (req: Request) => {
       });
     }
 
+    // Outbound emails hit Resend (1–3s each) and must NOT block the form
+    // response — the lead/contact/enquiry are already saved above. Collect them
+    // and let the platform finish them after the response is sent, so the
+    // visitor sees "Sent!" immediately instead of waiting on the mail provider.
+    const background: Promise<unknown>[] = [];
+
     // 9. Auto-response — acknowledge the lead while they wait for an agent.
     let auto_response_sent = false;
     const { data: autoRows } = await supabaseAdmin
@@ -393,34 +399,38 @@ serve(async (req: Request) => {
       // Route the acknowledgement through the central template engine so it uses
       // the Oceans-branded shell, central sender config and the delivery log —
       // and so edits in Email Management apply here too. The admin-authored
-      // message is still injected as {{message_preview}}.
-      try {
-        const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-templated-email`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-          },
-          body: JSON.stringify({
-            to: email,
-            template_key: "enquiry_auto_response",
-            variables: {
-              recipient_name: fullName,
-              lead_name: fullName,
-              message_preview: autoBody,
-              property_title: property_title || "",
-              property_url: source_url || "https://oceans.co.ke",
-            },
-            related_type: "enquiry",
-            related_id: enquiry_id,
-          }),
-        });
-        if (!res.ok) {
-          console.error("Auto-response email failed:", res.status, await res.text());
-        }
-      } catch (emailErr) {
-        console.error("Auto-response email error:", emailErr);
-      }
+      // message is still injected as {{message_preview}}. Sent in the background.
+      background.push(
+        (async () => {
+          try {
+            const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-templated-email`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({
+                to: email,
+                template_key: "enquiry_auto_response",
+                variables: {
+                  recipient_name: fullName,
+                  lead_name: fullName,
+                  message_preview: autoBody,
+                  property_title: property_title || "",
+                  property_url: source_url || "https://oceans.co.ke",
+                },
+                related_type: "enquiry",
+                related_id: enquiry_id,
+              }),
+            });
+            if (!res.ok) {
+              console.error("Auto-response email failed:", res.status, await res.text());
+            }
+          } catch (emailErr) {
+            console.error("Auto-response email error:", emailErr);
+          }
+        })()
+      );
     }
 
     // 10. Create notification for the assigned agent (or the general queue)
@@ -450,30 +460,45 @@ serve(async (req: Request) => {
     //     A brand-new enquirer triggers the "New Lead" template; a returning
     //     enquirer (an existing contact writing in again) triggers the
     //     "New Message" template — one email per submission, never two.
-    try {
-      const notifyEvent = existing ? "new_message" : "new_lead";
-      const notifyRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-notify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        },
-        body: JSON.stringify({
-          event: notifyEvent,
-          agent_id,
-          lead_id,
-          lead_name: fullName,
-          message_preview: message,
-          property_title,
-          property_location: payload.land_location || payload.preferred_location || "",
-          property_url: source_url || req.headers.get("origin") || "",
-        }),
-      });
-      if (!notifyRes.ok) {
-        console.error(`crm-notify (${notifyEvent}) failed:`, notifyRes.status, await notifyRes.text());
-      }
-    } catch (notifyErr) {
-      console.error("crm-notify error:", notifyErr);
+    const notifyEvent = existing ? "new_message" : "new_lead";
+    background.push(
+      (async () => {
+        try {
+          const notifyRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/crm-notify`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              event: notifyEvent,
+              agent_id,
+              lead_id,
+              lead_name: fullName,
+              message_preview: message,
+              property_title,
+              property_location: payload.land_location || payload.preferred_location || "",
+              property_url: source_url || req.headers.get("origin") || "",
+            }),
+          });
+          if (!notifyRes.ok) {
+            console.error(`crm-notify (${notifyEvent}) failed:`, notifyRes.status, await notifyRes.text());
+          }
+        } catch (notifyErr) {
+          console.error("crm-notify error:", notifyErr);
+        }
+      })()
+    );
+
+    // Hand the queued emails to the platform so they complete AFTER the response
+    // is returned (Supabase keeps the worker alive for waitUntil tasks). If the
+    // runtime doesn't expose waitUntil (e.g. local `supabase serve`), fall back
+    // to awaiting them so nothing is dropped — only local dev pays that latency.
+    const edgeRuntime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (edgeRuntime?.waitUntil) {
+      background.forEach((p) => edgeRuntime.waitUntil!(p));
+    } else {
+      await Promise.allSettled(background);
     }
 
     return new Response(
