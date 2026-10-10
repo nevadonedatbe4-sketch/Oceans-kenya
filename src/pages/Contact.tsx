@@ -5,6 +5,7 @@ import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
+import { DIAL_CODES, DEFAULT_DIAL_CODE, combinePhone } from '@/lib/dialCodes';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useContactPageContent } from '@/hooks/useContactPageContent';
 import { resolveSocials } from '@/lib/socialIcons';
@@ -44,7 +45,8 @@ export default function Contact() {
 
     const fullName = (formData.get('full_name') as string || '').trim();
     const email = (formData.get('email') as string || '').trim();
-    const phone = (formData.get('phone') as string || '').trim();
+    const dialCode = (formData.get('dial_code') as string || DEFAULT_DIAL_CODE).trim();
+    const phone = combinePhone(dialCode, (formData.get('phone') as string || ''));
     const enquiryType = (formData.get('enquiry_type') as string || 'general').trim();
     const subject = (formData.get('subject') as string || '').trim();
     const message = (formData.get('message') as string || '').trim();
@@ -125,7 +127,26 @@ export default function Contact() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Phone Number</label>
-                    <input type="tel" name="phone" placeholder="+254 700 000 000" className={FIELD_CLASS} />
+                    <div className="flex">
+                      <select
+                        name="dial_code"
+                        defaultValue={DEFAULT_DIAL_CODE}
+                        aria-label="Country code"
+                        className={`${FIELD_CLASS.replace('w-full ', '')} w-auto shrink-0 rounded-r-none border-r-0 pr-7 cursor-pointer bg-white`}
+                      >
+                        {DIAL_CODES.map((c) => (
+                          <option key={c.iso} value={c.code}>
+                            {c.flag} {c.code}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        name="phone"
+                        placeholder="700 000 000"
+                        className={`${FIELD_CLASS.replace('w-full ', '')} rounded-l-none flex-1 min-w-0`}
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Enquiry Type</label>
