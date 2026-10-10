@@ -5,7 +5,8 @@ import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
-import { DIAL_CODES, DEFAULT_DIAL_CODE, combinePhone } from '@/lib/dialCodes';
+import { DEFAULT_DIAL_CODE, combinePhone } from '@/lib/dialCodes';
+import CountryCodeSelect from '@/components/feature/CountryCodeSelect';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useContactPageContent } from '@/hooks/useContactPageContent';
 import { resolveSocials } from '@/lib/socialIcons';
@@ -128,18 +129,7 @@ export default function Contact() {
                   <div>
                     <label className="block text-primary font-roboto text-sm font-semibold mb-2">Phone Number</label>
                     <div className="flex">
-                      <select
-                        name="dial_code"
-                        defaultValue={DEFAULT_DIAL_CODE}
-                        aria-label="Country code"
-                        className={`${FIELD_CLASS.replace('w-full ', '')} w-auto shrink-0 rounded-r-none border-r-0 pr-7 cursor-pointer bg-white`}
-                      >
-                        {DIAL_CODES.map((c) => (
-                          <option key={c.iso} value={c.code}>
-                            {c.flag} {c.code}
-                          </option>
-                        ))}
-                      </select>
+                      <CountryCodeSelect name="dial_code" defaultCode={DEFAULT_DIAL_CODE} />
                       <input
                         type="tel"
                         name="phone"
