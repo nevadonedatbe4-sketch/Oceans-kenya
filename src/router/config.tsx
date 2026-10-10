@@ -24,8 +24,10 @@ const JointVentureProjectDetail = lazy(() => import("../pages/JointVentureProjec
 const ForgotPassword = lazy(() => import("../pages/crm/ForgotPassword"));
 const ResetPassword = lazy(() => import("../pages/ResetPassword"));
 
+// ── Unified sign-in (one gateway for agents and admins) ───────
+const Login = lazy(() => import("../pages/auth/Login"));
+
 // ── Agent Portal ──────────────────────────────────────────────
-const AgentLogin = lazy(() => import("../pages/agent/AgentLogin"));
 const AgentSignup = lazy(() => import("../pages/agent/AgentSignup"));
 const AgentPending = lazy(() => import("../pages/agent/AgentPending"));
 const AgentPortalLayout = lazy(() => import("../pages/agent/AgentPortalLayout"));
@@ -44,7 +46,6 @@ const OGroupNotifications = lazy(() => import("../pages/agent/ogroup/OGroupNotif
 const AgentAppointments = lazy(() => import("../pages/agent/AgentAppointments"));
 
 // ── Admin Portal ──────────────────────────────────────────────
-const AdminLogin = lazy(() => import("../pages/admin/AdminLogin"));
 const AdminPortalLayout = lazy(() => import("../pages/admin/AdminPortalLayout"));
 
 // ── Shared CRM content (admin portal) ─────────────────────────
@@ -377,7 +378,8 @@ const routes: RouteObject[] = [
   // ─────────────────────────────────────────────────────────────
   // PORTAL 1 — AGENT (public signup → approval gate → agent portal)
   // ─────────────────────────────────────────────────────────────
-  { path: "/agent/login", element: <AgentLogin /> },
+  { path: "/login", element: <Login /> },
+  { path: "/agent/login", element: <Login /> },
   { path: "/agent/signup", element: <AgentSignup /> },
   { path: "/agent/approval", element: <AgentPending /> },
   { path: "/agent/forgot-password", element: <ForgotPassword /> },
@@ -394,7 +396,7 @@ const routes: RouteObject[] = [
   // ─────────────────────────────────────────────────────────────
   // PORTAL 2 — ADMIN (private gateway, no public signup)
   // ─────────────────────────────────────────────────────────────
-  { path: "/admin/login", element: <AdminLogin /> },
+  { path: "/admin/login", element: <Login /> },
   { path: "/admin/forgot-password", element: <ForgotPassword /> },
   // Secure token-based password reset (single-use, hashed, expiring).
   { path: "/reset-password", element: <ResetPassword /> },
