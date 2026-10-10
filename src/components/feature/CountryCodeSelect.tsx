@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { DIAL_CODES, DEFAULT_DIAL_CODE, type DialCode } from '@/lib/dialCodes';
+import { FLAG_BY_ISO } from '@/lib/flagComponents';
 
 /**
  * Country dial-code picker that shows real flag IMAGES.
@@ -7,14 +8,23 @@ import { DIAL_CODES, DEFAULT_DIAL_CODE, type DialCode } from '@/lib/dialCodes';
  * A native <select> can only render text, and Windows draws flag emoji as the
  * two-letter country code ("KE") rather than a flag — so this is a small custom
  * dropdown. It writes the chosen dial code into a hidden <input name={name}> so
- * forms that read it from FormData keep working unchanged. Flags come from
- * flagcdn.com (a public flag CDN — no API key, no user data sent).
+ * forms that read it from FormData keep working unchanged. Flags are inline SVGs
+ * bundled from country-flag-icons, so everything loads from this origin.
  */
-const flagUrl = (iso: string) => `https://flagcdn.com/${iso.toLowerCase()}.svg`;
-
 interface Props {
   name: string;
   defaultCode?: string;
+}
+
+// Small reusable flag chip (fixed box, clipped corners) rendered from the
+// bundled inline-SVG components.
+function FlagChip({ iso }: { iso: string }) {
+  const Flag = FLAG_BY_ISO[iso];
+  return (
+    <span className="inline-flex h-3.5 w-5 shrink-0 overflow-hidden rounded-[2px] ring-1 ring-black/5">
+      {Flag ? <Flag className="h-full w-full object-cover" aria-hidden="true" /> : null}
+    </span>
+  );
 }
 
 export default function CountryCodeSelect({ name, defaultCode = DEFAULT_DIAL_CODE }: Props) {
@@ -50,7 +60,7 @@ export default function CountryCodeSelect({ name, defaultCode = DEFAULT_DIAL_COD
         aria-label={`Country code: ${selected.name} ${selected.code}`}
         className="flex items-center gap-1.5 px-3 py-3 h-full border border-stone-300 border-r-0 bg-white text-base font-roboto text-primary focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer whitespace-nowrap shadow-[0_1px_2px_rgba(0,23,49,0.04),0_2px_8px_rgba(0,23,49,0.05)]"
       >
-        <img src={flagUrl(selected.iso)} alt="" className="h-3.5 w-5 object-cover rounded-[2px]" />
+        <FlagChip iso={selected.iso} />
         <span>{selected.code}</span>
         <i className={`ri-arrow-down-s-line text-stone-400 text-sm transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -71,7 +81,7 @@ export default function CountryCodeSelect({ name, defaultCode = DEFAULT_DIAL_COD
                   c.iso === selected.iso ? 'bg-primary/5 text-primary font-semibold' : 'text-stone-600'
                 }`}
               >
-                <img src={flagUrl(c.iso)} alt="" className="h-3.5 w-5 object-cover rounded-[2px] shrink-0" />
+                <FlagChip iso={c.iso} />
                 <span className="flex-1 truncate">{c.name}</span>
                 <span className="text-stone-400">{c.code}</span>
               </button>
