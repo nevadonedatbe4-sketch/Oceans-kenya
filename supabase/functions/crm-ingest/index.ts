@@ -205,7 +205,7 @@ serve(async (req: Request) => {
       contact_id = existing.id;
       await supabaseAdmin
         .from("contacts")
-        .update({ updated_at: now, last_contact_at: now, user_id: user_id || undefined })
+        .update({ updated_at: now, last_contact_at: now })
         .eq("id", contact_id);
     } else {
       const { data: newContact, error: contactErr } = await supabaseAdmin
@@ -220,7 +220,6 @@ serve(async (req: Request) => {
           first_name,
           last_name,
           last_contact_at: now,
-          user_id: user_id || null,
         })
         .select("id")
         .single();
