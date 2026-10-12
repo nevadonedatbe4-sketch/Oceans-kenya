@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import PortalHeaderPills from '@/components/feature/PortalHeaderPills';
 import { useAuth } from '@/hooks/useAuth';
 import { isSuperAdmin, isAdminRole } from '@/lib/authz';
-import { useAdminCounts } from '@/hooks/useAdminCounts';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { FALLBACK_LOGO } from '@/lib/brandDefaults';
 import { formatTimeAgo } from '@/lib/timeAgo';
@@ -61,7 +61,15 @@ export default function AdminPortalLayout() {
   const { user, signOut } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { alertsCount, recentActivity, markAlertsSeen } = useAdminCounts();
+  const {
+    items: notifItems,
+    unreadCount: notifUnread,
+    error: notifError,
+    refresh: refreshNotifs,
+    markRead: markNotifRead,
+    markAllRead: markNotifsRead,
+    markDisplayedRead: markNotifsDisplayed,
+  } = useNotificationCenter();
   const { total: messengerUnread } = useMessengerUnread();
   const { site, getBrand } = useSiteSettings();
   const logoUrl = site.logo_url || getBrand('main_logo') || FALLBACK_LOGO;
@@ -71,14 +79,28 @@ export default function AdminPortalLayout() {
     || location.pathname.startsWith('/admin/contacts')
     || /^\/admin\/land-listings\/(new|edit\/)/.test(location.pathname);
 
-  const headerFeed = recentActivity.map((entry) => ({
-    id: entry.id,
-    icon: 'ri-arrow-right-up-line',
-    title: entry.action ? entry.action.charAt(0).toUpperCase() + entry.action.slice(1) : 'Action',
-    titleMuted: entry.module ? `\u00b7 ${entry.module}` : undefined,
-    subtitle: `${entry.record_title || entry.user_name || 'Record'}${entry.user_name ? ` by ${entry.user_name}` : ''}`,
-    meta: formatTimeAgo(entry.created_at).replace('Added ', ''),
-    href: '/admin/activities',
+  // Notification feed for the header bell — sourced from the notifications table
+  // (the DB is the source of truth for both the feed and the unread badge).
+  const notifIcon: Record<string, string> = {
+    new_enquiry: 'ri-mail-add-line',
+    lead_created: 'ri-user-add-line',
+    lead_assigned: 'ri-user-received-line',
+    message: 'ri-chat-3-line',
+    follow_up: 'ri-calendar-line',
+    deal_updated: 'ri-briefcase-3-line',
+    appointment: 'ri-calendar-event-line',
+    attendance: 'ri-fingerprint-line',
+  };
+  const notifLink = (n: { link: string | null; enquiry_id: string | null; lead_id: string | null; deal_id: string | null; contact_id: string | null }) =>
+    n.link
+    || (n.enquiry_id ? '/admin/inbox' : n.lead_id ? '/admin/leads' : n.deal_id ? '/admin/deals' : n.contact_id ? '/admin/contacts' : '/admin/activities');
+  const headerFeed = notifItems.slice(0, 12).map((n) => ({
+    id: n.id,
+    icon: notifIcon[n.type || ''] || 'ri-notification-3-line',
+    title: n.title || 'Notification',
+    subtitle: n.body || undefined,
+    meta: formatTimeAgo(n.created_at).replace('Added ', ''),
+    href: notifLink(n),
   }));
 
   const navGroups: { title: string; items: NavEntry[] }[] = [
@@ -317,14 +339,34 @@ export default function AdminPortalLayout() {
           <PortalHeaderPills
             messagesHref="/admin/messenger"
             messengerUnread={messengerUnread}
-            notificationsCount={alertsCount}
+            notificationsCount={notifUnread}
             feed={headerFeed}
-            onMarkAllRead={markAlertsSeen}
+            onMarkAllRead={markNotifsRead}
+            onOpen={markNotifsDisplayed}
+            onItemClick={markNotifRead}
+            onRetry={refreshNotifs}
+            errorText={notifError}
             viewAllHref="/admin/activities"
-            viewAllLabel="View all activity"
+            viewAllLabel="View activity log"
             emptyText="Nothing new — you're all caught up."
           />
           <div className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+            <PortalHeaderPills
+              size="sm"
+              className="flex lg:hidden items-center gap-2 flex-shrink-0"
+              messagesHref="/admin/messenger"
+              messengerUnread={messengerUnread}
+              notificationsCount={notifUnread}
+              feed={headerFeed}
+              onMarkAllRead={markNotifsRead}
+              onOpen={markNotifsDisplayed}
+              onItemClick={markNotifRead}
+              onRetry={refreshNotifs}
+              errorText={notifError}
+              viewAllHref="/admin/activities"
+              viewAllLabel="View activity log"
+              emptyText="Nothing new — you're all caught up."
+            />
             <QuickSetHeaderButton />
             <Link
               to="/admin/profile"

@@ -160,12 +160,14 @@ export default function OGroupMessenger() {
   useEffect(() => {
     if (!activeId) { setMessages([]); return; }
     allMessages();
-    markConversationRead(activeId, user?.id || '');
+    // Mark incoming messages read, then recount once the backend confirms, so the
+    // conversation row + inbox badge clear from persisted state (never optimistically).
+    markConversationRead(activeId, user?.id || '').then(() => refresh());
     fetchConversationRoster(activeId).then(setRoster).catch(() => setRoster([]));
     setShowInfo(false);
     setReplyTo(null);
     setMobileView('chat');
-  }, [activeId, user, allMessages]);
+  }, [activeId, user, allMessages, refresh]);
 
   // realtime subscription for the active conversation
   useEffect(() => {

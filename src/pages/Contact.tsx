@@ -9,7 +9,7 @@ import { DEFAULT_DIAL_CODE, combinePhone } from '@/lib/dialCodes';
 import CountryCodeSelect from '@/components/feature/CountryCodeSelect';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useContactPageContent } from '@/hooks/useContactPageContent';
-import { resolveSocials } from '@/lib/socialIcons';
+import SocialLinks from '@/components/feature/SocialLinks';
 import { getSiteOffices } from '@/lib/siteOffices';
 import { DEFAULT_CONTACT, formatPhoneDisplay, toTelHref, toWhatsappHref } from '@/lib/contactDefaults';
 import { FIELD_CLASS } from '@/lib/formFieldStyles';
@@ -18,11 +18,10 @@ const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
 
 export default function Contact() {
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
-  const { getSite, social } = useSiteSettings();
+  const { getSite } = useSiteSettings();
   const { content } = useContactPageContent();
   const [searchParams] = useSearchParams();
   const presetEnquiry = searchParams.get('type');
-  const socialLinks = resolveSocials(social, 'contact', []);
 
   const sitePhone = getSite('contact_phone') || DEFAULT_CONTACT.phone;
   const siteEmail = getSite('contact_email') || DEFAULT_CONTACT.email;
@@ -338,13 +337,7 @@ export default function Contact() {
                     </div>
                     <h3 className="text-primary font-roboto font-bold text-sm">{content.social_heading}</h3>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {socialLinks.map((s) => (
-                      <a key={s.label} href={s.href} rel="nofollow" target="_blank" aria-label={s.label} className="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-full bg-primary text-white border border-primary hover:bg-transparent hover:text-primary hover:border-primary/12 transition-all cursor-pointer">
-                        <i className={`${s.icon} text-base md:text-lg`}></i>
-                      </a>
-                    ))}
-                  </div>
+                  <SocialLinks placement="contact" size="lg" />
                 </div>
 
                 {/* Valuation CTA */}

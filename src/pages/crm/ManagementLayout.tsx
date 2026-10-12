@@ -4,7 +4,7 @@ import {
   Settings, Palette, Type, Layout, Image, Search, Globe, Monitor,
   Grid3X3, CreditCard, Play, Building2, Shield, Home, Layers,
   Phone, Share2, MapPin, DollarSign, Menu, Bell, SlidersHorizontal,
-  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X, Mail, Inbox, ChevronRight,
+  Hand, LayoutGrid, MoveHorizontal, Users, Info, ClipboardList, Building, X, Mail, Inbox, ChevronRight, Network,
 } from 'lucide-react';
 import Chevron from '@/components/base/Chevron';
 
@@ -65,6 +65,7 @@ const MIDDLE_ICON_MAP: Record<string, any> = {
   'Cards & Carousel': Play,
   'Save / Sync / Cache': Bell,
   'Email Management': Mail,
+  'Site Map': Network,
 };
 
 const MIDDLE_RAIL_GROUPS = [
@@ -167,6 +168,7 @@ const MIDDLE_RAIL_GROUPS = [
     label: 'SYSTEM',
     items: [
       { label: 'Save / Sync / Cache', path: '/admin/management/cache' },
+      { label: 'Site Map', path: '/admin/management/sitemap' },
     ],
   },
 ];

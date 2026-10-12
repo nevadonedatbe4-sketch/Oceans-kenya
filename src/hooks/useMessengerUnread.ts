@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { subscribeReadSync } from '@/lib/unreadSync';
 
 /**
  * Total unread internal-messenger messages for the signed-in user, across all
@@ -56,12 +57,19 @@ export function useMessengerUnread(): { total: number; refresh: () => Promise<vo
     refresh();
     const interval = setInterval(refresh, 15000);
     const onFocus = () => { void refresh(); };
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       clearInterval(interval);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [refresh]);
+
+  // Cross-tab / cross-panel: a read persisted anywhere (this tab or another)
+  // triggers an authoritative recount so the badge clears consistently.
+  useEffect(() => subscribeReadSync('messages', () => { void refresh(); }), [refresh]);
 
   useEffect(() => {
     if (!user) return;
@@ -69,6 +77,10 @@ export function useMessengerUnread(): { total: number; refresh: () => Promise<vo
     channel
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'og_messages' }, () => refresh())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'og_messages' }, () => refresh())
+      // A read stamp (last_read_at) saved on another device/session arrives here —
+      // recount so this session's badge reflects the persisted state.
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'og_conversation_members' }, () => refresh())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'og_conversation_members' }, () => refresh())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, refresh]);

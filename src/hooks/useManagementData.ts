@@ -15,6 +15,7 @@ export interface SocialLink {
   id: string;
   platform: string;
   url: string | null;
+  show_in_hero: boolean;
   show_in_header: boolean;
   show_in_footer: boolean;
   show_in_contact: boolean;
@@ -293,8 +294,8 @@ export function useManagementData(): ManagementData {
       ),
       ...socialLinks.map((s) =>
         supabase.from('social_links').update({
-          url: s.url, show_in_header: s.show_in_header, show_in_footer: s.show_in_footer,
-          show_in_contact: s.show_in_contact, sort_order: s.sort_order,
+          url: s.url, show_in_hero: s.show_in_hero, show_in_header: s.show_in_header,
+          show_in_footer: s.show_in_footer, show_in_contact: s.show_in_contact, sort_order: s.sort_order,
         }).eq('id', s.id)
       ),
       ...searchFilters.map((s) =>

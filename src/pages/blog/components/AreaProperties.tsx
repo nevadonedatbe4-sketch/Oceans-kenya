@@ -19,7 +19,7 @@ export default function AreaProperties({ areaName, className = '' }: AreaPropert
   const filters: ListingFilters = {
     purpose: 'sale',
     search: areaName,
-    propertyType: 'Any type',
+    propertyType: 'Show all',
     addedSince: 'Anytime',
     sortBy: 'A - Z',
     statusFilter: 'active',

@@ -118,10 +118,10 @@ on conflict (key) do nothing;
 -- these values again, change it to `do update set value = excluded.value`.
 -- ============================================================================
 insert into public.email_settings (key, value) values
-  ('agency_name',       'Oceans'),
-  ('sender_name',       'Oceans'),
+  ('agency_name',       'Oceans Group'),
+  ('sender_name',       'Oceans Group'),
   ('sender_local_part', 'team'),
-  ('reply_to',          'team@oceanske.com'),
+  ('reply_to',          'ask@oceanske.com'),
   ('support_email',     'ask@oceanske.com'),
   ('emails_enabled',    'true')
 on conflict (key) do nothing;

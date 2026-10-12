@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { BEDROOM_MIN_OPTIONS, BEDROOM_MAX_OPTIONS, bedroomsRangeInvalid } from '@/lib/bedrooms';
+import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, priceRangeInvalid, type PriceRates } from '@/lib/prices';
 
 interface AdvancedFiltersProps {
   isOpen: boolean;
@@ -9,11 +11,16 @@ interface AdvancedFiltersProps {
   /* 'sale' hides rental-only controls (furnishing, availability, price-per,
      house share, student accommodation) so buy/sale pages read as sales pages. */
   mode?: 'rent' | 'sale';
+  /* Active display currency + FX rates for the price ladder (defaults to KES). */
+  currency?: string;
+  rates?: PriceRates;
 }
 
 export interface FilterState {
   minPrice: string;
   maxPrice: string;
+  minBedrooms: string;
+  maxBedrooms: string;
   minBaths: string;
   propertyTypes: string[];
   furnished: string[];
@@ -26,6 +33,8 @@ export interface FilterState {
 export const defaultFilters: FilterState = {
   minPrice: '',
   maxPrice: '',
+  minBedrooms: '',
+  maxBedrooms: '',
   minBaths: '',
   propertyTypes: [],
   furnished: [],
@@ -42,16 +51,24 @@ const mustHavesList = ['Garden', 'Parking/garage', 'Balcony/terrace', 'Pets allo
 const propertyFeaturesList = ['New', 'Period property', 'Cottage', 'Modern', 'Utility room', 'Basement', 'Conservatory', 'Home office', 'En-suite', 'Bathtub', 'Patio', 'Kitchen island'];
 const furnishingOptions = ['Any', 'Furnished', 'Part-furnished', 'Unfurnished'];
 const availabilityOptions = ['Show all', 'Immediately', 'Within 1 month', 'Within 3 months', 'Within 6 months', 'Within 1 year'];
-const addedOptionsDesktop = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
+const addedOptionsDesktop = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
 const bathsMinOptions = ['No min', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const bathsMaxOptions = ['No max', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
-const priceMinOptions = ['No min', '$50K', '$100K', '$200K', '$300K', '$500K', '$750K', '$1M', '$1.5M', '$2.5M', '$5M', '$10M'];
-const priceMaxOptions = ['No max', '$50K', '$100K', '$200K', '$300K', '$500K', '$750K', '$1M', '$1.5M', '$2.5M', '$5M', '$10M'];
+// Min/Max price options come from the ONE shared, site-wide KSh ladder
+// (@/lib/prices) so the advanced panel offers the exact same granular scale,
+// range and currency as the main search bar on every property-search page.
 const pricePerOptions = ['Daily', 'Weekly', 'Monthly'];
 
-export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilters, mode = 'rent' }: AdvancedFiltersProps) {
+export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilters, mode = 'rent', currency, rates }: AdvancedFiltersProps) {
   const isSale = mode === 'sale';
+  // Same granular price ladder as the main search bar - global, one source.
+  const cur = currency || 'KES';
+  const rt = rates || {};
+  const priceMinOpts = isSale ? salePriceMinOptions(cur, rt) : rentPriceMinOptions(cur, rt);
+  const priceMaxOpts = isSale ? salePriceMaxOptions(cur, rt) : rentPriceMaxOptions(cur, rt);
   const [filters, setFilters] = useState<FilterState>({ ...initialFilters });
+  const [bedError, setBedError] = useState('');
+  const [priceError, setPriceError] = useState('');
   const [showAllTypes, setShowAllTypes] = useState(false);
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   // Mobile-specific state
@@ -63,8 +80,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
   const [mobileAdded, setMobileAdded] = useState('Anytime');
   const [mobileMinBaths, setMobileMinBaths] = useState('No min');
   const [mobileMaxBaths, setMobileMaxBaths] = useState('No max');
-  const [mobileMinPrice, setMobileMinPrice] = useState('No min');
-  const [mobileMaxPrice, setMobileMaxPrice] = useState('No max');
   const [mobilePricePer, setMobilePricePer] = useState('Monthly');
   const [mobileShowLetAgreed, setMobileShowLetAgreed] = useState(false);
   const [mobileShowAllTypes, setMobileShowAllTypes] = useState(false);
@@ -104,6 +119,20 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
     : mustHavesList;
 
   const handleApply = () => {
+    // Never submit a contradictory bedroom range - block and explain instead.
+    if (bedroomsRangeInvalid(filters.minBedrooms, filters.maxBedrooms)) {
+      setBedError('Minimum bedrooms cannot be greater than maximum bedrooms.');
+      return;
+    }
+    setBedError('');
+    // Same rule for price - a min above the max must warn, never silently relax.
+    const minPrice = filters.minPrice ? parseInt(filters.minPrice, 10) : undefined;
+    const maxPrice = filters.maxPrice ? parseInt(filters.maxPrice, 10) : undefined;
+    if (priceRangeInvalid(minPrice, maxPrice)) {
+      setPriceError('Minimum price cannot be greater than maximum price.');
+      return;
+    }
+    setPriceError('');
     const merged: FilterState = {
       ...filters,
       furnished: desktopFurnishing !== 'Any' ? [desktopFurnishing] : [],
@@ -115,6 +144,8 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
   const handleClear = () => {
     setFilters({ ...defaultFilters });
+    setBedError('');
+    setPriceError('');
     setDesktopFurnishing('Any');
     setDesktopAvailability('Show all');
     setDesktopAdded('Anytime');
@@ -127,8 +158,6 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
     setMobileAdded('Anytime');
     setMobileMinBaths('No min');
     setMobileMaxBaths('No max');
-    setMobileMinPrice('No min');
-    setMobileMaxPrice('No max');
     setMobilePricePer('Monthly');
     setMobileShowLetAgreed(false);
     onApply({ ...defaultFilters });
@@ -139,6 +168,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
   const hasActiveFilters =
     filters.minPrice || filters.maxPrice ||
+    filters.minBedrooms || filters.maxBedrooms ||
     filters.minBaths || filters.propertyTypes.length > 0 || filters.mustHaves.length > 0 ||
     desktopFurnishing !== 'Any' || desktopAdded !== 'Anytime' || desktopShowLetAgreed;
 
@@ -288,6 +318,70 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </div>
             </div>
 
+            {/* Price range */}
+            <div className="mb-5">
+              <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Price range</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Minimum price</label>
+                  <select
+                    value={filters.minPrice}
+                    onChange={(e) => { setFilters({ ...filters, minPrice: e.target.value }); setPriceError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {priceMinOpts.labels.map((label, i) => {
+                      const v = priceMinOpts.values[i];
+                      return <option key={`dmin-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+                    })}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Maximum price</label>
+                  <select
+                    value={filters.maxPrice}
+                    onChange={(e) => { setFilters({ ...filters, maxPrice: e.target.value }); setPriceError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {priceMaxOpts.labels.map((label, i) => {
+                      const v = priceMaxOpts.values[i];
+                      return <option key={`dmax-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+                    })}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bedrooms range */}
+            <div className="mb-5">
+              <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Bedrooms</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Minimum bedrooms</label>
+                  <select
+                    value={filters.minBedrooms || 'No min'}
+                    onChange={(e) => { setFilters({ ...filters, minBedrooms: e.target.value === 'No min' ? '' : e.target.value }); setBedError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {BEDROOM_MIN_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Maximum bedrooms</label>
+                  <select
+                    value={filters.maxBedrooms || 'No max'}
+                    onChange={(e) => { setFilters({ ...filters, maxBedrooms: e.target.value === 'No max' ? '' : e.target.value }); setBedError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {BEDROOM_MAX_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+              </div>
+            </div>
+
             {/* Show sold */}
             <div className="mb-5 flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
@@ -304,6 +398,18 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               <span className="text-sm font-roboto font-medium text-primary">{isSale ? 'SHOW SOLD' : 'SHOW LET or AGREED LET'}</span>
             </div>
 
+            {bedError && (
+              <p className="mb-3 flex items-center gap-1.5 text-sm font-roboto text-red-500">
+                <span className="w-4 h-4 flex items-center justify-center"><i className="ri-error-warning-line"></i></span>
+                {bedError}
+              </p>
+            )}
+            {priceError && (
+              <p className="mb-3 flex items-center gap-1.5 text-sm font-roboto text-red-500" role="alert">
+                <span className="w-4 h-4 flex items-center justify-center"><i className="ri-error-warning-line"></i></span>
+                {priceError}
+              </p>
+            )}
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-primary/10">
               <button
@@ -431,6 +537,70 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               </div>
             </div>
 
+            {/* Price range */}
+            <div className="mb-5">
+              <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Price range</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Minimum price</label>
+                  <select
+                    value={filters.minPrice}
+                    onChange={(e) => { setFilters({ ...filters, minPrice: e.target.value }); setPriceError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {priceMinOpts.labels.map((label, i) => {
+                      const v = priceMinOpts.values[i];
+                      return <option key={`dmin-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+                    })}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Maximum price</label>
+                  <select
+                    value={filters.maxPrice}
+                    onChange={(e) => { setFilters({ ...filters, maxPrice: e.target.value }); setPriceError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {priceMaxOpts.labels.map((label, i) => {
+                      const v = priceMaxOpts.values[i];
+                      return <option key={`dmax-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+                    })}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bedrooms range */}
+            <div className="mb-5">
+              <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Bedrooms</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Minimum bedrooms</label>
+                  <select
+                    value={filters.minBedrooms || 'No min'}
+                    onChange={(e) => { setFilters({ ...filters, minBedrooms: e.target.value === 'No min' ? '' : e.target.value }); setBedError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {BEDROOM_MIN_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+                <div className="relative">
+                  <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Maximum bedrooms</label>
+                  <select
+                    value={filters.maxBedrooms || 'No max'}
+                    onChange={(e) => { setFilters({ ...filters, maxBedrooms: e.target.value === 'No max' ? '' : e.target.value }); setBedError(''); }}
+                    className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
+                  >
+                    {BEDROOM_MAX_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+                </div>
+              </div>
+            </div>
+
             {/* Show sold */}
             <div className="mb-5 flex items-center gap-3">
               <label className="relative inline-flex items-center cursor-pointer">
@@ -442,6 +612,18 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               <span className="text-sm font-roboto font-medium text-primary">{isSale ? 'SHOW SOLD' : 'SHOW LET or AGREED LET'}</span>
             </div>
 
+            {bedError && (
+              <p className="mb-3 flex items-center gap-1.5 text-sm font-roboto text-red-500">
+                <span className="w-4 h-4 flex items-center justify-center"><i className="ri-error-warning-line"></i></span>
+                {bedError}
+              </p>
+            )}
+            {priceError && (
+              <p className="mb-3 flex items-center gap-1.5 text-sm font-roboto text-red-500" role="alert">
+                <span className="w-4 h-4 flex items-center justify-center"><i className="ri-error-warning-line"></i></span>
+                {priceError}
+              </p>
+            )}
             {/* Action buttons */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-primary/10">
               <button type="button" onClick={handleClear} className="flex items-center gap-2 h-11 px-4 text-base font-roboto font-medium text-primary border border-primary/20 rounded-lg hover:border-primary/50 transition-colors cursor-pointer whitespace-nowrap">
@@ -518,21 +700,50 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
           <div className="w-full h-px bg-primary/5 mb-4"></div>
 
+          {/* Bedrooms */}
+          <div className="mb-4">
+            <h4 className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-2">Bedrooms</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="relative">
+                <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Min beds</label>
+                <select value={filters.minBedrooms || 'No min'} onChange={(e) => { setFilters({ ...filters, minBedrooms: e.target.value === 'No min' ? '' : e.target.value }); setBedError(''); }} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                  {BEDROOM_MIN_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+              </div>
+              <div className="relative">
+                <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Max beds</label>
+                <select value={filters.maxBedrooms || 'No max'} onChange={(e) => { setFilters({ ...filters, maxBedrooms: e.target.value === 'No max' ? '' : e.target.value }); setBedError(''); }} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                  {BEDROOM_MAX_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full h-px bg-primary/5 mb-4"></div>
+
           {/* Price */}
           <div className="mb-4">
             <h4 className="text-[10px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-2">Price</h4>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Min price</label>
-                <select value={mobileMinPrice} onChange={(e) => setMobileMinPrice(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {priceMinOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                <select value={filters.minPrice} onChange={(e) => { setFilters({ ...filters, minPrice: e.target.value }); setPriceError(''); }} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                  {priceMinOpts.labels.map((label, i) => {
+                    const v = priceMinOpts.values[i];
+                    return <option key={`min-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+                  })}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Max price</label>
-                <select value={mobileMaxPrice} onChange={(e) => setMobileMaxPrice(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {priceMaxOptions.map((o) => <option key={o} value={o}>{o}</option>)}
+                <select value={filters.maxPrice} onChange={(e) => { setFilters({ ...filters, maxPrice: e.target.value }); setPriceError(''); }} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
+                  {priceMaxOpts.labels.map((label, i) => {
+                    const v = priceMaxOpts.values[i];
+                    return <option key={`max-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+                  })}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
@@ -702,13 +913,27 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             </div>
           </div>
           {/* Sticky footer actions */}
-          <div className="flex items-center gap-2 px-4 py-3 border-t border-primary/10 bg-white shrink-0 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <div className="shrink-0 border-t border-primary/10 bg-white pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            {bedError && (
+              <p className="flex items-center gap-1.5 px-4 pt-3 text-sm font-roboto text-red-500">
+                <span className="w-4 h-4 flex items-center justify-center"><i className="ri-error-warning-line"></i></span>
+                {bedError}
+              </p>
+            )}
+            {priceError && (
+              <p className="flex items-center gap-1.5 px-4 pt-3 text-sm font-roboto text-red-500" role="alert">
+                <span className="w-4 h-4 flex items-center justify-center"><i className="ri-error-warning-line"></i></span>
+                {priceError}
+              </p>
+            )}
+            <div className="flex items-center gap-2 px-4 py-3">
             <button type="button" onClick={handleClear} className="flex items-center justify-center gap-2 h-11 px-4 text-base font-roboto font-medium text-primary border border-primary/20 rounded-lg hover:border-primary/50 transition-colors cursor-pointer whitespace-nowrap">
               Clear all
             </button>
             <button type="button" onClick={handleApply} className="flex items-center justify-center gap-2 h-11 px-6 bg-primary text-white text-base font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap ml-auto flex-1">
               Apply &amp; Search
             </button>
+            </div>
           </div>
         </div>
       </div>

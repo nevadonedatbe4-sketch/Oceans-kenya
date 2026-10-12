@@ -6,6 +6,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useCurrency } from '@/hooks/useCurrency';
 import { DEFAULT_CONTACT, formatPhoneDisplay, toTelHref } from '@/lib/contactDefaults';
 import { FALLBACK_LOGO, HEADER_LOGO } from '@/lib/brandDefaults';
+import SocialLinks from '@/components/feature/SocialLinks';
 
 type Currency = 'KES' | 'USD' | 'GBP' | 'EUR' | 'UGX' | 'AED' | 'ZAR';
 const FALLBACK_CURRENCIES: { code: Currency; label: string }[] = [
@@ -157,7 +158,10 @@ export default function Header() {
     <div className={`top-0 left-0 right-0 z-50 ${stickyNavbar ? 'fixed' : 'relative'}`}>
       {/* Top bar */}
       <div className={`hidden md:block transition-colors duration-300 ${topBarClass}`}>
-        <div className="flex items-center justify-end px-6 md:px-10 py-2">
+        <div className="flex items-center justify-between px-6 md:px-10 py-2">
+          <div className="flex items-center">
+            <SocialLinks placement="header" size="sm" />
+          </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-6">
               {showPhone && (

@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { Settings, SlidersHorizontal, Map, Sparkles, Newspaper, Wand2, LayoutGrid, Mail, ArrowRight } from 'lucide-react';
+import { Settings, SlidersHorizontal, Map, Sparkles, Newspaper, Wand2, LayoutGrid, Mail, ArrowRight, Network } from 'lucide-react';
 import PageEditorsHub from '@/pages/admin/PageEditorsHub';
 import SiteSettings from '@/pages/crm/SiteSettings';
 import ManagementOptions from '@/pages/crm/ManagementOptions';
@@ -70,6 +70,19 @@ export default function SystemManagementOptions() {
             <span className="flex flex-col leading-tight">
               <span className="font-roboto font-semibold text-[15px] text-[#1a1a2e]">Email Management</span>
               <span className="text-xs text-stone-500 font-roboto">Templates, sender & delivery log</span>
+            </span>
+            <ArrowRight size={15} className="text-stone-300 group-hover:text-[#1B4332] transition-colors ml-1" />
+          </Link>
+          <Link
+            to="/admin/management/sitemap"
+            className="group flex items-center gap-2.5 pl-2 pr-3 py-2 rounded-lg bg-white border border-stone-100 hover:border-[#1B4332]/40 hover:bg-stone-50 transition-all cursor-pointer whitespace-nowrap w-fit"
+          >
+            <span className="w-9 h-9 rounded-md bg-[#1B4332]/10 flex items-center justify-center text-[#1B4332] flex-shrink-0">
+              <Network size={17} />
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="font-roboto font-semibold text-[15px] text-[#1a1a2e]">Site Map</span>
+              <span className="text-xs text-stone-500 font-roboto">Review &amp; regenerate (private)</span>
             </span>
             <ArrowRight size={15} className="text-stone-300 group-hover:text-[#1B4332] transition-colors ml-1" />
           </Link>

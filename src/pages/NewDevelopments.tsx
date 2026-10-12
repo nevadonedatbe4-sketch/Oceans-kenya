@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, Fragment } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef, Fragment } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
@@ -7,7 +7,6 @@ import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import Pagination from '@/components/feature/Pagination';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
-import ActiveFilterChips, { type ActiveFilterChip } from '@/components/feature/ActiveFilterChips';
 import { useNewDevelopments } from '@/hooks/useNewDevelopments';
 import type { Development } from '@/hooks/useNewDevelopments';
 import { useNewDevelopmentsPageContent } from '@/hooks/useNewDevelopmentsPageContent';
@@ -19,11 +18,15 @@ import DeveloperCta from '@/pages/NewDevelopments/components/DeveloperCta';
 import DevelopmentModal from '@/pages/NewDevelopments/components/DevelopmentModal';
 import DevelopmentAdvancedFilters, { type DevelopmentFilterState } from '@/pages/NewDevelopments/components/DevelopmentAdvancedFilters';
 import RecentlyViewedDevelopments from '@/components/feature/RecentlyViewedDevelopments';
+import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
+import { useCurrency } from '@/hooks/useCurrency';
+import { salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
+import { completionWindowOptions, matchesCompletionWindow } from '@/lib/completion';
+import { hoursForWindowLabel } from '@/lib/recentWindow';
 
 const ITEMS_PER_PAGE = 9;
 const AREA_ANY = 'All Areas';
 const TYPE_ANY = 'All Types';
-const PRICE_ANY = 'Any Price';
 
 /** Does any real unit in this project satisfy the selected unit-type filter? */
 function matchesUnitType(units: { bedrooms: number }[], filter: string): boolean {
@@ -35,49 +38,11 @@ function matchesUnitType(units: { bedrooms: number }[], filter: string): boolean
   return units.some((u) => u.bedrooms >= n);
 }
 
-/** Extract the year from a real completion date, or '' when absent/invalid. */
-function completionYear(iso: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return String(d.getFullYear());
-}
-
 function stageKey(stage: string): string {
   const s = (stage || '').trim().toLowerCase();
   if (s === 'off_plan') return 'Off-Plan';
   if (s === 'under_construction') return 'Under Construction';
   return 'Completed';
-}
-
-function formatCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-  return String(n);
-}
-
-interface PriceRange {
-  label: string;
-  min: number;
-  max: number;
-}
-
-function buildPriceRanges(items: Development[]): PriceRange[] {
-  const prices = items.map((d) => d.lowestPrice).filter((p) => p > 0).sort((a, b) => a - b);
-  if (prices.length === 0) return [{ label: PRICE_ANY, min: 0, max: Infinity }];
-  const q = (p: number) => prices[Math.min(prices.length - 1, Math.floor(prices.length * p))];
-  const p20 = q(0.2);
-  const p40 = q(0.4);
-  const p60 = q(0.6);
-  const p80 = q(0.8);
-  return [
-    { label: PRICE_ANY, min: 0, max: Infinity },
-    { label: `Under ${formatCompact(p20)}`, min: 0, max: p20 },
-    { label: `${formatCompact(p20)} - ${formatCompact(p40)}`, min: p20, max: p40 },
-    { label: `${formatCompact(p40)} - ${formatCompact(p60)}`, min: p40, max: p60 },
-    { label: `${formatCompact(p60)} - ${formatCompact(p80)}`, min: p60, max: p80 },
-    { label: `Over ${formatCompact(p80)}`, min: p80, max: Infinity },
-  ];
 }
 
 export default function NewDevelopments() {
@@ -111,13 +76,17 @@ export default function NewDevelopments() {
   const [filterBeds, setFilterBeds] = useState(bedsAny);
   const [filterDeveloper, setFilterDeveloper] = useState(devAny);
   const [filterCompletion, setFilterCompletion] = useState(compAny);
-  const [filterPrice, setFilterPrice] = useState(PRICE_ANY);
+  const [filterPriceMin, setFilterPriceMin] = useState('No min');
+  const [filterPriceMax, setFilterPriceMax] = useState('No max');
   const [filterStage, setFilterStage] = useState(stageAny);
   const [sortBy, setSortBy] = useState('name');
   const [page, setPage] = useState(1);
   const [savedSearch, setSavedSearch] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [showLetAgreed, setShowLetAgreed] = useState(false);
+  // The recency window for the "what changed recently" note in the zero-result
+  // state. 'Anytime' means no time restriction.
+  const [recentWindow, setRecentWindow] = useState('Anytime');
   const [searchParams] = useSearchParams();
 
   // ---- options derived from real records ----
@@ -144,7 +113,25 @@ export default function NewDevelopments() {
     return [TYPE_ANY, ...Array.from(set).sort()];
   }, [developments]);
 
-  const priceRanges = useMemo(() => buildPriceRanges(developments), [developments]);
+  const { currency, rates } = useCurrency();
+  const priceMinOpts = useMemo(() => salePriceMinOptions(currency, rates), [currency, rates]);
+  const priceMaxOpts = useMemo(() => salePriceMaxOptions(currency, rates), [currency, rates]);
+  const priceMinValue = parsePriceSelection(priceMinOpts, filterPriceMin);
+  const priceMaxValue = parsePriceSelection(priceMaxOpts, filterPriceMax);
+  const priceRangeError = priceRangeInvalid(priceMinValue, priceMaxValue)
+    ? 'Minimum price cannot be greater than maximum price.'
+    : '';
+
+  // Reset the price range when the display currency changes so stale labels
+  // never silently mismatch the freshly-built options.
+  const prevCurrencyRef = useRef(currency);
+  useEffect(() => {
+    if (prevCurrencyRef.current !== currency) {
+      setFilterPriceMin('No min');
+      setFilterPriceMax('No max');
+      prevCurrencyRef.current = currency;
+    }
+  }, [currency]);
 
   // Development-specific filter options - every option comes from a real record.
   const developerOptions = useMemo(() => {
@@ -156,14 +143,8 @@ export default function NewDevelopments() {
     return [devAny, ...Array.from(set).sort()];
   }, [developments, devAny]);
 
-  const completionOptions = useMemo(() => {
-    const set = new Set<string>();
-    developments.forEach((d) => {
-      const y = completionYear(d.completionDate);
-      if (y) set.add(y);
-    });
-    return [compAny, ...Array.from(set).sort()];
-  }, [developments, compAny]);
+  // Relative completion ladder measured from today (Within 1 month … Within 5 years).
+  const completionOptions = useMemo(() => completionWindowOptions(compAny), [compAny]);
 
   // ---- Featured developments: real authoritative is_featured flag ----
   const featured = useMemo(() => developments.filter((d) => d.isFeatured).slice(0, 4), [developments]);
@@ -172,6 +153,14 @@ export default function NewDevelopments() {
   // ---- filtering (against returned records; exclude featured from the grid) ----
   const filtered = useMemo(() => {
     let result = developments.filter((d) => !featuredIds.has(d.key));
+
+    // Recent-only mode - applied before every other criterion, using the exact
+    // window the note suggested (e.g. 'Last 3 days').
+    const recentHours = hoursForWindowLabel(recentWindow);
+    if (recentHours != null) {
+      const cutoff = Date.now() - recentHours * 3_600_000;
+      result = result.filter((d) => d.createdAt && new Date(d.createdAt).getTime() >= cutoff);
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
@@ -198,11 +187,16 @@ export default function NewDevelopments() {
       result = result.filter((d) => (d.developer || '') === filterDeveloper);
     }
     if (filterCompletion !== compAny) {
-      result = result.filter((d) => completionYear(d.completionDate) === filterCompletion);
+      const now = new Date();
+      result = result.filter((d) => matchesCompletionWindow(d.completionDate, filterCompletion, now));
     }
-    if (filterPrice !== PRICE_ANY) {
-      const range = priceRanges.find((r) => r.label === filterPrice);
-      if (range) result = result.filter((d) => d.lowestPrice > 0 && d.lowestPrice >= range.min && d.lowestPrice <= range.max);
+    if (priceMinValue !== undefined || priceMaxValue !== undefined) {
+      result = result.filter((d) => {
+        if (d.lowestPrice <= 0) return false;
+        if (priceMinValue !== undefined && d.lowestPrice < priceMinValue) return false;
+        if (priceMaxValue !== undefined && d.lowestPrice > priceMaxValue) return false;
+        return true;
+      });
     }
     if (filterStage !== stageAny) {
       result = result.filter((d) => stageKey(d.status) === filterStage);
@@ -214,7 +208,7 @@ export default function NewDevelopments() {
     else if (sortBy === 'newest') sorted.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
     else sorted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
     return sorted;
-  }, [developments, featuredIds, searchQuery, filterArea, filterType, filterBeds, filterDeveloper, filterCompletion, filterPrice, filterStage, sortBy, priceRanges, bedsAny, devAny, compAny, stageAny]);
+  }, [developments, featuredIds, searchQuery, filterArea, filterType, filterBeds, filterDeveloper, filterCompletion, priceMinValue, priceMaxValue, filterStage, sortBy, bedsAny, devAny, compAny, stageAny, recentWindow]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const safePage = Math.min(page, totalPages);
@@ -222,7 +216,7 @@ export default function NewDevelopments() {
 
   useEffect(() => {
     setPage(1);
-  }, [searchQuery, filterArea, filterType, filterBeds, filterDeveloper, filterCompletion, filterPrice, filterStage, sortBy]);
+  }, [searchQuery, filterArea, filterType, filterBeds, filterDeveloper, filterCompletion, filterPriceMin, filterPriceMax, filterStage, sortBy]);
 
   // Deep-link support: a card badge like "Off-Plan" links to
   // /new-developments?stage=Off-Plan, which lands on a pre-filtered grid.
@@ -241,10 +235,12 @@ export default function NewDevelopments() {
     setFilterBeds(bedsAny);
     setFilterDeveloper(devAny);
     setFilterCompletion(compAny);
-    setFilterPrice(PRICE_ANY);
+    setFilterPriceMin('No min');
+    setFilterPriceMax('No max');
     setFilterStage(stageAny);
     setSortBy('name');
     setShowLetAgreed(false);
+    setRecentWindow('Anytime');
     setPage(1);
   }, [bedsAny, devAny, compAny, stageAny]);
 
@@ -254,22 +250,9 @@ export default function NewDevelopments() {
     filterBeds !== bedsAny,
     filterDeveloper !== devAny,
     filterCompletion !== compAny,
-    filterPrice !== PRICE_ANY,
+    filterPriceMin !== 'No min' || filterPriceMax !== 'No max',
     filterStage !== stageAny,
-  ].filter(Boolean).length, [filterArea, filterType, filterBeds, bedsAny, filterDeveloper, devAny, filterCompletion, compAny, filterPrice, filterStage, stageAny]);
-
-  const activeChips = useMemo<ActiveFilterChip[]>(() => {
-    const chips: ActiveFilterChip[] = [];
-    if (filterArea !== AREA_ANY) chips.push({ key: 'area', label: filterArea, onRemove: () => setFilterArea(AREA_ANY) });
-    if (filterType !== TYPE_ANY) chips.push({ key: 'type', label: filterType, onRemove: () => setFilterType(TYPE_ANY) });
-    if (filterBeds !== bedsAny) chips.push({ key: 'beds', label: filterBeds, onRemove: () => setFilterBeds(bedsAny) });
-    if (filterDeveloper !== devAny) chips.push({ key: 'developer', label: filterDeveloper, onRemove: () => setFilterDeveloper(devAny) });
-    if (filterCompletion !== compAny) chips.push({ key: 'completion', label: `Completion ${filterCompletion}`, onRemove: () => setFilterCompletion(compAny) });
-    if (filterPrice !== PRICE_ANY) chips.push({ key: 'price', label: filterPrice, onRemove: () => setFilterPrice(PRICE_ANY) });
-    if (filterStage !== stageAny) chips.push({ key: 'stage', label: filterStage, onRemove: () => setFilterStage(stageAny) });
-    if (searchQuery.trim()) chips.push({ key: 'search', label: `"${searchQuery.trim()}"`, onRemove: () => setSearchQuery('') });
-    return chips;
-  }, [filterArea, filterType, filterBeds, bedsAny, filterDeveloper, devAny, filterCompletion, compAny, filterPrice, filterStage, stageAny, searchQuery]);
+  ].filter(Boolean).length, [filterArea, filterType, filterBeds, bedsAny, filterDeveloper, devAny, filterCompletion, compAny, filterPriceMin, filterPriceMax, filterStage, stageAny]);
 
   // ---- loading skeleton ----
   if (loading) {
@@ -404,9 +387,14 @@ export default function NewDevelopments() {
             searchQuery={searchQuery}
             onLocationChange={(val) => setSearchQuery(val)}
             placeholderCycle={content.search_placeholders.length ? content.search_placeholders : ['Search developments...']}
-            priceValue={filterPrice}
-            onPriceChange={setFilterPrice}
-            priceOptions={priceRanges.map((r) => r.label)}
+            priceMinValue={filterPriceMin}
+            onPriceMinChange={setFilterPriceMin}
+            priceMinOptions={priceMinOpts.labels}
+            priceMaxValue={filterPriceMax}
+            onPriceMaxChange={setFilterPriceMax}
+            priceMaxOptions={priceMaxOpts.labels}
+            priceRangeError={priceRangeError}
+            onClearPrice={(filterPriceMin !== 'No min' || filterPriceMax !== 'No max') ? () => { setFilterPriceMin('No min'); setFilterPriceMax('No max'); } : undefined}
             typeValue={filterType}
             onTypeChange={setFilterType}
             typeOptions={typeOptions}
@@ -457,7 +445,8 @@ export default function NewDevelopments() {
             setFilterBeds(f.unitType);
             setFilterDeveloper(f.developer);
             setFilterCompletion(f.completion);
-            setFilterPrice(f.price);
+            setFilterPriceMin(f.priceMin);
+            setFilterPriceMax(f.priceMax);
             setFilterStage(f.stage);
             setSearchQuery(f.keywords);
             setShowLetAgreed(f.showLetAgreed);
@@ -469,7 +458,8 @@ export default function NewDevelopments() {
             unitType: filterBeds,
             developer: filterDeveloper,
             completion: filterCompletion,
-            price: filterPrice,
+            priceMin: filterPriceMin,
+            priceMax: filterPriceMax,
             stage: filterStage,
             keywords: searchQuery,
             showLetAgreed,
@@ -479,11 +469,10 @@ export default function NewDevelopments() {
           unitTypeOptions={content.beds_options}
           developerOptions={developerOptions}
           completionOptions={completionOptions}
-          priceOptions={priceRanges.map((r) => r.label)}
+          priceMinOptions={priceMinOpts.labels}
+          priceMaxOptions={priceMaxOpts.labels}
           stageOptions={content.stage_options}
         />
-
-        <ActiveFilterChips chips={activeChips} onClearAll={resetFilters} className="mt-6" />
 
         {/* Results header */}
         <div className="flex flex-wrap items-center justify-between gap-4 mt-8 mb-6">
@@ -524,6 +513,23 @@ export default function NewDevelopments() {
             >
               <i className="ri-refresh-line"></i>{content.empty_button}
             </button>
+            <RecentActivitySuggestion
+              source="developments"
+              location={filterArea !== AREA_ANY ? filterArea : undefined}
+              addedWindow={recentWindow}
+              onView={(targetWindow) => {
+                setFilterPriceMin('No min');
+                setFilterPriceMax('No max');
+                setFilterBeds(bedsAny);
+                setFilterType(TYPE_ANY);
+                setFilterDeveloper(devAny);
+                setFilterCompletion(compAny);
+                setFilterStage(stageAny);
+                setSearchQuery('');
+                setRecentWindow(targetWindow);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </div>

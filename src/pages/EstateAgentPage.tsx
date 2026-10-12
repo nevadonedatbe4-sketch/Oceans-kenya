@@ -89,7 +89,7 @@ export default function EstateAgentPage({ slug }: { slug: string }) {
   const filters: ListingFilters = {
     purpose: def?.purpose || 'sale',
     search: def?.area || '',
-    propertyType: 'Any type',
+    propertyType: 'Show all',
     addedSince: 'Anytime',
     sortBy: 'A - Z',
     statusFilter: 'active',

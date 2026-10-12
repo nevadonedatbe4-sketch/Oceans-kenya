@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { listenForSync } from '@/lib/syncEngine';
 
 export interface SiteSettingsMap {
   site_name: string;
@@ -26,6 +27,7 @@ export interface SocialLink {
   id: string;
   platform: string;
   url: string | null;
+  show_in_hero: boolean;
   show_in_header: boolean;
   show_in_footer: boolean;
   show_in_contact: boolean;
@@ -208,6 +210,10 @@ export function useSiteSettings() {
     fetchAll();
   }, [fetchAll]);
 
+  // Re-read whenever the admin saves settings in another tab/window, so the
+  // live site reflects social (and other) configuration changes immediately.
+  useEffect(() => listenForSync(fetchAll), [fetchAll]);
+
   const getSite = (key: string) => settings.site[key] || '';
   const getBrand = (key: string) => settings.brand.find((b) => b.key === key)?.value || '';
   const getSearch = (key: string) => settings.searchFilters.find((s) => s.key === key);
@@ -220,9 +226,10 @@ export function useSiteSettings() {
   const getDetailStyle = (key: string) => settings.detailStyle.find((d) => d.key === key)?.value || '';
   const getSocial = (platform: string) => settings.social.find((s) => s.platform === platform);
   const getSocialUrl = (platform: string) => getSocial(platform)?.url || '';
-  const getSocialVisible = (platform: string, location: 'header' | 'footer' | 'contact') => {
+  const getSocialVisible = (platform: string, location: 'hero' | 'header' | 'footer' | 'contact') => {
     const s = getSocial(platform);
     if (!s) return false;
+    if (location === 'hero') return s.show_in_hero;
     if (location === 'header') return s.show_in_header;
     if (location === 'footer') return s.show_in_footer;
     return s.show_in_contact;

@@ -28,6 +28,7 @@ interface SocialLink {
   id: string;
   platform: string;
   url: string | null;
+  show_in_hero: boolean;
   show_in_header: boolean;
   show_in_footer: boolean;
   show_in_contact: boolean;
@@ -290,8 +291,8 @@ export default function ManagementOptions() {
       ),
       ...socialLinks.map((s) =>
         supabase.from('social_links').update({
-          url: s.url, show_in_header: s.show_in_header, show_in_footer: s.show_in_footer,
-          show_in_contact: s.show_in_contact, sort_order: s.sort_order,
+          url: s.url, show_in_hero: s.show_in_hero, show_in_header: s.show_in_header,
+          show_in_footer: s.show_in_footer, show_in_contact: s.show_in_contact, sort_order: s.sort_order,
         }).eq('id', s.id)
       ),
       ...searchFilters.map((s) =>
@@ -524,15 +525,19 @@ export default function ManagementOptions() {
 
   // ─── Icons ───
   const socialIcon = (platform: string) => {
-    switch (platform) {
+    switch ((platform || '').toLowerCase().trim()) {
       case 'facebook': return 'ri-facebook-fill';
-      case 'instagram': return 'ri-instagram-line';
-      case 'tiktok': return 'ri-linkedin-fill';
+      case 'instagram': return 'ri-instagram-fill';
+      case 'tiktok': return 'ri-tiktok-fill';
       case 'linkedin': return 'ri-linkedin-fill';
       case 'youtube': return 'ri-youtube-fill';
-      case 'twitter': return 'ri-twitter-x-fill';
-      case 'whatsapp': return 'ri-whatsapp-line';
-      default: return 'ri-global-line';
+      case 'twitter': case 'x': return 'ri-twitter-x-fill';
+      case 'whatsapp': return 'ri-whatsapp-fill';
+      case 'threads': return 'ri-threads-fill';
+      case 'telegram': return 'ri-telegram-fill';
+      case 'pinterest': return 'ri-pinterest-fill';
+      case 'snapchat': return 'ri-snapchat-fill';
+      default: return 'ri-global-fill';
     }
   };
 
@@ -933,6 +938,10 @@ export default function ManagementOptions() {
                         />
                       ))}
                       <div className="flex items-end gap-4 pb-1">
+                        <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
+                          <input type="checkbox" checked={social.show_in_hero} onChange={(e) => setSocial(social.platform, { show_in_hero: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                          Hero
+                        </label>
                         <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
                           <input type="checkbox" checked={social.show_in_header} onChange={(e) => setSocial(social.platform, { show_in_header: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
                           Header

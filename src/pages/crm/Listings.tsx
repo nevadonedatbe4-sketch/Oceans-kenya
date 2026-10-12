@@ -767,8 +767,8 @@ export default function Listings() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-[#001731]">All Properties</h1>
-          <p className="text-sm mt-0.5 text-white lg:text-[#88929e]">Manage every property on the Oceans Kenya platform</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-[#001731]">{isAgent ? 'My Properties' : 'All Properties'}</h1>
+          <p className="text-sm mt-0.5 text-white lg:text-[#88929e]">{isAgent ? 'Only properties you own — no other agents\u2019 listings.' : 'Manage every property on the Oceans Kenya platform'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button

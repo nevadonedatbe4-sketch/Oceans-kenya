@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import usePortalBase from '@/hooks/usePortalBase';
 import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
@@ -31,8 +32,9 @@ interface JvProjectRow {
 const formatDate = (dateStr: string) =>
   new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-export default function JVProjects() {
+export default function JVProjects({ readOnly = false }: { readOnly?: boolean }) {
   const navigate = useNavigate();
+  const portalBase = usePortalBase();
 
   const [projects, setProjects] = useState<JvProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -234,13 +236,15 @@ export default function JVProjects() {
         <p className="text-sm font-roboto text-[#636363]">
           {total} project{total === 1 ? '' : 's'} seeking partners
         </p>
-        <button
-          onClick={() => navigate('/admin/joint-ventures/projects/new')}
-          className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto transition-all whitespace-nowrap cursor-pointer"
-        >
-          <i className="ri-add-line" />
-          Add Project
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => navigate(`${portalBase}/joint-ventures/projects/new`)}
+            className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-sm font-roboto transition-all whitespace-nowrap cursor-pointer"
+          >
+            <i className="ri-add-line" />
+            Add Project
+          </button>
+        )}
       </div>
 
       {/* Search & filters */}
@@ -325,11 +329,11 @@ export default function JVProjects() {
               <i className="ri-building-2-line text-[#0d5959] text-2xl" />
             </div>
             <p className="text-sm font-roboto text-[#636363]">
-              {total === 0 ? 'No projects yet. Add your first project seeking partners.' : 'No projects match your filters.'}
+              {total === 0 ? (readOnly ? 'No projects seeking partners right now.' : 'No projects yet. Add your first project seeking partners.') : 'No projects match your filters.'}
             </p>
-            {total === 0 && (
+            {total === 0 && !readOnly && (
               <button
-                onClick={() => navigate('/admin/joint-ventures/projects/new')}
+                onClick={() => navigate(`${portalBase}/joint-ventures/projects/new`)}
                 className="inline-flex items-center gap-2 text-sm font-roboto text-[#0d5959] hover:text-[#001731] cursor-pointer mt-1"
               >
                 <i className="ri-add-line" /> Add a project
@@ -389,40 +393,55 @@ export default function JVProjects() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <button
-                          onClick={() => handleToggleFeatured(project)}
-                          title={project.featured ? 'Unfeature' : 'Feature'}
-                          className={`text-base cursor-pointer ${project.featured ? 'text-amber-500' : 'text-[#c0c8d0] hover:text-amber-400'}`}
-                        >
-                          <i className={project.featured ? 'ri-star-fill' : 'ri-star-line'}></i>
-                        </button>
-                        <button
-                          onClick={() => handleTogglePublish(project)}
-                          title={project.is_published ? 'Unpublish' : 'Publish'}
-                          className={`text-base cursor-pointer ${project.is_published ? 'text-emerald-500' : 'text-[#c0c8d0] hover:text-emerald-400'}`}
-                        >
-                          <i className={project.is_published ? 'ri-eye-line' : 'ri-eye-off-line'}></i>
-                        </button>
+                        {readOnly ? (
+                          <>
+                            {project.featured && <span className="text-[11px] font-roboto font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full whitespace-nowrap">Featured</span>}
+                            <span className={`text-[11px] font-roboto font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${project.is_published ? 'text-emerald-700 bg-emerald-50' : 'text-[#636363] bg-[#f2f4f6]'}`}>
+                              {project.is_published ? 'Published' : 'Draft'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleToggleFeatured(project)}
+                              title={project.featured ? 'Unfeature' : 'Feature'}
+                              className={`text-base cursor-pointer ${project.featured ? 'text-amber-500' : 'text-[#c0c8d0] hover:text-amber-400'}`}
+                            >
+                              <i className={project.featured ? 'ri-star-fill' : 'ri-star-line'}></i>
+                            </button>
+                            <button
+                              onClick={() => handleTogglePublish(project)}
+                              title={project.is_published ? 'Unpublish' : 'Publish'}
+                              className={`text-base cursor-pointer ${project.is_published ? 'text-emerald-500' : 'text-[#c0c8d0] hover:text-emerald-400'}`}
+                            >
+                              <i className={project.is_published ? 'ri-eye-line' : 'ri-eye-off-line'}></i>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-[#636363] font-roboto whitespace-nowrap">{formatDate(project.updated_at)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => navigate(`/admin/joint-ventures/projects/edit/${project.id}`)}
-                          title="Edit"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#0d5959] hover:bg-[#0d5959]/8 cursor-pointer transition-colors"
-                        >
-                          <i className="ri-edit-line text-sm" />
-                        </button>
-                        <button
-                          onClick={() => handleDuplicate(project)}
-                          disabled={duplicatingId === project.id}
-                          title="Duplicate"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#0d5959] hover:bg-[#0d5959]/8 cursor-pointer transition-colors disabled:opacity-40"
-                        >
-                          <i className="ri-file-copy-line text-sm" />
-                        </button>
+                        {!readOnly && (
+                          <>
+                            <button
+                              onClick={() => navigate(`${portalBase}/joint-ventures/projects/edit/${project.id}`)}
+                              title="Edit"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#0d5959] hover:bg-[#0d5959]/8 cursor-pointer transition-colors"
+                            >
+                              <i className="ri-edit-line text-sm" />
+                            </button>
+                            <button
+                              onClick={() => handleDuplicate(project)}
+                              disabled={duplicatingId === project.id}
+                              title="Duplicate"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#0d5959] hover:bg-[#0d5959]/8 cursor-pointer transition-colors disabled:opacity-40"
+                            >
+                              <i className="ri-file-copy-line text-sm" />
+                            </button>
+                          </>
+                        )}
                         <a
                           href={jvProjectPublicUrl(project.slug, project.id)}
                           target="_blank"
@@ -439,13 +458,15 @@ export default function JVProjects() {
                         >
                           <i className="ri-share-line text-sm" />
                         </button>
-                        <button
-                          onClick={() => setDeleteConfirm(project)}
-                          title="Delete"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#dc2626] hover:bg-red-50 cursor-pointer transition-colors"
-                        >
-                          <i className="ri-delete-bin-line text-sm" />
-                        </button>
+                        {!readOnly && (
+                          <button
+                            onClick={() => setDeleteConfirm(project)}
+                            title="Delete"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-[#636363] hover:text-[#dc2626] hover:bg-red-50 cursor-pointer transition-colors"
+                          >
+                            <i className="ri-delete-bin-line text-sm" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

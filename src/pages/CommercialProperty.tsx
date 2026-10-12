@@ -9,12 +9,12 @@ import QuickViewModal from '@/components/feature/QuickViewModal';
 import CompareToolbar from '@/components/feature/CompareToolbar';
 import CompareModal from '@/components/feature/CompareModal';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
-import ActiveFilterChips, { type ActiveFilterChip } from '@/components/feature/ActiveFilterChips';
 import Pagination from '@/components/feature/Pagination';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import CardContactActions from '@/components/feature/CardContactActions';
 import EntityImage from '@/components/feature/EntityImage';
 import ShareButton from '@/components/feature/ShareButton';
+import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
 import { useCompareToolbar, type CompareProperty } from '@/hooks/useCompareToolbar';
 import { useListings, type MappedListing, type ListingFilters } from '@/hooks/useListings';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
@@ -26,28 +26,10 @@ import { smartTitleCase } from '@/lib/location';
 import { cleanListingDescription } from '@/lib/description';
 import { useCommercialPropertyPageContent } from '@/hooks/useCommercialPropertyPageContent';
 import CommercialAdvancedFilters, { defaultCommercialFilters, COMMERCIAL_MUST_HAVES, type CommercialFilterState } from '@/pages/CommercialProperty/components/CommercialAdvancedFilters';
+import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
+import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 
 const ITEMS_PER_PAGE = 10;
-
-const KES_SALE_RANGES: { key: string; min?: number; max?: number }[] = [
-  { key: 'any' },
-  { key: 'under_10m', max: 10_000_000 },
-  { key: '10m_30m', min: 10_000_000, max: 30_000_000 },
-  { key: '30m_50m', min: 30_000_000, max: 50_000_000 },
-  { key: '50m_100m', min: 50_000_000, max: 100_000_000 },
-  { key: '100m_200m', min: 100_000_000, max: 200_000_000 },
-  { key: 'over_200m', min: 200_000_000 },
-];
-
-const KES_RENT_RANGES: { key: string; min?: number; max?: number }[] = [
-  { key: 'any' },
-  { key: 'under_300k', max: 300_000 },
-  { key: '300k_500k', min: 300_000, max: 500_000 },
-  { key: '500k_1m', min: 500_000, max: 1_000_000 },
-  { key: '1m_2m', min: 1_000_000, max: 2_000_000 },
-  { key: '2m_5m', min: 2_000_000, max: 5_000_000 },
-  { key: 'over_5m', min: 5_000_000 },
-];
 
 // Commercial property type mapping for DB filtering
 const COMM_TYPE_DB_MAP: Record<string, string> = {
@@ -66,7 +48,7 @@ const COMM_TYPE_DB_MAP: Record<string, string> = {
 // Commercial property type options - labels drive the shared search bar's
 // "Property type" dropdown; keys map to the DB values above.
 const COMM_TYPE_OPTIONS: { key: string; label: string }[] = [
-  { key: 'any', label: 'Any sector' },
+  { key: 'any', label: 'Show all' },
   { key: 'office', label: 'Offices' },
   { key: 'serviced_office', label: 'Serviced Office' },
   { key: 'retail', label: 'Retail / Shop' },
@@ -88,8 +70,8 @@ function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): 
   return `${sym} ${val.toLocaleString()}`;
 }
 
-const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
+const bedOptions = BEDROOM_OPTIONS;
+const addedOptions = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
 const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
@@ -98,7 +80,6 @@ export default function CommercialProperty() {
   const navigate = useNavigate();
   const isBuy = searchParams.get('buy') !== 'false';
   const purpose: 'sale' | 'rent' = isBuy ? 'sale' : 'rent';
-  const kesRanges = isBuy ? KES_SALE_RANGES : KES_RENT_RANGES;
 
   const [searchQuery, setSearchQuery] = useState(() => { try { return localStorage.getItem('comm_search') || ''; } catch { return ''; } });
   const [debouncedSearch, setDebouncedSearch] = useState(() => { try { return localStorage.getItem('comm_search') || ''; } catch { return ''; } });
@@ -113,7 +94,8 @@ export default function CommercialProperty() {
   };
 
   const [selectedRadius, setSelectedRadius] = useState(() => { try { return localStorage.getItem('comm_radius') || 'This area only'; } catch { return 'This area only'; } });
-  const [selectedPrice, setSelectedPrice] = useState(() => { try { return localStorage.getItem(`comm_price_${purpose}`) || 'Any price'; } catch { return 'Any price'; } });
+  const [priceMin, setPriceMin] = useState(() => { try { return localStorage.getItem(`comm_price_min_${purpose}`) || 'No min'; } catch { return 'No min'; } });
+  const [priceMax, setPriceMax] = useState(() => { try { return localStorage.getItem(`comm_price_max_${purpose}`) || 'No max'; } catch { return 'No max'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => { try { return localStorage.getItem('comm_beds') || 'Any beds'; } catch { return 'Any beds'; } });
   const [selectedType, setSelectedType] = useState(() => { try { return localStorage.getItem('comm_type') || 'any'; } catch { return 'any'; } });
   const [minSize, setMinSize] = useState(() => { try { return localStorage.getItem('comm_minsize') || ''; } catch { return ''; } });
@@ -151,25 +133,17 @@ export default function CommercialProperty() {
   const { format, currency, rates } = useCurrency();
   const { content: c } = useCommercialPropertyPageContent();
 
-  const priceOptions = useMemo(() => {
-    const opts = ['Any price'];
-    for (let i = 1; i < kesRanges.length; i++) {
-      const r = kesRanges[i];
-      if (r.min !== undefined && r.max !== undefined) {
-        opts.push(`${fmtPriceKes(r.min, currency, rates)} - ${fmtPriceKes(r.max, currency, rates)}`);
-      } else if (r.max !== undefined) {
-        opts.push(`Under ${fmtPriceKes(r.max, currency, rates)}`);
-      } else if (r.min !== undefined) {
-        opts.push(`Over ${fmtPriceKes(r.min, currency, rates)}`);
-      }
-    }
-    return opts;
-  }, [currency, rates, kesRanges]);
+  const priceMinOpts = useMemo(() => (isBuy ? salePriceMinOptions(currency, rates) : rentPriceMinOptions(currency, rates)), [isBuy, currency, rates]);
+  const priceMaxOpts = useMemo(() => (isBuy ? salePriceMaxOptions(currency, rates) : rentPriceMaxOptions(currency, rates)), [isBuy, currency, rates]);
+  const priceMinValue = parsePriceSelection(priceMinOpts, priceMin);
+  const priceMaxValue = parsePriceSelection(priceMaxOpts, priceMax);
+  const priceRangeError = priceRangeInvalid(priceMinValue, priceMaxValue) ? 'Minimum price cannot be greater than maximum price.' : '';
 
   const prevCurrencyRef = useRef(currency);
   useEffect(() => {
     if (prevCurrencyRef.current !== currency) {
-      setSelectedPrice('Any price');
+      setPriceMin('No min');
+      setPriceMax('No max');
       prevCurrencyRef.current = currency;
     }
   }, [currency]);
@@ -177,14 +151,15 @@ export default function CommercialProperty() {
   useEffect(() => {
     try { localStorage.setItem('comm_search', searchQuery); } catch { /* ignore */ }
     try { localStorage.setItem('comm_radius', selectedRadius); } catch { /* ignore */ }
-    try { localStorage.setItem(`comm_price_${purpose}`, selectedPrice); } catch { /* ignore */ }
+    try { localStorage.setItem(`comm_price_min_${purpose}`, priceMin); } catch { /* ignore */ }
+    try { localStorage.setItem(`comm_price_max_${purpose}`, priceMax); } catch { /* ignore */ }
     try { localStorage.setItem('comm_beds', selectedBeds); } catch { /* ignore */ }
     try { localStorage.setItem('comm_type', selectedType); } catch { /* ignore */ }
     try { localStorage.setItem('comm_minsize', minSize); } catch { /* ignore */ }
     try { localStorage.setItem('comm_maxsize', maxSize); } catch { /* ignore */ }
     try { localStorage.setItem('comm_added', selectedAdded); } catch { /* ignore */ }
     try { localStorage.setItem('comm_sort', sortBy); } catch { /* ignore */ }
-  }, [searchQuery, selectedRadius, selectedPrice, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy, purpose]);
+  }, [searchQuery, selectedRadius, priceMin, priceMax, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy, purpose]);
 
   const mustHaveGroups = useMemo(
     () => advancedFilters.mustHaves
@@ -207,16 +182,16 @@ export default function CommercialProperty() {
       propertyCategory: 'commercial',
       amenitiesGroups: mustHaveGroups,
     };
-    const priceIdx = priceOptions.indexOf(selectedPrice);
-    const selectedRange = priceIdx > 0 ? kesRanges[priceIdx] : null;
-    if (selectedRange?.min !== undefined) filters.priceMin = selectedRange.min;
-    if (selectedRange?.max !== undefined) filters.priceMax = selectedRange.max;
-    if (selectedBeds === 'Studio') { filters.bedsMin = 0; filters.bedsMax = 0; }
-    else if (selectedBeds === '1+') { filters.bedsMin = 1; }
-    else if (selectedBeds === '2+') { filters.bedsMin = 2; }
-    else if (selectedBeds === '3+') { filters.bedsMin = 3; }
-    else if (selectedBeds === '4+') { filters.bedsMin = 4; }
-    else if (selectedBeds === '5+') { filters.bedsMin = 5; }
+    // Price - independent min / max bounds enforced in the query.
+    if (priceMinValue !== undefined && priceMinValue > 0) filters.priceMin = priceMinValue;
+    if (priceMaxValue !== undefined && priceMaxValue > 0) filters.priceMax = priceMaxValue;
+    // Advanced-panel price (same shared ladder) refines the bounds when set.
+    const advMin = advancedFilters.minPrice ? Number(advancedFilters.minPrice) : undefined;
+    const advMax = advancedFilters.maxPrice ? Number(advancedFilters.maxPrice) : undefined;
+    if (advMin !== undefined && advMin > 0) filters.priceMin = advMin;
+    if (advMax !== undefined && advMax > 0) filters.priceMax = advMax;
+    if (selectedBeds === 'Studio') { filters.bedsExact = 0; }
+    else Object.assign(filters, bedroomSelectionToRange(selectedBeds));
     const minsz = parseFloat(minSize);
     const maxsz = parseFloat(maxSize);
     if (!isNaN(minsz) && minsz > 0) filters.sqmMin = minsz;
@@ -292,7 +267,7 @@ export default function CommercialProperty() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedPrice, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy]);
+  }, [priceMin, priceMax, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy]);
 
   // Keep the visitor in context on page change - bring the top of the results
   // back into view instantly (no disorienting smooth scroll, no jump to the very top).
@@ -447,7 +422,8 @@ export default function CommercialProperty() {
   const clearAllFilters = () => {
     triggerSearch('');
     setSelectedRadius('This area only');
-    setSelectedPrice('Any price');
+    setPriceMin('No min');
+    setPriceMax('No max');
     setSelectedBeds('Any beds');
     setSelectedType('any');
     setMinSize('');
@@ -456,61 +432,6 @@ export default function CommercialProperty() {
     setAdvancedFilters({ ...defaultCommercialFilters });
     setCurrentPage(1);
   };
-
-  const activeChips = useMemo<ActiveFilterChip[]>(() => {
-    const chips: ActiveFilterChip[] = [];
-    if (debouncedSearch.trim()) {
-      chips.push({ key: 'search', label: `"${debouncedSearch.trim()}"`, onRemove: () => triggerSearch('') });
-    }
-    if (selectedType !== 'any') {
-      chips.push({
-        key: 'type',
-        label: COMM_TYPE_OPTIONS.find((t) => t.key === selectedType)?.label || selectedType,
-        onRemove: () => setSelectedType('any'),
-      });
-    }
-    if (selectedBeds !== 'Any beds') {
-      chips.push({ key: 'beds', label: selectedBeds, onRemove: () => setSelectedBeds('Any beds') });
-    }
-    if (selectedPrice !== 'Any price') {
-      chips.push({ key: 'price', label: selectedPrice, onRemove: () => setSelectedPrice('Any price') });
-    }
-    if (selectedAdded !== 'Anytime') {
-      chips.push({ key: 'added', label: selectedAdded, onRemove: () => setSelectedAdded('Anytime') });
-    }
-    if (selectedRadius !== 'This area only') {
-      chips.push({ key: 'radius', label: selectedRadius, onRemove: () => setSelectedRadius('This area only') });
-    }
-    if (minSize !== '' || maxSize !== '') {
-      chips.push({
-        key: 'size',
-        label: `${minSize || '0'} - ${maxSize || 'any'} sqm`,
-        onRemove: () => { setMinSize(''); setMaxSize(''); },
-      });
-    }
-    advancedFilters.sectors.forEach((s) => {
-      chips.push({
-        key: `sector-${s}`,
-        label: COMM_TYPE_OPTIONS.find((t) => t.key === s)?.label || s,
-        onRemove: () => setAdvancedFilters((prev) => ({ ...prev, sectors: prev.sectors.filter((v) => v !== s) })),
-      });
-    });
-    advancedFilters.mustHaves.forEach((m) => {
-      chips.push({
-        key: `must-${m}`,
-        label: COMMERCIAL_MUST_HAVES.find((x) => x.key === m)?.label || m,
-        onRemove: () => setAdvancedFilters((prev) => ({ ...prev, mustHaves: prev.mustHaves.filter((v) => v !== m) })),
-      });
-    });
-    if (advancedFilters.keywords.trim()) {
-      chips.push({
-        key: 'keywords',
-        label: `"${advancedFilters.keywords.trim()}"`,
-        onRemove: () => setAdvancedFilters((prev) => ({ ...prev, keywords: '' })),
-      });
-    }
-    return chips;
-  }, [debouncedSearch, selectedType, selectedBeds, selectedPrice, selectedAdded, selectedRadius, minSize, maxSize, advancedFilters]);
 
   const heroEyebrow = isBuy ? c.hero_eyebrow_buy : c.hero_eyebrow_rent;
   const heroTitle = isBuy ? c.hero_title_buy : c.hero_title_rent;
@@ -581,10 +502,15 @@ export default function CommercialProperty() {
             radiusValue={selectedRadius}
             onRadiusChange={setSelectedRadius}
             radiusOptions={radiusOptions}
-            priceValue={selectedPrice}
-            onPriceChange={setSelectedPrice}
-            priceOptions={priceOptions}
-            typeValue={COMM_TYPE_OPTIONS.find((t) => t.key === selectedType)?.label || 'Any sector'}
+            priceMinValue={priceMin}
+            onPriceMinChange={setPriceMin}
+            priceMinOptions={priceMinOpts.labels}
+            priceMaxValue={priceMax}
+            onPriceMaxChange={setPriceMax}
+            priceMaxOptions={priceMaxOpts.labels}
+            priceRangeError={priceRangeError}
+            onClearPrice={(priceMin !== 'No min' || priceMax !== 'No max') ? () => { setPriceMin('No min'); setPriceMax('No max'); } : undefined}
+            typeValue={COMM_TYPE_OPTIONS.find((t) => t.key === selectedType)?.label || 'Show all'}
             onTypeChange={(label) => setSelectedType(COMM_TYPE_OPTIONS.find((t) => t.label === label)?.key || 'any')}
             typeOptions={COMM_TYPE_OPTIONS.map((t) => t.label)}
             saved={savedSearch}
@@ -633,6 +559,8 @@ export default function CommercialProperty() {
           }}
           initialFilters={{ ...advancedFilters, minSize, maxSize, added: selectedAdded }}
           isBuy={isBuy}
+          currency={currency}
+          rates={rates}
         />
       </div>
 
@@ -718,7 +646,6 @@ export default function CommercialProperty() {
             </button>
           </div>
         </div>
-        <ActiveFilterChips chips={activeChips} onClearAll={clearAllFilters} className="mt-3" />
       </div>
 
       {/* === MAIN CONTENT === */}
@@ -776,12 +703,27 @@ export default function CommercialProperty() {
                   </p>
                   <div className="flex items-center justify-center gap-3">
                     <button onClick={clearAllFilters} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
-                      Clear filters
+                      Broaden search
                     </button>
                     <Link to={c.list_cta_button_link} className="px-6 py-2 border-2 border-primary text-primary text-sm font-roboto font-bold rounded-lg hover:bg-primary/5 transition-colors cursor-pointer whitespace-nowrap">
                       {c.empty_advertise_label}
                     </Link>
                   </div>
+                  <RecentActivitySuggestion
+                    location={debouncedSearch || undefined}
+                    addedWindow={selectedAdded}
+                    onView={(targetWindow) => {
+                      setPriceMin('No min');
+                      setPriceMax('No max');
+                      setSelectedBeds('Any beds');
+                      setSelectedType('any');
+                      setMinSize('');
+                      setMaxSize('');
+                      setAdvancedFilters({ ...defaultCommercialFilters });
+                      setSelectedAdded(targetWindow);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               )}
 

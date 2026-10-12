@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
+import { BEDROOM_OPTIONS } from '@/lib/bedrooms';
 
 /**
  * PropertySearchBar - the single, shared property-search toolbar.
@@ -29,10 +30,10 @@ const DEFAULT_RADIUS_OPTIONS = [
   '40 miles',
 ];
 
-const DEFAULT_BED_OPTIONS = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
+const DEFAULT_BED_OPTIONS = BEDROOM_OPTIONS;
 
 const DEFAULT_TYPE_OPTIONS = [
-  'Any type',
+  'Show all',
   'House',
   'Apartment',
   'Bungalow',
@@ -79,6 +80,24 @@ export interface PropertySearchBarProps {
   onPriceChange?: (value: string) => void;
   priceOptions?: string[];
   priceLabel?: string;
+
+  /* Separate min / max price dropdowns. When these are supplied the single
+     "Price" control is replaced by two independent selects (min + max). */
+  priceMinValue?: string;
+  onPriceMinChange?: (value: string) => void;
+  priceMinOptions?: string[];
+  priceMinLabel?: string;
+
+  priceMaxValue?: string;
+  onPriceMaxChange?: (value: string) => void;
+  priceMaxOptions?: string[];
+  priceMaxLabel?: string;
+
+  /** Validation message shown when the selected price range is contradictory. */
+  priceRangeError?: string;
+
+  /** When provided, renders a small "Clear price" action beside the min/max fields. */
+  onClearPrice?: () => void;
 
   typeValue?: string;
   onTypeChange?: (value: string) => void;
@@ -154,6 +173,22 @@ function LocationField({
   );
 }
 
+function ClearPriceButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="h-[54px] px-2 inline-flex items-center gap-1.5 text-sm font-roboto font-medium text-primary/60 hover:text-primary whitespace-nowrap cursor-pointer transition-colors"
+      aria-label="Clear price"
+    >
+      <span className="w-4 h-4 flex items-center justify-center">
+        <i className="ri-close-circle-line text-base"></i>
+      </span>
+      Clear price
+    </button>
+  );
+}
+
 function SelectControl({
   label,
   value,
@@ -162,6 +197,7 @@ function SelectControl({
   ariaLabel,
   fieldClassName = '',
   embedded = false,
+  compact = false,
 }: {
   label: string;
   value: string;
@@ -171,6 +207,8 @@ function SelectControl({
   fieldClassName?: string;
   /** Borderless row layout (label left, value right) used inside the mobile "one box". */
   embedded?: boolean;
+  /** Tighter typography + a self-sizing dropdown so long price figures stay fully visible. */
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -199,7 +237,7 @@ function SelectControl({
   const dropdown = open && (
     <ul
       role="listbox"
-      className="absolute top-full left-0 right-0 mt-1 bg-white border border-primary/15 rounded-[6px] shadow-lg z-[60] max-h-[300px] overflow-y-auto py-1"
+      className={`absolute top-full left-0 mt-1 ${compact ? 'min-w-full w-max max-w-[360px]' : 'right-0'} bg-white border border-primary/15 rounded-[6px] shadow-lg z-[60] max-h-[300px] overflow-y-auto py-1`}
     >
       {options.map((o) => {
         const isSelected = o === selected;
@@ -214,7 +252,7 @@ function SelectControl({
             }}
             className={`px-4 py-2.5 text-base font-roboto cursor-pointer whitespace-nowrap flex items-center justify-between gap-2 transition-colors ${isSelected ? 'text-primary font-semibold bg-primary/5' : 'text-primary hover:bg-primary/5'}`}
           >
-            <span className="truncate">{o}</span>
+            <span className={compact ? 'whitespace-nowrap' : 'truncate'}>{o}</span>
             {isSelected && (
               <span className="w-4 h-4 flex items-center justify-center text-primary shrink-0">
                 <i className="ri-check-line text-base"></i>
@@ -260,9 +298,9 @@ function SelectControl({
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-label={ariaLabel || label}
-          className="w-full h-[54px] pl-4 pr-10 rounded-[4px] border border-primary/60 bg-white text-base font-roboto text-primary cursor-pointer text-left whitespace-nowrap focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/25 transition-colors"
+          className={`w-full h-[54px] ${compact ? 'pl-4 pr-8 text-sm' : 'pl-4 pr-10 text-base'} rounded-[4px] border border-primary/60 bg-white font-roboto text-primary cursor-pointer text-left whitespace-nowrap focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/25 transition-colors`}
         >
-          <span className="block truncate">{selected}</span>
+          <span className={compact ? 'block whitespace-nowrap' : 'block truncate'}>{selected}</span>
         </button>
         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-primary">
           <i className={`ri-arrow-down-s-line text-2xl transition-transform duration-200 ${open ? 'rotate-180' : ''}`}></i>
@@ -289,7 +327,7 @@ function FiltersButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 h-[54px] px-5 rounded-[4px] border text-base font-roboto font-semibold whitespace-nowrap cursor-pointer transition-colors ${isActive ? 'bg-primary text-white border-primary' : 'bg-white text-primary border-primary/60 hover:border-primary hover:bg-primary/5'} ${className}`}
+      className={`flex items-center justify-center gap-1.5 md:gap-2 h-[38px] md:h-[54px] px-3.5 md:px-5 rounded-[4px] border text-sm md:text-base font-roboto font-semibold whitespace-nowrap cursor-pointer transition-colors ${isActive ? 'bg-primary text-white border-primary' : 'bg-white text-primary border-primary/60 hover:border-primary hover:bg-primary/5'} ${className}`}
     >
       <span className="w-5 h-5 flex items-center justify-center">
         <i className="ri-equalizer-line"></i>
@@ -319,7 +357,7 @@ function SearchButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 h-[54px] px-6 rounded-[4px] text-base font-roboto font-semibold whitespace-nowrap cursor-pointer transition-colors ${dark ? 'bg-golden text-white hover:bg-golden/90' : 'bg-primary text-white hover:bg-primary/90'} ${className}`}
+      className={`flex items-center justify-center gap-1.5 md:gap-2 h-[38px] md:h-[54px] px-3.5 md:px-6 rounded-[4px] text-sm md:text-base font-roboto font-semibold whitespace-nowrap cursor-pointer transition-colors ${dark ? 'bg-golden text-white hover:bg-golden/90' : 'bg-primary text-white hover:bg-primary/90'} ${className}`}
     >
       <span className="w-5 h-5 flex items-center justify-center">
         <i className="ri-search-line"></i>
@@ -409,6 +447,16 @@ export default function PropertySearchBar({
   onPriceChange,
   priceOptions,
   priceLabel,
+  priceMinValue,
+  onPriceMinChange,
+  priceMinOptions,
+  priceMinLabel,
+  priceMaxValue,
+  onPriceMaxChange,
+  priceMaxOptions,
+  priceMaxLabel,
+  priceRangeError,
+  onClearPrice,
   typeValue,
   onTypeChange,
   typeOptions,
@@ -435,6 +483,9 @@ export default function PropertySearchBar({
   const showRadius = typeof onRadiusChange === 'function';
   const showBeds = typeof onBedsChange === 'function';
   const showPrice = typeof onPriceChange === 'function' && priceOpts.length > 0;
+  const showPriceMin = typeof onPriceMinChange === 'function' && (priceMinOptions?.length ?? 0) > 0;
+  const showPriceMax = typeof onPriceMaxChange === 'function' && (priceMaxOptions?.length ?? 0) > 0;
+  const showPriceRange = showPriceMin || showPriceMax;
   const showType = typeof onTypeChange === 'function';
   const showLandSize = typeof onLandSizeChange === 'function' && (landSizeOptions?.length ?? 0) > 0;
   const showFilters = typeof onFilters === 'function';
@@ -471,7 +522,33 @@ export default function PropertySearchBar({
             fieldClassName="flex-1 min-w-[165px]"
           />
         )}
-        {showPrice && (
+        {showPriceRange ? (
+          <>
+            {showPriceMin && (
+              <SelectControl
+                label={priceMinLabel ?? 'Min price'}
+                value={priceMinValue || ''}
+                onChange={onPriceMinChange as (v: string) => void}
+                options={priceMinOptions as string[]}
+                compact
+                fieldClassName="flex-1 min-w-[190px]"
+              />
+            )}
+            {showPriceMax && (
+              <SelectControl
+                label={priceMaxLabel ?? 'Max price'}
+                value={priceMaxValue || ''}
+                onChange={onPriceMaxChange as (v: string) => void}
+                options={priceMaxOptions as string[]}
+                compact
+                fieldClassName="flex-1 min-w-[190px]"
+              />
+            )}
+            {showPriceRange && typeof onClearPrice === 'function' && (
+              <ClearPriceButton onClick={onClearPrice} />
+            )}
+          </>
+        ) : showPrice && (
           <SelectControl
             label={priceLabel ?? 'Price'}
             value={priceValue || ''}
@@ -537,7 +614,33 @@ export default function PropertySearchBar({
             fieldClassName="flex-1 min-w-[150px]"
           />
         )}
-        {showPrice && (
+        {showPriceRange ? (
+          <>
+            {showPriceMin && (
+              <SelectControl
+                label={priceMinLabel ?? 'Min price'}
+                value={priceMinValue || ''}
+                onChange={onPriceMinChange as (v: string) => void}
+                options={priceMinOptions as string[]}
+                compact
+                fieldClassName="flex-1 min-w-[190px]"
+              />
+            )}
+            {showPriceMax && (
+              <SelectControl
+                label={priceMaxLabel ?? 'Max price'}
+                value={priceMaxValue || ''}
+                onChange={onPriceMaxChange as (v: string) => void}
+                options={priceMaxOptions as string[]}
+                compact
+                fieldClassName="flex-1 min-w-[190px]"
+              />
+            )}
+            {showPriceRange && typeof onClearPrice === 'function' && (
+              <ClearPriceButton onClick={onClearPrice} />
+            )}
+          </>
+        ) : showPrice && (
           <SelectControl
             label={priceLabel ?? 'Price'}
             value={priceValue || ''}
@@ -582,7 +685,7 @@ export default function PropertySearchBar({
 
       {/* ── Mobile (< md): one unified search box - location field + Filters only (Zoopla style) ── */}
       <div className="md:hidden">
-        <div className="rounded-[6px] border border-primary/60 bg-white overflow-hidden divide-y divide-primary/10">
+        <div className="rounded-[6px] border border-primary/25 bg-white overflow-hidden divide-y divide-primary/10 shadow-[0_1px_2px_rgba(0,23,49,0.04)]">
           <LocationField
             value={searchQuery}
             onChange={onLocationChange}
@@ -590,13 +693,22 @@ export default function PropertySearchBar({
             embedded
           />
           {(showFilters || showSearch) && (
-            <div className="p-3 flex items-center gap-2">
-              {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} count={filtersCount} className="flex-1" />}
-              {showSearch && <SearchButton onClick={onSearch as () => void} dark={isDark} className="flex-1" />}
+            <div className="p-2.5 flex items-stretch gap-2.5">
+              {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} count={filtersCount} className="flex-1 min-w-0" />}
+              {showSearch && <SearchButton onClick={onSearch as () => void} dark={isDark} className="flex-1 min-w-0" />}
             </div>
           )}
         </div>
       </div>
+
+      {priceRangeError && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm font-roboto text-red-500" role="alert">
+          <span className="w-4 h-4 flex items-center justify-center">
+            <i className="ri-error-warning-line"></i>
+          </span>
+          {priceRangeError}
+        </p>
+      )}
 
       {showActions && (
         <SearchActions

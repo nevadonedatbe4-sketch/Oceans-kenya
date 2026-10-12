@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { broadcastReadSync } from '@/lib/unreadSync';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchStaffDirectory, type StaffRow } from './staffDirectory';
 import type { ConversationSummary, MessageItem, MessageSearchHit, TeamMember } from './types';
@@ -238,7 +239,13 @@ export function useConversationList(activeConvId: string | null): MessengerState
       .on(POSTGRES_REALTIME, { event: 'INSERT', schema: 'public', table: 'og_messages' }, () => { refresh(); })
       .on(POSTGRES_REALTIME, { event: 'UPDATE', schema: 'public', table: 'og_messages' }, () => { refresh(); })
       .on(POSTGRES_REALTIME, { event: 'INSERT', schema: 'public', table: 'og_conversation_members' }, () => { refresh(); })
-      .on(POSTGRES_REALTIME, { event: 'UPDATE', schema: 'public', table: 'og_conversation_members' }, () => { if (!activeRef.current) refresh(); })
+      .on(POSTGRES_REALTIME, { event: 'UPDATE', schema: 'public', table: 'og_conversation_members' }, () => {
+        // Always recount. Our own read-stamp (last_read_at) lands here as an UPDATE
+        // too; previously we skipped it while a chat was open, which left the unread
+        // badge stale. A server recount is authoritative and cheap.
+        void activeRef.current;
+        refresh();
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -350,7 +357,7 @@ export async function markConversationRead(convId: string, userId: string): Prom
       .eq('conversation_id', convId)
       .eq('user_id', userId);
 
-    // Upsert read receipts on messages not sent by me.
+    // Upsert read receipts on messages not sent by me (idempotent on message_id+user_id).
     const { data: msgs } = await supabase
       .from('og_messages')
       .select('id')
@@ -362,8 +369,11 @@ export async function markConversationRead(convId: string, userId: string): Prom
       const rows = msgs.map((m) => ({ message_id: m.id, user_id: userId, read_at: new Date().toISOString() }));
       await supabase.from('og_message_reads').upsert(rows, { onConflict: 'message_id,user_id' });
     }
+    // Tell every badge (this tab + other tabs) to re-read the authoritative count.
+    broadcastReadSync('messages');
   } catch {
-    // Non-fatal: read receipts are best-effort.
+    // Non-fatal: read receipts are best-effort. A failed stamp simply leaves the
+    // count intact on the server — we never fake a cleared badge locally.
   }
 }
 
@@ -380,6 +390,7 @@ export async function markAllConversationsRead(userId: string): Promise<number> 
     .eq('user_id', userId)
     .select('conversation_id');
   if (error) throw error;
+  broadcastReadSync('messages');
   return (data || []).length;
 }
 

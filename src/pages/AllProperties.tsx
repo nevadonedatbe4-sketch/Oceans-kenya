@@ -26,6 +26,12 @@ import { withReturnFrom } from '@/lib/navigation';
 import { applyPublicVisibility } from '@/lib/publicListings';
 import UrgencyMessage from '@/components/feature/UrgencyMessage';
 import { resolveUrgency, autoUrgency } from '@/lib/urgency';
+import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
+import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
+import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
+import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
+import { hoursForWindowLabel } from '@/lib/recentWindow';
+import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 
 interface Property {
   id: string;
@@ -77,8 +83,8 @@ interface Property {
 const PAGE_SIZE = 12;
 
 // ── Shared search-bar option sets (mirrors Buy / Rent so search matches) ──
-const propTypeOptions = ['Any type', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced'];
-const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
+const propTypeOptions = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced'];
+const bedOptions = BEDROOM_OPTIONS;
 const PROP_TYPE_DB: Record<string, string> = {
   House: 'house',
   Apartment: 'apartment',
@@ -92,36 +98,6 @@ const PROP_TYPE_DB: Record<string, string> = {
   'Semi-detached': 'detached',
   Terraced: 'townhouse',
 };
-
-// KES base ranges - the price dropdown labels convert to the active currency.
-const KES_SALE_RANGES: { min?: number; max?: number }[] = [
-  {},
-  { max: 10_000_000 },
-  { min: 10_000_000, max: 30_000_000 },
-  { min: 30_000_000, max: 50_000_000 },
-  { min: 50_000_000, max: 100_000_000 },
-  { min: 100_000_000, max: 200_000_000 },
-  { min: 200_000_000 },
-];
-const KES_RENT_RANGES: { min?: number; max?: number }[] = [
-  {},
-  { max: 300_000 },
-  { min: 300_000, max: 500_000 },
-  { min: 500_000, max: 1_000_000 },
-  { min: 1_000_000, max: 2_000_000 },
-  { min: 2_000_000, max: 5_000_000 },
-  { min: 5_000_000 },
-];
-
-function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): string {
-  const SYMS: Record<string, string> = { KES: 'KES', USD: '$', GBP: '£', EUR: '€', UGX: 'UGX', AED: 'AED', ZAR: 'R' };
-  const sym = SYMS[curr] || curr;
-  const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
-  const val = curr === 'KES' ? kes : Math.round(kes * rate);
-  if (val >= 1_000_000) { const m = val / 1_000_000; return `${sym} ${m >= 100 ? Math.round(m) : (Number.isInteger(m) ? m : m.toFixed(1))}M`; }
-  if (val >= 1_000) return `${sym} ${Math.round(val / 1_000)}K`;
-  return `${sym} ${val.toLocaleString()}`;
-}
 
 function toCategoryLabel(cat: string): string {
   return cat.toLowerCase().split(/[_\s]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -232,25 +208,43 @@ export default function AllProperties() {
 
   // ── Shared search-bar controls (match Buy / Rent) ──
   const [selectedBeds, setSelectedBeds] = useState('Any beds');
-  const [selectedPrice, setSelectedPrice] = useState('Any price');
-  const [selectedType, setSelectedType] = useState('Any type');
+  const [priceMin, setPriceMin] = useState('No min');
+  const [priceMax, setPriceMax] = useState('No max');
+  const [selectedType, setSelectedType] = useState('Show all');
   const [searchBookmarked, setSearchBookmarked] = useState(false);
+  // Advanced search - the SAME shared panel used by Buy / Rent / Commercial, so
+  // every property search on the site behaves identically.
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
+  // When set to a window label (e.g. 'Last 48 hours'), the directory only shows
+  // homes added in that window - used by the "what changed recently" note in the
+  // zero-result state. 'Anytime' means no time restriction.
+  const [recentWindow, setRecentWindow] = useState('Anytime');
 
-  const priceOptions = useMemo(() => {
-    const ranges = filterType === 'rent' ? KES_RENT_RANGES : KES_SALE_RANGES;
-    const opts = ['Any price'];
-    for (let i = 1; i < ranges.length; i++) {
-      const r = ranges[i];
-      if (r.min !== undefined && r.max !== undefined) opts.push(`${fmtPriceKes(r.min, currency, rates)} - ${fmtPriceKes(r.max, currency, rates)}`);
-      else if (r.max !== undefined) opts.push(`Under ${fmtPriceKes(r.max, currency, rates)}`);
-      else if (r.min !== undefined) opts.push(`Over ${fmtPriceKes(r.min, currency, rates)}`);
-    }
-    return opts;
-  }, [currency, rates, filterType]);
+  // Count of active advanced criteria - drives the Filters button badge.
+  const advancedFilterCount = [
+    advancedFilters.propertyTypes.length > 0,
+    advancedFilters.mustHaves.length > 0,
+    advancedFilters.furnished.length > 0,
+    advancedFilters.minBedrooms !== '',
+    advancedFilters.maxBedrooms !== '',
+    advancedFilters.minBaths !== '',
+    advancedFilters.minSize !== '',
+    advancedFilters.maxSize !== '',
+    advancedFilters.minPrice !== '',
+    advancedFilters.maxPrice !== '',
+  ].filter(Boolean).length;
 
-  // Price labels change with sale/rent context + currency, so reset the choice.
+  const priceMinOpts = useMemo(() => (filterType === 'rent' ? rentPriceMinOptions(currency, rates) : salePriceMinOptions(currency, rates)), [currency, rates, filterType]);
+  const priceMaxOpts = useMemo(() => (filterType === 'rent' ? rentPriceMaxOptions(currency, rates) : salePriceMaxOptions(currency, rates)), [currency, rates, filterType]);
+  const priceMinValue = parsePriceSelection(priceMinOpts, priceMin);
+  const priceMaxValue = parsePriceSelection(priceMaxOpts, priceMax);
+  const priceRangeError = priceRangeInvalid(priceMinValue, priceMaxValue) ? 'Minimum price cannot be greater than maximum price.' : '';
+
+  // Price ladders change with sale/rent context + currency, so reset the range.
   useEffect(() => {
-    setSelectedPrice('Any price');
+    setPriceMin('No min');
+    setPriceMax('No max');
   }, [filterType, currency]);
 
   const [sortBy, setSortBy] = useState(() => {
@@ -423,6 +417,13 @@ export default function AllProperties() {
       // Canonical public visibility (published + live status), never gated on price.
       query = applyPublicVisibility(query, 'active');
 
+      // Recent-only mode - enforced in the database query using the exact
+      // window the visitor selected (e.g. 'Last 3 days').
+      const recentHours = hoursForWindowLabel(recentWindow);
+      if (recentHours != null) {
+        query = query.gte('created_at', new Date(Date.now() - recentHours * 3_600_000).toISOString());
+      }
+
       if (filterType !== 'all') {
         query = query.eq('purpose', filterType);
       }
@@ -438,26 +439,51 @@ export default function AllProperties() {
         query = query.or(`title.ilike.%${q}%,location.ilike.%${q}%`);
       }
 
-      // Bedrooms
-      if (selectedBeds === 'Studio') query = query.eq('bedrooms', 0);
-      else if (selectedBeds === '1+') query = query.gte('bedrooms', 1);
-      else if (selectedBeds === '2+') query = query.gte('bedrooms', 2);
-      else if (selectedBeds === '3+') query = query.gte('bedrooms', 3);
-      else if (selectedBeds === '4+') query = query.gte('bedrooms', 4);
-      else if (selectedBeds === '5+') query = query.gte('bedrooms', 5);
+      // Bedrooms - exact count for 1–9 beds, open-ended for "10+ beds".
+      const bedRange = bedroomSelectionToRange(selectedBeds);
+      if (bedRange.bedsExact !== undefined) query = query.eq('bedrooms', bedRange.bedsExact);
+      if (bedRange.bedsMin !== undefined) query = query.gte('bedrooms', bedRange.bedsMin);
+      if (bedRange.bedsMax !== undefined) query = query.lte('bedrooms', bedRange.bedsMax);
 
-      // Property type
-      if (selectedType !== 'Any type' && PROP_TYPE_DB[selectedType]) {
+      // Property type ('Show all' = any residential type)
+      if (selectedType !== 'Show all' && PROP_TYPE_DB[selectedType]) {
         query = query.eq('property_type', PROP_TYPE_DB[selectedType]);
       }
 
-      // Price range - map the selected currency label back to its KES range
-      const priceIdx = priceOptions.indexOf(selectedPrice);
-      if (priceIdx > 0) {
-        const ranges = filterType === 'rent' ? KES_RENT_RANGES : KES_SALE_RANGES;
-        const range = ranges[priceIdx];
-        if (range?.min !== undefined) query = query.gte('price', range.min);
-        if (range?.max !== undefined) query = query.lte('price', range.max);
+      // Price range - independent min / max bounds enforced in the query.
+      if (priceMinValue !== undefined && priceMinValue > 0) query = query.gte('price', priceMinValue);
+      if (priceMaxValue !== undefined && priceMaxValue > 0) query = query.lte('price', priceMaxValue);
+
+      // ── Advanced search (the SAME shared panel + mapping as Buy / Rent) ──
+      // Every selected criterion is enforced as a strict AND on top of the quick
+      // filters, so nothing is silently dropped or widened. This directory is
+      // strictly residential, so the advanced 'Commercial' category is
+      // intentionally NOT re-applied as a category flip.
+      const adv = advancedToFilters(advancedFilters);
+      if (adv.propertyTypes && adv.propertyTypes.length === 1) {
+        query = query.eq('property_type', adv.propertyTypes[0]);
+      } else if (adv.propertyTypes && adv.propertyTypes.length > 1) {
+        query = query.in('property_type', adv.propertyTypes);
+      }
+      if (adv.bedsExact !== undefined) query = query.eq('bedrooms', adv.bedsExact);
+      if (adv.bedsMin !== undefined && adv.bedsMin > 0) query = query.gte('bedrooms', adv.bedsMin);
+      if (adv.bedsMax !== undefined && adv.bedsMax > 0) query = query.lte('bedrooms', adv.bedsMax);
+      if (adv.bathsMin !== undefined && adv.bathsMin > 0) query = query.gte('bathrooms', adv.bathsMin);
+      if (adv.sqmMin !== undefined && adv.sqmMin > 0) query = query.gte('sqft', adv.sqmMin * 10.764);
+      if (adv.sqmMax !== undefined && adv.sqmMax > 0) query = query.lte('sqft', adv.sqmMax * 10.764);
+      if (adv.priceMin !== undefined && adv.priceMin > 0) query = query.gte('price', adv.priceMin);
+      if (adv.priceMax !== undefined && adv.priceMax > 0) query = query.lte('price', adv.priceMax);
+      if (adv.amenitiesGroups && adv.amenitiesGroups.length > 0) {
+        const groups = adv.amenitiesGroups.map((g) => (g || []).filter(Boolean)).filter((g) => g.length > 0);
+        if (groups.length > 0) {
+          const esc = (v: string) => v.replace(/"/g, '\\"');
+          const parts = groups.map((vals) =>
+            vals.length === 1
+              ? `amenities.cs.{"${esc(vals[0])}"}`
+              : `or(${vals.map((v) => `amenities.cs.{"${esc(v)}"}`).join(',')})`,
+          );
+          query = query.or(`and(${parts.join(',')})`);
+        }
       }
 
       switch (sortBy) {
@@ -499,7 +525,7 @@ export default function AllProperties() {
     } finally {
       setLoading(false);
     }
-  }, [filterType, searchQuery, sortBy, page, selectedNeighbourhood, neighbourhoodsLoaded, selectedBeds, selectedType, selectedPrice, priceOptions]);
+  }, [filterType, searchQuery, sortBy, page, selectedNeighbourhood, neighbourhoodsLoaded, selectedBeds, selectedType, priceMin, priceMax, advancedFilters, recentWindow]);
 
   useEffect(() => {
     fetchListings();
@@ -601,12 +627,20 @@ export default function AllProperties() {
             bedsValue={selectedBeds}
             onBedsChange={(v) => { setSelectedBeds(v); setPage(1); }}
             bedOptions={bedOptions}
-            priceValue={selectedPrice}
-            onPriceChange={(v) => { setSelectedPrice(v); setPage(1); }}
-            priceOptions={priceOptions}
+            priceMinValue={priceMin}
+            onPriceMinChange={(v) => { setPriceMin(v); setPage(1); }}
+            priceMinOptions={priceMinOpts.labels}
+            priceMaxValue={priceMax}
+            onPriceMaxChange={(v) => { setPriceMax(v); setPage(1); }}
+            priceMaxOptions={priceMaxOpts.labels}
+            priceRangeError={priceRangeError}
+            onClearPrice={(priceMin !== 'No min' || priceMax !== 'No max') ? () => { setPriceMin('No min'); setPriceMax('No max'); setPage(1); } : undefined}
             typeValue={selectedType}
             onTypeChange={(v) => { setSelectedType(v); setPage(1); }}
             typeOptions={propTypeOptions}
+            onFilters={() => setShowAdvancedFilters((v) => !v)}
+            filtersActive={showAdvancedFilters}
+            filtersCount={advancedFilterCount}
             saved={searchBookmarked}
             onToggleSave={() => setSearchBookmarked(!searchBookmarked)}
             onSearch={handleSearch}
@@ -632,6 +666,15 @@ export default function AllProperties() {
           </div>
         </div>
       </div>
+
+      {/* === ADVANCED FILTERS (shared panel - same as Buy / Rent) === */}
+      <AdvancedFilters
+        isOpen={showAdvancedFilters}
+        onClose={() => setShowAdvancedFilters(false)}
+        onApply={(f) => { setAdvancedFilters(f); setPage(1); }}
+        initialFilters={advancedFilters}
+        mode={filterType === 'sale' ? 'sale' : 'rent'}
+      />
 
       {/* === MAIN CONTENT === */}
       <main ref={resultsTopRef} className="flex-1 px-4 md:px-8 py-8 pb-24 max-w-[1400px] mx-auto w-full">
@@ -694,8 +737,27 @@ export default function AllProperties() {
             <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-stone-100 rounded-full">
               <i className="ri-search-line text-2xl text-primary/50"></i>
             </div>
-            <p className="font-roboto font-bold text-primary text-xl mb-2">No properties found</p>
-            <p className="text-sm font-roboto text-primary/50">Try adjusting your filters or search query</p>
+            <p className="font-roboto font-bold text-primary text-xl mb-2">No exact matches</p>
+            <p className="text-sm font-roboto text-primary/50 mb-4">No properties matched your selected criteria. You can broaden the search to see more.</p>
+            <button
+              onClick={() => { setSelectedBeds('Any beds'); setSelectedType('Show all'); setPriceMin('No min'); setPriceMax('No max'); setAdvancedFilters({ ...defaultFilters }); setRecentWindow('Anytime'); setPage(1); }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
+            >
+              <i className="ri-equalizer-2-line"></i>Broaden search
+            </button>
+            <RecentActivitySuggestion
+              location={selectedNeighbourhood || undefined}
+              addedWindow={recentWindow}
+              onView={(targetWindow) => {
+                setSelectedBeds('Any beds');
+                setSelectedType('Show all');
+                setPriceMin('No min');
+                setPriceMax('No max');
+                setAdvancedFilters({ ...defaultFilters });
+                setRecentWindow(targetWindow);
+                setPage(1);
+              }}
+            />
           </div>
         )}
 

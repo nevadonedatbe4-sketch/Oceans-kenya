@@ -13,13 +13,13 @@ export interface EmailSettings {
 }
 
 export const EMAIL_SETTINGS_DEFAULTS: EmailSettings = {
-  agency_name: 'Oceans',
-  sender_name: 'Oceans',
-  sender_local_part: 'noreply',
-  reply_to: '',
+  agency_name: 'Oceans Group',
+  sender_name: 'Oceans Group',
+  sender_local_part: 'team',
+  reply_to: 'ask@oceanske.com',
   support_email: 'ask@oceanske.com',
-  signature: 'Oceans - Property, Land & Joint Ventures',
-  footer_text: 'This email was sent by Oceans. Please do not reply directly to this automated message.',
+  signature: 'Oceans Group - Property, Land & Joint Ventures',
+  footer_text: 'This email was sent by Oceans Group. Replies go to ask@oceanske.com.',
   brand_color: '#1B4332',
   accent_color: '#C9A84A',
   logo_url: '',

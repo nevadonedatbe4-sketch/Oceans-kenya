@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import usePortalBase from '@/hooks/usePortalBase';
+import { useAuth } from '@/hooks/useAuth';
+import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
@@ -53,6 +55,9 @@ function formatPrice(price: number, currency: string) {
 export default function Developments() {
   const navigate = useNavigate();
   const portalBase = usePortalBase();
+  const { user } = useAuth();
+  const { agentId } = useAgentProfile();
+  const isAgent = user?.role === 'agent';
   const [rows, setRows] = useState<DevRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -75,6 +80,8 @@ export default function Developments() {
       .select('id, title, slug, location, developer_name, development_status, price, currency, total_units, is_published, is_featured, main_image, cover_image, created_at, unit_types(name, bedrooms)', { count: 'exact' })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
+    // Agents only ever see their own developments — scoped at the query level.
+    if (isAgent && agentId) q = q.eq('agent_id', agentId);
     if (statusFilter !== 'all') q = q.eq('development_status', statusFilter);
     if (search.trim()) q = q.or(`title.ilike.%${search.trim()}%,location.ilike.%${search.trim()}%`);
 
@@ -108,7 +115,7 @@ export default function Developments() {
       setTotal(count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, statusFilter, search]);
+  }, [page, pageSize, statusFilter, search, isAgent, agentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [search, statusFilter]);
@@ -201,8 +208,8 @@ export default function Developments() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-[#001731]">New Developments</h1>
-          <p className="text-sm mt-0.5 text-[#6b7280] lg:text-[#88929e]">Manage developments with structured unit types</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-[#001731]">{isAgent ? 'My Developments' : 'New Developments'}</h1>
+          <p className="text-sm mt-0.5 text-[#6b7280] lg:text-[#88929e]">{isAgent ? 'Only developments you own — no other agents\u2019 projects.' : 'Manage developments with structured unit types'}</p>
         </div>
         <div className="flex items-center gap-2">
           <button

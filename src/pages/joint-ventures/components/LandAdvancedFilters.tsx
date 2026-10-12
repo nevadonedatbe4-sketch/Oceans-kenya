@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { salePriceMinOptions, salePriceMaxOptions, type PriceRates } from '@/lib/prices';
 
 /**
  * LandAdvancedFilters - the advanced filter panel for the Joint Ventures land
@@ -45,6 +46,9 @@ interface LandAdvancedFiltersProps {
   onApply: (filters: LandFilterState) => void;
   initialFilters: LandFilterState;
   districts?: string[];
+  /* Active display currency + FX rates for the shared KSh price ladder. */
+  currency?: string;
+  rates?: PriceRates;
 }
 
 const labelClass = 'block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5';
@@ -73,7 +77,14 @@ export default function LandAdvancedFilters({
   onApply,
   initialFilters,
   districts = [],
+  currency,
+  rates,
 }: LandAdvancedFiltersProps) {
+  // Same granular KSh ladder as the main search bar everywhere - one source.
+  const cur = currency || 'KES';
+  const rt = rates || {};
+  const priceMinOpts = salePriceMinOptions(cur, rt);
+  const priceMaxOpts = salePriceMaxOptions(cur, rt);
   const [filters, setFilters] = useState<LandFilterState>({ ...initialFilters });
   const [isMobile, setIsMobile] = useState(false);
 
@@ -145,33 +156,53 @@ export default function LandAdvancedFilters({
 
       {/* Price range */}
       <div className="mb-5">
-        <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Price range (KES)</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
+        <h4 className="text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 mb-3">Price range</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="relative">
             <label className={labelClass}>Min price</label>
-            <input
-              type="number"
-              min={0}
-              inputMode="numeric"
-              placeholder="e.g. 5,000,000"
+            <select
               value={filters.minPrice}
               onChange={(e) => setFilters((p) => ({ ...p, minPrice: e.target.value }))}
-              className={inputClass}
-            />
+              className={`${inputClass} cursor-pointer appearance-none pr-9`}
+            >
+              {priceMinOpts.labels.map((label, i) => {
+                const v = priceMinOpts.values[i];
+                return <option key={`min-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+              })}
+            </select>
+            <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
+              <i className="ri-arrow-down-s-line text-base"></i>
+            </span>
           </div>
-          <div>
+          <div className="relative">
             <label className={labelClass}>Max price</label>
-            <input
-              type="number"
-              min={0}
-              inputMode="numeric"
-              placeholder="e.g. 50,000,000"
+            <select
               value={filters.maxPrice}
               onChange={(e) => setFilters((p) => ({ ...p, maxPrice: e.target.value }))}
-              className={inputClass}
-            />
+              className={`${inputClass} cursor-pointer appearance-none pr-9`}
+            >
+              {priceMaxOpts.labels.map((label, i) => {
+                const v = priceMaxOpts.values[i];
+                return <option key={`max-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+              })}
+            </select>
+            <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
+              <i className="ri-arrow-down-s-line text-base"></i>
+            </span>
           </div>
         </div>
+        {(filters.minPrice !== '' || filters.maxPrice !== '') && (
+          <button
+            type="button"
+            onClick={() => setFilters((p) => ({ ...p, minPrice: '', maxPrice: '' }))}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold text-primary/60 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <span className="w-4 h-4 flex items-center justify-center">
+              <i className="ri-close-circle-line text-sm"></i>
+            </span>
+            Clear price
+          </button>
+        )}
       </div>
 
       <div className="w-full h-px bg-primary/10 mb-5" />

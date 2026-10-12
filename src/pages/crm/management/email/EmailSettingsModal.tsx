@@ -91,14 +91,14 @@ export default function EmailSettingsModal({ open, settings, onClose, onSave }: 
             </div>
             <div className="space-y-1.5">
               <label className={label}>Sender local part</label>
-              <input type="text" value={form.sender_local_part} onChange={(e) => set('sender_local_part', e.target.value)} className={input} placeholder="noreply" />
+              <input type="text" value={form.sender_local_part} onChange={(e) => set('sender_local_part', e.target.value)} className={input} placeholder="team" />
               <p className="text-[11px] font-roboto text-stone-400">
-                Combined with your verified domain, e.g. {form.sender_local_part || 'noreply'}@yourdomain.com
+                Combined with your verified domain, e.g. {form.sender_local_part || 'team'}@oceanske.com
               </p>
             </div>
             <div className="space-y-1.5">
               <label className={label}>Reply-to address</label>
-              <input type="email" value={form.reply_to} onChange={(e) => set('reply_to', e.target.value)} className={input} placeholder="Leave blank for default" />
+              <input type="email" value={form.reply_to} onChange={(e) => set('reply_to', e.target.value)} className={input} placeholder="ask@oceanske.com" />
             </div>
             <div className="space-y-1.5">
               <label className={label}>Support email</label>

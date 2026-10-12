@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, type PriceRates } from '@/lib/prices';
 
 /**
  * CommercialAdvancedFilters - the advanced filter sheet for the commercial
@@ -11,6 +12,8 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 export interface CommercialFilterState {
   sectors: string[];
+  minPrice: string;
+  maxPrice: string;
   minSize: string;
   maxSize: string;
   added: string;
@@ -21,6 +24,8 @@ export interface CommercialFilterState {
 
 export const defaultCommercialFilters: CommercialFilterState = {
   sectors: [],
+  minPrice: '',
+  maxPrice: '',
   minSize: '',
   maxSize: '',
   added: 'Anytime',
@@ -63,7 +68,7 @@ const SECTORS: { value: string; label: string }[] = [
   { value: 'other', label: 'Other' },
 ];
 
-const ADDED_OPTIONS = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
+const ADDED_OPTIONS = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
 
 interface CommercialAdvancedFiltersProps {
   isOpen: boolean;
@@ -71,6 +76,9 @@ interface CommercialAdvancedFiltersProps {
   onApply: (filters: CommercialFilterState) => void;
   initialFilters: CommercialFilterState;
   isBuy: boolean;
+  /* Active display currency + FX rates for the shared KSh price ladder. */
+  currency?: string;
+  rates?: PriceRates;
 }
 
 const labelClass = 'block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5';
@@ -142,9 +150,18 @@ export default function CommercialAdvancedFilters({
   onApply,
   initialFilters,
   isBuy,
+  currency,
+  rates,
 }: CommercialAdvancedFiltersProps) {
   const [filters, setFilters] = useState<CommercialFilterState>({ ...initialFilters });
   const [isMobile, setIsMobile] = useState(false);
+
+  // Same granular KSh ladder as the main search bar - one source, buy uses the
+  // sale ladder, rent uses the monthly ladder.
+  const cur = currency || 'KES';
+  const rt = rates || {};
+  const priceMinOpts = isBuy ? salePriceMinOptions(cur, rt) : rentPriceMinOptions(cur, rt);
+  const priceMaxOpts = isBuy ? salePriceMaxOptions(cur, rt) : rentPriceMaxOptions(cur, rt);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 767px)');
@@ -180,6 +197,7 @@ export default function CommercialAdvancedFilters({
 
   const activeCount = [
     filters.sectors.length > 0,
+    filters.minPrice !== '' || filters.maxPrice !== '',
     filters.minSize !== '' || filters.maxSize !== '',
     filters.added !== 'Anytime',
     filters.keywords.trim() !== '',
@@ -246,6 +264,58 @@ export default function CommercialAdvancedFilters({
             />
           </div>
         </div>
+      </Section>
+
+      <div className="w-full h-px bg-primary/10 mb-5" />
+
+      {/* Price range - shared site-wide KSh ladder (sale for buy, pcm for rent) */}
+      <Section title="Price range">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="relative">
+            <label className={labelClass}>{isBuy ? 'Min price' : 'Min price (pcm)'}</label>
+            <select
+              value={filters.minPrice}
+              onChange={(e) => setFilters((p) => ({ ...p, minPrice: e.target.value }))}
+              className={`${inputClass} cursor-pointer appearance-none pr-9`}
+            >
+              {priceMinOpts.labels.map((label, i) => {
+                const v = priceMinOpts.values[i];
+                return <option key={`cmin-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+              })}
+            </select>
+            <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
+              <i className="ri-arrow-down-s-line text-base"></i>
+            </span>
+          </div>
+          <div className="relative">
+            <label className={labelClass}>{isBuy ? 'Max price' : 'Max price (pcm)'}</label>
+            <select
+              value={filters.maxPrice}
+              onChange={(e) => setFilters((p) => ({ ...p, maxPrice: e.target.value }))}
+              className={`${inputClass} cursor-pointer appearance-none pr-9`}
+            >
+              {priceMaxOpts.labels.map((label, i) => {
+                const v = priceMaxOpts.values[i];
+                return <option key={`cmax-${i}`} value={v === undefined ? '' : String(v)}>{label}</option>;
+              })}
+            </select>
+            <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
+              <i className="ri-arrow-down-s-line text-base"></i>
+            </span>
+          </div>
+        </div>
+        {(filters.minPrice !== '' || filters.maxPrice !== '') && (
+          <button
+            type="button"
+            onClick={() => setFilters((p) => ({ ...p, minPrice: '', maxPrice: '' }))}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-roboto font-semibold text-primary/60 hover:text-primary transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <span className="w-4 h-4 flex items-center justify-center">
+              <i className="ri-close-circle-line text-sm"></i>
+            </span>
+            Clear price
+          </button>
+        )}
       </Section>
 
       <div className="w-full h-px bg-primary/10 mb-5" />

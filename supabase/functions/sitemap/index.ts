@@ -1,8 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// Public XML sitemap for oceanske.com. Registers every static SEO landing
-// page plus every live listing and neighbourhood page, so search engines can
-// discover the entire premium property architecture at once.
+// Public XML sitemap for oceanske.com. Registers every static SEO landing page
+// plus every live, published listing / land listing / development /
+// neighbourhood / blog post, so search engines can discover the entire premium
+// property architecture at once.
+//
+// Only ELIGIBLE public URLs are emitted (published / available content).
+// Draft, private, restricted and non-indexable routes are never included, and
+// duplicate URLs are collapsed automatically.
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
@@ -10,118 +15,61 @@ const SUPABASE_ANON = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const SITE = 'https://www.oceanske.com';
 
 // Static SEO landing pages (Popular Searches + property-type clusters).
-// Keep in sync with src/lib/seoPages.ts and src/lib/seoClusters.ts.
+// Mirrors the derived registry in src/lib/sitemapRoutes.ts / seoPages.ts.
 const SEO_PATHS: string[] = [
-  '/',
-  '/buy',
-  '/rent',
-  '/all-properties',
-  '/neighbourhoods',
-  '/new-developments',
-  '/joint-ventures',
-  '/living-in-nairobi',
-  '/schools',
-  '/commute-time',
-  '/directory',
-  '/about',
-  '/contact',
-  '/property-for-sale/nairobi',
-  '/property-for-rent/nairobi',
-  '/apartments-for-sale/westlands',
-  '/apartments-to-rent/westlands',
+  '/', '/buy', '/rent', '/all-properties', '/neighbourhoods', '/new-developments',
+  '/joint-ventures', '/living-in-nairobi', '/schools', '/commute-time', '/directory',
+  '/about', '/contact',
+  '/property-for-sale/nairobi', '/property-for-rent/nairobi',
+  '/apartments-for-sale/westlands', '/apartments-to-rent/westlands',
   '/apartments-for-sale/kileleshwa',
-  '/houses-for-sale/karen',
-  '/houses-to-rent/karen',
-  '/houses-for-sale/lavington',
-  '/houses-to-rent/lavington',
-  '/townhouses-for-sale/lavington',
-  '/villas-for-sale/runda',
-  '/penthouses-for-sale/westlands',
-  '/furnished-apartments/westlands',
-  '/serviced-apartments/nairobi',
-  '/luxury-homes-nairobi',
-  '/investment-property-nairobi',
-  '/properties-with-pool/nairobi',
-  '/gated-community-homes/nairobi',
-  '/modern-apartments/nairobi',
-  '/duplex-apartments/nairobi',
-  '/apartments-for-sale/nairobi',
-  '/apartments-to-rent/nairobi',
-  '/houses-for-sale/nairobi',
-  '/houses-to-rent/nairobi',
-  '/townhouses-for-sale/nairobi',
-  '/land-for-sale/nairobi',
-  '/commercial-property-for-sale/nairobi',
-  '/commercial-property-to-rent/nairobi',
-  '/commercial-property',
+  '/houses-for-sale/karen', '/houses-to-rent/karen',
+  '/houses-for-sale/lavington', '/houses-to-rent/lavington',
+  '/townhouses-for-sale/lavington', '/villas-for-sale/runda',
+  '/penthouses-for-sale/westlands', '/furnished-apartments/westlands',
+  '/serviced-apartments/nairobi', '/luxury-homes-nairobi',
+  '/investment-property-nairobi', '/properties-with-pool/nairobi',
+  '/gated-community-homes/nairobi', '/modern-apartments/nairobi',
+  '/duplex-apartments/nairobi', '/apartments-for-sale/nairobi',
+  '/apartments-to-rent/nairobi', '/houses-for-sale/nairobi',
+  '/houses-to-rent/nairobi', '/townhouses-for-sale/nairobi',
+  '/land-for-sale/nairobi', '/commercial-property-for-sale/nairobi',
+  '/commercial-property-to-rent/nairobi', '/commercial-property',
 ];
 
-// Premium Nairobi enclaves → /estate-agents/{area} (Estate Agents cluster).
 const PREMIUM_AREA_SLUGS: string[] = [
-  'karen',
-  'runda',
-  'gigiri',
-  'muthaiga',
-  'westlands',
-  'kilimani',
-  'lavington',
-  'kileleshwa',
-  'riverside',
-  'kitisuru',
-  'spring-valley',
-  'parklands',
-  'upper-hill',
-  'lower-kabete',
-  'rosslyn',
+  'karen', 'runda', 'gigiri', 'muthaiga', 'westlands', 'kilimani', 'lavington',
+  'kileleshwa', 'riverside', 'kitisuru', 'spring-valley', 'parklands',
+  'upper-hill', 'lower-kabete', 'rosslyn',
 ];
 
-// Areas with live price data → /property-prices/{area} + /rental-prices/{area}.
 const PRICED_AREA_SLUGS: string[] = [
-  'karen',
-  'runda',
-  'gigiri',
-  'muthaiga',
-  'westlands',
-  'kilimani',
-  'lavington',
-  'kileleshwa',
-  'riverside',
-  'kitisuru',
-  'spring-valley',
-  'lower-kabete',
-  'rosslyn',
+  'karen', 'runda', 'gigiri', 'muthaiga', 'westlands', 'kilimani', 'lavington',
+  'kileleshwa', 'riverside', 'kitisuru', 'spring-valley', 'lower-kabete', 'rosslyn',
 ];
 
-// Premium enclaves → /area-guides/{area} (Area Guides cluster).
 const AREA_GUIDE_SLUGS: string[] = [
-  'karen',
-  'runda',
-  'gigiri',
-  'muthaiga',
-  'westlands',
-  'kilimani',
-  'lavington',
-  'kileleshwa',
-  'riverside',
-  'kitisuru',
-  'spring-valley',
-  'parklands',
-  'upper-hill',
-  'lower-kabete',
-  'rosslyn',
+  'karen', 'runda', 'gigiri', 'muthaiga', 'westlands', 'kilimani', 'lavington',
+  'kileleshwa', 'riverside', 'kitisuru', 'spring-valley', 'parklands',
+  'upper-hill', 'lower-kabete', 'rosslyn',
 ];
 
 function buildClusterPaths(): string[] {
   const out: string[] = [];
   for (const area of PREMIUM_AREA_SLUGS) out.push(`/estate-agents/${area}`);
-  for (const area of PRICED_AREA_SLUGS) {
-    out.push(`/property-prices/${area}`, `/rental-prices/${area}`);
-  }
+  for (const area of PRICED_AREA_SLUGS) out.push(`/property-prices/${area}`, `/rental-prices/${area}`);
   for (const area of AREA_GUIDE_SLUGS) out.push(`/area-guides/${area}`);
   return out;
 }
 
 const ALL_SEO_PATHS: string[] = [...SEO_PATHS, ...buildClusterPaths()];
+
+interface SitemapUrl {
+  loc: string;
+  lastmod?: string;
+  priority?: string;
+  changefreq?: string;
+}
 
 function xmlEscape(s: string): string {
   return (s || '')
@@ -137,9 +85,17 @@ function urlEntry(loc: string, priority: string, changefreq: string, lastmod?: s
   return `<url><loc>${xmlEscape(loc)}</loc>${lm}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
 }
 
-function buildSitemap(extraUrls: { loc: string; lastmod?: string }[]): string {
+function buildSitemap(entries: SitemapUrl[]): string {
   const today = new Date().toISOString().slice(0, 10);
+  const seen = new Set<string>();
   const urls: string[] = [];
+
+  const push = (u: SitemapUrl) => {
+    const loc = (u.loc || '').trim();
+    if (!loc || seen.has(loc)) return; // dedupe - never emit the same URL twice
+    seen.add(loc);
+    urls.push(urlEntry(loc, u.priority ?? '0.5', u.changefreq ?? 'weekly', u.lastmod ?? today));
+  };
 
   for (const path of ALL_SEO_PATHS) {
     let priority = '0.5';
@@ -147,81 +103,48 @@ function buildSitemap(extraUrls: { loc: string; lastmod?: string }[]): string {
     if (path === '/') { priority = '1.0'; changefreq = 'daily'; }
     else if (path === '/buy' || path === '/rent' || path === '/all-properties') { priority = '0.8'; changefreq = 'daily'; }
     else if (path.startsWith('/property-') || path === '/neighbourhoods') { priority = '0.7'; changefreq = 'weekly'; }
-    urls.push(urlEntry(`${SITE}${path}`, priority, changefreq, today));
+    push({ loc: `${SITE}${path}`, priority, changefreq, lastmod: today });
   }
 
-  for (const u of extraUrls) {
-    urls.push(urlEntry(u.loc, '0.6', 'weekly', u.lastmod ?? today));
-  }
+  for (const e of entries) push(e);
 
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+}
+
+function day(v?: string | null): string | undefined {
+  return v ? v.slice(0, 10) : undefined;
 }
 
 Deno.serve(async (_req: Request) => {
   try {
     const client = createClient(SUPABASE_URL, SUPABASE_ANON);
-    const extraUrls: { loc: string; lastmod?: string }[] = [];
+    const entries: SitemapUrl[] = [];
 
-    const [listingsRes, hoodsRes] = await Promise.allSettled([
-      client
-        .from('listings')
-        .select('slug, updated_at')
-        .eq('is_published', true)
-        .eq('status', 'available')
-        .neq('title', '')
-        .limit(5000),
-      client
-        .from('neighbourhoods')
-        .select('slug, updated_at')
-        .eq('is_published', true)
-        .limit(500),
+    const [listingsRes, hoodsRes, devRes, landRes, blogRes] = await Promise.allSettled([
+      client.from('listings').select('slug, updated_at').eq('is_published', true).eq('status', 'available').neq('title', '').limit(8000),
+      client.from('neighbourhoods').select('slug, updated_at').eq('is_published', true).limit(500),
+      client.from('developments').select('slug, updated_at').eq('is_published', true).neq('title', '').limit(2000),
+      client.from('land_listings').select('slug, updated_at').eq('is_published', true).neq('title', '').limit(5000),
+      client.from('blog_posts').select('slug, updated_at').eq('status', 'published').limit(2000),
     ]);
 
-    if (listingsRes.status === 'fulfilled' && listingsRes.value.data) {
-      for (const row of listingsRes.value.data as Array<{ slug?: string | null; updated_at?: string | null }>) {
+    // deno-lint-ignore no-explicit-any
+    const collect = (res: any, make: (slug: string, updatedAt?: string | null) => SitemapUrl) => {
+      if (!res || res.status !== 'fulfilled' || !res.value || !res.value.data) return;
+      for (const row of res.value.data as Array<{ slug?: string | null; updated_at?: string | null }>) {
         const slug = (row.slug ?? '').trim();
         if (!slug) continue;
-        extraUrls.push({ loc: `${SITE}/property/${slug}`, lastmod: row.updated_at?.slice(0, 10) });
+        entries.push(make(slug, row.updated_at));
       }
-    }
+    };
 
-    if (hoodsRes.status === 'fulfilled' && hoodsRes.value.data) {
-      for (const row of hoodsRes.value.data as Array<{ slug?: string | null; updated_at?: string | null }>) {
-        const slug = (row.slug ?? '').trim();
-        if (!slug) continue;
-        extraUrls.push({ loc: `${SITE}/neighbourhood/${slug}`, lastmod: row.updated_at?.slice(0, 10) });
-      }
-    }
+    collect(listingsRes, (slug, u) => ({ loc: `${SITE}/property/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
+    collect(landRes, (slug, u) => ({ loc: `${SITE}/property/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
+    collect(devRes, (slug, u) => ({ loc: `${SITE}/development/${slug}`, lastmod: day(u), priority: '0.7', changefreq: 'weekly' }));
+    collect(hoodsRes, (slug, u) => ({ loc: `${SITE}/neighbourhood/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
+    collect(blogRes, (slug, u) => ({ loc: `${SITE}/blog/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
 
-    // New-development units: each unit is a real individual property listing, so
-    // it is registered under its own /property/ URL (one URL per project).
-    const devRes = await client
-      .from('listings')
-      .select('slug, title, development_id, created_at')
-      .eq('is_new_development', true)
-      .eq('is_published', true)
-      .neq('title', '')
-      .limit(3000);
-
-    if (devRes.data) {
-      const seenProjects = new Set<string>();
-      for (const row of devRes.data as Array<{
-        slug?: string | null;
-        title?: string | null;
-        development_id?: string | null;
-        created_at?: string | null;
-      }>) {
-        const slug = (row.slug ?? '').trim();
-        if (!slug) continue;
-        const key = (row.development_id && String(row.development_id))
-          || (row.title || '').trim().toLowerCase();
-        if (!key || seenProjects.has(key)) continue;
-        seenProjects.add(key);
-        extraUrls.push({ loc: `${SITE}/property/${slug}`, lastmod: row.created_at?.slice(0, 10) });
-      }
-    }
-
-    const xml = buildSitemap(extraUrls);
+    const xml = buildSitemap(entries);
     return new Response(xml, {
       status: 200,
       headers: {

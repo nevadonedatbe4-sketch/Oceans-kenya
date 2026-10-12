@@ -10,11 +10,10 @@ export function QuickSetHeaderButton({ label = 'Quick Set' }: { label?: string }
     <button
       type="button"
       onClick={() => openQuickSet()}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#00ddb4] text-[#001731] text-xs font-roboto font-semibold hover:bg-[#00c9a3] transition-all cursor-pointer whitespace-nowrap"
+      className="hidden lg:inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#00ddb4] text-[#001731] text-[11px] leading-none font-roboto font-semibold hover:bg-[#00c9a3] transition-all cursor-pointer whitespace-nowrap"
     >
-      <i className="ri-calendar-2-line text-sm" />
-      <span className="hidden lg:inline">{label} Appointment</span>
-      <span className="lg:hidden">{label}</span>
+      <i className="ri-calendar-2-line text-xs" />
+      <span>{label} Appointment</span>
     </button>
   );
 }

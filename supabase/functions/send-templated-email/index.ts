@@ -37,10 +37,10 @@ interface Settings {
 }
 
 const SETTING_DEFAULTS: Settings = {
-  agency_name: "Oceans",
-  sender_name: "Oceans",
-  sender_local_part: "noreply",
-  reply_to: "",
+  agency_name: "Oceans Group",
+  sender_name: "Oceans Group",
+  sender_local_part: "team",
+  reply_to: "ask@oceanske.com",
   support_email: "ask@oceanske.com",
   signature: "Oceans — Property, Land & Joint Ventures",
   footer_text: "This email was sent by Oceans.",

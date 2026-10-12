@@ -23,8 +23,8 @@ import { usePropertyPageSettings } from '@/hooks/usePropertyPageSettings';
 import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
-import MobileFilterPills from '@/components/feature/MobileFilterPills';
 import RefineSearchChips from '@/components/feature/RefineSearchChips';
+import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useListingsPageContent } from '@/hooks/useListingsPageContent';
@@ -35,30 +35,14 @@ import { smartTitleCase } from '@/lib/location';
 import { radiusLabelToMeters } from '@/lib/distance';
 import { withReturnFrom } from '@/lib/navigation';
 import { DEFAULT_CONTACT, toTelHref } from '@/lib/contactDefaults';
+import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
+import { salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 
 const ITEMS_PER_PAGE = 10;
 
-// KES base ranges used for DB filtering - labels generated dynamically per currency
-const KES_SALE_RANGES: { key: string; min?: number; max?: number }[] = [
-  { key: 'any' },
-  { key: 'under_10m', max: 10_000_000 },
-  { key: '10m_30m', min: 10_000_000, max: 30_000_000 },
-  { key: '30m_50m', min: 30_000_000, max: 50_000_000 },
-  { key: '50m_100m', min: 50_000_000, max: 100_000_000 },
-  { key: '100m_200m', min: 100_000_000, max: 200_000_000 },
-  { key: 'over_200m', min: 200_000_000 },
-];
-
-function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): string {
-  const SYMS: Record<string, string> = { KES: 'KES', USD: '$', GBP: '£', EUR: '€', UGX: 'UGX', AED: 'AED', ZAR: 'R' };
-  const sym = SYMS[curr] || curr;
-  const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
-  const val = curr === 'KES' ? kes : Math.round(kes * rate);
-  return `${sym} ${val.toLocaleString('en-US')}`;
-}
-const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const propTypeOptions = ['Any type', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
-const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
+const bedOptions = BEDROOM_OPTIONS;
+const propTypeOptions = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
+const addedOptions = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
 const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '½ mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
@@ -69,7 +53,6 @@ export default function Buy() {
   const { pathname, search } = useLocation();
   const currentPath = `${pathname}${search}`;
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedStatus, setSelectedStatus] = useState('For Sale');
   const { getSite } = useSiteSettings();
   const sitePhone = getSite('contact_phone') || DEFAULT_CONTACT.phone;
   const telHref = toTelHref(sitePhone);
@@ -100,9 +83,10 @@ export default function Buy() {
   };
 
   const [selectedRadius, setSelectedRadius] = useState(() => { try { return localStorage.getItem('buy_radius') || 'This area only'; } catch { return 'This area only'; } });
-  const [selectedPrice, setSelectedPrice] = useState(() => { try { return localStorage.getItem('buy_price') || 'Any price'; } catch { return 'Any price'; } });
+  const [priceMin, setPriceMin] = useState(() => { try { return localStorage.getItem('buy_price_min') || 'No min'; } catch { return 'No min'; } });
+  const [priceMax, setPriceMax] = useState(() => { try { return localStorage.getItem('buy_price_max') || 'No max'; } catch { return 'No max'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => urlBeds || (() => { try { return localStorage.getItem('buy_beds') || 'Any beds'; } catch { return 'Any beds'; } })());
-  const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('buy_type') || 'Any type'; } catch { return 'Any type'; } })());
+  const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('buy_type') || 'Show all'; } catch { return 'Show all'; } })());
   const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('buy_added') || 'Anytime'; } catch { return 'Anytime'; } });
   const [sortBy, setSortBy] = useState(() => {
     try {
@@ -139,22 +123,21 @@ export default function Buy() {
   const { status: alertStatus, error: alertError, submitToContacts, reset: resetAlert } = useFormSubmit();
   const { format, currency, rates } = useCurrency();
 
-  // Dynamic price labels - auto-convert KES ranges to selected currency
-  const priceOptions = useMemo(() => [
-    'Any price',
-    `Under ${fmtPriceKes(10_000_000, currency, rates)}`,
-    `${fmtPriceKes(10_000_000, currency, rates)} - ${fmtPriceKes(30_000_000, currency, rates)}`,
-    `${fmtPriceKes(30_000_000, currency, rates)} - ${fmtPriceKes(50_000_000, currency, rates)}`,
-    `${fmtPriceKes(50_000_000, currency, rates)} - ${fmtPriceKes(100_000_000, currency, rates)}`,
-    `${fmtPriceKes(100_000_000, currency, rates)} - ${fmtPriceKes(200_000_000, currency, rates)}`,
-    `Over ${fmtPriceKes(200_000_000, currency, rates)}`,
-  ], [currency, rates]);
+  // Separate min / max price ladders (KSh base, converted to the active currency).
+  const priceMinOpts = useMemo(() => salePriceMinOptions(currency, rates), [currency, rates]);
+  const priceMaxOpts = useMemo(() => salePriceMaxOptions(currency, rates), [currency, rates]);
+  const priceMinValue = parsePriceSelection(priceMinOpts, priceMin);
+  const priceMaxValue = parsePriceSelection(priceMaxOpts, priceMax);
+  const priceRangeError = priceRangeInvalid(priceMinValue, priceMaxValue)
+    ? 'Minimum price cannot be greater than maximum price.'
+    : '';
 
-  // Reset price filter when currency changes so old label doesn’t mismatch
+  // Reset the price range when currency changes so old labels don’t mismatch
   const prevCurrencyRef = useRef(currency);
   useEffect(() => {
     if (prevCurrencyRef.current !== currency) {
-      setSelectedPrice('Any price');
+      setPriceMin('No min');
+      setPriceMax('No max');
       prevCurrencyRef.current = currency;
     }
   }, [currency]);
@@ -163,18 +146,19 @@ export default function Buy() {
   useEffect(() => {
     try { localStorage.setItem('buy_search', searchQuery); } catch { /* ignore */ }
     try { localStorage.setItem('buy_radius', selectedRadius); } catch { /* ignore */ }
-    try { localStorage.setItem('buy_price', selectedPrice); } catch { /* ignore */ }
+    try { localStorage.setItem('buy_price_min', priceMin); } catch { /* ignore */ }
+    try { localStorage.setItem('buy_price_max', priceMax); } catch { /* ignore */ }
     try { localStorage.setItem('buy_beds', selectedBeds); } catch { /* ignore */ }
     try { localStorage.setItem('buy_type', selectedType); } catch { /* ignore */ }
     try { localStorage.setItem('buy_added', selectedAdded); } catch { /* ignore */ }
     try { localStorage.setItem('buy_sort', sortBy); } catch { /* ignore */ }
-  }, [searchQuery, selectedRadius, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy]);
+  }, [searchQuery, selectedRadius, priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy]);
 
   // Sync search criteria to the URL (replaceState, no history spam) so a
   // search can be refreshed, shared and bookmarked via /buy?location=...&type=...&beds=...
   useEffect(() => {
     const next: Record<string, string> = { location: searchQuery };
-    if (selectedType !== 'Any type') next.type = selectedType;
+    if (selectedType !== 'Show all') next.type = selectedType;
     if (selectedBeds !== 'Any beds') next.beds = selectedBeds;
     if (currentPage > 1) next.page = String(currentPage);
     const nextParams = new URLSearchParams();
@@ -197,18 +181,11 @@ export default function Buy() {
       centerLng: searchCenter?.lng ?? null,
       radiusMeters: radiusLabelToMeters(selectedRadius) ?? null,
     };
-    // Price - map the selected dynamic label back to its KES range via index
-    const priceIdx = priceOptions.indexOf(selectedPrice);
-    const selectedRange = priceIdx > 0 ? KES_SALE_RANGES[priceIdx] : null;
-    if (selectedRange?.min !== undefined) filters.priceMin = selectedRange.min;
-    if (selectedRange?.max !== undefined) filters.priceMax = selectedRange.max;
-    // Beds
-    if (selectedBeds === 'Studio') { filters.bedsMin = 0; filters.bedsMax = 0; }
-    else if (selectedBeds === '1+') { filters.bedsMin = 1; }
-    else if (selectedBeds === '2+') { filters.bedsMin = 2; }
-    else if (selectedBeds === '3+') { filters.bedsMin = 3; }
-    else if (selectedBeds === '4+') { filters.bedsMin = 4; }
-    else if (selectedBeds === '5+') { filters.bedsMin = 5; }
+    // Price - independent min / max bounds enforced in the query.
+    if (priceMinValue !== undefined) filters.priceMin = priceMinValue;
+    if (priceMaxValue !== undefined) filters.priceMax = priceMaxValue;
+    // Beds - exact count for 1–9 beds, open-ended for "10+ beds".
+    Object.assign(filters, bedroomSelectionToRange(selectedBeds));
     // Advanced Filters panel (types, baths, size, must-haves, furnishing).
     return { ...filters, ...advancedToFilters(advancedFilters) };
   };
@@ -302,7 +279,7 @@ export default function Buy() {
     // Skip the initial mount so a page restored from the URL (?page=N) survives.
     if (!filtersResetInit.current) { filtersResetInit.current = true; return; }
     setCurrentPage(1);
-  }, [selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, advancedFilters, debouncedSearch]);
+  }, [priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy, advancedFilters, debouncedSearch]);
 
   // Changing the results page must never dump the visitor at the footer. The
   // listings keep their previous height while the next page loads (no collapse),
@@ -506,9 +483,14 @@ export default function Buy() {
             radiusOptions={radiusOptions}
             bedsValue={selectedBeds}
             onBedsChange={setSelectedBeds}
-            priceValue={selectedPrice}
-            onPriceChange={setSelectedPrice}
-            priceOptions={priceOptions}
+            priceMinValue={priceMin}
+            onPriceMinChange={setPriceMin}
+            priceMinOptions={priceMinOpts.labels}
+            priceMaxValue={priceMax}
+            onPriceMaxChange={setPriceMax}
+            priceMaxOptions={priceMaxOpts.labels}
+            priceRangeError={priceRangeError}
+            onClearPrice={(priceMin !== 'No min' || priceMax !== 'No max') ? () => { setPriceMin('No min'); setPriceMax('No max'); } : undefined}
             typeValue={selectedType}
             onTypeChange={setSelectedType}
             typeOptions={propTypeOptions}
@@ -579,30 +561,11 @@ export default function Buy() {
         onApply={(f) => setAdvancedFilters(f)}
         initialFilters={advancedFilters}
         mode="sale"
+        currency={currency}
+        rates={rates}
       />
 
       {/* Mobile filter pills */}
-      <MobileFilterPills
-        pills={[
-          ...(selectedPrice !== 'Any price' ? [{ key: 'price', label: selectedPrice, onRemove: () => setSelectedPrice('Any price') }] : []),
-          ...(selectedBeds !== 'Any beds' ? [{ key: 'beds', label: selectedBeds, onRemove: () => setSelectedBeds('Any beds') }] : []),
-          ...(selectedType !== 'Any type' ? [{ key: 'type', label: selectedType, onRemove: () => setSelectedType('Any type') }] : []),
-          ...(selectedAdded !== 'Anytime' ? [{ key: 'added', label: selectedAdded, onRemove: () => setSelectedAdded('Anytime') }] : []),
-          ...(selectedRadius !== 'This area only' ? [{ key: 'radius', label: selectedRadius, onRemove: () => setSelectedRadius('This area only') }] : []),
-          ...(sortBy !== 'A - Z' ? [{ key: 'sort', label: sortBy, onRemove: () => setSortBy('A - Z') }] : []),
-          ...(selectedStatus !== 'For Sale' ? [{ key: 'status', label: selectedStatus, onRemove: () => setSelectedStatus('For Sale') }] : []),
-        ]}
-        onClearAll={() => {
-          setSelectedPrice('Any price');
-          setSelectedBeds('Any beds');
-          setSelectedType('Any type');
-          setSelectedAdded('Anytime');
-          setSelectedRadius('This area only');
-          setSortBy('A - Z');
-          handleLocationChange('');
-        }}
-      />
-
       {/* === RESULTS HEADER === */}
       <div ref={resultsTopRef} className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
@@ -735,11 +698,25 @@ export default function Buy() {
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
                     <i className="ri-search-line text-primary/50 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties match your search</h3>
-                  <p className="text-sm font-roboto text-primary/60 mb-4">{hasSearch ? 'There are no matching properties for your search criteria. Try adjusting your search.' : 'Try adjusting your search or filters to see more results.'}</p>
-                  <button onClick={() => { handleLocationChange(''); setSelectedPrice('Any price'); setSelectedBeds('Any beds'); setSelectedType('Any type'); }} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer">
-                    Clear filters
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No exact matches</h3>
+                  <p className="text-sm font-roboto text-primary/60 mb-4">{hasSearch ? 'No properties matched your selected criteria. You can broaden the search to see more.' : 'No properties matched your filters. You can broaden the search to see more.'}</p>
+                  <button onClick={() => { setPriceMin('No min'); setPriceMax('No max'); setSelectedBeds('Any beds'); setSelectedType('Show all'); }} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-2">
+                    <i className="ri-equalizer-2-line"></i>
+                    Broaden search
                   </button>
+                  <RecentActivitySuggestion
+                    location={parsedIntent.location || parsedIntent.city}
+                    addedWindow={selectedAdded}
+                    onView={(targetWindow) => {
+                      setPriceMin('No min');
+                      setPriceMax('No max');
+                      setSelectedBeds('Any beds');
+                      setSelectedType('Show all');
+                      setAdvancedFilters({ ...defaultFilters });
+                      setSelectedAdded(targetWindow);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               )}
 

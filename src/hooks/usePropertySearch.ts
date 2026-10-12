@@ -49,7 +49,7 @@ export interface CanonicalFilters {
 
 export const defaultCanonicalFilters: CanonicalFilters = {
   transaction: '',
-  propertyType: 'Any type',
+  propertyType: 'Show all',
   location: '',
   neighbourhood: '',
   bedrooms: 'Any beds',
@@ -174,7 +174,7 @@ export function usePropertySearch(filters: ListingFilters, page: number): UseLis
 export function useSearchResults(filters: ListingFilters, page: number): SearchResultsReturn {
   const result = usePropertySearch(filters, page);
   const intent = useMemo(() => parsePropertySearch(filters.search || ''), [filters.search]);
-  const hasSearchCriteria = !!filters.search.trim() || !!filters.propertyType || filters.propertyType !== 'Any type';
+  const hasSearchCriteria = !!filters.search.trim() || (!!filters.propertyType && filters.propertyType !== 'Show all');
   const pages = Math.max(1, Math.ceil(result.totalCount / 10));
   return {
     ...result,

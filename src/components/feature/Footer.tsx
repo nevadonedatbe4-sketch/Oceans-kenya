@@ -18,6 +18,7 @@ import {
 import { formatPhoneDisplay, toTelHref } from '@/lib/contactDefaults';
 import { getSiteOffices } from '@/lib/siteOffices';
 import { FALLBACK_LOGO } from '@/lib/brandDefaults';
+import SocialLinks from '@/components/feature/SocialLinks';
 
 interface ColumnProps {
   title: string;
@@ -76,7 +77,7 @@ export default function Footer() {
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const { status: newsletterStatus, error: newsletterError, submitToContacts } = useFormSubmit();
   const { getValue, loading } = useFooterSettings();
-  const { site, getSite, getBrand, social } = useSiteSettings();
+  const { site, getSite, getBrand } = useSiteSettings();
   const { areas, typeLinks } = useFooterData();
 
   // Hidden admin backdoor: double-tap / double-click the copyright year.
@@ -90,26 +91,6 @@ export default function Footer() {
       yearTapRef.current = now;
     }
   };
-
-  // Map platform name -> Remix icon (matches admin Social Media manager)
-  const socialIcon = (platform: string): string => {
-    switch (platform.toLowerCase()) {
-      case 'facebook': return 'ri-facebook-fill';
-      case 'instagram': return 'ri-instagram-line';
-      case 'tiktok': return 'ri-linkedin-fill';
-      case 'linkedin': return 'ri-linkedin-fill';
-      case 'youtube': return 'ri-youtube-fill';
-      case 'twitter': case 'x': return 'ri-twitter-x-fill';
-      case 'whatsapp': return 'ri-whatsapp-line';
-      default: return 'ri-global-line';
-    }
-  };
-
-  // Social links come purely from admin settings (Social Media tab) - only the
-  // ones enabled for the footer are shown.
-  const footerSocials = (social || [])
-    .filter((s) => s.show_in_footer && s.url && s.url.trim())
-    .map((s) => ({ icon: socialIcon(s.platform), href: s.url as string, label: s.platform }));
 
   const aboutText = getValue('about_text');
   const seoIntro = getValue('seo_intro');
@@ -288,22 +269,8 @@ export default function Footer() {
               ))}
             </div>
 
-            {footerShowSocial && footerSocials.length > 0 && (
-              <div className="flex items-center gap-3 mt-5">
-                {footerSocials.map((s) => (
-                  <a
-                    key={s.label}
-                    href={s.href}
-                    target="_blank"
-                    rel="nofollow noreferrer"
-                    aria-label={s.label}
-                    className="w-8 h-8 flex items-center justify-center rounded-full border transition-colors hover:text-golden capitalize"
-                    style={{ ...faintStyle, borderColor: `${footerTextColor}26` }}
-                  >
-                    <i className={`${s.icon} text-sm`}></i>
-                  </a>
-                ))}
-              </div>
+            {footerShowSocial && (
+              <SocialLinks placement="footer" size="sm" className="mt-5" />
             )}
           </div>
         </div>

@@ -145,15 +145,19 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
   } = data;
 
   const socialIcon = (platform: string) => {
-    switch (platform) {
+    switch ((platform || '').toLowerCase().trim()) {
       case 'facebook': return 'ri-facebook-fill';
-      case 'instagram': return 'ri-instagram-line';
-      case 'tiktok': return 'ri-linkedin-fill';
+      case 'instagram': return 'ri-instagram-fill';
+      case 'tiktok': return 'ri-tiktok-fill';
       case 'linkedin': return 'ri-linkedin-fill';
       case 'youtube': return 'ri-youtube-fill';
-      case 'twitter': return 'ri-twitter-x-fill';
-      case 'whatsapp': return 'ri-whatsapp-line';
-      default: return 'ri-global-line';
+      case 'twitter': case 'x': return 'ri-twitter-x-fill';
+      case 'whatsapp': return 'ri-whatsapp-fill';
+      case 'threads': return 'ri-threads-fill';
+      case 'telegram': return 'ri-telegram-fill';
+      case 'pinterest': return 'ri-pinterest-fill';
+      case 'snapchat': return 'ri-snapchat-fill';
+      default: return 'ri-global-fill';
     }
   };
 
@@ -1274,6 +1278,10 @@ export default function ManagementTabContent({ activeTab, data }: Props) {
                       <TextInput value={social.url || ''} onChange={(v) => setSocial(social.platform, { url: v })} placeholder="https://..." />
                     </Field>
                     <div className="flex items-end gap-4 pb-1">
+                      <label className="flex items-center gap-1.5 text-xs font-roboto text-gray-500 cursor-pointer">
+                        <input type="checkbox" checked={social.show_in_hero} onChange={(e) => setSocial(social.platform, { show_in_hero: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                        Hero
+                      </label>
                       <label className="flex items-center gap-1.5 text-xs font-roboto text-gray-500 cursor-pointer">
                         <input type="checkbox" checked={social.show_in_header} onChange={(e) => setSocial(social.platform, { show_in_header: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary" />
                         Header

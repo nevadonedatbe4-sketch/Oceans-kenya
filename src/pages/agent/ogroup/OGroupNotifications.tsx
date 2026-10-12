@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useNotifications } from './useNotifications';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 
 const ICONS: Record<string, string> = {
   appointment: 'ri-calendar-event-line',
@@ -11,7 +11,7 @@ const ICONS: Record<string, string> = {
 };
 
 export default function OGroupNotifications() {
-  const { items, loading, error, refresh, unreadCount, markRead, markAllRead } = useNotifications();
+  const { items, loading, error, refresh, unreadCount, markRead, markAllRead } = useNotificationCenter();
 
   const open = (id: string, link?: string | null) => {
     void markRead(id);

@@ -140,7 +140,7 @@ export default function AreaResults() {
   const filters: ListingFilters = {
     purpose,
     search: active.query,
-    propertyType: 'Any type',
+    propertyType: 'Show all',
     propertyTypes,
     propertyCategory: 'residential',
     addedSince: 'Anytime',

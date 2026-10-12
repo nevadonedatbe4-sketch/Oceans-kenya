@@ -1,16 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState, FormEvent } from 'react';
-import { useSiteSettings } from '@/hooks/useSiteSettings';
-import { resolveSocials } from '@/lib/socialIcons';
+import SocialLinks from '@/components/feature/SocialLinks';
 import type { HomePageContent, HomeHeroButton } from '@/hooks/useHomePageContent';
-
-const defaultSocialLinks = [
-  { icon: 'ri-facebook-fill', href: 'https://www.facebook.com/oceanskenya', label: 'Facebook' },
-  { icon: 'ri-instagram-line', href: 'https://www.instagram.com/oceans_estateagents', label: 'Instagram' },
-  { icon: 'ri-linkedin-fill', href: 'https://www.linkedin.com/company/oceans-estate-agents', label: 'LinkedIn' },
-  { icon: 'ri-youtube-fill', href: 'https://www.youtube.com/@oceanskenya', label: 'YouTube' },
-  { icon: 'ri-whatsapp-line', href: 'https://wa.me/254181408186', label: 'WhatsApp' },
-];
 
 interface HeroSectionProps {
   onSearch: (query: string) => void;
@@ -26,8 +17,6 @@ function chunkButtons(buttons: HomeHeroButton[]): HomeHeroButton[][] {
 }
 
 export default function HeroSection({ onSearch, initialQuery = '', content }: HeroSectionProps) {
-  const { social } = useSiteSettings();
-  const socialLinks = resolveSocials(social, 'header', defaultSocialLinks);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
 
   if (!content.hero_visible) return null;
@@ -67,20 +56,7 @@ export default function HeroSection({ onSearch, initialQuery = '', content }: He
         )}
 
         {content.hero_social_enabled && (
-          <div className="flex items-center gap-3 sm:gap-6 justify-center mb-6 sm:mb-12">
-            {socialLinks.map((social) => (
-              <a
-                key={social.label}
-                href={social.href}
-                rel="nofollow noreferrer"
-                aria-label={social.label}
-                target="_blank"
-                className="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center hover:text-golden transition-colors duration-300 cursor-pointer text-white"
-              >
-                <i className={`${social.icon} text-xl sm:text-2xl md:text-3xl`}></i>
-              </a>
-            ))}
-          </div>
+          <SocialLinks placement="hero" size="md" className="justify-center mb-6 sm:mb-12" />
         )}
 
         {content.hero_search_enabled && (

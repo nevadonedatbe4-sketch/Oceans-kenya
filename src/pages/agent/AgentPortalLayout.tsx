@@ -5,7 +5,7 @@ import { AgentCountsProvider, useAgentCounts } from '@/hooks/useAgentCounts';
 import { useMessengerUnread } from '@/hooks/useMessengerUnread';
 import { useCompanyCalendarAccess } from '@/hooks/useCompanyCalendarAccess';
 import CountBadge from '@/pages/agent/components/CountBadge';
-import { useNotifications } from '@/pages/agent/ogroup/useNotifications';
+import { useNotificationCenter } from '@/hooks/useNotificationCenter';
 import PortalHeaderPills from '@/components/feature/PortalHeaderPills';
 import InlineBackLink from '@/components/feature/InlineBackLink';
 import { formatTimeAgo } from '@/lib/timeAgo';
@@ -18,6 +18,7 @@ import Chevron from '@/components/base/Chevron';
 import NavSubmenu from '@/components/feature/NavSubmenu';
 import { QuickSetHeaderButton } from '@/pages/agent/ogroup/components/QuickSetButton';
 import IdleSignOutGuard from '@/pages/agent/components/IdleSignOutGuard';
+import { CRMToastContainer } from '@/pages/crm/components/CRMToast';
 
 interface NavEntry {
   label: string;
@@ -49,7 +50,15 @@ export default function AgentPortalLayout() {
   const { user, signOut } = useAuth();
   const { inboxUnread, leadsUnread } = useAgentCounts();
   const { total: messengerUnread } = useMessengerUnread();
-  const { items: notifItems, unreadCount: notifUnread, markAllRead: markNotifsRead } = useNotifications();
+  const {
+    items: notifItems,
+    unreadCount: notifUnread,
+    error: notifError,
+    refresh: refreshNotifs,
+    markRead: markNotifRead,
+    markAllRead: markNotifsRead,
+    markDisplayedRead: markNotifsDisplayed,
+  } = useNotificationCenter();
   const { allowed: canViewCompanyCalendar } = useCompanyCalendarAccess();
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,16 +124,25 @@ export default function AgentPortalLayout() {
       items: [
         { label: 'Leads', icon: <Users size={18} />, path: '/agent/leads', match: '/agent/leads' },
         { label: 'Inbox', icon: <Inbox size={18} />, path: '/agent/enquiries', match: '/agent/enquiries' },
-        { label: 'My Contact Book', icon: <Contact size={18} />, path: '/agent/contacts', match: '/agent/contacts' },
+        { label: 'My Contacts', icon: <Contact size={18} />, path: '/agent/contacts', match: '/agent/contacts' },
         { label: 'Performance', icon: <BarChart3 size={18} />, path: '/agent/performance', match: '/agent/performance' },
       ],
     },
     {
       title: 'Team & Time',
       items: [
-        { label: 'Punch Clock In/Out', icon: <Fingerprint size={18} />, path: '/agent/check-in', match: '/agent/check-in' },
         {
-          label: 'Calendar',
+          label: 'Punch Clock In/Out',
+          icon: <Fingerprint size={18} />,
+          path: '/agent/check-in',
+          match: '/agent/check-in',
+          parentLink: true,
+          children: [
+            { label: 'My Timesheet', icon: <Clock size={18} />, path: '/agent/timesheet', match: '/agent/timesheet' },
+          ],
+        },
+        {
+          label: 'Appointments',
           icon: <CalendarDays size={18} />,
           path: '/agent/calendar',
           match: '/agent/calendar',
@@ -157,7 +175,6 @@ export default function AgentPortalLayout() {
               : []),
           ],
         },
-        { label: 'My Timesheet', icon: <Clock size={18} />, path: '/agent/timesheet', match: '/agent/timesheet' },
         { label: 'Notifications', icon: <Bell size={18} />, path: '/agent/notifications', match: '/agent/notifications' },
       ],
     },
@@ -296,9 +313,17 @@ export default function AgentPortalLayout() {
     return withQuery?.label || 'Agent Dashboard';
   };
 
+  // The admin portal wraps its content in the shared `.crm-dashboard` styling scope,
+  // which is what gives the reused CRM tables their sizes/colours/tokens. The agent
+  // portal reuses those same list/form components, so we apply the scope to the agent
+  // CRM routes only — the bespoke dashboard, messenger, calendar, punch-clock and
+  // timesheet screens keep their own dedicated styling.
+  const isCrmRoute = /^\/agent\/(leads|enquiries|contacts|listings|land-listings|developments|jv-desk|joint-ventures)/.test(location.pathname);
+
   return (
     <AgentCountsProvider>
     <div className="min-h-screen flex bg-[#001731]">
+      <CRMToastContainer />
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex flex-col w-64 bg-[#001731] border-r border-[#0d2340] h-screen sticky top-0 flex-shrink-0">
         <SidebarContent />
@@ -340,7 +365,24 @@ export default function AgentPortalLayout() {
               </nav>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Compact premium tiles for phones — same look as desktop. */}
+            <PortalHeaderPills
+              size="sm"
+              className="flex lg:hidden items-center gap-2 flex-shrink-0"
+              messagesHref="/agent/messenger"
+              messengerUnread={messengerUnread}
+              notificationsCount={notifUnread}
+              feed={headerFeed}
+              onMarkAllRead={markNotifsRead}
+              onOpen={markNotifsDisplayed}
+              onItemClick={markNotifRead}
+              onRetry={refreshNotifs}
+              errorText={notifError}
+              viewAllHref="/agent/notifications"
+              viewAllLabel="View all notifications"
+              emptyText="No notifications yet."
+            />
             <QuickSetHeaderButton />
             {/* Messages + Notifications — mirrors the admin portal header group. */}
             <PortalHeaderPills
@@ -349,6 +391,10 @@ export default function AgentPortalLayout() {
               notificationsCount={notifUnread}
               feed={headerFeed}
               onMarkAllRead={markNotifsRead}
+              onOpen={markNotifsDisplayed}
+              onItemClick={markNotifRead}
+              onRetry={refreshNotifs}
+              errorText={notifError}
               viewAllHref="/agent/notifications"
               viewAllLabel="View all notifications"
               emptyText="No notifications yet."
@@ -370,7 +416,7 @@ export default function AgentPortalLayout() {
           </div>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 text-[#1f2937] bg-[#001731]">
+        <main className={`flex-1 p-4 md:p-6 text-[#1f2937] bg-[#001731] ${isCrmRoute ? 'crm-dashboard' : ''}`}>
           <Outlet />
         </main>
       </div>

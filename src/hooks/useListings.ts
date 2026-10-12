@@ -137,6 +137,11 @@ export interface ListingFilters {
   search: string;
   priceMin?: number;
   priceMax?: number;
+  /**
+   * Exact bedroom count (including 0 for a studio). Set by the main bedroom
+   * selector for 1–9 beds, so a "2 beds" search can never return a 6-bed home.
+   */
+  bedsExact?: number;
   bedsMin?: number;
   bedsMax?: number;
   propertyType: string;
@@ -422,6 +427,7 @@ const PROP_TYPE_MAP: Record<string, string> = {
 interface ResolvedFilters {
   propertyType: string | null;
   propertyCategory: string | null;
+  bedsExact?: number;
   bedsMin?: number;
   bedsMax?: number;
   priceMin?: number;
@@ -435,8 +441,10 @@ interface ResolvedFilters {
 
 function resolveFilters(filters: ListingFilters, parsed: PropertySearchIntent | null): ResolvedFilters {
   // Property type: explicit dropdown wins; otherwise use the parsed intent.
+  // 'Any type' (legacy) and 'Show all' are both neutral defaults → no type filter.
+  const isNeutralType = !filters.propertyType || filters.propertyType === 'Any type' || filters.propertyType === 'Show all';
   let propertyType: string | null = null;
-  if (filters.propertyType && filters.propertyType !== 'Any type') {
+  if (!isNeutralType) {
     propertyType = PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_');
   } else if (parsed?.propertyType) {
     propertyType = parsed.propertyType;
@@ -455,9 +463,11 @@ function resolveFilters(filters: ListingFilters, parsed: PropertySearchIntent | 
     propertyCategory = 'residential';
   }
 
-  // Bedrooms - combine UI minimums and parsed minimums (use the stricter).
+  // Bedrooms - the explicit UI exact count (1–9 beds) applies on its own;
+  // otherwise combine UI minimums and parsed minimums (use the stricter).
+  const bedsExact = filters.bedsExact;
   let bedsMin = filters.bedsMin;
-  if (parsed?.bedroomsMin && (!bedsMin || parsed.bedroomsMin > bedsMin)) {
+  if (bedsExact === undefined && parsed?.bedroomsMin && (!bedsMin || parsed.bedroomsMin > bedsMin)) {
     bedsMin = parsed.bedroomsMin;
   }
   let bedsMax = filters.bedsMax;
@@ -478,6 +488,7 @@ function resolveFilters(filters: ListingFilters, parsed: PropertySearchIntent | 
   return {
     propertyType,
     propertyCategory,
+    bedsExact,
     bedsMin,
     bedsMax,
     priceMin,
@@ -537,6 +548,9 @@ function applyResolved(query: any, resolved: ResolvedFilters) {
   }
   if (resolved.propertyCategory) {
     query = query.eq('property_category', resolved.propertyCategory);
+  }
+  if (resolved.bedsExact !== undefined) {
+    query = query.eq('bedrooms', resolved.bedsExact);
   }
   if (resolved.bedsMin !== undefined && resolved.bedsMin > 0) {
     query = query.gte('bedrooms', resolved.bedsMin);
@@ -693,6 +707,8 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       if (filters.priceMax !== undefined && filters.priceMax > 0) query = query.lte('price', filters.priceMax);
 
       // Beds (explicit dropdown - already merged via resolved, but keep for safety)
+      // Exact count (including 0) is the strictest form and is enforced first.
+      if (filters.bedsExact !== undefined) query = query.eq('bedrooms', filters.bedsExact);
       if (filters.bedsMin !== undefined && filters.bedsMin > 0) query = query.gte('bedrooms', filters.bedsMin);
       if (filters.bedsMax !== undefined && filters.bedsMax > 0) query = query.lte('bedrooms', filters.bedsMax);
 
@@ -724,6 +740,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
         let since: Date;
         switch (filters.addedSince) {
           case 'Last 24 hours': since = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
+          case 'Last 48 hours': since = new Date(now.getTime() - 48 * 60 * 60 * 1000); break;
           case 'Last 3 days': since = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); break;
           case 'Last 7 days': since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
           case 'Last 14 days': since = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); break;
@@ -779,7 +796,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, filters.excludeTerms, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsExact, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, filters.excludeTerms, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
 
   useEffect(() => {
     fetchListings();

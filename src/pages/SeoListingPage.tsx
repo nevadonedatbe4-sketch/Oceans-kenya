@@ -6,6 +6,7 @@ import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
 import SeoListingCard from '@/components/feature/SeoListingCard';
+import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
 import ScrollRevealBlock from '@/components/feature/StaticBlock';
 import type { ListingFilters } from '@/hooks/useListings';
 import { useLoadMoreListings } from '@/hooks/useLoadMoreListings';
@@ -13,43 +14,20 @@ import { useSeoMeta, buildBreadcrumbSchema, buildFaqSchema, buildListingSchema }
 import { SEO_PAGES, type SeoPageDef } from '@/lib/seoPages';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
 import { useSeoListingContent } from '@/hooks/useDynamicPageTemplates';
+import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
+import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 
 const SITE_URL = 'https://www.oceanske.com';
 
 // ── Shared global search-bar option sets ────────────────────────
-const BED_OPTIONS = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const TYPE_OPTIONS = ['Any type', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
+const BED_OPTIONS = BEDROOM_OPTIONS;
+const TYPE_OPTIONS = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
 const TYPE_DB: Record<string, string> = {
   House: 'house', Apartment: 'apartment', Bungalow: 'bungalow', Studio: 'studio_flat',
   Maisonette: 'maisonette', Villa: 'villa', Townhouse: 'townhouse', Penthouse: 'penthouse',
   Detached: 'detached', 'Semi-detached': 'detached', Terraced: 'townhouse', Land: 'land',
 };
-const SALE_RANGES: { min?: number; max?: number }[] = [
-  {}, { max: 10_000_000 }, { min: 10_000_000, max: 30_000_000 }, { min: 30_000_000, max: 50_000_000 },
-  { min: 50_000_000, max: 100_000_000 }, { min: 100_000_000, max: 200_000_000 }, { min: 200_000_000 },
-];
-const RENT_RANGES: { min?: number; max?: number }[] = [
-  {}, { max: 300_000 }, { min: 300_000, max: 500_000 }, { min: 500_000, max: 1_000_000 },
-  { min: 1_000_000, max: 2_000_000 }, { min: 2_000_000, max: 5_000_000 }, { min: 5_000_000 },
-];
 
-function kesLabel(v: number): string {
-  if (v >= 1_000_000) { const m = v / 1_000_000; return `KES ${m >= 100 ? Math.round(m) : (Number.isInteger(m) ? m : m.toFixed(1))}M`; }
-  if (v >= 1_000) return `KES ${Math.round(v / 1_000)}K`;
-  return `KES ${v.toLocaleString()}`;
-}
-
-function buildPriceOptions(purpose: 'sale' | 'rent'): string[] {
-  const ranges = purpose === 'rent' ? RENT_RANGES : SALE_RANGES;
-  const opts = ['Any price'];
-  for (let i = 1; i < ranges.length; i++) {
-    const r = ranges[i];
-    if (r.min !== undefined && r.max !== undefined) opts.push(`${kesLabel(r.min)} - ${kesLabel(r.max)}`);
-    else if (r.max !== undefined) opts.push(`Under ${kesLabel(r.max)}`);
-    else if (r.min !== undefined) opts.push(`Over ${kesLabel(r.min)}`);
-  }
-  return opts;
-}
 
 function SeoFaqSection({ faqs, heading }: { faqs: SeoPageDef['faqs']; heading: string }) {
   const [open, setOpen] = useState<number | null>(0);
@@ -127,29 +105,39 @@ export default function SeoListingPage({ slug }: { slug: string }) {
   // ── Shared search-bar refinements (default to the page's canonical search) ──
   const [searchQuery, setSearchQuery] = useState(def?.search || '');
   const [bedsValue, setBedsValue] = useState('Any beds');
-  const [priceValue, setPriceValue] = useState('Any price');
-  const [typeValue, setTypeValue] = useState('Any type');
+  const [priceMin, setPriceMin] = useState('No min');
+  const [priceMax, setPriceMax] = useState('No max');
+  const [typeValue, setTypeValue] = useState('Show all');
   const [savedSearch, setSavedSearch] = useState(false);
+  // When set to a window label (e.g. 'Last 48 hours'), only listings added in
+  // that window are shown - used by the "what changed recently" note in the
+  // zero-result state. 'Anytime' means no time restriction.
+  const [recentWindow, setRecentWindow] = useState('Anytime');
 
   useEffect(() => {
     setSearchQuery(def?.search || '');
     setBedsValue('Any beds');
-    setPriceValue('Any price');
-    setTypeValue('Any type');
+    setPriceMin('No min');
+    setPriceMax('No max');
+    setTypeValue('Show all');
+    setRecentWindow('Anytime');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   const purpose: 'sale' | 'rent' = def?.purpose || 'sale';
-  const priceOptions = useMemo(() => buildPriceOptions(purpose), [purpose]);
+  const priceMinOpts = useMemo(() => (purpose === 'rent' ? rentPriceMinOptions('KES', {}) : salePriceMinOptions('KES', {})), [purpose]);
+  const priceMaxOpts = useMemo(() => (purpose === 'rent' ? rentPriceMaxOptions('KES', {}) : salePriceMaxOptions('KES', {})), [purpose]);
+  const priceMinValue = parsePriceSelection(priceMinOpts, priceMin);
+  const priceMaxValue = parsePriceSelection(priceMaxOpts, priceMax);
+  const priceRangeError = priceRangeInvalid(priceMinValue, priceMaxValue) ? 'Minimum price cannot be greater than maximum price.' : '';
 
   const filters: ListingFilters = useMemo(() => {
-    const ranges = purpose === 'rent' ? RENT_RANGES : SALE_RANGES;
     const f: ListingFilters = {
       purpose,
       search: searchQuery,
-      propertyType: (typeValue !== 'Any type' && TYPE_DB[typeValue]) ? TYPE_DB[typeValue] : (def?.propertyType || 'Any type'),
+      propertyType: (typeValue !== 'Show all' && TYPE_DB[typeValue]) ? TYPE_DB[typeValue] : (def?.propertyType || 'Show all'),
       propertyCategory: def?.propertyCategory || null,
-      addedSince: 'Anytime',
+      addedSince: recentWindow,
       sortBy: 'A - Z',
       statusFilter: 'active',
       amenitiesFilter: def?.amenitiesFilter,
@@ -159,20 +147,11 @@ export default function SeoListingPage({ slug }: { slug: string }) {
       centerLng: null,
       radiusMeters: null,
     };
-    if (bedsValue === 'Studio') { f.bedsMin = 0; f.bedsMax = 0; }
-    else if (bedsValue === '1+') f.bedsMin = 1;
-    else if (bedsValue === '2+') f.bedsMin = 2;
-    else if (bedsValue === '3+') f.bedsMin = 3;
-    else if (bedsValue === '4+') f.bedsMin = 4;
-    else if (bedsValue === '5+') f.bedsMin = 5;
-    const priceIdx = priceOptions.indexOf(priceValue);
-    if (priceIdx > 0) {
-      const r = ranges[priceIdx];
-      if (r?.min !== undefined) f.priceMin = r.min;
-      if (r?.max !== undefined) f.priceMax = r.max;
-    }
+    Object.assign(f, bedroomSelectionToRange(bedsValue));
+    if (priceMinValue !== undefined) f.priceMin = priceMinValue;
+    if (priceMaxValue !== undefined) f.priceMax = priceMaxValue;
     return f;
-  }, [purpose, searchQuery, bedsValue, priceValue, typeValue, priceOptions, def]);
+  }, [purpose, searchQuery, bedsValue, priceMin, priceMax, typeValue, def, recentWindow]);
 
   const { items, totalCount, loading, loadingMore, error, hasMore, loadMore, refetch } = useLoadMoreListings(filters);
 
@@ -274,9 +253,14 @@ export default function SeoListingPage({ slug }: { slug: string }) {
             bedsValue={bedsValue}
             onBedsChange={(v) => setBedsValue(v)}
             bedOptions={BED_OPTIONS}
-            priceValue={priceValue}
-            onPriceChange={(v) => setPriceValue(v)}
-            priceOptions={priceOptions}
+            priceMinValue={priceMin}
+            onPriceMinChange={(v) => setPriceMin(v)}
+            priceMinOptions={priceMinOpts.labels}
+            priceMaxValue={priceMax}
+            onPriceMaxChange={(v) => setPriceMax(v)}
+            priceMaxOptions={priceMaxOpts.labels}
+            priceRangeError={priceRangeError}
+            onClearPrice={(priceMin !== 'No min' || priceMax !== 'No max') ? () => { setPriceMin('No min'); setPriceMax('No max'); } : undefined}
             typeValue={typeValue}
             onTypeChange={(v) => setTypeValue(v)}
             typeOptions={TYPE_OPTIONS}
@@ -348,6 +332,16 @@ export default function SeoListingPage({ slug }: { slug: string }) {
                   {c.empty_button}
                   <i className="ri-arrow-right-line text-xs"></i>
                 </Link>
+                <RecentActivitySuggestion
+                  addedWindow={recentWindow}
+                  onView={(targetWindow) => {
+                    setBedsValue('Any beds');
+                    setPriceMin('No min');
+                    setPriceMax('No max');
+                    setTypeValue('Show all');
+                    setRecentWindow(targetWindow);
+                  }}
+                />
               </div>
             ) : (
               <>

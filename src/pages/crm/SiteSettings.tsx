@@ -30,6 +30,7 @@ interface SocialLink {
   id: string;
   platform: string;
   url: string | null;
+  show_in_hero: boolean;
   show_in_header: boolean;
   show_in_footer: boolean;
   show_in_contact: boolean;
@@ -89,6 +90,7 @@ export default function SiteSettings() {
     const socialUpdates = socialLinks.map((s) =>
       supabase.from('social_links').update({
         url: s.url,
+        show_in_hero: s.show_in_hero,
         show_in_header: s.show_in_header,
         show_in_footer: s.show_in_footer,
         show_in_contact: s.show_in_contact,
@@ -413,6 +415,15 @@ export default function SiteSettings() {
                         />
                       </div>
                       <div className="flex items-center gap-4 pt-6">
+                        <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={social.show_in_hero}
+                            onChange={(e) => setSocial(social.platform, { show_in_hero: e.target.checked })}
+                            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          Hero
+                        </label>
                         <label className="flex items-center gap-1.5 text-[15px] font-roboto text-gray-500 cursor-pointer">
                           <input
                             type="checkbox"

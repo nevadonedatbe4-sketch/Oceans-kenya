@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import CountBadge from '@/pages/agent/components/CountBadge';
 
 /**
  * Shared header action group used by BOTH the admin portal and the agent portal
  * so the two shells stay visually identical:
  *
- *   [ ✉ icon + badge ]   [ 🔔 icon + badge + feed dropdown ]
+ *   [ ✉ tile + badge ]   [ 🔔 tile + badge + feed dropdown ]
  *
- * Both pills are icon-only; the text hint ("Messages" / "Notifications") is a
- * tooltip that appears on hover. Unread messages are merged into the bell's
- * badge too, so the notification icon always reflects new messages (like FB
- * Messenger). When new messages arrive in real time (the unread count
- * increases) BOTH pills play a small pulse ring so they catch the eye.
+ * Both are solid, premium navy tiles (gradient fill + ring highlight for depth)
+ * with a bold solid circular count badge overlapping the top-right corner. The
+ * text hint ("Messages" / "Notifications") is a tooltip that appears on hover.
+ *
+ * Counter contract: the two badges are INDEPENDENT — the bell shows the unread
+ * NOTIFICATION count only, the envelope shows the unread MESSAGE count only.
+ * They are never merged, so opening/clearing notifications can never silently
+ * mark messages read (or vice-versa). Each tile pulses on its own when its count
+ * rises so a real-time arrival catches the eye.
+ *
+ * `size="sm"` renders the same premium tiles at a mobile-friendly scale so the
+ * header keeps its look on phones.
  */
 export interface PortalFeedItem {
   id: string;
@@ -35,6 +41,15 @@ interface PortalHeaderPillsProps {
   viewAllLabel: string;
   emptyText?: string;
   className?: string;
+  /** Tile scale: 'md' (desktop) or 'sm' (mobile). */
+  size?: 'md' | 'sm';
+  /** Fired when the notifications panel is opened — mark the shown items read. */
+  onOpen?: () => void;
+  /** Fired when an individual feed item is clicked — mark that one read. */
+  onItemClick?: (id: string) => void;
+  /** When set, an inline error row with a retry action is shown in the panel. */
+  errorText?: string | null;
+  onRetry?: () => void;
 }
 
 export default function PortalHeaderPills({
@@ -46,24 +61,46 @@ export default function PortalHeaderPills({
   viewAllHref,
   viewAllLabel,
   emptyText = "Nothing new — you're all caught up.",
-  className = 'hidden lg:flex items-center gap-1.5 flex-shrink-0',
+  className = 'hidden lg:flex items-center gap-2.5 flex-shrink-0',
+  size = 'md',
+  onOpen,
+  onItemClick,
+  errorText,
+  onRetry,
 }: PortalHeaderPillsProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Pulse ring when the unread-message count rises (real-time arrivals).
-  const prevUnread = useRef(messengerUnread);
-  const [pulsing, setPulsing] = useState(false);
+  const tile = size === 'sm' ? 'w-9 h-9 rounded-lg' : 'w-10 h-10 rounded-lg';
+  const iconCls = size === 'sm' ? 'text-base' : 'text-lg';
+
+  // Independent pulse rings — each tile reacts only to its own count rising.
+  const prevMsg = useRef(messengerUnread);
+  const prevBell = useRef(notificationsCount);
+  const [pulsingMsg, setPulsingMsg] = useState(false);
+  const [pulsingBell, setPulsingBell] = useState(false);
+
   useEffect(() => {
-    if (messengerUnread > prevUnread.current) {
-      setPulsing(true);
-      const t = window.setTimeout(() => setPulsing(false), 2200);
-      prevUnread.current = messengerUnread;
+    if (messengerUnread > prevMsg.current) {
+      setPulsingMsg(true);
+      const t = window.setTimeout(() => setPulsingMsg(false), 2200);
+      prevMsg.current = messengerUnread;
       return () => window.clearTimeout(t);
     }
-    prevUnread.current = messengerUnread;
+    prevMsg.current = messengerUnread;
     return undefined;
   }, [messengerUnread]);
+
+  useEffect(() => {
+    if (notificationsCount > prevBell.current) {
+      setPulsingBell(true);
+      const t = window.setTimeout(() => setPulsingBell(false), 2200);
+      prevBell.current = notificationsCount;
+      return () => window.clearTimeout(t);
+    }
+    prevBell.current = notificationsCount;
+    return undefined;
+  }, [notificationsCount]);
 
   // Close the dropdown on outside click / Escape.
   useEffect(() => {
@@ -82,8 +119,8 @@ export default function PortalHeaderPills({
     };
   }, [open]);
 
-  // Messages also surface on the bell, so a new message lights up both pills.
-  const bellCount = notificationsCount + messengerUnread;
+  // Independent badge values — notifications count is NEVER inflated by messages.
+  const bellCount = notificationsCount;
 
   return (
     <div className={className}>
@@ -91,15 +128,21 @@ export default function PortalHeaderPills({
       <Link
         to={messagesHref}
         aria-label="Messages"
-        className="group relative inline-flex items-center gap-1.5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+        className={`group relative inline-flex items-center justify-center bg-gradient-to-b from-[#123a63] to-[#012144] ring-1 ring-[#2a5688] hover:ring-[#3d6da3] hover:from-[#164a7c] text-white/90 hover:text-white transition-all cursor-pointer whitespace-nowrap ${tile}`}
       >
-        <span className="relative flex items-center justify-center w-4 h-4">
-          <i className={`ri-mail-line text-sm transition-colors ${pulsing ? 'text-[#5eead4]' : ''}`} />
-          {pulsing && (
-            <span className="pointer-events-none absolute -inset-1 rounded-full bg-[#5eead4]/30 animate-ping" />
-          )}
-        </span>
-        <CountBadge count={messengerUnread} label="unread messages" />
+        <i className={`ri-mail-line ${iconCls} transition-colors ${pulsingMsg ? 'text-[#5eead4]' : ''}`} />
+        {pulsingMsg && (
+          <span className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-[#5eead4]/50 animate-ping" />
+        )}
+        {messengerUnread > 0 && (
+          <span
+            className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#e11d48] text-white text-[10px] font-bold leading-none ring-2 ring-[#012144]"
+            aria-label={`${messengerUnread} unread messages`}
+            title={`${messengerUnread} unread messages`}
+          >
+            {messengerUnread > 99 ? '99+' : messengerUnread}
+          </span>
+        )}
         <span className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#001731] border border-[#2a5688] px-2 py-1 text-[10px] font-roboto font-semibold text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
           Messages
         </span>
@@ -109,19 +152,29 @@ export default function PortalHeaderPills({
       <div className="relative" ref={ref}>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setOpen((v) => {
+            const next = !v;
+            if (next) onOpen?.();
+            return next;
+          })}
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Notifications"
-          className="group relative inline-flex items-center gap-1.5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/80 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+          className={`group relative inline-flex items-center justify-center bg-gradient-to-b from-[#123a63] to-[#012144] ring-1 ring-[#2a5688] hover:ring-[#3d6da3] hover:from-[#164a7c] text-white/90 hover:text-white transition-all cursor-pointer whitespace-nowrap ${tile}`}
         >
-          <span className="relative flex items-center justify-center w-4 h-4">
-            <i className={`ri-notification-3-line text-sm transition-colors ${pulsing ? 'text-[#5eead4]' : ''}`} />
-            {pulsing && (
-              <span className="pointer-events-none absolute -inset-1 rounded-full bg-[#5eead4]/30 animate-ping" />
-            )}
-          </span>
-          <CountBadge count={bellCount} label="notifications" />
+          <i className={`ri-notification-3-line ${iconCls} transition-colors ${pulsingBell ? 'text-[#5eead4]' : ''}`} />
+          {pulsingBell && (
+            <span className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-[#5eead4]/50 animate-ping" />
+          )}
+          {bellCount > 0 && (
+            <span
+              className="absolute -top-1.5 -right-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#e11d48] text-white text-[10px] font-bold leading-none ring-2 ring-[#012144]"
+              aria-label={`${bellCount} notifications`}
+              title={`${bellCount} notifications`}
+            >
+              {bellCount > 99 ? '99+' : bellCount}
+            </span>
+          )}
           <span className="pointer-events-none absolute left-1/2 top-full mt-2 -translate-x-1/2 whitespace-nowrap rounded-md bg-[#001731] border border-[#2a5688] px-2 py-1 text-[10px] font-roboto font-semibold text-white opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-50">
             Notifications
           </span>
@@ -143,6 +196,22 @@ export default function PortalHeaderPills({
                 Mark all read
               </button>
             </div>
+
+            {errorText ? (
+              <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[#2a5688] bg-red-500/10">
+                <span className="text-[11px] text-red-200 font-roboto">{errorText}</span>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="text-[10px] font-roboto font-semibold uppercase tracking-wider text-[#5eead4] hover:text-white cursor-pointer whitespace-nowrap"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            ) : null}
+
             <div className="max-h-[320px] overflow-y-auto divide-y divide-[#2a5688]">
               {feed.length === 0 ? (
                 <div className="px-4 py-8 text-center text-xs text-white/50 font-roboto">{emptyText}</div>
@@ -151,7 +220,7 @@ export default function PortalHeaderPills({
                   <Link
                     key={entry.id}
                     to={entry.href}
-                    onClick={() => setOpen(false)}
+                    onClick={() => { onItemClick?.(entry.id); setOpen(false); }}
                     className="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-all cursor-pointer"
                   >
                     <span className="mt-0.5 w-7 h-7 rounded-full bg-[#5eead4]/10 text-[#5eead4] flex items-center justify-center flex-shrink-0">

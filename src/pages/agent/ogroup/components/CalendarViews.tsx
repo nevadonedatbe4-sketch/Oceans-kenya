@@ -143,23 +143,12 @@ const DAY_HOURS = Array.from({ length: 16 }, (_, i) => i + 6); // 06:00 → 21:0
 
 export function DayView({ events, current, onSelect, dragId, onDragStart, onDragEnd, onDropHour, onDropDay }: ViewCommonProps) {
   const dayEvents = eventsOn(events, current);
-  if (dayEvents.length === 0) {
-    return (
-      <div
-        className="p-3 min-h-[420px]"
-        onDragOver={(e) => { if (dragId) e.preventDefault(); }}
-        onDrop={() => dragId && onDropDay(startOfDay(current))}
-      >
-        <div className="flex flex-col items-center justify-center py-24 text-neutral-300">
-          <i className="ri-calendar-line text-4xl" />
-          <p className="text-sm text-neutral-400 mt-2">Your calendar is clear</p>
-          <p className="text-xs text-neutral-400 mt-1">No appointments are scheduled for this day.</p>
-        </div>
-      </div>
-    );
-  }
   return (
-    <div className="p-2 min-h-[420px]">
+    <div
+      className="p-2 min-h-[420px]"
+      onDragOver={(e) => { if (dragId) e.preventDefault(); }}
+      onDrop={() => dragId && onDropDay(startOfDay(current))}
+    >
       {DAY_HOURS.map((hour) => {
         const slot = dayEvents.filter((a) => new Date(a.starts_at).getHours() === hour);
         return (

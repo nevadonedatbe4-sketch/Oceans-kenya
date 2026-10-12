@@ -32,9 +32,6 @@ const AgentSignup = lazy(() => import("../pages/agent/AgentSignup"));
 const AgentPending = lazy(() => import("../pages/agent/AgentPending"));
 const AgentPortalLayout = lazy(() => import("../pages/agent/AgentPortalLayout"));
 const AgentDashboard = lazy(() => import("../pages/agent/AgentDashboard"));
-const AgentListings = lazy(() => import("../pages/agent/AgentListings"));
-const AgentDevelopments = lazy(() => import("../pages/agent/AgentDevelopments"));
-const AgentJvDesk = lazy(() => import("../pages/agent/AgentJvDesk"));
 const AgentPerformance = lazy(() => import("../pages/agent/AgentPerformance"));
 const AgentContactsPage = lazy(() => import("../pages/agent/AgentContactsPage"));
 const AgentHelp = lazy(() => import("../pages/agent/AgentHelp"));
@@ -134,6 +131,7 @@ const FilterChipsPageCMS = lazy(() => import("../pages/crm/management/FilterChip
 const JointVenturesPageCMS = lazy(() => import("../pages/crm/management/JointVenturesPage"));
 const ContactCompany = lazy(() => import("../pages/crm/management/ContactCompany"));
 const ManagementSocialMedia = lazy(() => import("../pages/crm/management/SocialMedia"));
+const ManagementSiteMap = lazy(() => import("../pages/crm/management/SiteMap"));
 const MapsLocation = lazy(() => import("../pages/crm/management/MapsLocation"));
 const StylingCards = lazy(() => import("../pages/crm/management/StylingCards"));
 const StylingDetails = lazy(() => import("../pages/crm/management/StylingDetails"));
@@ -165,7 +163,6 @@ import AreaGuidePage from "@/pages/AreaGuidePage";
 import { SEO_PAGES } from "@/lib/seoPages";
 import { ESTATE_AGENT_PAGES, PROPERTY_PRICE_PAGES } from "@/lib/seoClusters";
 import { AREA_GUIDE_PAGES } from "@/lib/areaGuides";
-import SitemapXmlPage from "@/pages/SitemapXmlPage";
 const CommercialProperty = lazy(() => import("../pages/CommercialProperty"));
 const CommercialAdvertising = lazy(() => import("../pages/CommercialAdvertising"));
 const CommuteTime = lazy(() => import("../pages/CommuteTime"));
@@ -298,6 +295,7 @@ const adminChildren: RouteObject[] = [
   { path: "management/joint-ventures-page", element: <JointVenturesPageCMS /> },
   { path: "management/contact", element: <ContactCompany /> },
   { path: "management/social", element: <ManagementSocialMedia /> },
+  { path: "management/sitemap", element: <ManagementSiteMap /> },
   { path: "management/maps", element: <MapsLocation /> },
   { path: "management/styling-cards", element: <StylingCards /> },
   { path: "management/styling-details", element: <StylingDetails /> },
@@ -310,14 +308,16 @@ const adminChildren: RouteObject[] = [
 const agentChildren: RouteObject[] = [
   { path: "", element: <AgentDashboard /> },
   { path: "dashboard", element: <AgentDashboard /> },
-  { path: "listings", element: <AgentListings /> },
-  { path: "land-listings", element: <AgentJvDesk /> },
+  { path: "listings", element: <Listings /> },
+  { path: "land-listings", element: <LandListings /> },
   { path: "land-listings/new", element: <LandListingEdit /> },
   { path: "land-listings/edit/:id", element: <LandListingEdit /> },
-  { path: "jv-desk", element: <AgentJvDesk /> },
+  { path: "jv-desk", element: <JointVenturesCRM /> },
+  { path: "joint-ventures/new", element: <JVSubmissionEdit /> },
+  { path: "joint-ventures/edit/:id", element: <JVSubmissionEdit /> },
   { path: "listings/new", element: <ListingEdit /> },
   { path: "listings/edit/:id", element: <ListingEdit /> },
-  { path: "developments", element: <AgentDevelopments /> },
+  { path: "developments", element: <Developments /> },
   { path: "developments/new", element: <DevelopmentEdit /> },
   { path: "developments/edit/:id", element: <DevelopmentEdit /> },
   { path: "leads", element: <Leads /> },
@@ -373,7 +373,6 @@ const routes: RouteObject[] = [
   { path: "/disclaimer", element: <LegalPage pageKey="disclaimer" /> },
   { path: "/help-center", element: <LegalPage pageKey="help-center" /> },
   { path: "/report-a-listing", element: <LegalPage pageKey="report-a-listing" /> },
-  { path: "/sitemap.xml", element: <SitemapXmlPage /> },
 
   // ─────────────────────────────────────────────────────────────
   // PORTAL 1 — AGENT (public signup → approval gate → agent portal)

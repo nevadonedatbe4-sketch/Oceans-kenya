@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://tfhcdq.readdy.co/sitemap.xml
+Sitemap: https://tfhcdq.readdy.co/functions/v1/sitemap

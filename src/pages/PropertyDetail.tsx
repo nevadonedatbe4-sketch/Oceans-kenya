@@ -16,6 +16,8 @@ import { useSeoMeta, buildBreadcrumbSchema } from '@/hooks/useSeoMeta';
 import { useCurrency } from '@/hooks/useCurrency';
 import { formatLocation, smartTitleCase } from '@/lib/location';
 import { listingHasFloorPlan } from '@/lib/listingMeta';
+import { BEDROOM_OPTIONS } from '@/lib/bedrooms';
+import { salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 import { buildPropertySpecs, type DetailSpecRow } from '@/lib/propertyDetailSpecs';
 import PropertyGallery from '@/pages/PropertyDetail/components/Gallery';
 import PropertyLeftColumn from '@/pages/PropertyDetail/components/LeftColumn';
@@ -201,9 +203,13 @@ function DetailSearchBar({
   bedsValue,
   onBedsChange,
   bedOptions,
-  priceValue,
-  onPriceChange,
-  priceOptions,
+  priceMinValue,
+  onPriceMinChange,
+  priceMinOptions,
+  priceMaxValue,
+  onPriceMaxChange,
+  priceMaxOptions,
+  priceRangeError,
   typeValue,
   onTypeChange,
   typeOptions,
@@ -228,9 +234,13 @@ function DetailSearchBar({
   bedsValue: string;
   onBedsChange: (v: string) => void;
   bedOptions: string[];
-  priceValue: string;
-  onPriceChange: (v: string) => void;
-  priceOptions: string[];
+  priceMinValue: string;
+  onPriceMinChange: (v: string) => void;
+  priceMinOptions: string[];
+  priceMaxValue: string;
+  onPriceMaxChange: (v: string) => void;
+  priceMaxOptions: string[];
+  priceRangeError: string;
   typeValue: string;
   onTypeChange: (v: string) => void;
   typeOptions: string[];
@@ -266,9 +276,13 @@ function DetailSearchBar({
           bedsValue={bedsValue}
           onBedsChange={onBedsChange}
           bedOptions={bedOptions}
-          priceValue={priceValue}
-          onPriceChange={onPriceChange}
-          priceOptions={priceOptions}
+          priceMinValue={priceMinValue}
+          onPriceMinChange={onPriceMinChange}
+          priceMinOptions={priceMinOptions}
+          priceMaxValue={priceMaxValue}
+          onPriceMaxChange={onPriceMaxChange}
+          priceMaxOptions={priceMaxOptions}
+          priceRangeError={priceRangeError}
           typeValue={typeValue}
           onTypeChange={onTypeChange}
           typeOptions={typeOptions}
@@ -310,16 +324,21 @@ export default function PropertyDetail() {
   const [detailLocation, setDetailLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [detailRadius, setDetailRadius] = useState('This area only');
   const [detailBeds, setDetailBeds] = useState('Any beds');
-  const [detailPrice, setDetailPrice] = useState('Any price');
-  const [detailType, setDetailType] = useState('Any type');
+  const [detailPriceMin, setDetailPriceMin] = useState('No min');
+  const [detailPriceMax, setDetailPriceMax] = useState('No max');
+  const [detailType, setDetailType] = useState('Show all');
   const [detailSavedSearch, setDetailSavedSearch] = useState(false);
   const [showDetailAdvancedFilters, setShowDetailAdvancedFilters] = useState(false);
   const [detailAdvancedFilters, setDetailAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
 
   const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
-  const detailBedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-  const detailPriceOptions = ['Any price', 'Under KES 10M', 'KES 10M - 30M', 'KES 30M - 50M', 'KES 50M - 100M', 'KES 100M - 200M', 'Over KES 200M'];
-  const detailTypeOptions = ['Any type', 'Apartment', 'House', 'Townhouse', 'Penthouse', 'Villa', 'Studio', 'Land'];
+  const detailBedOptions = BEDROOM_OPTIONS;
+  const detailPriceMinOpts = useMemo(() => salePriceMinOptions('KES', {}), []);
+  const detailPriceMaxOpts = useMemo(() => salePriceMaxOptions('KES', {}), []);
+  const detailPriceMinValue = parsePriceSelection(detailPriceMinOpts, detailPriceMin);
+  const detailPriceMaxValue = parsePriceSelection(detailPriceMaxOpts, detailPriceMax);
+  const detailPriceRangeError = priceRangeInvalid(detailPriceMinValue, detailPriceMaxValue) ? 'Minimum price cannot be greater than maximum price.' : '';
+  const detailTypeOptions = ['Show all', 'Apartment', 'House', 'Townhouse', 'Penthouse', 'Villa', 'Studio', 'Land'];
 
   // Hands the visitor straight to the matching results page (rent or buy,
   // following this listing's purpose) whenever they touch the search bar.
@@ -328,7 +347,8 @@ export default function PropertyDetail() {
     location?: { lat: number; lng: number } | null;
     radius?: string;
     beds?: string;
-    price?: string;
+    priceMin?: string;
+    priceMax?: string;
     type?: string;
   } = {}) => {
     const targetPage = listing && listing.purpose === 'rent' ? '/rent' : '/buy';
@@ -336,7 +356,8 @@ export default function PropertyDetail() {
     const loc = overrides.location !== undefined ? overrides.location : detailLocation;
     const radius = overrides.radius ?? detailRadius;
     const beds = overrides.beds ?? detailBeds;
-    const price = overrides.price ?? detailPrice;
+    const priceMin = overrides.priceMin ?? detailPriceMin;
+    const priceMax = overrides.priceMax ?? detailPriceMax;
     const type = overrides.type ?? detailType;
     const params = new URLSearchParams();
     if (query.trim()) params.set('location', query.trim());
@@ -346,8 +367,11 @@ export default function PropertyDetail() {
     }
     if (radius !== 'This area only') params.set('radius', radius);
     if (beds !== 'Any beds') params.set('beds', beds);
-    if (price !== 'Any price') params.set('price', price);
-    if (type !== 'Any type') params.set('type', type);
+    const minVal = parsePriceSelection(detailPriceMinOpts, priceMin);
+    const maxVal = parsePriceSelection(detailPriceMaxOpts, priceMax);
+    if (minVal !== undefined) params.set('minPrice', String(minVal));
+    if (maxVal !== undefined) params.set('maxPrice', String(maxVal));
+    if (type !== 'Show all') params.set('type', type);
     const qs = params.toString();
     navigate(qs ? `${targetPage}?${qs}` : targetPage);
   };
@@ -375,9 +399,14 @@ export default function PropertyDetail() {
     runDetailSearch({ beds: v });
   };
 
-  const handleDetailPriceChange = (v: string) => {
-    setDetailPrice(v);
-    runDetailSearch({ price: v });
+  const handleDetailPriceMinChange = (v: string) => {
+    setDetailPriceMin(v);
+    runDetailSearch({ priceMin: v });
+  };
+
+  const handleDetailPriceMaxChange = (v: string) => {
+    setDetailPriceMax(v);
+    runDetailSearch({ priceMax: v });
   };
 
   const handleDetailTypeChange = (v: string) => {
@@ -984,9 +1013,13 @@ export default function PropertyDetail() {
             bedsValue={detailBeds}
             onBedsChange={handleDetailBedsChange}
             bedOptions={detailBedOptions}
-            priceValue={detailPrice}
-            onPriceChange={handleDetailPriceChange}
-            priceOptions={detailPriceOptions}
+            priceMinValue={detailPriceMin}
+            onPriceMinChange={handleDetailPriceMinChange}
+            priceMinOptions={detailPriceMinOpts.labels}
+            priceMaxValue={detailPriceMax}
+            onPriceMaxChange={handleDetailPriceMaxChange}
+            priceMaxOptions={detailPriceMaxOpts.labels}
+            priceRangeError={detailPriceRangeError}
             typeValue={detailType}
             onTypeChange={handleDetailTypeChange}
             typeOptions={detailTypeOptions}
@@ -1224,9 +1257,13 @@ export default function PropertyDetail() {
           bedsValue={detailBeds}
           onBedsChange={handleDetailBedsChange}
           bedOptions={detailBedOptions}
-          priceValue={detailPrice}
-          onPriceChange={handleDetailPriceChange}
-          priceOptions={detailPriceOptions}
+          priceMinValue={detailPriceMin}
+          onPriceMinChange={handleDetailPriceMinChange}
+          priceMinOptions={detailPriceMinOpts.labels}
+          priceMaxValue={detailPriceMax}
+          onPriceMaxChange={handleDetailPriceMaxChange}
+          priceMaxOptions={detailPriceMaxOpts.labels}
+          priceRangeError={detailPriceRangeError}
           typeValue={detailType}
           onTypeChange={handleDetailTypeChange}
           typeOptions={detailTypeOptions}

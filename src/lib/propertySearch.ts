@@ -143,10 +143,10 @@ const STOPWORDS = new Set([
 // ── Bedroom detection ───────────────────────────────────────────────────
 const BED_PATTERN = [
   /\b(\d+)\s*(?:bedroom|bedrooms|bed|beds|br)\b/,
-  /\b(one|two|three|four|five|six|seven)\s*(?:bedroom|bedrooms|bed|beds|br)\b/,
+  /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:bedroom|bedrooms|bed|beds|br)\b/,
 ];
 const BED_WORDS: Record<string, number> = {
-  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
 };
 
 // ── Price detection (KES) ───────────────────────────────────────────────
@@ -239,7 +239,8 @@ export function parsePropertySearch(raw: string): PropertySearchIntent {
       const num = /^\d+$/.test(numText) ? parseInt(numText, 10) : BED_WORDS[numText];
       if (num && num > 0) {
         intent.bedroomsMin = num;
-        intent.bedroomsMax = num;
+        // 10+ is open-ended ("at least 10"); a lower count is an exact match.
+        intent.bedroomsMax = num >= 10 ? undefined : num;
       }
       break;
     }
@@ -551,7 +552,7 @@ function parseClauseChunk(chunk: string, defaultTxn: SearchTransaction | null, t
       const num = /^\d+$/.test(numText) ? parseInt(numText, 10) : BED_WORDS[numText];
       if (num && num > 0) {
         clause.bedroomsMin = num;
-        clause.bedroomsMax = num;
+        clause.bedroomsMax = num >= 10 ? undefined : num;
       }
       break;
     }

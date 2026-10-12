@@ -30,13 +30,19 @@ dashboards, not in the repo.
 3. Create an API key (Sending access is enough).
 
 ### 2. Supabase edge-function secrets
-Dashboard → Project Settings → Edge Functions → Secrets (or
-`supabase secrets set …`). Set:
+> You are on **SaaS Supabase**, so these live in YOUR Supabase project —
+> Dashboard → Project Settings → Edge Functions → Secrets (or
+> `supabase secrets set …`). Readdy does not store or copy this key for you.
+>
+> **To CHECK** whether they are already set: open that Secrets page and look for
+> `RESEND_API_KEY` and `RESEND_FROM_DOMAIN`. If either is missing, add it now.
+
+Set:
 
 | Secret | Value |
 | --- | --- |
-| `RESEND_API_KEY` | the key from Resend |
-| `RESEND_FROM_DOMAIN` | the verified domain, e.g. `oceanske.com` |
+| `RESEND_API_KEY` | a Resend key with *Sending access* |
+| `RESEND_FROM_DOMAIN` | `oceanske.com` (must show **Verified** in Resend) |
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are already provided to functions
 by the platform. The From address becomes
@@ -50,8 +56,8 @@ nine templates (`enquiry_auto_response`, `new_lead`, `new_message`,
 later edits in Email Management survive a re-run. The `email_settings` block at
 the bottom sets the sender identity: all outbound mail is sent from
 **`team@oceanske.com`** (`sender_local_part=team` + `RESEND_FROM_DOMAIN`), with
-`Reply-To` also `team@oceanske.com`. Edit that block (or Email Management) to
-change it.
+`Reply-To: ask@oceanske.com` (support address `ask@oceanske.com`). Edit that
+block (or Email Management → Sender & branding) to change it.
 
 ### 4. Apply RLS (if not done already)
 Run **`docs/security/rls-policies.sql`**. It secures every table and, relevant

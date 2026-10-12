@@ -17,6 +17,7 @@ import LandAdvancedFilters, { defaultLandFilters, type LandFilterState } from '@
 import ProjectCard from '@/pages/joint-ventures/components/ProjectCard';
 import JvOpportunityCard from '@/pages/joint-ventures/components/JvOpportunityCard';
 import { normalizeJvProjectImages, type JvImage } from '@/lib/jvImages';
+import { salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 import { smartTitleCase } from '@/lib/location';
 import {
   DEAL_TYPE_LABELS,
@@ -29,15 +30,8 @@ import {
 
 // Land search filters. Prices are compared against the listing's raw numeric
 // price (KES), so bands are only applied to listings that actually carry a price.
-const LAND_PRICE_OPTIONS = ['Any price', 'Under 5M', '5M \u2013 20M', '20M \u2013 50M', '50M \u2013 100M', 'Over 100M'];
-
-const LAND_PRICE_BANDS: Record<string, [number, number]> = {
-  'Under 5M': [0, 5_000_000],
-  '5M \u2013 20M': [5_000_000, 20_000_000],
-  '20M \u2013 50M': [20_000_000, 50_000_000],
-  '50M \u2013 100M': [50_000_000, 100_000_000],
-  'Over 100M': [100_000_000, Number.POSITIVE_INFINITY],
-};
+// The price scale now comes from the ONE shared site-wide KSh sale ladder
+// (@/lib/prices), so the min/max bounds match every other property search.
 
 const LAND_TITLE_OPTIONS = ['Any title', 'Freehold', 'Leasehold', 'Mailo', 'Kibanja / customary', 'In process'];
 
@@ -187,13 +181,14 @@ interface JvOpportunity {
 }
 
 export default function JointVentures() {
-  const { format } = useCurrency();
+  const { format, currency, rates } = useCurrency();
   const { content: LC } = useJointVenturesPageContent();
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [jvFaqs, setJvFaqs] = useState<{ question: string; answer: string }[]>([]);
   const [landTab, setLandTab] = useState<'all' | 'outright' | 'joint_venture'>('all');
   const [landSearch, setLandSearch] = useState('');
-  const [landPrice, setLandPrice] = useState('');
+  const [landPriceMin, setLandPriceMin] = useState('No min');
+  const [landPriceMax, setLandPriceMax] = useState('No max');
   const [landTitleType, setLandTitleType] = useState('');
   const [landSize, setLandSize] = useState('');
   const [landUseType, setLandUseType] = useState('');
@@ -222,6 +217,24 @@ export default function JointVentures() {
   const landownerForm = useJVForm('landowner');
   const investorForm = useJVForm('investor');
 
+  // Shared KSh sale ladder for the land "Guide price" now expressed as min/max -
+  // the exact same granular scale as every other property search on the site.
+  const landPriceMinOpts = useMemo(() => salePriceMinOptions(currency, rates), [currency, rates]);
+  const landPriceMaxOpts = useMemo(() => salePriceMaxOptions(currency, rates), [currency, rates]);
+  const landPriceMinValue = parsePriceSelection(landPriceMinOpts, landPriceMin);
+  const landPriceMaxValue = parsePriceSelection(landPriceMaxOpts, landPriceMax);
+  const landPriceRangeError = priceRangeInvalid(landPriceMinValue, landPriceMaxValue)
+    ? 'Minimum price cannot be greater than maximum price.'
+    : '';
+  const prevLandCurrencyRef = useRef(currency);
+  useEffect(() => {
+    if (prevLandCurrencyRef.current !== currency) {
+      setLandPriceMin('No min');
+      setLandPriceMax('No max');
+      prevLandCurrencyRef.current = currency;
+    }
+  }, [currency]);
+
   useEffect(() => {
     fetchLandListings();
     fetchJvProjects();
@@ -234,7 +247,7 @@ export default function JointVentures() {
   useEffect(() => {
     setVisibleLandCount(6);
     setLandActiveSlide(0);
-  }, [landTab, landSearch, landPrice, landTitleType, landDealType, landUseType, landSize, landFilters]);
+  }, [landTab, landSearch, landPriceMin, landPriceMax, landTitleType, landDealType, landUseType, landSize, landFilters]);
 
   async function fetchFaqs() {
     try {
@@ -469,7 +482,7 @@ export default function JointVentures() {
   }
 
   const searchActive = landSearch.trim() !== ''
-    || (landPrice !== '' && landPrice !== LAND_PRICE_OPTIONS[0])
+    || landPriceMinValue !== undefined || landPriceMaxValue !== undefined
     || (landTitleType !== '' && landTitleType !== LAND_TITLE_OPTIONS[0])
     || (landSize !== '' && landSize !== LAND_SIZE_OPTIONS[0])
     || (landDealType !== '' && landDealType !== LAND_DEAL_TYPE_OPTIONS[0]);
@@ -510,12 +523,10 @@ export default function JointVentures() {
         if (!haystack.includes(q)) return false;
       }
 
-      if (landPrice && landPrice !== LAND_PRICE_OPTIONS[0]) {
-        const band = LAND_PRICE_BANDS[landPrice];
-        if (band) {
-          if (l.priceRaw <= 0) return false;
-          if (l.priceRaw < band[0] || l.priceRaw >= band[1]) return false;
-        }
+      if (landPriceMinValue !== undefined || landPriceMaxValue !== undefined) {
+        if (l.priceRaw <= 0) return false;
+        if (landPriceMinValue !== undefined && l.priceRaw < landPriceMinValue) return false;
+        if (landPriceMaxValue !== undefined && l.priceRaw > landPriceMaxValue) return false;
       }
 
       if (landTitleType && landTitleType !== LAND_TITLE_OPTIONS[0]) {
@@ -766,10 +777,14 @@ export default function JointVentures() {
               'Search land by town, e.g. Nanyuki...',
               'Search land by district...',
             ]}
-            priceValue={landPrice}
-            onPriceChange={setLandPrice}
-            priceOptions={LAND_PRICE_OPTIONS}
-            priceLabel="Guide price"
+            priceMinValue={landPriceMin}
+            onPriceMinChange={setLandPriceMin}
+            priceMinOptions={landPriceMinOpts.labels}
+            priceMaxValue={landPriceMax}
+            onPriceMaxChange={setLandPriceMax}
+            priceMaxOptions={landPriceMaxOpts.labels}
+            priceRangeError={landPriceRangeError}
+            onClearPrice={(landPriceMin !== 'No min' || landPriceMax !== 'No max') ? () => { setLandPriceMin('No min'); setLandPriceMax('No max'); } : undefined}
             typeValue={landTitleType}
             onTypeChange={setLandTitleType}
             typeOptions={LAND_TITLE_OPTIONS}
@@ -794,6 +809,8 @@ export default function JointVentures() {
             onApply={(f) => setLandFilters(f)}
             initialFilters={landFilters}
             districts={landDistricts}
+            currency={currency}
+            rates={rates}
           />
         </div>
       </section>

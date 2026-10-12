@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import usePortalBase from '@/hooks/usePortalBase';
 import { supabase } from '@/lib/supabase';
 
 export interface ContinuityValues {
@@ -13,6 +14,20 @@ export interface ContinuityValues {
   sourceNotes: string;
 }
 
+/* Which editable fields the linked-source details panel shows. Systems that
+   don't store every field (e.g. JV submissions, which only persist source +
+   the CRM contact link) can pass a subset so nothing is shown that cannot save. */
+export type ContinuityField =
+  | 'name'
+  | 'phone'
+  | 'email'
+  | 'role'
+  | 'source'
+  | 'contactRef'
+  | 'sourceNotes';
+
+const ALL_FIELDS: ContinuityField[] = ['name', 'phone', 'email', 'role', 'source', 'contactRef', 'sourceNotes'];
+
 interface Props {
   values: ContinuityValues;
   onChange: (patch: Partial<ContinuityValues>) => void;
@@ -20,6 +35,8 @@ interface Props {
   sellerTypeOptions?: { value: string; label: string }[];
   sourceOptions?: { value: string; label: string }[];
   roleOptions?: { value: string; label: string }[];
+  /** Editable fields to show; defaults to every field. */
+  visibleFields?: ContinuityField[];
 }
 
 /* Dark continuity theme — the only dark card on the Review & Publish page. */
@@ -94,8 +111,10 @@ export default function SourceContinuityCard({
   sellerTypeOptions = DEFAULT_SELLER_TYPES,
   sourceOptions = DEFAULT_SOURCE_OPTIONS,
   roleOptions = DEFAULT_SELLER_TYPES,
+  visibleFields = ALL_FIELDS,
 }: Props) {
   const navigate = useNavigate();
+  const portalBase = usePortalBase();
   const [open, setOpen] = useState(false);
 
   const [linkOpen, setLinkOpen] = useState(false);
@@ -173,7 +192,7 @@ export default function SourceContinuityCard({
                 <div className="flex items-start gap-3">
                   <button
                     type="button"
-                    onClick={() => navigate('/admin/contacts')}
+                    onClick={() => navigate(`${portalBase}/contacts`)}
                     className="w-11 h-11 rounded-full bg-[#088135] flex items-center justify-center shrink-0 hover:bg-[#065a27] transition-colors cursor-pointer"
                     title="Open in CRM Contacts"
                   >
@@ -182,7 +201,7 @@ export default function SourceContinuityCard({
                   <div className="min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={() => navigate('/admin/contacts')}
+                      onClick={() => navigate(`${portalBase}/contacts`)}
                       className="text-[17px] font-roboto font-semibold text-[#eaf2f6] hover:text-[#5eea9a] transition-colors cursor-pointer text-left"
                     >
                       {linkedName}
@@ -203,7 +222,7 @@ export default function SourceContinuityCard({
                       )}
                       <button
                         type="button"
-                        onClick={() => navigate('/admin/contacts')}
+                        onClick={() => navigate(`${portalBase}/contacts`)}
                         className="mt-1 inline-flex items-center gap-1 text-[12px] font-roboto font-semibold text-[#8ad6ea] hover:text-white transition-colors cursor-pointer"
                       >
                         <i className="ri-external-link-line text-[11px]" /> Open in CRM Contacts
@@ -248,34 +267,48 @@ export default function SourceContinuityCard({
               <p className="text-[13px] font-roboto font-bold uppercase tracking-wide text-[#8fa9b8]">{sellerLabel} details</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={LABEL}>Name / contact</label>
-                <input value={values.ownerName} onChange={(e) => onChange({ ownerName: e.target.value })} placeholder="e.g. John Doe" className={INPUT} />
-              </div>
-              <div>
-                <label className={LABEL}>Phone</label>
-                <input value={values.ownerPhone} onChange={(e) => onChange({ ownerPhone: e.target.value })} placeholder="+254 7XX XXX XXX" className={INPUT} />
-              </div>
-              <div>
-                <label className={LABEL}>Email</label>
-                <input type="email" value={values.ownerEmail} onChange={(e) => onChange({ ownerEmail: e.target.value })} placeholder="owner@email.com" className={INPUT} />
-              </div>
-              <div>
-                <label className={LABEL}>Type</label>
-                <DarkSelect value={values.ownerRole} onChange={(v) => onChange({ ownerRole: v })} options={roleOptions.filter((o) => o.value !== '')} placeholder="Select type" />
-              </div>
-              <div>
-                <label className={LABEL}>Source</label>
-                <DarkSelect value={values.source} onChange={(v) => onChange({ source: v })} options={sourceOptions.filter((o) => o.value !== '')} placeholder="Lead source" />
-              </div>
-              <div>
-                <label className={LABEL}>Internal contact reference</label>
-                <input value={values.contactRef} onChange={(e) => onChange({ contactRef: e.target.value })} placeholder="e.g. Linked to Contact ID #1234" className={INPUT} />
-              </div>
-              <div className="sm:col-span-2">
-                <label className={LABEL}>Source notes</label>
-                <textarea value={values.sourceNotes} onChange={(e) => onChange({ sourceNotes: e.target.value })} rows={2} maxLength={600} placeholder="Motivation, constraints, private instructions..." className={TEXTAREA} />
-              </div>
+              {visibleFields.includes('name') && (
+                <div>
+                  <label className={LABEL}>Name / contact</label>
+                  <input value={values.ownerName} onChange={(e) => onChange({ ownerName: e.target.value })} placeholder="e.g. John Doe" className={INPUT} />
+                </div>
+              )}
+              {visibleFields.includes('phone') && (
+                <div>
+                  <label className={LABEL}>Phone</label>
+                  <input value={values.ownerPhone} onChange={(e) => onChange({ ownerPhone: e.target.value })} placeholder="+254 7XX XXX XXX" className={INPUT} />
+                </div>
+              )}
+              {visibleFields.includes('email') && (
+                <div>
+                  <label className={LABEL}>Email</label>
+                  <input type="email" value={values.ownerEmail} onChange={(e) => onChange({ ownerEmail: e.target.value })} placeholder="owner@email.com" className={INPUT} />
+                </div>
+              )}
+              {visibleFields.includes('role') && (
+                <div>
+                  <label className={LABEL}>Type</label>
+                  <DarkSelect value={values.ownerRole} onChange={(v) => onChange({ ownerRole: v })} options={roleOptions.filter((o) => o.value !== '')} placeholder="Select type" />
+                </div>
+              )}
+              {visibleFields.includes('source') && (
+                <div>
+                  <label className={LABEL}>Source</label>
+                  <DarkSelect value={values.source} onChange={(v) => onChange({ source: v })} options={sourceOptions.filter((o) => o.value !== '')} placeholder="Lead source" />
+                </div>
+              )}
+              {visibleFields.includes('contactRef') && (
+                <div>
+                  <label className={LABEL}>Internal contact reference</label>
+                  <input value={values.contactRef} onChange={(e) => onChange({ contactRef: e.target.value })} placeholder="e.g. Linked to Contact ID #1234" className={INPUT} />
+                </div>
+              )}
+              {visibleFields.includes('sourceNotes') && (
+                <div className="sm:col-span-2">
+                  <label className={LABEL}>Source notes</label>
+                  <textarea value={values.sourceNotes} onChange={(e) => onChange({ sourceNotes: e.target.value })} rows={2} maxLength={600} placeholder="Motivation, constraints, private instructions..." className={TEXTAREA} />
+                </div>
+              )}
             </div>
           </div>
         </div>

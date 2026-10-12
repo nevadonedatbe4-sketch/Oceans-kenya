@@ -345,8 +345,7 @@ export default function SettingsStep({
         variant="teal"
       />
 
-      {/* Source & Contact (Private) — admin-only internal continuity */}
-      {!isAgent ? (
+      {/* Source & Contact (Private) — internal continuity, shown to admins AND agents */}
       <>
       <SectionHeader
         icon="ri-lock-line"
@@ -636,7 +635,6 @@ export default function SettingsStep({
         )}
       </div>
       </>
-      ) : null}
 
       {/* Featured Property — admin-only content control */}
       {!isAgent ? (

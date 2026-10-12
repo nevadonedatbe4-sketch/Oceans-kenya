@@ -15,7 +15,8 @@ export interface DevelopmentFilterState {
   unitType: string;
   developer: string;
   completion: string;
-  price: string;
+  priceMin: string;
+  priceMax: string;
   stage: string;
   keywords: string;
   showLetAgreed: boolean;
@@ -31,7 +32,8 @@ interface DevelopmentAdvancedFiltersProps {
   unitTypeOptions: string[];
   developerOptions: string[];
   completionOptions: string[];
-  priceOptions: string[];
+  priceMinOptions: string[];
+  priceMaxOptions: string[];
   stageOptions: string[];
 }
 
@@ -93,7 +95,8 @@ export default function DevelopmentAdvancedFilters({
   unitTypeOptions,
   developerOptions,
   completionOptions,
-  priceOptions,
+  priceMinOptions,
+  priceMaxOptions,
   stageOptions,
 }: DevelopmentAdvancedFiltersProps) {
   const [filters, setFilters] = useState<DevelopmentFilterState>({ ...initialFilters });
@@ -125,7 +128,8 @@ export default function DevelopmentAdvancedFilters({
   const neutralUnit = unitTypeOptions[0] || '';
   const neutralDev = developerOptions[0] || '';
   const neutralComp = completionOptions[0] || '';
-  const neutralPrice = priceOptions[0] || '';
+  const neutralPriceMin = priceMinOptions[0] || '';
+  const neutralPriceMax = priceMaxOptions[0] || '';
   const neutralStage = stageOptions[0] || '';
 
   const activeCount = [
@@ -134,7 +138,7 @@ export default function DevelopmentAdvancedFilters({
     filters.unitType !== neutralUnit,
     filters.developer !== neutralDev,
     filters.completion !== neutralComp,
-    filters.price !== neutralPrice,
+    filters.priceMin !== neutralPriceMin || filters.priceMax !== neutralPriceMax,
     filters.stage !== neutralStage,
     filters.keywords.trim() !== '',
   ].filter(Boolean).length;
@@ -151,7 +155,8 @@ export default function DevelopmentAdvancedFilters({
       unitType: neutralUnit,
       developer: neutralDev,
       completion: neutralComp,
-      price: neutralPrice,
+      priceMin: neutralPriceMin,
+      priceMax: neutralPriceMax,
       stage: neutralStage,
       keywords: '',
       showLetAgreed: filters.showLetAgreed,
@@ -189,8 +194,9 @@ export default function DevelopmentAdvancedFilters({
 
       {/* Price + keywords */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <FilterSelect label="Price range" value={filters.price} options={priceOptions} onChange={(v) => set('price', v)} />
-        <div>
+        <FilterSelect label="Min price" value={filters.priceMin} options={priceMinOptions} onChange={(v) => set('priceMin', v)} />
+        <FilterSelect label="Max price" value={filters.priceMax} options={priceMaxOptions} onChange={(v) => set('priceMax', v)} />
+        <div className="sm:col-span-2">
           <label className={labelClass}>Keywords</label>
           <input
             type="text"

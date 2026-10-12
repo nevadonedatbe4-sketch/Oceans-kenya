@@ -260,7 +260,7 @@ export default function AreaGuidePage({ slug }: { slug: string }) {
   const filters: ListingFilters = {
     purpose: 'sale',
     search: def?.area || '',
-    propertyType: 'Any type',
+    propertyType: 'Show all',
     addedSince: 'Anytime',
     sortBy: 'A - Z',
     statusFilter: 'active',

@@ -1,5 +1,6 @@
 import type { ListingFilters } from '@/hooks/useListings';
 import { PROPERTY_TYPE_TO_DB } from '@/pages/crm/components/ListingEdit/types';
+import { parseBedroomBound } from '@/lib/bedrooms';
 import type { FilterState } from './AdvancedFilters';
 
 // Maps the Advanced Filters panel (FilterState) onto the fields useListings
@@ -46,6 +47,13 @@ export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
   if (typeLabels.includes('Commercial')) out.propertyCategory = 'commercial';
 
   // Beds / baths / size / price ranges.
+  // Advanced bedrooms support minimum-only, maximum-only, or a combined range.
+  // Missing values are treated as "not specified" (never zero).
+  const minBedrooms = parseBedroomBound(a.minBedrooms);
+  const maxBedrooms = parseBedroomBound(a.maxBedrooms);
+  if (minBedrooms !== undefined) out.bedsMin = minBedrooms;
+  if (maxBedrooms !== undefined) out.bedsMax = maxBedrooms;
+
   const minBaths = parseIntOrUndef(a.minBaths);
   if (minBaths !== undefined) out.bathsMin = minBaths;
 

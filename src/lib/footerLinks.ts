@@ -171,7 +171,6 @@ export const DEFAULT_FOOTER_BOTTOM_LINKS: FooterLink[] = [
   { label: 'Privacy Policy', href: '/privacy-policy' },
   { label: 'Terms & Conditions', href: '/terms-conditions' },
   { label: 'Cookie Policy', href: '/cookie-policy' },
-  { label: 'Sitemap', href: '/sitemap.xml' },
   { label: 'Agents', href: '/agent/login' },
 ];
 

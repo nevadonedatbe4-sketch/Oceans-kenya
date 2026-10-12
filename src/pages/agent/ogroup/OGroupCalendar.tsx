@@ -18,7 +18,7 @@ import AppointmentDetailDrawer from './components/AppointmentDetailDrawer';
 import AvailabilityEditor from './components/AvailabilityEditor';
 import CalendarFilterPanel from './components/CalendarFilterPanel';
 import CompanyScheduleGrid from './components/CompanyScheduleGrid';
-import { MonthView, MultiDayView, DayView, AgendaView, EmptyState } from './components/CalendarViews';
+import { MonthView, MultiDayView, DayView, AgendaView } from './components/CalendarViews';
 
 type CompanyMode = 'calendar' | 'schedule';
 
@@ -33,7 +33,7 @@ function rangeFor(a: Date, v: CalendarView): [Date, Date] {
 export default function OGroupCalendar() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const [view, setView] = useState<CalendarView>('week');
+  const [view, setView] = useState<CalendarView>('month');
   const [scope, setScope] = useState<CalendarScope>(() => (searchParams.get('scope') === 'company' ? 'company' : 'my'));
   const [companyMode, setCompanyMode] = useState<CompanyMode>(() => (searchParams.get('mode') === 'schedule' ? 'schedule' : 'calendar'));
   const [anchor, setAnchor] = useState(new Date());
@@ -137,6 +137,18 @@ export default function OGroupCalendar() {
     const lead = (first.getDay() + 6) % 7;
     return Array.from({ length: 42 }, (_, i) => addDays(first, i - lead));
   }, [anchor]);
+
+  // Headline stats — mirrors the admin Team Calendar summary row.
+  const stats = useMemo(() => {
+    const now = Date.now();
+    return {
+      today: appointments.filter((a) => startOfDay(new Date(a.starts_at)).toDateString() === new Date().toDateString()).length,
+      upcoming: appointments.filter((a) => a.status !== 'cancelled' && a.status !== 'no_show' && new Date(a.ends_at).getTime() > now).length,
+      completed: appointments.filter((a) => a.status === 'completed').length,
+      cancelled: appointments.filter((a) => a.status === 'cancelled' || a.status === 'no_show').length,
+      viewings: appointments.filter((a) => a.kind === 'viewing' && a.status !== 'cancelled' && a.status !== 'no_show').length,
+    };
+  }, [appointments]);
 
   const refreshRange = () => {
     const [s, e] = rangeFor(anchorRef.current, loadingView);
@@ -286,8 +298,8 @@ export default function OGroupCalendar() {
     <div className="space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-medium text-neutral-400">Calendar</h1>
-          <p className="text-sm text-neutral-400/80 mt-0.5">
+          <h1 className="text-2xl font-medium text-white">Calendar</h1>
+          <p className="text-sm font-medium text-neutral-300 mt-0.5">
             {scope === 'my' ? 'Your personal working calendar' : 'The organisation-wide calendar'}
           </p>
         </div>
@@ -308,6 +320,15 @@ export default function OGroupCalendar() {
         <AvailabilityEditor availability={availability} timeOff={timeOff} onSaveAvailability={saveAvailability} onAddTimeOff={addTimeOff} onRemoveTimeOff={removeTimeOff} />
       ) : (
         <>
+          {/* Summary stats — mirrors the admin Team Calendar */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <StatCard label="Today" value={stats.today} tone="neutral" />
+            <StatCard label="Upcoming" value={stats.upcoming} tone="teal" />
+            <StatCard label="Viewings" value={stats.viewings} tone="neutral" />
+            <StatCard label="Completed" value={stats.completed} tone="emerald" />
+            <StatCard label="Cancelled" value={stats.cancelled} tone="red" />
+          </div>
+
           {/* Control bar */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -364,15 +385,15 @@ export default function OGroupCalendar() {
 
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <button onClick={() => nav(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-600 border border-neutral-100 cursor-pointer"><i className="ri-arrow-left-s-line" /></button>
-              <button onClick={goToday} className="px-3 py-1.5 rounded-lg bg-white border border-neutral-100 text-base font-medium text-[#012144] hover:bg-neutral-50 cursor-pointer whitespace-nowrap">Today</button>
-              <button onClick={() => nav(1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-neutral-100 text-neutral-600 border border-neutral-100 cursor-pointer"><i className="ri-arrow-right-s-line" /></button>
-              <h2 className="text-base font-medium text-neutral-400 ml-1">{rangeLabel()}</h2>
+              <button onClick={() => nav(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white border border-white cursor-pointer"><i className="ri-arrow-left-s-line" /></button>
+              <button onClick={goToday} className="px-3 py-1.5 rounded-lg bg-white text-[#012144] text-lg font-medium hover:bg-white/90 cursor-pointer whitespace-nowrap">Today</button>
+              <button onClick={() => nav(1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 text-white border border-white cursor-pointer"><i className="ri-arrow-right-s-line" /></button>
+              <h2 className="text-lg font-medium text-neutral-100 ml-1 whitespace-nowrap">{rangeLabel()}</h2>
             </div>
             {!showSchedule && (
-              <div className="flex gap-0.5 bg-neutral-50 rounded-full p-1 overflow-x-auto">
+              <div className="flex gap-0.5 bg-neutral-50 border border-neutral-100 rounded-full p-1 overflow-x-auto">
                 {CALENDAR_VIEWS.map((v) => (
-                  <button key={v.value} onClick={() => setView(v.value)} className={`px-3.5 py-1.5 rounded-full text-sm font-medium cursor-pointer whitespace-nowrap ${view === v.value ? 'bg-white text-neutral-800 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'}`}>{v.label}</button>
+                  <button key={v.value} onClick={() => setView(v.value)} className={`px-3.5 py-1.5 rounded-full text-sm font-medium cursor-pointer whitespace-nowrap transition-colors ${view === v.value ? 'bg-teal-600 text-white shadow-sm' : 'text-neutral-500 hover:text-teal-700 hover:bg-teal-50'}`}>{v.label}</button>
                 ))}
               </div>
             )}
@@ -391,8 +412,6 @@ export default function OGroupCalendar() {
                   onSlotClick={openSlot}
                   getAgentColor={(id) => agentColor(id)}
                 />
-              ) : appointments.length === 0 ? (
-                <EmptyState icon="ri-calendar-line" title="Your calendar is clear" body="No appointments are scheduled for this period. Create one or adjust your filters." />
               ) : view === 'month' ? (
                 <MonthView {...viewProps} cells={monthCells} />
               ) : view === 'week' || view === '3day' ? (
@@ -497,6 +516,21 @@ function UpNextPanel({ appointments, onSelect, onNew, rangeStart, rangeEnd }: {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, tone }: { label: string; value: number; tone: string }) {
+  const map: Record<string, string> = {
+    neutral: 'bg-neutral-50 border-neutral-100',
+    teal: 'bg-teal-50 border-teal-100',
+    emerald: 'bg-emerald-50 border-emerald-100',
+    red: 'bg-red-50 border-red-100',
+  };
+  return (
+    <div className={`rounded-xl border p-4 ${map[tone] || map.neutral}`}>
+      <p className="text-base text-neutral-500">{label}</p>
+      <p className="text-2xl font-medium text-neutral-800">{value}</p>
     </div>
   );
 }

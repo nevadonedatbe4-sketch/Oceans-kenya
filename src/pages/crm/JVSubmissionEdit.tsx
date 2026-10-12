@@ -6,6 +6,10 @@ import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
 import JVImageManager, { JvImageDraft } from '@/pages/crm/components/JVImageManager';
 import { SUBMISSION_PRICE_BASIS_OPTIONS, SUBMISSION_PAYMENT_TERMS_OPTIONS, CURRENCY_OPTIONS } from '@/pages/crm/jvOpportunityConstants';
+import usePortalBase from '@/hooks/usePortalBase';
+import { useAgentProfile } from '@/hooks/useAgentProfile';
+import { resolveSourceContact } from '@/pages/crm/components/sourceContinuity';
+import SourceContinuityCard, { type ContinuityValues } from '@/pages/crm/components/SourceContinuityCard';
 
 type SubmissionType = 'landowner' | 'jv_proposal' | 'investor';
 
@@ -110,9 +114,14 @@ const labelCls = 'block text-[#001731] font-roboto text-base font-medium mb-1.5'
 
 export default function JVSubmissionEdit() {
   const navigate = useNavigate();
+  const portalBase = usePortalBase();
   const { id } = useParams<{ id: string }>();
   const isEdit = Boolean(id);
   const { user } = useAuth();
+  const { agentId } = useAgentProfile();
+  const isAgent = user?.role === 'agent';
+  // Where to return after saving — the unified form is shared by both portals.
+  const listPath = isAgent ? `${portalBase}/jv-desk` : `${portalBase}/joint-ventures?tab=submissions`;
 
   const [type, setType] = useState<SubmissionType>('landowner');
   const [fullName, setFullName] = useState('');
@@ -120,6 +129,8 @@ export default function JVSubmissionEdit() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState('new');
   const [source, setSource] = useState('admin');
+  // Unified Source & Continuity: the CRM contact this submission is linked to.
+  const [contactId, setContactId] = useState('');
 
   // Land / JV shared fields
   const [landLocation, setLandLocation] = useState('');
@@ -146,6 +157,11 @@ export default function JVSubmissionEdit() {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
 
+  // A brief logged by an agent is attributed to that agent by default.
+  useEffect(() => {
+    if (!isEdit && isAgent) setSource('agent');
+  }, [isEdit, isAgent]);
+
   useEffect(() => {
     if (!isEdit) return;
 
@@ -165,12 +181,23 @@ export default function JVSubmissionEdit() {
         return;
       }
 
+      // OWNERSHIP GUARD — an agent may only open a submission assigned to them,
+      // so one agent can never reach another agent's private source/contact data
+      // through the edit URL. Backed by the jv_submissions RLS policy.
+      if (isAgent && agentId && data.agent_id && String(data.agent_id) !== agentId) {
+        addToast('This submission is not assigned to you.', 'error');
+        navigate(listPath, { replace: true });
+        setLoading(false);
+        return;
+      }
+
       setType((data.submission_type as SubmissionType) || 'landowner');
       setFullName(String(data.full_name || ''));
       setPhone(String(data.phone || ''));
       setEmail(String(data.email || ''));
       setStatus(String(data.status || 'new'));
       setSource(String(data.source || 'admin'));
+      setContactId(data.contact_id ? String(data.contact_id) : '');
       setLandLocation(String(data.land_location || ''));
       setLandSize(String(data.land_size || ''));
       setTitleStatus(String(data.title_status || ''));
@@ -200,6 +227,28 @@ export default function JVSubmissionEdit() {
       cancelled = true;
     };
   }, [id, isEdit]);
+
+  const continuityValues: ContinuityValues = {
+    contactId,
+    ownerName: fullName,
+    ownerPhone: phone,
+    ownerEmail: email,
+    ownerRole: '',
+    source,
+    contactRef: '',
+    sourceNotes: '',
+  };
+
+  // The card only exposes the Source select for submissions — name / phone /
+  // email stay in the dedicated contact grid, and the CRM contact link is what
+  // ties the submission to a real contact record.
+  const onContinuityChange = (p: Partial<ContinuityValues>) => {
+    if (p.contactId !== undefined) setContactId(p.contactId);
+    if (p.ownerName !== undefined) setFullName(p.ownerName);
+    if (p.ownerPhone !== undefined) setPhone(p.ownerPhone);
+    if (p.ownerEmail !== undefined) setEmail(p.ownerEmail);
+    if (p.source !== undefined) setSource(p.source);
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -233,17 +282,35 @@ export default function JVSubmissionEdit() {
     const ownerId = user?.id || null;
 
     try {
+      // Unified Source & Continuity: resolve/link the CRM contact so the
+      // Source → Contact → Submission chain survives save/edit/reload, using
+      // the submission's existing contact_id column.
+      const resolvedContactId = await resolveSourceContact({
+        contactId: contactId || null,
+        name: fullName,
+        email,
+        phone,
+        type: 'seller',
+        source,
+      });
+
+      const linked = {
+        ...payload,
+        ...(resolvedContactId ? { contact_id: resolvedContactId } : {}),
+        ...(isAgent && agentId ? { agent_id: agentId } : {}),
+      };
+
       if (isEdit) {
         const { error } = await supabase
           .from('jv_submissions')
-          .update({ ...payload, updated_at: new Date().toISOString() })
+          .update({ ...linked, updated_at: new Date().toISOString() })
           .eq('id', id);
         if (error) throw error;
         addToast('Submission updated', 'success');
       } else {
         const { error } = await supabase.from('jv_submissions').insert({
-          ...payload,
-          source: source || 'admin',
+          ...linked,
+          source: source || (isAgent ? 'agent' : 'admin'),
           owner_id: ownerId,
           status: status || 'new',
         });
@@ -251,7 +318,7 @@ export default function JVSubmissionEdit() {
         addToast('Submission added', 'success');
       }
       broadcastSync();
-      navigate('/admin/joint-ventures?tab=submissions');
+      navigate(listPath);
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Failed to save submission', 'error');
       setSaving(false);
@@ -300,7 +367,7 @@ export default function JVSubmissionEdit() {
           </p>
         </div>
         <button
-          onClick={() => navigate('/admin/joint-ventures?tab=submissions')}
+          onClick={() => navigate(listPath)}
           className="inline-flex items-center gap-1.5 px-3 py-2.5 border border-[#f0f0f0] rounded-lg text-sm font-roboto text-[#636363] hover:text-[#0d5959] hover:border-[#0d5959]/20 transition-all cursor-pointer whitespace-nowrap"
         >
           <i className="ri-arrow-left-line" />
@@ -390,14 +457,19 @@ export default function JVSubmissionEdit() {
                 className={inputCls}
               />
             </div>
-            <div>
-              <label className={labelCls}>Source</label>
-              <select value={source} onChange={(e) => setSource(e.target.value)} className={`${inputCls} cursor-pointer`}>
-                {SOURCE_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-            </div>
+          </div>
+
+          {/* Source & Continuity — team-only. Reuses the shared CRM card; the
+              Source select and the CRM contact link map straight to this
+              submission's own source / contact_id columns. */}
+          <div className="mt-4">
+            <SourceContinuityCard
+              values={continuityValues}
+              onChange={onContinuityChange}
+              sellerLabel="Submitter"
+              visibleFields={['source']}
+              sourceOptions={SOURCE_OPTIONS}
+            />
           </div>
         </div>
 
@@ -696,7 +768,7 @@ export default function JVSubmissionEdit() {
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4 border-t border-[#f0f0f0]">
           <button
             type="button"
-            onClick={() => navigate('/admin/joint-ventures?tab=submissions')}
+            onClick={() => navigate(listPath)}
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-roboto text-[#636363] border border-[#f0f0f0] hover:text-[#001731] hover:border-[#c0c8d0] transition-all cursor-pointer whitespace-nowrap"
           >
             Cancel

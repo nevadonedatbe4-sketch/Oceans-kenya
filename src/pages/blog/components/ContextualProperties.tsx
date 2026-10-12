@@ -33,7 +33,7 @@ export default function ContextualProperties({
   const filters: ListingFilters = {
     purpose: 'sale',
     search,
-    propertyType: 'Any type',
+    propertyType: 'Show all',
     addedSince: 'Anytime',
     sortBy: 'A - Z',
     statusFilter: 'active',

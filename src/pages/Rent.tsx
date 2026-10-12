@@ -27,14 +27,16 @@ import { useListingsPageContent } from '@/hooks/useListingsPageContent';
 import ListingHero from '@/components/feature/ListingHero';
 import LocationSearch, { type LocationSuggestion } from '@/components/feature/LocationSearch';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
-import MobileFilterPills from '@/components/feature/MobileFilterPills';
 import RefineSearchChips from '@/components/feature/RefineSearchChips';
+import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
 import { parsePropertySearch, parseSearchClauses, clauseSummary, intentToChips, withoutIntent } from '@/lib/propertySearch';
 import { smartTitleCase } from '@/lib/location';
 import PageLoader from '@/components/feature/PageLoader';
+import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
+import { rentPriceMinOptions, rentPriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
 
 function toDisplayType(category: string): string {
   return category
@@ -46,27 +48,9 @@ function toDisplayType(category: string): string {
 
 const ITEMS_PER_PAGE = 10;
 
-// KES base ranges for rent - labels generated dynamically per currency
-const KES_RENT_RANGES: { key: string; min?: number; max?: number }[] = [
-  { key: 'any' },
-  { key: 'under_300k', max: 300_000 },
-  { key: '300k_500k', min: 300_000, max: 500_000 },
-  { key: '500k_1m', min: 500_000, max: 1_000_000 },
-  { key: '1m_2m', min: 1_000_000, max: 2_000_000 },
-  { key: '2m_5m', min: 2_000_000, max: 5_000_000 },
-  { key: 'over_5m', min: 5_000_000 },
-];
-
-function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): string {
-  const SYMS: Record<string, string> = { KES: 'KES', USD: '$', GBP: '£', EUR: '€', UGX: 'UGX', AED: 'AED', ZAR: 'R' };
-  const sym = SYMS[curr] || curr;
-  const rate = curr === 'KES' ? 1 : (rates[curr] || 0.0077);
-  const val = curr === 'KES' ? kes : Math.round(kes * rate);
-  return `${sym} ${val.toLocaleString('en-US')}`;
-}
-const bedOptions = ['Any beds', 'Studio', '1+', '2+', '3+', '4+', '5+'];
-const propTypeOptions = ['Any type', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
-const addedOptions = ['Anytime', 'Last 24 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
+const bedOptions = BEDROOM_OPTIONS;
+const propTypeOptions = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
+const addedOptions = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
 const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
 const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
@@ -116,9 +100,10 @@ export default function Rent() {
   const urlBeds = searchParams.get('beds') || '';
   const [searchQuery, setSearchQuery] = useState(() => urlLocation || (() => { try { return localStorage.getItem('rent_search') || ''; } catch { return ''; } })());
   const [selectedRadius, setSelectedRadius] = useState(() => { try { return localStorage.getItem('rent_radius') || 'This area only'; } catch { return 'This area only'; } });
-  const [selectedPrice, setSelectedPrice] = useState(() => { try { return localStorage.getItem('rent_price') || 'Any price'; } catch { return 'Any price'; } });
+  const [priceMin, setPriceMin] = useState(() => { try { return localStorage.getItem('rent_price_min') || 'No min'; } catch { return 'No min'; } });
+  const [priceMax, setPriceMax] = useState(() => { try { return localStorage.getItem('rent_price_max') || 'No max'; } catch { return 'No max'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => urlBeds || (() => { try { return localStorage.getItem('rent_beds') || 'Any beds'; } catch { return 'Any beds'; } })());
-  const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('rent_type') || 'Any type'; } catch { return 'Any type'; } })());
+  const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('rent_type') || 'Show all'; } catch { return 'Show all'; } })());
   const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('rent_added') || 'Anytime'; } catch { return 'Anytime'; } });
   const [sortBy, setSortBy] = useState(() => {
     try {
@@ -138,9 +123,9 @@ export default function Rent() {
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<{ price: string; beds: string; type: string; added: string; advanced: FilterState }>({
-    price: 'Any price',
+    price: 'No min',
     beds: 'Any beds',
-    type: 'Any type',
+    type: 'Show all',
     added: 'Anytime',
     advanced: { ...defaultFilters },
   });
@@ -167,22 +152,21 @@ export default function Rent() {
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
   const { format, currency, rates } = useCurrency();
 
-  // Dynamic price labels - auto-convert KES rent ranges to selected currency
-  const priceOptions = useMemo(() => [
-    'Any price',
-    `Under ${fmtPriceKes(300_000, currency, rates)}`,
-    `${fmtPriceKes(300_000, currency, rates)} - ${fmtPriceKes(500_000, currency, rates)}`,
-    `${fmtPriceKes(500_000, currency, rates)} - ${fmtPriceKes(1_000_000, currency, rates)}`,
-    `${fmtPriceKes(1_000_000, currency, rates)} - ${fmtPriceKes(2_000_000, currency, rates)}`,
-    `${fmtPriceKes(2_000_000, currency, rates)} - ${fmtPriceKes(5_000_000, currency, rates)}`,
-    `Over ${fmtPriceKes(5_000_000, currency, rates)}`,
-  ], [currency, rates]);
+  // Separate min / max price ladders (KSh base, converted to the active currency).
+  const priceMinOpts = useMemo(() => rentPriceMinOptions(currency, rates), [currency, rates]);
+  const priceMaxOpts = useMemo(() => rentPriceMaxOptions(currency, rates), [currency, rates]);
+  const priceMinValue = parsePriceSelection(priceMinOpts, priceMin);
+  const priceMaxValue = parsePriceSelection(priceMaxOpts, priceMax);
+  const priceRangeError = priceRangeInvalid(priceMinValue, priceMaxValue)
+    ? 'Minimum price cannot be greater than maximum price.'
+    : '';
 
-  // Reset price filter when currency changes
+  // Reset the price range when currency changes
   const prevCurrencyRef = useRef(currency);
   useEffect(() => {
     if (prevCurrencyRef.current !== currency) {
-      setSelectedPrice('Any price');
+      setPriceMin('No min');
+      setPriceMax('No max');
       prevCurrencyRef.current = currency;
     }
   }, [currency]);
@@ -205,21 +189,14 @@ export default function Rent() {
       centerLng: searchCenter?.lng ?? null,
       radiusMeters: radiusMeters ?? null,
     };
-    // Price - map selected dynamic label back to KES range via index
-    const priceIdx = priceOptions.indexOf(selectedPrice);
-    const selectedRange = priceIdx > 0 ? KES_RENT_RANGES[priceIdx] : null;
-    if (selectedRange?.min !== undefined) filters.priceMin = selectedRange.min;
-    if (selectedRange?.max !== undefined) filters.priceMax = selectedRange.max;
-    // Beds
-    if (selectedBeds === 'Studio') { filters.bedsMin = 0; filters.bedsMax = 0; }
-    else if (selectedBeds === '1+') { filters.bedsMin = 1; }
-    else if (selectedBeds === '2+') { filters.bedsMin = 2; }
-    else if (selectedBeds === '3+') { filters.bedsMin = 3; }
-    else if (selectedBeds === '4+') { filters.bedsMin = 4; }
-    else if (selectedBeds === '5+') { filters.bedsMin = 5; }
+    // Price - independent min / max bounds enforced in the query.
+    if (priceMinValue !== undefined) filters.priceMin = priceMinValue;
+    if (priceMaxValue !== undefined) filters.priceMax = priceMaxValue;
+    // Beds - exact count for 1–9 beds, open-ended for "10+ beds".
+    Object.assign(filters, bedroomSelectionToRange(selectedBeds));
     // Advanced Filters panel (types, baths, size, must-haves, furnishing).
     return { ...filters, ...advancedToFilters(appliedFilters.advanced) };
-  }, [appliedSearchQuery, appliedFilters.advanced, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
+  }, [appliedSearchQuery, appliedFilters.advanced, priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
 
   const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
 
@@ -268,9 +245,10 @@ export default function Rent() {
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
-    setSelectedPrice('Any price');
+    setPriceMin('No min');
+    setPriceMax('No max');
     setSelectedBeds('Any beds');
-    setSelectedType('Any type');
+    setSelectedType('Show all');
     setSelectedAdded('Anytime');
     setSelectedRadius('This area only');
     setAdvancedFilters({ ...defaultFilters });
@@ -278,9 +256,9 @@ export default function Rent() {
     setSearchCenter(null);
     setGeocodedName('');
     setAppliedFilters({
-      price: 'Any price',
+      price: 'No min',
       beds: 'Any beds',
-      type: 'Any type',
+      type: 'Show all',
       added: 'Anytime',
       advanced: { ...defaultFilters },
     });
@@ -297,9 +275,10 @@ export default function Rent() {
 
   const hasActiveFilters =
     appliedSearchQuery !== '' ||
-    selectedPrice !== 'Any price' ||
+    priceMin !== 'No min' ||
+    priceMax !== 'No max' ||
     selectedBeds !== 'Any beds' ||
-    selectedType !== 'Any type' ||
+    selectedType !== 'Show all' ||
     selectedAdded !== 'Anytime' ||
     appliedFilters.advanced.minPrice !== '' ||
     appliedFilters.advanced.maxPrice !== '' ||
@@ -315,7 +294,7 @@ export default function Rent() {
   useEffect(() => {
     if (!filtersResetInit.current) { filtersResetInit.current = true; return; }
     setCurrentPage(1);
-  }, [selectedPrice, selectedBeds, selectedType, selectedAdded]);
+  }, [priceMin, priceMax, selectedBeds, selectedType, selectedAdded]);
 
   // Changing the results page must never dump the visitor at the footer. The
   // listings keep their previous height while the next page loads (no collapse),
@@ -447,19 +426,20 @@ export default function Rent() {
   useEffect(() => {
     try { localStorage.setItem('rent_search', searchQuery); } catch { /* ignore */ }
     try { localStorage.setItem('rent_radius', selectedRadius); } catch { /* ignore */ }
-    try { localStorage.setItem('rent_price', selectedPrice); } catch { /* ignore */ }
+    try { localStorage.setItem('rent_price_min', priceMin); } catch { /* ignore */ }
+    try { localStorage.setItem('rent_price_max', priceMax); } catch { /* ignore */ }
     try { localStorage.setItem('rent_beds', selectedBeds); } catch { /* ignore */ }
     try { localStorage.setItem('rent_type', selectedType); } catch { /* ignore */ }
     try { localStorage.setItem('rent_added', selectedAdded); } catch { /* ignore */ }
     try { localStorage.setItem('rent_sort', sortBy); } catch { /* ignore */ }
-  }, [searchQuery, selectedRadius, selectedPrice, selectedBeds, selectedType, selectedAdded, sortBy]);
+  }, [searchQuery, selectedRadius, priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy]);
 
   // Sync search criteria to the URL (replaceState) so a search survives refresh,
   // back/forward and can be shared: /rent?location=...&type=...&beds=...
   useEffect(() => {
     const nextParams = new URLSearchParams();
     if (searchQuery) nextParams.set('location', searchQuery);
-    if (selectedType !== 'Any type') nextParams.set('type', selectedType);
+    if (selectedType !== 'Show all') nextParams.set('type', selectedType);
     if (selectedBeds !== 'Any beds') nextParams.set('beds', selectedBeds);
     if (currentPage > 1) nextParams.set('page', String(currentPage));
     setSearchParams(nextParams.toString(), { replace: true });
@@ -586,9 +566,14 @@ export default function Rent() {
             radiusOptions={radiusOptions}
             bedsValue={selectedBeds}
             onBedsChange={setSelectedBeds}
-            priceValue={selectedPrice}
-            onPriceChange={setSelectedPrice}
-            priceOptions={priceOptions}
+            priceMinValue={priceMin}
+            onPriceMinChange={setPriceMin}
+            priceMinOptions={priceMinOpts.labels}
+            priceMaxValue={priceMax}
+            onPriceMaxChange={setPriceMax}
+            priceMaxOptions={priceMaxOpts.labels}
+            priceRangeError={priceRangeError}
+            onClearPrice={(priceMin !== 'No min' || priceMax !== 'No max') ? () => { setPriceMin('No min'); setPriceMax('No max'); } : undefined}
             typeValue={selectedType}
             onTypeChange={setSelectedType}
             typeOptions={propTypeOptions}
@@ -611,7 +596,7 @@ export default function Rent() {
             setAdvancedFilters(f);
             setAppliedSearchQuery(searchQuery);
             setAppliedFilters({
-              price: selectedPrice,
+              price: priceMin,
               beds: selectedBeds,
               type: selectedType,
               added: selectedAdded,
@@ -620,20 +605,8 @@ export default function Rent() {
             setCurrentPage(1);
           }}
           initialFilters={advancedFilters}
-        />
-
-        {/* Mobile filter pills */}
-        <MobileFilterPills
-          pills={[
-            ...(appliedSearchQuery && appliedSearchQuery !== '' ? [{ key: 'search', label: `"${appliedSearchQuery}"`, onRemove: () => { setSearchQuery(''); setAppliedSearchQuery(''); } }] : []),
-            ...(selectedPrice !== 'Any price' ? [{ key: 'price', label: selectedPrice, onRemove: () => setSelectedPrice('Any price') }] : []),
-            ...(selectedBeds !== 'Any beds' ? [{ key: 'beds', label: selectedBeds, onRemove: () => setSelectedBeds('Any beds') }] : []),
-            ...(selectedType !== 'Any type' ? [{ key: 'type', label: selectedType, onRemove: () => setSelectedType('Any type') }] : []),
-            ...(selectedAdded !== 'Anytime' ? [{ key: 'added', label: selectedAdded, onRemove: () => setSelectedAdded('Anytime') }] : []),
-            ...(selectedRadius !== 'This area only' ? [{ key: 'radius', label: selectedRadius, onRemove: () => setSelectedRadius('This area only') }] : []),
-            ...(sortBy !== 'A - Z' ? [{ key: 'sort', label: sortBy, onRemove: () => setSortBy('A - Z') }] : []),
-          ]}
-          onClearAll={clearSearch}
+          currency={currency}
+          rates={rates}
         />
 
         {/* Secondary filter bar - underline style */}
@@ -845,21 +818,49 @@ export default function Rent() {
                     Browse properties for sale
                     <i className="ri-arrow-right-line"></i>
                   </Link>
+                  <RecentActivitySuggestion
+                    location={parsedIntent.location || parsedIntent.city}
+                    addedWindow={selectedAdded}
+                    onView={(targetWindow) => {
+                      setPriceMin('No min');
+                      setPriceMax('No max');
+                      setSelectedBeds('Any beds');
+                      setSelectedType('Show all');
+                      setAdvancedFilters({ ...defaultFilters });
+                      setAppliedFilters((prev) => ({ ...prev, advanced: { ...defaultFilters } }));
+                      setSelectedAdded(targetWindow);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               ) : paginated.length === 0 ? (
                 <div className="text-center py-16">
                   <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center rounded-full bg-gray-100">
                     <i className="ri-search-line text-primary/50 text-2xl"></i>
                   </div>
-                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No properties match your search</h3>
-                  <p className="text-sm font-roboto text-primary/60 mb-4">{hasSearch ? 'There are no matching rental properties for your search criteria. Try adjusting your search.' : 'Try adjusting your search criteria or clearing filters.'}</p>
+                  <h3 className="text-lg font-roboto font-bold text-primary mb-2">No exact matches</h3>
+                  <p className="text-sm font-roboto text-primary/60 mb-4">{hasSearch ? 'No rental properties matched your selected criteria. You can broaden the search to see more.' : 'No rental properties matched your filters. You can broaden the search to see more.'}</p>
                   <button
                     onClick={clearSearch}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    <i className="ri-close-circle-line"></i>
-                    Clear all filters
+                    <i className="ri-equalizer-2-line"></i>
+                    Broaden search
                   </button>
+                  <RecentActivitySuggestion
+                    location={parsedIntent.location || parsedIntent.city}
+                    addedWindow={selectedAdded}
+                    onView={(targetWindow) => {
+                      setPriceMin('No min');
+                      setPriceMax('No max');
+                      setSelectedBeds('Any beds');
+                      setSelectedType('Show all');
+                      setAdvancedFilters({ ...defaultFilters });
+                      setAppliedFilters((prev) => ({ ...prev, advanced: { ...defaultFilters } }));
+                      setSelectedAdded(targetWindow);
+                      setCurrentPage(1);
+                    }}
+                  />
                 </div>
               ) : (
                 paginated.map((p) => {

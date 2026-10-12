@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import usePortalBase from '@/hooks/usePortalBase';
+import { useAuth } from '@/hooks/useAuth';
+import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
@@ -71,10 +74,16 @@ const tabBtnSelected = 'bg-[#001731] text-white font-semibold';
 
 export default function JointVenturesCRM() {
   const navigate = useNavigate();
+  const portalBase = usePortalBase();
+  const { user } = useAuth();
+  const { agentId } = useAgentProfile();
+  const isAgent = user?.role === 'agent';
   const [searchParams] = useSearchParams();
 
   const [activeTab, setActiveTab] = useState<ActiveTab>(() => {
     const tab = searchParams.get('tab');
+    // Agents only have their own submissions + browsable partner projects.
+    if (isAgent) return tab === 'projects' ? 'projects' : 'submissions';
     return tab === 'submissions' || tab === 'projects' || tab === 'faqs' ? tab : 'listings';
   });
 
@@ -99,6 +108,12 @@ export default function JointVenturesCRM() {
       let countQuery = supabase.from('jv_submissions').select('*', { count: 'exact', head: true });
       let dataQuery = supabase.from('jv_submissions').select('*').order('created_at', { ascending: false }).range((subPage - 1) * subPageSize, subPage * subPageSize - 1);
 
+      // Agents only ever see their own submissions — scoped at the query level.
+      if (isAgent && agentId) {
+        countQuery = countQuery.eq('agent_id', agentId);
+        dataQuery = dataQuery.eq('agent_id', agentId);
+      }
+
       if (subFilterType !== 'all') {
         countQuery = countQuery.eq('submission_type', subFilterType);
         dataQuery = dataQuery.eq('submission_type', subFilterType);
@@ -118,7 +133,9 @@ export default function JointVenturesCRM() {
       setSubmissions((data || []) as JVSubmission[]);
       setSubTotal(count ?? 0);
 
-      const { data: allSubs } = await supabase.from('jv_submissions').select('submission_type, status');
+      const { data: allSubs } = await (isAgent && agentId
+        ? supabase.from('jv_submissions').select('submission_type, status').eq('agent_id', agentId)
+        : supabase.from('jv_submissions').select('submission_type, status'));
       const subs = allSubs || [];
       setSubStats({
         total: subs.length,
@@ -132,7 +149,7 @@ export default function JointVenturesCRM() {
     } finally {
       setSubLoading(false);
     }
-  }, [subPage, subPageSize, subFilterType, subFilterStatus, subSearch]);
+  }, [subPage, subPageSize, subFilterType, subFilterStatus, subSearch, isAgent, agentId]);
 
   useEffect(() => {
     if (activeTab === 'submissions') fetchSubmissions();
@@ -179,7 +196,7 @@ export default function JointVenturesCRM() {
       if (error) throw error;
       addToast('Converted to a JV Land Listing (internal draft)', 'success');
       broadcastSync();
-      navigate(`/admin/jv-opportunities/edit/${data?.id}`);
+      navigate(`${portalBase}/jv-opportunities/edit/${data?.id}`);
     } catch (err: unknown) {
       addToast(err instanceof Error ? err.message : 'Failed to convert submission', 'error');
     } finally {
@@ -201,21 +218,26 @@ export default function JointVenturesCRM() {
     { label: 'Capital Ventures', value: subStats.investor, icon: 'ri-funds-line' },
   ];
 
-  const tabs: { key: ActiveTab; label: string; icon: string }[] = [
+  const allTabs: { key: ActiveTab; label: string; icon: string }[] = [
     { key: 'listings', label: 'JV Land Listings', icon: 'ri-landscape-line' },
     { key: 'submissions', label: 'JV Submissions', icon: 'ri-file-list-3-line' },
     { key: 'projects', label: 'Projects Seeking Partners', icon: 'ri-building-2-line' },
     { key: 'faqs', label: 'FAQs', icon: 'ri-question-answer-line' },
   ];
+  // Agents work only with their own JV submissions and browsable partner projects —
+  // the company-wide JV land listings and CMS FAQs tabs are admin-only.
+  const tabs = isAgent ? allTabs.filter((t) => t.key === 'submissions' || t.key === 'projects') : allTabs;
 
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
         <div>
-          <h1 className="font-jost text-xl font-semibold text-[#001731]">JV &amp; Capital Desk</h1>
+          <h1 className="font-jost text-xl font-semibold text-[#001731]">{isAgent ? 'JV Desk' : 'JV & Capital Desk'}</h1>
           <p className="text-sm font-roboto text-[#6b7684] mt-0.5">
-            JV land listings, submissions, partner projects and capital opportunities — managed in one place
+            {isAgent
+              ? 'Your own JV submissions and capital briefs — no other agents\u2019 records, plus partner projects'
+              : 'JV land listings, submissions, partner projects and capital opportunities — managed in one place'}
           </p>
         </div>
       </div>
@@ -294,7 +316,7 @@ export default function JointVenturesCRM() {
                   <option value="archived">Archived</option>
                 </select>
                 <button
-                  onClick={() => navigate('/admin/joint-ventures/new')}
+                  onClick={() => navigate(`${portalBase}/joint-ventures/new`)}
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-none bg-[#001731] hover:bg-white hover:shadow-[inset_0_0_0_1px_#001731] hover:text-[#001731] text-white text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap"
                 >
                   <i className="ri-add-line" />
@@ -459,14 +481,16 @@ export default function JointVenturesCRM() {
                                 ))}
                               </div>
                               <div className="flex items-center flex-wrap gap-2 justify-end">
-                                <button
-                                  onClick={() => handleConvert(sub)}
-                                  disabled={updatingId === sub.id}
-                                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-none text-[11px] font-roboto font-semibold text-[#001731] bg-[#e8edf2] hover:bg-[#001731] hover:text-white transition-all cursor-pointer whitespace-nowrap"
-                                >
-                                  <i className="ri-arrow-up-circle-line" />
-                                  Convert to JV Listing
-                                </button>
+                                {!isAgent && (
+                                  <button
+                                    onClick={() => handleConvert(sub)}
+                                    disabled={updatingId === sub.id}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-none text-[11px] font-roboto font-semibold text-[#001731] bg-[#e8edf2] hover:bg-[#001731] hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                                  >
+                                    <i className="ri-arrow-up-circle-line" />
+                                    Convert to JV Listing
+                                  </button>
+                                )}
                               </div>
                               <span className="text-[10px] text-[#6b7684] font-roboto">
                                 Submitted {formatDateTime(sub.created_at)}
@@ -489,7 +513,7 @@ export default function JointVenturesCRM() {
       )}
 
       {/* PROJECTS SEEKING PARTNERS */}
-      {activeTab === 'projects' && <JVProjects />}
+      {activeTab === 'projects' && <JVProjects readOnly={isAgent} />}
 
       {/* FAQS */}
       {activeTab === 'faqs' && <JVFaqs />}

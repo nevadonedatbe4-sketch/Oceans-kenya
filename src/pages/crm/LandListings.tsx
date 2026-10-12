@@ -7,6 +7,7 @@ import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { broadcastSync } from '@/lib/syncEngine';
 import { useAuth } from '@/hooks/useAuth';
+import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { logLeadCreated } from '@/lib/activityLogger';
 import { LAND_TYPE_OPTIONS, LAND_TYPE_LABELS } from '@/pages/crm/landConstants';
 import { displayLocation } from '@/lib/crmDisplay';
@@ -118,6 +119,8 @@ function formatDate(d: string) {
 export default function LandListings() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { agentId } = useAgentProfile();
+  const isAgent = user?.role === 'agent';
   const portalBase = usePortalBase();
   const [rows, setRows] = useState<LandRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,6 +154,12 @@ export default function LandListings() {
       .select('id, title, slug, location, state_region, county, land_type, plot_size, plot_size_unit, acreage, tenure, asking_price, currency, sub_type, status, is_published, is_pending, is_featured, main_image, images, description, owner_name, owner_phone, owner_email, seller_type, created_at')
       .order('created_at', { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
+
+    // Agents only ever see their own land listings — scoped at the query level.
+    if (isAgent && agentId) {
+      countQuery = countQuery.eq('agent_id', agentId);
+      dataQuery = dataQuery.eq('agent_id', agentId);
+    }
 
     if (typeFilter) {
       countQuery = countQuery.eq('land_type', typeFilter);
@@ -194,7 +203,7 @@ export default function LandListings() {
       });
     }
     setLoading(false);
-  }, [page, pageSize, typeFilter, statusFilter, search, countyFilter]);
+  }, [page, pageSize, typeFilter, statusFilter, search, countyFilter, isAgent, agentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setPage(1); }, [search, typeFilter, statusFilter, countyFilter]);
@@ -292,7 +301,7 @@ export default function LandListings() {
       budget: null,
       notes: sellerLeadForm.notes.trim() || null,
       message: sellerLeadForm.message.trim() || null,
-      agent_id: null,
+      agent_id: isAgent ? agentId : null,
       listing_id: sellerLeadLand.id,
       is_read: false,
       priority: 'normal',
