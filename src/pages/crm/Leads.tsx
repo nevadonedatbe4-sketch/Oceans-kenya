@@ -4,20 +4,29 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import LocationMultiSelect from '@/components/base/LocationMultiSelect';
+import { useCanonicalAreas } from '@/lib/locationRegistry';
+import { tokenizeKeywords, buildCrmFilterString, LEAD_KEYWORD_FIELDS, LEAD_LOCATION_FIELDS } from '@/lib/crmSearch';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import BulkActionBar from '@/pages/crm/components/BulkActionBar';
 import LabelPickerModal from '@/pages/crm/components/LabelPickerModal';
 import ForwardModal from '@/pages/crm/components/ForwardModal';
+import { findOrCreateDirectConversation } from '@/pages/agent/ogroup/teamDirectory';
+import { sendMessage } from '@/pages/agent/ogroup/messengerData';
 import { logLeadUpdated, logLeadDeleted, logLeadAssigned, logLeadCreated } from '@/lib/activityLogger';
 import { notifyCrm } from '@/lib/crmNotify';
+import { notifyLeadAssigned } from '@/lib/notifications';
 import { displayPersonName } from '@/lib/crmDisplay';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { markLeadsRead, markLeadsUnread } from '@/lib/recordRead';
 import type { Lead, Agent } from './leads/types';
 import { statusOptions, statusLabels, clientTypeOptions, clientTypeLabels } from './leads/types';
 import { MESSAGE_TABS, EMPTY_COUNTS, type MessageTabKey, type MessageCounts } from './messageSystem';
 import LeadTable from './leads/components/LeadTable';
 import LeadDetailPanel from './leads/components/LeadDetailPanel';
+import PhoneInput from '@/components/base/PhoneInput';
 
 export default function Leads() {
   const navigate = useNavigate();
@@ -34,6 +43,11 @@ export default function Leads() {
   const [counts, setCounts] = useState<MessageCounts>(EMPTY_COUNTS);
   const [messageTab, setMessageTab] = useState<MessageTabKey>('all');
   const [search, setSearch] = useState('');
+  // Multi-location search: find clients who requested ANY of several areas
+  // (Karen OR Runda OR Muthaiga), matched inside the enquiry message / notes.
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const { areas: canonicalAreas } = useCanonicalAreas();
+  const areaOptions = canonicalAreas.map((a) => a.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const [statusFilter, setStatusFilter] = useState('all');
   const [agentFilter, setAgentFilter] = useState(searchParams.get('agent') || 'all');
   const [sourceFilter, setSourceFilter] = useState('all');
@@ -217,11 +231,20 @@ export default function Leads() {
       else if (messageTab === 'sent') { countQuery = countQuery.eq('reply_status', 'replied'); dataQuery = dataQuery.eq('reply_status', 'replied'); }
     }
 
-    if (search.trim()) {
-      const term = search.trim();
-      const orQuery = `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%,notes.ilike.%${term}%,message.ilike.%${term}%`;
-      countQuery = countQuery.or(orQuery);
-      dataQuery = dataQuery.or(orQuery);
+    if (search.trim() || selectedLocations.length > 0) {
+      // Multi-keyword + multi-location search through the shared CRM engine:
+      // every keyword must match a searchable field, and the selected areas are
+      // matched (OR within location, AND with the keywords and every filter).
+      const orQuery = buildCrmFilterString({
+        terms: tokenizeKeywords(search),
+        fields: LEAD_KEYWORD_FIELDS,
+        locations: selectedLocations,
+        locationFields: LEAD_LOCATION_FIELDS,
+      });
+      if (orQuery) {
+        countQuery = countQuery.or(orQuery);
+        dataQuery = dataQuery.or(orQuery);
+      }
     }
 
     const [{ count }, { data, error }] = await Promise.all([countQuery, dataQuery]);
@@ -236,7 +259,7 @@ export default function Leads() {
       setLoadError(false);
     }
     setLoading(false);
-  }, [page, pageSize, messageTab, statusFilter, agentFilter, sourceFilter, clientTypeFilter, search, isAgent, agentId, agentLoading]);
+  }, [page, pageSize, messageTab, statusFilter, agentFilter, sourceFilter, clientTypeFilter, search, selectedLocations, isAgent, agentId, agentLoading]);
 
   useEffect(() => {
     fetchAgents();
@@ -258,25 +281,30 @@ export default function Leads() {
 
   useEffect(() => {
     setSelectedLeadIds(new Set());
-  }, [messageTab, statusFilter, search, page, agentFilter, sourceFilter, clientTypeFilter]);
+  }, [messageTab, statusFilter, search, selectedLocations, page, agentFilter, sourceFilter, clientTypeFilter]);
 
   const patchLocal = (ids: string[], patch: Partial<Lead>) => {
     setLeads((prev) => prev.map((l) => (ids.includes(l.id) ? { ...l, ...patch } : l)));
     if (selectedLead && ids.includes(selectedLead.id)) setSelectedLead((prev) => (prev ? { ...prev, ...patch } : null));
   };
 
-  const updateLeads = async (ids: string[], patch: Record<string, unknown>, toast?: string, logKey?: string) => {
+  const updateLeads = async (ids: string[], patch: Record<string, unknown>, toast?: string, logKey?: string): Promise<boolean> => {
     setUpdatingId(ids.length === 1 ? ids[0] : 'bulk');
     const { error } = await supabase.from('leads').update(patch).in('id', ids);
     if (error) {
       console.error('Update leads failed:', error);
       addToast(error.message || 'Unable to update. Please try again.', 'error');
-    } else {
-      patchLocal(ids, patch as Partial<Lead>);
-      if (toast) addToast(toast, 'success');
-      fetchCounts();
+      setUpdatingId(null);
+      return false;
     }
+    patchLocal(ids, patch as Partial<Lead>);
+    if (toast) addToast(toast, 'success');
+    // Per-recipient read overlay (independent admin vs agent read state).
+    if (user && patch.is_read === true) markLeadsRead(user.id, ids);
+    else if (user && patch.is_read === false) markLeadsUnread(user.id, ids);
+    fetchCounts();
     setUpdatingId(null);
+    return true;
   };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
@@ -360,13 +388,29 @@ export default function Leads() {
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) return;
     const agent = newAgentId ? agents.find((a) => a.id === newAgentId) : null;
-    await updateLeads([leadId], { agent_id: newAgentId || null }, `Assigned to ${agent?.name || 'Unassigned'}`);
-    if (user) logLeadAssigned(user.id, user.name || user.email, leadId, `${lead.first_name} ${lead.last_name}`, agent?.name || 'Unassigned');
-    if (newAgentId) {
+    const leadName = `${lead.first_name} ${lead.last_name}`.trim();
+    // Only a genuine change of owner should notify. Re-assigning the SAME agent
+    // (a retry / repeated submit) must not create a notification.
+    const changed = (newAgentId || null) !== (lead.agent_id || null);
+
+    // Save first. We only notify AFTER the assignment is confirmed in the DB, so
+    // a notification can never exist for an assignment that failed.
+    const ok = await updateLeads([leadId], { agent_id: newAgentId || null }, `Assigned to ${agent?.name || 'Unassigned'}`);
+    if (user) logLeadAssigned(user.id, user.name || user.email, leadId, leadName, agent?.name || 'Unassigned');
+
+    if (ok && newAgentId) {
+      // In-app notification → the agent's bell badge (the critical path).
+      if (changed) {
+        const res = await notifyLeadAssigned({ leadId, leadName, agentId: newAgentId });
+        if (!res.notified && res.reason && res.reason !== 'duplicate') {
+          addToast('Lead assigned, but the agent could not be notified in-app. Please retry the assignment.', 'error');
+        }
+      }
+      // Email notification (best-effort, fire-and-forget).
       notifyCrm({
         event: 'lead_assigned',
         lead_id: leadId,
-        lead_name: `${lead.first_name} ${lead.last_name}`.trim(),
+        lead_name: leadName,
         agent_id: newAgentId,
       });
     }
@@ -460,9 +504,30 @@ export default function Leads() {
       });
     }
     await supabase.from('leads').update({ reply_status: 'replied', is_read: true, last_activity_at: new Date().toISOString() }).eq('id', forwardTarget.id);
+    if (user) markLeadsRead(user.id, [forwardTarget.id]);
     patchLocal([forwardTarget.id], { reply_status: 'replied', is_read: true });
     fetchCounts();
     addToast(`Lead forwarded to ${recipient}`, 'success');
+  };
+
+  // Internal forward — deliver the lead to a teammate's CRM messenger.
+  const handleForwardToTeam = async (recipientUserId: string, recipientName: string, note: string) => {
+    if (!forwardTarget) throw new Error('No lead selected');
+    if (!user) throw new Error('Your session has expired. Please sign in again.');
+    const senderName = displayPersonName(forwardTarget.first_name, forwardTarget.last_name);
+    const convId = await findOrCreateDirectConversation(user.id, recipientUserId);
+    if (!convId) throw new Error('Could not open a chat with this teammate.');
+    const text = [
+      `Forwarded lead — ${senderName}`,
+      forwardTarget.email ? `Email: ${forwardTarget.email}` : '',
+      forwardTarget.phone ? `Phone: ${forwardTarget.phone}` : '',
+      forwardTarget.source ? `Source: ${forwardTarget.source}` : '',
+      '',
+      forwardTarget.message || forwardTarget.notes || '(no message body)',
+      note ? `\nNote: ${note}` : '',
+    ].filter((l) => l !== undefined).join('\n');
+    await sendMessage(convId, user.id, { message_type: 'text', body: text });
+    addToast(`Lead forwarded to ${recipientName}`, 'success');
   };
 
   const handleExportCSV = async () => {
@@ -544,16 +609,14 @@ export default function Leads() {
       {/* Toolbar */}
       <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
         <div className="flex items-center gap-3 flex-1 w-full lg:w-auto flex-wrap">
-          <div className="relative flex-1 max-w-sm">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-foreground-400 text-sm" />
-            <input
-              type="text"
-              placeholder="Search leads by name, email, phone..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border border-background-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 bg-white"
-            />
-          </div>
+          <CrmSearchBar
+            value={search}
+            onChange={(v) => { setSearch(v); setPage(1); }}
+            onSubmit={() => { setPage(1); fetchLeads(); }}
+            loading={loading}
+            placeholder="Search leads by name, email, phone, source…"
+            className="flex-1 max-w-sm min-w-[220px]"
+          />
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -626,6 +689,18 @@ export default function Leads() {
           <span className="text-xs text-foreground-500">{total} total</span>
         </div>
       </div>
+
+      {/* Multi-location search: find clients who requested ANY of several
+          areas (Karen OR Runda OR Muthaiga), matched in the enquiry text. */}
+      <LocationMultiSelect
+        options={areaOptions}
+        selected={selectedLocations}
+        onChange={(v) => { setSelectedLocations(v); setPage(1); }}
+        placeholder="Find clients who requested an area, e.g. Karen, Runda, Muthaiga…"
+        className="w-full"
+        controlClassName="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border-2 border-foreground-300 rounded-lg bg-white min-h-[44px]"
+        inputClassName="flex-1 min-w-[160px] px-2 py-1 text-sm font-semibold focus:outline-none bg-transparent text-foreground-950 placeholder:text-foreground-500 placeholder:font-medium"
+      />
 
       {/* Bulk actions bar — admin-only */}
       {!isAgent && selectedLeadIds.size > 0 && (
@@ -787,6 +862,7 @@ export default function Leads() {
           body={forwardTarget.message || forwardTarget.notes || ''}
           onClose={() => setForwardTarget(null)}
           onForward={handleForward}
+          onForwardToTeam={handleForwardToTeam}
         />
       )}
 
@@ -818,7 +894,13 @@ export default function Leads() {
               </div>
               <div>
                 <label className="block text-[11px] font-semibold text-foreground-500 uppercase tracking-wider mb-1.5">Phone</label>
-                <input type="tel" value={addForm.phone} onChange={(e) => setAddForm((prev) => ({ ...prev, phone: e.target.value }))} className="w-full px-3 py-2 border border-background-200 rounded-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20" placeholder="+254 712 345 678" />
+                <PhoneInput
+                  value={addForm.phone}
+                  onChange={(v) => setAddForm((prev) => ({ ...prev, phone: v }))}
+                  placeholder="712 345 678"
+                  inputClassName="flex-1 min-w-0 px-3 py-2 border border-l-0 border-background-200 rounded-r-lg text-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20"
+                  buttonClassName="flex items-center gap-1.5 px-3 py-2 border border-background-200 border-r-0 rounded-l-lg bg-white text-sm text-foreground-950 focus:outline-none focus:border-primary-500 cursor-pointer whitespace-nowrap"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

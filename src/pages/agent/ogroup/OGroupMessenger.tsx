@@ -484,6 +484,16 @@ export default function OGroupMessenger() {
 
   const activeMembers: TeamMember[] = activeConv && activeConv.type === 'group' ? roster : [];
 
+  // Context for Smart Respond — the latest incoming message + the counterpart.
+  const lastIncoming = [...messages].reverse().find((m) => m.sender_id !== user?.id && (m.body || '').trim());
+  const smartContext = activeId
+    ? {
+        clientMessage: lastIncoming?.body || null,
+        clientName: activeConv?.type === 'group' ? (activeConv.name || '') : (otherMember?.name || ''),
+        agentName: user?.name,
+      }
+    : null;
+
   const headerStatus = () => {
     const presenceEl = activeConv?.type === 'group'
       ? <span className="text-[#8696a0]">{activeConv.member_count} members</span>
@@ -718,6 +728,7 @@ export default function OGroupMessenger() {
               replyTo={replyTo}
               onCancelReply={() => setReplyTo(null)}
               onOpenShare={() => setModal('share')}
+              smartContext={smartContext}
             />
           </>
         ) : (

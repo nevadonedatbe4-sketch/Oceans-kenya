@@ -19,6 +19,7 @@ import { BEDROOM_OPTIONS } from '@/lib/bedrooms';
 
 const DEFAULT_RADIUS_OPTIONS = [
   'This area only',
+  '\u00bc mile',
   '\u00bd mile',
   '1 mile',
   '3 miles',
@@ -129,6 +130,15 @@ export interface PropertySearchBarProps {
   onCreateAlert?: () => void;
 
   /**
+   * Radius search rendered INSIDE the action row (Map view / Create alert /
+   * Save search), styled as one of those links. Kept separate from the
+   * main-row `radiusValue` select so pages can choose where the radius lives.
+   */
+  actionRadiusValue?: string;
+  onActionRadiusChange?: (value: string) => void;
+  actionRadiusOptions?: string[];
+
+  /**
    * Additional, property-type-specific selects (e.g. Land use, Road access,
    * Developer, Completion, Unit type). These are merged INTO the single main
    * search row - same visual language, same bar - so each page carries its OWN
@@ -141,7 +151,7 @@ export interface PropertySearchBarProps {
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <label className="block text-base font-roboto font-semibold text-primary leading-none mb-1.5">
+    <label className="block text-sm font-roboto font-semibold text-primary leading-none mb-1.5 whitespace-nowrap truncate">
       {children}
     </label>
   );
@@ -367,20 +377,111 @@ function SearchButton({
   );
 }
 
+function RadiusAction({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const selected = value !== '' && value != null ? value : options[0] || '';
+
+  return (
+    <div className="relative" ref={wrapRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Search radius"
+        className="group flex items-center gap-2 text-base font-roboto font-semibold text-primary cursor-pointer whitespace-nowrap"
+      >
+        <span className="w-5 h-5 flex items-center justify-center">
+          <i className="ri-focus-3-line"></i>
+        </span>
+        <span className="underline underline-offset-4 decoration-primary/40 group-hover:decoration-primary transition-colors">
+          Radius: {selected}
+        </span>
+        <span className="w-5 h-5 flex items-center justify-center">
+          <i className={`ri-arrow-down-s-line text-lg transition-transform duration-200 ${open ? 'rotate-180' : ''}`}></i>
+        </span>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute bottom-full left-0 mb-2 min-w-[200px] bg-white border border-primary/15 rounded-[6px] shadow-lg z-[60] max-h-[300px] overflow-y-auto py-1"
+        >
+          {options.map((o) => {
+            const isSelected = o === selected;
+            return (
+              <li
+                key={o}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(o);
+                  setOpen(false);
+                }}
+                className={`px-4 py-2.5 text-base font-roboto cursor-pointer whitespace-nowrap flex items-center justify-between gap-2 transition-colors ${isSelected ? 'text-primary font-semibold bg-primary/5' : 'text-primary hover:bg-primary/5'}`}
+              >
+                <span className="truncate">{o}</span>
+                {isSelected && (
+                  <span className="w-4 h-4 flex items-center justify-center text-primary shrink-0">
+                    <i className="ri-check-line text-base"></i>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function SearchActions({
   onMapView,
   mapActive,
   onCreateAlert,
   onToggleSave,
   saved,
+  radiusValue,
+  onRadiusChange,
+  radiusOptions,
 }: {
   onMapView?: () => void;
   mapActive?: boolean;
   onCreateAlert?: () => void;
   onToggleSave?: () => void;
   saved?: boolean;
+  radiusValue?: string;
+  onRadiusChange?: (value: string) => void;
+  radiusOptions?: string[];
 }) {
   const hasLeading = Boolean(onMapView) || Boolean(onCreateAlert);
+  const showRadius = typeof onRadiusChange === 'function';
+  const showSave = Boolean(onToggleSave);
   return (
     <div className="mt-4 pt-3 border-t border-primary/15 flex items-center gap-4 flex-wrap">
       {onMapView && (
@@ -412,8 +513,16 @@ function SearchActions({
           </span>
         </button>
       )}
-      {hasLeading && onToggleSave && <span className="h-5 w-px bg-primary/20" aria-hidden="true"></span>}
-      {onToggleSave && (
+      {hasLeading && (showRadius || showSave) && <span className="h-5 w-px bg-primary/20" aria-hidden="true"></span>}
+      {showRadius && (
+        <RadiusAction
+          value={radiusValue || ''}
+          onChange={onRadiusChange as (v: string) => void}
+          options={radiusOptions || DEFAULT_RADIUS_OPTIONS}
+        />
+      )}
+      {showRadius && showSave && <span className="h-5 w-px bg-primary/20" aria-hidden="true"></span>}
+      {showSave && (
         <button
           type="button"
           onClick={onToggleSave}
@@ -474,6 +583,9 @@ export default function PropertySearchBar({
   onMapView,
   mapActive,
   onCreateAlert,
+  actionRadiusValue,
+  onActionRadiusChange,
+  actionRadiusOptions,
   extraFields = [],
   tone = 'light',
   className = '',
@@ -491,7 +603,7 @@ export default function PropertySearchBar({
   const showFilters = typeof onFilters === 'function';
   const showSave = typeof onToggleSave === 'function';
   const showSearch = typeof onSearch === 'function';
-  const showActions = typeof onMapView === 'function' || typeof onCreateAlert === 'function' || showSave;
+  const showActions = typeof onMapView === 'function' || typeof onCreateAlert === 'function' || showSave || typeof onActionRadiusChange === 'function';
 
   const locationField = (
     <LocationField value={searchQuery} onChange={onLocationChange} placeholderCycle={placeholderCycle} />
@@ -499,9 +611,9 @@ export default function PropertySearchBar({
 
   return (
     <div className={`${isDark ? '[&_label]:text-white' : ''} ${className}`}>
-      {/* ── Desktop (lg+) ── */}
-      <div className="hidden lg:flex flex-wrap items-end gap-x-3 gap-y-4 w-full">
-        <div className="flex-[2] min-w-[280px]">
+      {/* ── Desktop (lg+): single compact row, Zoopla style ── */}
+      <div className="hidden lg:flex flex-nowrap items-end gap-3 w-full">
+        <div className="flex-[2.2] min-w-0">
           {locationField}
         </div>
         {showRadius && (
@@ -510,7 +622,7 @@ export default function PropertySearchBar({
             value={radiusValue || ''}
             onChange={onRadiusChange as (v: string) => void}
             options={radiusOptions || DEFAULT_RADIUS_OPTIONS}
-            fieldClassName="flex-1 min-w-[165px]"
+            fieldClassName="flex-1 min-w-0"
           />
         )}
         {showBeds && (
@@ -519,7 +631,7 @@ export default function PropertySearchBar({
             value={bedsValue || ''}
             onChange={onBedsChange as (v: string) => void}
             options={bedOptions || DEFAULT_BED_OPTIONS}
-            fieldClassName="flex-1 min-w-[165px]"
+            fieldClassName="flex-1 min-w-0"
           />
         )}
         {showPriceRange ? (
@@ -531,7 +643,7 @@ export default function PropertySearchBar({
                 onChange={onPriceMinChange as (v: string) => void}
                 options={priceMinOptions as string[]}
                 compact
-                fieldClassName="flex-1 min-w-[190px]"
+                fieldClassName="flex-1 min-w-0"
               />
             )}
             {showPriceMax && (
@@ -541,7 +653,7 @@ export default function PropertySearchBar({
                 onChange={onPriceMaxChange as (v: string) => void}
                 options={priceMaxOptions as string[]}
                 compact
-                fieldClassName="flex-1 min-w-[190px]"
+                fieldClassName="flex-1 min-w-0"
               />
             )}
             {showPriceRange && typeof onClearPrice === 'function' && (
@@ -554,7 +666,7 @@ export default function PropertySearchBar({
             value={priceValue || ''}
             onChange={onPriceChange as (v: string) => void}
             options={priceOpts}
-            fieldClassName="flex-1 min-w-[165px]"
+            fieldClassName="flex-1 min-w-0"
           />
         )}
         {showType && (
@@ -563,7 +675,7 @@ export default function PropertySearchBar({
             value={typeValue || ''}
             onChange={onTypeChange as (v: string) => void}
             options={typeOptions || DEFAULT_TYPE_OPTIONS}
-            fieldClassName="flex-[1.1] min-w-[180px]"
+            fieldClassName="flex-[1.1] min-w-0"
           />
         )}
         {showLandSize && (
@@ -573,7 +685,7 @@ export default function PropertySearchBar({
             onChange={onLandSizeChange as (v: string) => void}
             options={landSizeOptions as string[]}
             ariaLabel={landSizeLabel ?? 'Land size'}
-            fieldClassName="flex-1 min-w-[165px]"
+            fieldClassName="flex-1 min-w-0"
           />
         )}
         {extraFields.map((field) => (
@@ -584,7 +696,7 @@ export default function PropertySearchBar({
             onChange={field.onChange}
             options={field.options}
             ariaLabel={field.ariaLabel || field.label}
-            fieldClassName="flex-1 min-w-[165px]"
+            fieldClassName="flex-1 min-w-0"
           />
         ))}
         {showFilters && <FiltersButton onClick={onFilters as () => void} active={filtersActive} count={filtersCount} className="shrink-0" />}
@@ -717,6 +829,9 @@ export default function PropertySearchBar({
           onCreateAlert={onCreateAlert}
           onToggleSave={onToggleSave}
           saved={saved}
+          radiusValue={actionRadiusValue}
+          onRadiusChange={onActionRadiusChange}
+          radiusOptions={actionRadiusOptions}
         />
       )}
     </div>

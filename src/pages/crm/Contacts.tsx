@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import { tokenizeKeywords, CONTACT_KEYWORD_FIELDS, CONTACT_LOCATION_FIELDS } from '@/lib/crmSearch';
+import { useCanonicalAreas } from '@/lib/locationRegistry';
 import { displayTitle } from '@/lib/crmDisplay';
 import ContactGroupNav from '@/pages/crm/contacts/components/ContactGroupNav';
 import ContactGroupSection from '@/pages/crm/contacts/components/ContactGroupSection';
@@ -9,7 +11,7 @@ import ContactsToolbar from '@/pages/crm/contacts/components/ContactsToolbar';
 import ContactFiltersPanel from '@/pages/crm/contacts/components/ContactFiltersPanel';
 import ContactsTable from '@/pages/crm/contacts/components/ContactsTable';
 import ContactTagModal from '@/pages/crm/contacts/components/ContactTagModal';
-import ContactFormModal, { type ContactFormData } from '@/pages/crm/contacts/components/ContactFormModal';
+import ContactFormModal, { type ContactFormData, type ContactFormMode } from '@/pages/crm/contacts/components/ContactFormModal';
 import GroupEditorModal from '@/pages/crm/contacts/components/GroupEditorModal';
 import type { ContactGroup, ContactRecord } from '@/pages/crm/contacts/contactGroups';
 import {
@@ -23,6 +25,7 @@ import {
   bucketContacts,
   groupForContact,
   buildTags,
+  toDbType,
   styleForNewGroup,
 } from '@/pages/crm/contacts/contactGroups';
 import {
@@ -58,6 +61,16 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Multi-location grouping: match clients whose record mentions ANY of the
+  // selected areas (Karen OR Runda OR Muthaiga).
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const { areas: canonicalAreas } = useCanonicalAreas();
+  const areaOptions = useMemo(
+    () => canonicalAreas.map((a) => a.name).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+    [canonicalAreas],
+  );
+  // Active keyword tokens — reused for row highlighting.
+  const searchTerms = useMemo(() => tokenizeKeywords(search), [search]);
 
   const [activeTab, setActiveTab] = useState<Tab>(
     () => (typeof localStorage !== 'undefined' && localStorage.getItem(ACTIVE_TAB_KEY) === 'list' ? 'list' : 'overview'),
@@ -89,6 +102,7 @@ export default function Contacts() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<ContactFormMode>('lead');
   const [editing, setEditing] = useState<ContactRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -132,16 +146,35 @@ export default function Contacts() {
 
   // ── Derived data ───────────────────────────────────────────
   const filtered = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const bySearch = term
-      ? contacts.filter((c) =>
-          [c.name, c.email, c.phone, c.company, c.type].some((v) =>
-            (v || '').toLowerCase().includes(term),
-          ),
-        )
-      : contacts;
-    return applyFilters(bySearch, filters, matchMode);
-  }, [contacts, search, filters, matchMode]);
+    const terms = tokenizeKeywords(search);
+    const bySearch = terms.length === 0
+      ? contacts
+      : contacts.filter((c) => {
+          const record = c as unknown as Record<string, unknown>;
+          // AND across keywords, OR across searchable fields - mirrors the
+          // server-side engine used by the other CRM areas.
+          return terms.every((t) =>
+            CONTACT_KEYWORD_FIELDS.some((f) => {
+              const v = record[f];
+              return typeof v === 'string' && v.toLowerCase().includes(t);
+            }),
+          );
+        });
+    // Multi-location grouping: keep clients whose record mentions ANY selected
+    // area (OR within location), AND-ed with the keyword match above.
+    const byLocation = selectedLocations.length === 0
+      ? bySearch
+      : bySearch.filter((c) => {
+          const record = c as unknown as Record<string, unknown>;
+          const haystack = CONTACT_LOCATION_FIELDS
+            .map((f) => record[f])
+            .filter((v): v is string => typeof v === 'string')
+            .join(' ')
+            .toLowerCase();
+          return selectedLocations.some((loc) => haystack.includes(loc.toLowerCase()));
+        });
+    return applyFilters(byLocation, filters, matchMode);
+  }, [contacts, search, selectedLocations, filters, matchMode]);
 
   const grouped = useMemo(
     () => bucketContacts(filtered, groups, assignments),
@@ -288,31 +321,49 @@ export default function Contacts() {
     }
   };
 
-  // ── Add / edit ─────────────────────────────────────────────
-  const openAdd = () => {
+  // ── Add / edit ─────────────────────────────
+  const openAddLead = () => {
     setEditing(null);
+    setFormMode('lead');
+    setFormOpen(true);
+  };
+  const openAddBusiness = () => {
+    setEditing(null);
+    setFormMode('business');
     setFormOpen(true);
   };
   const openEdit = (c: ContactRecord) => {
     setEditing(c);
+    // Editing always opens the full form so nothing is hidden.
+    setFormMode('business');
     setFormOpen(true);
   };
 
   const handleSubmit = async (data: ContactFormData) => {
     setSubmitting(true);
     try {
-      const name = `${data.firstName} ${data.lastName}`.trim() || data.email;
+      const name =
+        `${data.firstName} ${data.lastName}`.trim() ||
+        data.email.trim() ||
+        data.phone.trim() ||
+        'Unnamed contact';
       const payload = {
         name,
         first_name: data.firstName.trim() || null,
         last_name: data.lastName.trim() || null,
+        // `email` is NOT NULL (no unique constraint) — an empty string is a
+        // valid value, so an optional email simply stores blank.
         email: data.email.trim(),
         phone: data.phone.trim() || null,
         company: data.company.trim() || null,
-        type: data.type || null,
+        // The DB `type` column only accepts a limited set of values, so the
+        // precise role is kept in `role` while `type` stays valid.
+        type: toDbType(data.type),
+        role: data.type || null,
         location: data.address.trim() || null,
         notes: data.notes.trim() || null,
-        tags: buildTags(data.tags, data.jobTitle, data.website),
+        source: data.source.trim() || 'manual',
+        tags: buildTags(data.tags, data.jobTitle, data.website, data.sourceDetail),
       };
 
       if (editing) {
@@ -321,7 +372,7 @@ export default function Contacts() {
       } else {
         const { data: inserted, error: err } = await supabase
           .from('contacts')
-          .insert({ ...payload, source: 'manual' })
+          .insert(payload)
           .select('id')
           .single();
         if (err) throw err;
@@ -334,8 +385,8 @@ export default function Contacts() {
       setEditing(null);
       await load();
       return true;
-    } catch {
-      addToast('Failed to save contact', 'error');
+    } catch (e) {
+      addToast((e as Error).message || 'Failed to save contact', 'error');
       return false;
     } finally {
       setSubmitting(false);
@@ -396,7 +447,9 @@ export default function Contacts() {
 
   const navProps = {
     groups: grouped,
-    totalCount: filtered.length,
+    // The sidebar "Contacts" total always reflects every contact in the
+    // database, independent of the active search / filters.
+    totalCount: contacts.length,
     activeId: activeGroupId,
     onSelect: (id: string) => {
       setActiveGroupId(id);
@@ -423,6 +476,7 @@ export default function Contacts() {
       currentGroupId={groupId}
       isSelected={editing?.id === c.id}
       isStarred={isStarred(c)}
+      terms={searchTerms}
       onSelect={openEdit}
       onEdit={openEdit}
       onDelete={setConfirmDelete}
@@ -445,6 +499,7 @@ export default function Contacts() {
     onDelete: setConfirmDelete,
     onMoveToGroup: moveToGroup,
     onToggleStar: toggleStar,
+    terms: searchTerms,
   });
 
   return (
@@ -482,12 +537,20 @@ export default function Contacts() {
             }}
             search={search}
             onSearch={setSearch}
-            onAddManual={openAdd}
+            onSearchSubmit={() => setSelectedIds(new Set())}
+            onAddLead={openAddLead}
+            onAddBusiness={openAddBusiness}
             onImport={() => addToast('CSV import coming soon', 'info')}
             onDownload={bulkDownload}
             filtersOpen={filtersOpen}
             onToggleFilters={() => setFiltersOpen((v) => !v)}
             activeFilterCount={filters.filter((f) => f.value.trim()).length}
+            locationOptions={areaOptions}
+            selectedLocations={selectedLocations}
+            onLocationsChange={(v) => {
+              setSelectedLocations(v);
+              setSelectedIds(new Set());
+            }}
           />
 
           <ContactFiltersPanel
@@ -505,6 +568,7 @@ export default function Contacts() {
               setMatchMode('all');
               setSelectedIds(new Set());
             }}
+            onClose={() => setFiltersOpen(false)}
           />
 
           {/* Mobile groups button */}
@@ -576,7 +640,7 @@ export default function Contacts() {
                   {contacts.length === 0 && (
                     <button
                       type="button"
-                      onClick={openAdd}
+                      onClick={openAddLead}
                       className="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg admin-label font-semibold text-white bg-[#001731] hover:bg-[#0d5959] transition-colors cursor-pointer whitespace-nowrap"
                     >
                       <i className="ri-user-add-line text-lg" />
@@ -605,6 +669,7 @@ export default function Contacts() {
                   onMoveToGroup={moveToGroup}
                   onToggleStar={toggleStar}
                   onUnsubscribe={() => void bulkUnsubscribe()}
+                  terms={searchTerms}
                   onDownload={bulkDownload}
                   onAddTags={() => openTagModal('add')}
                   onRemoveTags={() => openTagModal('remove')}
@@ -687,6 +752,7 @@ export default function Contacts() {
       {/* Add / Edit contact */}
       <ContactFormModal
         open={formOpen}
+        mode={formMode}
         contact={editing}
         groups={groups}
         defaultGroupId={formGroupId}

@@ -7,14 +7,33 @@ import { FLAG_BY_ISO } from '@/lib/flagComponents';
  *
  * A native <select> can only render text, and Windows draws flag emoji as the
  * two-letter country code ("KE") rather than a flag — so this is a small custom
- * dropdown. It writes the chosen dial code into a hidden <input name={name}> so
- * forms that read it from FormData keep working unchanged. Flags are inline SVGs
- * bundled from country-flag-icons, so everything loads from this origin.
+ * dropdown. It can be used two ways:
+ *   1. Uncontrolled with `name` — writes the chosen dial code into a hidden
+ *      <input name={name}> so FormData-based public forms keep working.
+ *   2. Controlled with `value` + `onChange` — for state-driven CRM forms.
+ * Flags are inline SVGs bundled from country-flag-icons, so everything loads
+ * from this origin.
  */
 interface Props {
-  name: string;
+  name?: string;
   defaultCode?: string;
+  /** Controlled dial code (e.g. "+254"). When set, the picker follows this. */
+  value?: string;
+  /** Called with the chosen dial code when the selection changes. */
+  onChange?: (code: string) => void;
+  /** Replaces the default button styling so the picker can match any form. */
+  buttonClassName?: string;
+  /** Replaces the default dropdown panel styling. */
+  dropdownClassName?: string;
+  /** Disables the control (used while a form is loading). */
+  disabled?: boolean;
 }
+
+// Front-end (public site) styling — the shared baseline look.
+const DEFAULT_BUTTON =
+  'flex items-center gap-1.5 px-3 py-3 h-full border border-stone-300 border-r-0 bg-white text-base font-roboto text-primary focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer whitespace-nowrap shadow-[0_1px_2px_rgba(0,23,49,0.04),0_2px_8px_rgba(0,23,49,0.05)]';
+const DEFAULT_DROPDOWN =
+  'absolute left-0 z-20 mt-1 max-h-64 w-60 overflow-auto bg-white border border-stone-200 rounded-md shadow-xl py-1';
 
 // Small reusable flag chip (fixed box, clipped corners) rendered from the
 // bundled inline-SVG components.
@@ -27,11 +46,25 @@ function FlagChip({ iso }: { iso: string }) {
   );
 }
 
-export default function CountryCodeSelect({ name, defaultCode = DEFAULT_DIAL_CODE }: Props) {
-  const initial = DIAL_CODES.find((c) => c.code === defaultCode) ?? DIAL_CODES[0];
-  const [selected, setSelected] = useState<DialCode>(initial);
+export default function CountryCodeSelect({
+  name,
+  defaultCode = DEFAULT_DIAL_CODE,
+  value,
+  onChange,
+  buttonClassName,
+  dropdownClassName,
+  disabled = false,
+}: Props) {
+  const isControlled = value !== undefined;
+  const [internal, setInternal] = useState<DialCode>(
+    () => DIAL_CODES.find((c) => c.code === defaultCode) ?? DIAL_CODES[0],
+  );
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const selected = isControlled
+    ? (DIAL_CODES.find((c) => c.code === value) ?? DIAL_CODES[0])
+    : internal;
 
   useEffect(() => {
     if (!open) return;
@@ -49,16 +82,23 @@ export default function CountryCodeSelect({ name, defaultCode = DEFAULT_DIAL_COD
     };
   }, [open]);
 
+  const choose = (c: DialCode) => {
+    if (!isControlled) setInternal(c);
+    onChange?.(c.code);
+    setOpen(false);
+  };
+
   return (
     <div ref={ref} className="relative shrink-0">
-      <input type="hidden" name={name} value={selected.code} />
+      {name && <input type="hidden" name={name} value={selected.code} />}
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => { if (!disabled) setOpen((o) => !o); }}
+        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`Country code: ${selected.name} ${selected.code}`}
-        className="flex items-center gap-1.5 px-3 py-3 h-full border border-stone-300 border-r-0 bg-white text-base font-roboto text-primary focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 cursor-pointer whitespace-nowrap shadow-[0_1px_2px_rgba(0,23,49,0.04),0_2px_8px_rgba(0,23,49,0.05)]"
+        className={`${buttonClassName ?? DEFAULT_BUTTON}${disabled ? ' opacity-60 cursor-not-allowed' : ''}`}
       >
         <FlagChip iso={selected.iso} />
         <span>{selected.code}</span>
@@ -67,16 +107,13 @@ export default function CountryCodeSelect({ name, defaultCode = DEFAULT_DIAL_COD
       {open && (
         <ul
           role="listbox"
-          className="absolute left-0 z-20 mt-1 max-h-64 w-60 overflow-auto bg-white border border-stone-200 rounded-md shadow-xl py-1"
+          className={dropdownClassName ?? DEFAULT_DROPDOWN}
         >
           {DIAL_CODES.map((c) => (
             <li key={c.iso} role="option" aria-selected={c.iso === selected.iso}>
               <button
                 type="button"
-                onClick={() => {
-                  setSelected(c);
-                  setOpen(false);
-                }}
+                onClick={() => choose(c)}
                 className={`flex items-center gap-2.5 w-full px-3 py-2 text-left text-sm font-roboto transition-colors hover:bg-primary/5 ${
                   c.iso === selected.iso ? 'bg-primary/5 text-primary font-semibold' : 'text-stone-600'
                 }`}

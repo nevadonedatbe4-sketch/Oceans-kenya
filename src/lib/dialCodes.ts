@@ -47,3 +47,25 @@ export function combinePhone(dialCode: string, localNumber: string): string {
   if (!national) return '';
   return `${dialCode} ${national}`;
 }
+
+/**
+ * Split a stored phone string back into a { code, national } pair so a
+ * country-code picker can be pre-filled when editing an existing record.
+ * The longest known dial prefix is matched first; when nothing matches, the
+ * value falls back to `defaultCode` and any leading trunk '0' is stripped.
+ */
+export function splitPhone(
+  stored: string,
+  defaultCode: string = DEFAULT_DIAL_CODE,
+): { code: string; national: string } {
+  const raw = (stored || '').trim();
+  if (!raw) return { code: defaultCode, national: '' };
+  const digits = raw.replace(/[^\d+]/g, '');
+  const byLength = [...DIAL_CODES].sort((a, b) => b.code.length - a.code.length);
+  for (const c of byLength) {
+    if (digits.startsWith(c.code)) {
+      return { code: c.code, national: digits.slice(c.code.length).replace(/^0+/, '') };
+    }
+  }
+  return { code: defaultCode, national: digits.replace(/^0+/, '') };
+}

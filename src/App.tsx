@@ -11,6 +11,7 @@ import { useCardTheme } from "./hooks/useCardTheme";
 import { useTypography } from "./hooks/useTypography";
 import PageLoader from "./components/feature/PageLoader";
 import { installRoutePrefetch } from "./router/prefetch";
+import { primeAreaCentres } from "./lib/areaGeo";
 import { ChatNotificationCenter } from "./pages/agent/ogroup/components/ChatNotificationCenter";
 import { QuickSetProvider } from "./pages/agent/ogroup/QuickSetProvider";
 
@@ -30,6 +31,14 @@ function ScrollToTop() {
 // finishes before the click lands.
 function RoutePrefetch() {
   useEffect(() => installRoutePrefetch(__BASE_PATH__), []);
+  return null;
+}
+
+// Loads the admin-managed area coordinates/landmarks from the database ONCE and
+// registers them as the site-wide distance source of truth, so Buy / Rent /
+// All Properties / SEO pages all measure against the same live data.
+function AreaGeoPrime() {
+  useEffect(() => { primeAreaCentres(); }, []);
   return null;
 }
 
@@ -53,6 +62,7 @@ function ThemedApp() {
     <BrowserRouter basename={__BASE_PATH__}>
       <ScrollToTop />
       <RoutePrefetch />
+      <AreaGeoPrime />
       <ChatNotificationCenter />
       <QuickSetProvider>
         <Suspense fallback={<RouteFallback />}>

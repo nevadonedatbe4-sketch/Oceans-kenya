@@ -7,7 +7,12 @@ import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import BulkActionBar from '@/pages/crm/components/BulkActionBar';
 import LabelPickerModal from '@/pages/crm/components/LabelPickerModal';
 import ForwardModal from '@/pages/crm/components/ForwardModal';
+import ContactActions from '@/components/feature/ContactActions';
+import SmartRespond from '@/components/feature/SmartRespond';
+import { findOrCreateDirectConversation } from '@/pages/agent/ogroup/teamDirectory';
+import { sendMessage } from '@/pages/agent/ogroup/messengerData';
 import { useRealtimeRefresh } from '@/hooks/useRealtimeRefresh';
+import { markEnquiriesRead, markEnquiriesUnread } from '@/lib/recordRead';
 import { MESSAGE_TABS, EMPTY_COUNTS, type MessageTabKey, type MessageCounts } from './messageSystem';
 
 interface Enquiry {
@@ -178,6 +183,9 @@ export default function Inbox() {
     const { error } = await supabase.from('enquiries').update(patch).in('id', ids);
     if (error) addToast('Failed to update', 'error');
     else {
+      // Per-recipient read overlay (independent admin vs agent read state).
+      if (user && patch.is_read === true) markEnquiriesRead(user.id, ids);
+      else if (user && patch.is_read === false) markEnquiriesUnread(user.id, ids);
       patchLocal(ids, patch as Partial<Enquiry>);
       if (toast) addToast(toast, 'success');
       fetchCounts();
@@ -205,6 +213,7 @@ export default function Inbox() {
     await fetchThread(enquiry.id);
     if (!enquiry.is_read) {
       await supabase.from('enquiries').update({ is_read: true }).eq('id', enquiry.id);
+      if (user) markEnquiriesRead(user.id, [enquiry.id]);
       patchLocal([enquiry.id], { is_read: true });
       fetchCounts();
     }
@@ -318,9 +327,47 @@ export default function Inbox() {
       });
     }
     await supabase.from('enquiries').update({ status: 'replied', is_read: true }).eq('id', forwardTarget.id);
+    if (user) markEnquiriesRead(user.id, [forwardTarget.id]);
     patchLocal([forwardTarget.id], { status: 'replied', is_read: true });
     fetchCounts();
     addToast(`Message forwarded to ${recipient}`, 'success');
+    if (selected?.id === forwardTarget.id) await fetchThread(forwardTarget.id);
+  };
+
+  // Internal forward — deliver the message to a teammate's CRM messenger.
+  const handleForwardToTeam = async (recipientUserId: string, recipientName: string, note: string) => {
+    if (!forwardTarget) throw new Error('No message selected');
+    if (!user) throw new Error('Your session has expired. Please sign in again.');
+    const convId = await findOrCreateDirectConversation(user.id, recipientUserId);
+    if (!convId) throw new Error('Could not open a chat with this teammate.');
+    const senderName = fullName(forwardTarget);
+    const text = [
+      `Forwarded message — from ${senderName}`,
+      forwardTarget.property_title ? `Regarding: ${forwardTarget.property_title}` : '',
+      forwardTarget.email ? `Contact: ${forwardTarget.email}` : '',
+      forwardTarget.phone ? `Phone: ${forwardTarget.phone}` : '',
+      '',
+      forwardTarget.message || '(no message body)',
+      note ? `\nNote: ${note}` : '',
+    ].filter((l) => l !== undefined).join('\n');
+    await sendMessage(convId, user.id, { message_type: 'text', body: text });
+    // Keep an audit line in the enquiry thread too.
+    let auditConvId = conversationId;
+    if (!auditConvId) {
+      const { data: existing } = await supabase.from('conversations').select('id').eq('enquiry_id', forwardTarget.id).maybeSingle();
+      auditConvId = existing?.id || null;
+    }
+    if (auditConvId) {
+      await supabase.from('conversation_messages').insert({
+        conversation_id: auditConvId,
+        sender_type: 'agent',
+        sender_name: user?.name || user?.email || 'Agent',
+        agent_id: agentId || null,
+        body: `Forwarded internally to ${recipientName}`,
+        delivery_status: 'sent',
+      });
+    }
+    addToast(`Forwarded to ${recipientName}`, 'success');
     if (selected?.id === forwardTarget.id) await fetchThread(forwardTarget.id);
   };
 
@@ -359,6 +406,7 @@ export default function Inbox() {
         });
       }
       await supabase.from('enquiries').update({ status: 'replied', is_read: true }).eq('id', selected.id);
+      if (user) markEnquiriesRead(user.id, [selected.id]);
       addToast('Reply sent', 'success');
       setReplyText('');
       setReplySentFlash(true);
@@ -701,7 +749,12 @@ export default function Inbox() {
                 <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold" style={{ color: COLORS.navy }}>{fullName(selected)}</h2>
                   {selected.email && <p className="text-sm" style={{ color: COLORS.gray }}>{selected.email}</p>}
-                  {selected.phone && <p className="text-sm" style={{ color: COLORS.gray }}>{selected.phone}</p>}
+                  {selected.phone && (
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <p className="text-sm" style={{ color: COLORS.gray }}>{selected.phone}</p>
+                      <ContactActions phone={selected.phone} size="sm" />
+                    </div>
+                  )}
                 </div>
                 <span className="text-sm flex-shrink-0" style={{ color: COLORS.gray }}>
                   {new Date(selected.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -782,6 +835,16 @@ export default function Inbox() {
                   style={{ borderColor: COLORS.border, color: COLORS.navy }}
                 />
                 <div className="flex items-center justify-end gap-3 mt-2">
+                  <SmartRespond
+                    className="mr-auto"
+                    context={{
+                      clientMessage: selected.message,
+                      clientName: fullName(selected),
+                      propertyTitle: selected.property_title,
+                      agentName: user?.name,
+                    }}
+                    onInsert={(text) => setReplyText((prev) => (prev.trim() ? `${prev}\n${text}` : text))}
+                  />
                   {replySentFlash && (
                     <span className="flash-in inline-flex items-center gap-1.5 text-sm font-medium text-[#088135]">
                       <i className="ri-checkbox-circle-fill text-base" /> Reply sent
@@ -860,6 +923,7 @@ export default function Inbox() {
           body={forwardTarget.message || ''}
           onClose={() => setForwardTarget(null)}
           onForward={handleForward}
+          onForwardToTeam={handleForwardToTeam}
         />
       )}
 

@@ -56,6 +56,14 @@ export function advancedToFilters(a: FilterState): Partial<ListingFilters> {
 
   const minBaths = parseIntOrUndef(a.minBaths);
   if (minBaths !== undefined) out.bathsMin = minBaths;
+  const maxBaths = parseIntOrUndef(a.maxBaths);
+  if (maxBaths !== undefined) out.bathsMax = maxBaths;
+
+  // "Added to site" window -> a real created_at constraint. The advanced panel
+  // exposes the shared ladder Anytime / Last 24 hours / 3 / 7 / 14 / 30 days.
+  // Without this mapping the selection was silently dropped and every listing
+  // (even ones added a month ago) still appeared in a "Last 24 hours" search.
+  if (a.added && a.added !== 'Anytime') out.addedSince = a.added;
 
   const minSize = parseIntOrUndef(a.minSize);
   const maxSize = parseIntOrUndef(a.maxSize);

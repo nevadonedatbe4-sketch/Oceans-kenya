@@ -12,10 +12,13 @@ import { broadcastReadSync, subscribeReadSync } from '@/lib/unreadSync';
  *  - The DATABASE is the single source of truth. `unreadCount` always comes from
  *    a `count(*) where is_read = false` query — never from a locally incremented
  *    counter or a derived slice of the visible feed.
- *  - Scoping follows the site's existing intended model: admins see every unread
- *    notification (admin-wide, gated by the `notifications_admin_all` policy);
- *    everyone else sees ONLY rows addressed to them (`recipient_id = auth.uid()`,
- *    enforced both by the query and by the `notifications_own` RLS policy).
+ *  - Scoping is per-recipient, never global. An agent sees ONLY rows addressed
+ *    to them (`recipient_id = auth.uid()`). An admin sees their OWN rows plus the
+ *    unaddressed office queue (`recipient_id IS NULL`, e.g. an unassigned new
+ *    enquiry). The badge NEVER counts another user's private notifications — a
+ *    badge value and the list behind it are always produced by the SAME scope.
+ *    RLS backs this up: `notifications_own` for self, `notifications_admin_all`
+ *    (is_admin()) for the office queue — never other agents' private rows.
  *  - Reads are IDEMPOTENT: updates always carry `.eq('is_read', false)` so a
  *    repeated click can never inflate or corrupt a count.
  *  - Optimistic updates are rolled back to the last authoritative snapshot if the
@@ -67,6 +70,7 @@ export function useNotificationCenter(): NotificationCenter {
   const [error, setError] = useState<string | null>(null);
 
   const inFlight = useRef(false);
+  const channelName = useRef(`notification-center-${Math.random().toString(36).slice(2)}`);
   const itemsRef = useRef<NotificationRecord[]>(items);
   const countRef = useRef<number>(unreadCount);
   itemsRef.current = items;
@@ -91,7 +95,12 @@ export function useNotificationCenter(): NotificationCenter {
         .from('notifications')
         .select('id', { count: 'exact', head: true })
         .eq('is_read', false);
-      if (!isStaffAdmin) {
+      // Scope is applied identically to the feed AND the count so the badge can
+      // never count a row the list cannot retrieve (or vice-versa).
+      if (isStaffAdmin) {
+        feedQ = feedQ.or(`recipient_id.eq.${uid},recipient_id.is.null`);
+        countQ = countQ.or(`recipient_id.eq.${uid},recipient_id.is.null`);
+      } else {
         feedQ = feedQ.eq('recipient_id', uid);
         countQ = countQ.eq('recipient_id', uid);
       }
@@ -117,8 +126,11 @@ export function useNotificationCenter(): NotificationCenter {
   // triggers an authoritative recount so the badge updates exactly once.
   useEffect(() => {
     if (!uid) return;
+    // Unique-per-instance channel name so multiple consumers of this hook within
+    // one tab (header bell + notifications page) never collide on the same topic
+    // — that collision is what causes "duplicate listener" double-processing.
     const ch = supabase
-      .channel('notification-center-live')
+      .channel(channelName.current)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => { void refresh(); })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications' }, () => { void refresh(); })
       .subscribe();
@@ -146,7 +158,8 @@ export function useNotificationCenter(): NotificationCenter {
       .update({ is_read: true })
       .in('id', ids)
       .eq('is_read', false); // idempotent guard — repeat clicks update 0 rows
-    if (!isStaffAdmin) q = q.eq('recipient_id', uid);
+    if (isStaffAdmin) q = q.or(`recipient_id.eq.${uid},recipient_id.is.null`);
+    else q = q.eq('recipient_id', uid);
     const { error: e } = await q;
     return !e;
   }, [uid, isStaffAdmin]);
@@ -191,11 +204,14 @@ export function useNotificationCenter(): NotificationCenter {
     setItems((prev) => prev.map((n) => (n.is_read ? n : { ...n, is_read: true })));
     setUnreadCount(0);
 
+    // "Mark all" is scoped exactly like the badge — it can never mark another
+    // user's private notifications read.
     let q = supabase
       .from('notifications')
       .update({ is_read: true })
       .eq('is_read', false);
-    if (!isStaffAdmin) q = q.eq('recipient_id', uid);
+    if (isStaffAdmin) q = q.or(`recipient_id.eq.${uid},recipient_id.is.null`);
+    else q = q.eq('recipient_id', uid);
     const { error: e } = await q;
     if (e) {
       setItems(prevItems);

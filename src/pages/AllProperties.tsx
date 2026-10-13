@@ -6,6 +6,7 @@ import BackToTop from '@/components/feature/BackToTop';
 import InlineBackLink from '@/components/feature/InlineBackLink';
 import PageContactSection from '@/components/feature/PageContactSection';
 import QuickViewModal from '@/components/feature/QuickViewModal';
+import ContactAgentModal from '@/components/feature/ContactAgentModal';
 import PropertyBadge from '@/components/feature/PropertyBadge';
 import PropertyMetaBadges from '@/components/feature/PropertyMetaBadges';
 import CompareToolbar from '@/components/feature/CompareToolbar';
@@ -27,6 +28,8 @@ import { applyPublicVisibility } from '@/lib/publicListings';
 import UrgencyMessage from '@/components/feature/UrgencyMessage';
 import { resolveUrgency, autoUrgency } from '@/lib/urgency';
 import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
+import { radiusLabelToMeters, haversineDistance } from '@/lib/distance';
+import { areaCentreFor } from '@/lib/areaCentres';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
 import { advancedToFilters } from '@/pages/Rent/components/advancedToFilters';
 import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggestion';
@@ -78,6 +81,10 @@ interface Property {
   urgencyMessage?: string;
   showUrgencyMessage?: boolean;
   availableUnits?: number;
+  /** Coordinates used for radius search (falls back to the listing's area hub). */
+  latitude?: number | null;
+  longitude?: number | null;
+  distanceMeters?: number;
 }
 
 const PAGE_SIZE = 12;
@@ -85,6 +92,7 @@ const PAGE_SIZE = 12;
 // ── Shared search-bar option sets (mirrors Buy / Rent so search matches) ──
 const propTypeOptions = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced'];
 const bedOptions = BEDROOM_OPTIONS;
+const radiusOptions = ['This area only', '¼ mile', '½ mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 const PROP_TYPE_DB: Record<string, string> = {
   House: 'house',
   Apartment: 'apartment',
@@ -119,6 +127,24 @@ function mapRow(row: Record<string, unknown>): Property {
 
   const created = new Date(String(row.created_at || Date.now()));
   const listedDays = Math.floor((Date.now() - created.getTime()) / 86400000);
+
+  // Radius fallback: a listing without its own coordinates sits at its AREA HUB
+  // (e.g. a Karen home without lat/lng is treated as the Karen hub) so a
+  // "within X miles" search works across the whole inventory honestly.
+  let latitude = row.latitude != null ? Number(row.latitude) : null;
+  let longitude = row.longitude != null ? Number(row.longitude) : null;
+  if (latitude == null || longitude == null) {
+    const centre = areaCentreFor(
+      row.neighbourhood as string | null,
+      row.location as string | null,
+      row.city as string | null,
+      row.state_region as string | null,
+    );
+    if (centre) {
+      latitude = centre.lat;
+      longitude = centre.lng;
+    }
+  }
 
   const locationParts = formatLocationParts({
     address: row.address as string | null,
@@ -187,6 +213,8 @@ function mapRow(row: Record<string, unknown>): Property {
     availableUnits: Number(row.total_units ?? 0) > 0
       ? Math.max(0, Number(row.total_units) - Number(row.units_sold ?? 0) - Number(row.units_reserved ?? 0))
       : 0,
+    latitude,
+    longitude,
   };
 }
 
@@ -197,6 +225,9 @@ export default function AllProperties() {
   const currentPath = `${pathname}${search}`;
   // Deep-link support: /all-properties?area=Kileleshwa preselects that area's listings.
   const initialAreaRef = useRef(new URLSearchParams(search).get('area') || '');
+  // Deep-link support: /all-properties?type=Penthouse (footer type links) shows
+  // that property type across ALL areas and BOTH sale + rent - never area-locked.
+  const initialTypeRef = useRef(new URLSearchParams(search).get('type') || '');
   // Always default to "All Properties" on load - the visitor chooses For Sale / For Rent after.
   const [filterType, setFilterType] = useState<'all' | 'sale' | 'rent'>('all');
   const [searchQuery, setSearchQuery] = useState(() => {
@@ -210,13 +241,21 @@ export default function AllProperties() {
   const [selectedBeds, setSelectedBeds] = useState('Any beds');
   const [priceMin, setPriceMin] = useState('No min');
   const [priceMax, setPriceMax] = useState('No max');
-  const [selectedType, setSelectedType] = useState('Show all');
+  const [selectedType, setSelectedType] = useState(() => {
+    const t = initialTypeRef.current;
+    return propTypeOptions.includes(t) ? t : 'Show all';
+  });
   const [searchBookmarked, setSearchBookmarked] = useState(false);
+  // Radius search (lives in the action row). "This area only" (0 miles) is the
+  // honest default - nothing widens until the visitor explicitly picks a radius.
+  const [selectedRadius, setSelectedRadius] = useState(() => {
+    try { return localStorage.getItem('ap_radius') || 'This area only'; } catch { return 'This area only'; }
+  });
   // Advanced search - the SAME shared panel used by Buy / Rent / Commercial, so
   // every property search on the site behaves identically.
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [advancedFilters, setAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
-  // When set to a window label (e.g. 'Last 48 hours'), the directory only shows
+  // When set to a window label (e.g. 'Last 24 hours'), the directory only shows
   // homes added in that window - used by the "what changed recently" note in the
   // zero-result state. 'Anytime' means no time restriction.
   const [recentWindow, setRecentWindow] = useState('Anytime');
@@ -249,9 +288,9 @@ export default function AllProperties() {
 
   const [sortBy, setSortBy] = useState(() => {
     try {
-      const saved = localStorage.getItem('ap_sort_by');
-      return saved && saved !== 'newest' ? saved : 'az';
-    } catch { return 'az'; }
+      const saved = localStorage.getItem('ap_sort_by_v2');
+      return saved && saved !== 'recommended' ? saved : 'recommended';
+    } catch { return 'recommended'; }
   });
   // Defaults to the first area alphabetically once the area list loads (set in the effect below).
   const [selectedNeighbourhood, setSelectedNeighbourhood] = useState('');
@@ -265,6 +304,7 @@ export default function AllProperties() {
   const [totalPages, setTotalPages] = useState(1);
   const [recentlyViewed, setRecentlyViewed] = useState<Property[]>([]);
   const [quickViewProperty, setQuickViewProperty] = useState<Property | null>(null);
+  const [contactModalProperty, setContactModalProperty] = useState<Property | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(() => {
     try {
       const stored = localStorage.getItem('saved_properties');
@@ -286,8 +326,9 @@ export default function AllProperties() {
   // reset on load so the page opens on "All Properties" in the first area (A→Z).
   useEffect(() => {
     try { localStorage.setItem('ap_search_query', searchQuery); } catch { /* ignore */ }
-    try { localStorage.setItem('ap_sort_by', sortBy); } catch { /* ignore */ }
-  }, [searchQuery, sortBy]);
+    try { localStorage.setItem('ap_sort_by_v2', sortBy); } catch { /* ignore */ }
+    try { localStorage.setItem('ap_radius', selectedRadius); } catch { /* ignore */ }
+  }, [searchQuery, sortBy, selectedRadius]);
 
   // Load recently viewed from localStorage - try stored objects first, then Supabase for real listings
   useEffect(() => {
@@ -375,12 +416,28 @@ export default function AllProperties() {
               const match = names.find((n) => n.toLowerCase() === wanted.toLowerCase());
               if (match) return match;
             }
+            // A ?type= deep-link must span ALL areas, not default to the first.
+            if (initialTypeRef.current) return '';
             return names.length > 0 ? names[0] : '';
           });
         }
         setNeighbourhoodsLoaded(true);
       }, () => { setNeighbourhoodsLoaded(true); });
   }, []);
+
+  // A footer type link (?type=Penthouse) can change the type while this page is
+  // ALREADY mounted (React Router keeps it alive), so re-apply it and widen to
+  // all areas + both sale & rent. An explicit deep-link always wins.
+  useEffect(() => {
+    const t = new URLSearchParams(search).get('type') || '';
+    if (t && propTypeOptions.includes(t) && t !== selectedType) {
+      setSelectedType(t);
+      setSelectedNeighbourhood('');
+      setFilterType('all');
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const toggleSave = useCallback((id: string) => {
     setSavedIds((prev) => {
@@ -404,9 +461,17 @@ export default function AllProperties() {
     setError('');
 
     try {
+      // ── Radius search setup (computed up-front so it can also RELAX the
+      // neighbourhood constraint below): a radius EXPANDS the search, so the
+      // area tab must not pre-restrict results to the anchor area alone.
+      const radiusMeters = radiusLabelToMeters(selectedRadius);
+      const radiusOrigin = areaCentreFor(searchQuery) || areaCentreFor(selectedNeighbourhood) || areaCentreFor('nairobi');
+      const isRadiusSearch = radiusMeters != null && radiusOrigin != null;
+      const radiusAnchorName = (selectedNeighbourhood || searchQuery || '').trim() || null;
+
       let query = supabase
         .from('all_listings')
-        .select('id,title,location,address,neighbourhood,city,state_region,is_featured,country,price,property_type,sub_type,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email,is_new_development,property_category,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,video_url,virtual_tour_url,floor_plans,urgency_message,show_urgency_message,total_units,units_sold,units_reserved', { count: 'exact' })
+        .select('id,title,location,address,neighbourhood,city,state_region,latitude,longitude,is_featured,country,price,property_type,sub_type,bedrooms,bathrooms,parking,sqft,land_size,acreage,land_unit,slug,created_at,main_image,images,purpose,currency,owner_phone,owner_email,is_new_development,property_category,property_of_the_week,new_home,refurbished,reduced_price,back_on_market,video_url,virtual_tour_url,floor_plans,urgency_message,show_urgency_message,total_units,units_sold,units_reserved', { count: 'exact' })
         .neq('title', '')
         // The All Properties directory is strictly residential - commercial, land,
         // joint ventures and new developments must never appear here, matching the
@@ -428,7 +493,10 @@ export default function AllProperties() {
         query = query.eq('purpose', filterType);
       }
 
-      if (selectedNeighbourhood && selectedNeighbourhood !== 'All') {
+      // The area tab restricts results ONLY when no radius is active. When a
+      // radius is set the anchor area's own listings are retained client-side
+      // (see below) and nearby areas within the radius are added too.
+      if (!isRadiusSearch && selectedNeighbourhood && selectedNeighbourhood !== 'All') {
         // Case-insensitive so the normalised tab label still matches rows whose
         // stored neighbourhood value keeps its original casing.
         query = query.ilike('neighbourhood', selectedNeighbourhood);
@@ -473,6 +541,12 @@ export default function AllProperties() {
       if (adv.sqmMax !== undefined && adv.sqmMax > 0) query = query.lte('sqft', adv.sqmMax * 10.764);
       if (adv.priceMin !== undefined && adv.priceMin > 0) query = query.gte('price', adv.priceMin);
       if (adv.priceMax !== undefined && adv.priceMax > 0) query = query.lte('price', adv.priceMax);
+      // "Added to site" window chosen in the advanced panel - enforced on
+      // created_at so a 24-hour pick can never return a month-old listing.
+      const advAddedHours = hoursForWindowLabel(adv.addedSince ?? null);
+      if (advAddedHours != null) {
+        query = query.gte('created_at', new Date(Date.now() - advAddedHours * 3_600_000).toISOString());
+      }
       if (adv.amenitiesGroups && adv.amenitiesGroups.length > 0) {
         const groups = adv.amenitiesGroups.map((g) => (g || []).filter(Boolean)).filter((g) => g.length > 0);
         if (groups.length > 0) {
@@ -497,12 +571,25 @@ export default function AllProperties() {
           query = query.order('created_at', { ascending: false });
           break;
         case 'az':
-        default:
           query = query.order('title', { ascending: true });
+          break;
+        case 'recommended':
+        default:
+          query = query.order('is_featured', { ascending: false }).order('created_at', { ascending: false });
           break;
       }
 
-      query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      // ── RADIUS SEARCH ───────────────────────────────────────────────
+      // Origin = the typed location first, otherwise the selected area tab,
+      // otherwise Nairobi. Distance is measured against each listing's own
+      // coordinates or its AREA HUB (the same model used site-wide). Because
+      // distance is computed client-side we cannot paginate in the database
+      // while a radius is active, so we fetch the matching set and paginate it
+      // after distance filtering - exactly like the shared useListings engine.
+      // (radiusMeters / radiusOrigin / isRadiusSearch are computed up-front.)
+      if (!isRadiusSearch) {
+        query = query.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+      }
 
       const { data, error: dbError, count } = await query;
       if (dbError) throw dbError;
@@ -513,19 +600,51 @@ export default function AllProperties() {
         const cat = (String(r.property_category || 'residential') || 'residential').toLowerCase();
         return cat === 'residential' && !r.is_new_development;
       });
-      const mapped = residentialRows.map(mapRow);
-      setListings(mapped);
+      let mapped = residentialRows.map(mapRow);
 
-      const total = count || 0;
-      setTotalCount(total);
-      setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+      if (isRadiusSearch && radiusMeters != null && radiusOrigin != null) {
+        const anchor = radiusAnchorName ? radiusAnchorName.toLowerCase() : null;
+        const inAnchorArea = (p: Property) => {
+          if (!anchor) return false;
+          return [p.area, p.location, p.locationLine1, p.locationLine2]
+            .some((f) => (f || '').toLowerCase().includes(anchor));
+        };
+        const within = mapped
+          .map((p) => ({
+            p,
+            dist: p.latitude != null && p.longitude != null
+              ? haversineDistance(radiusOrigin.lat, radiusOrigin.lng, p.latitude, p.longitude)
+              : Infinity,
+          }))
+          // CUMULATIVE: keep the anchor area's own listings unconditionally, and
+          // only add listings outside it when they fall within the radius. A
+          // larger radius can therefore never remove an eligible area listing.
+          .filter((x) => inAnchorArea(x.p) || x.dist <= radiusMeters)
+          .sort((a, b) => {
+            const aa = inAnchorArea(a.p);
+            const bb = inAnchorArea(b.p);
+            if (aa !== bb) return aa ? -1 : 1;
+            return a.dist - b.dist;
+          })
+          .map((x) => ({ ...x.p, distanceMeters: x.dist }));
+        const total = within.length;
+        const start = (page - 1) * PAGE_SIZE;
+        mapped = within.slice(start, start + PAGE_SIZE);
+        setTotalCount(total);
+        setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+      } else {
+        const total = count || 0;
+        setTotalCount(total);
+        setTotalPages(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+      }
+      setListings(mapped);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load properties');
       setListings([]);
     } finally {
       setLoading(false);
     }
-  }, [filterType, searchQuery, sortBy, page, selectedNeighbourhood, neighbourhoodsLoaded, selectedBeds, selectedType, priceMin, priceMax, advancedFilters, recentWindow]);
+  }, [filterType, searchQuery, sortBy, page, selectedNeighbourhood, neighbourhoodsLoaded, selectedBeds, selectedType, priceMin, priceMax, advancedFilters, recentWindow, selectedRadius]);
 
   useEffect(() => {
     fetchListings();
@@ -599,6 +718,7 @@ export default function AllProperties() {
                     onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
                     className="appearance-none border border-primary/50 rounded-sm pl-3 pr-8 py-2 text-xs font-roboto font-medium text-primary focus:outline-none focus:border-primary cursor-pointer bg-white hover:border-primary transition-colors"
                   >
+                    <option value="recommended">Recommended</option>
                     <option value="az">A - Z</option>
                     <option value="newest">Newest First</option>
                     <option value="price_asc">Price: Low to High</option>
@@ -619,10 +739,11 @@ export default function AllProperties() {
             searchQuery={searchQuery}
             onLocationChange={(val) => { handleLocationChange(val); setPage(1); }}
             placeholderCycle={[
-              "Looking for your dream property...",
-              "Looking for an investment opportunity...",
-              "Looking for a luxury residence...",
-              "Looking for a home in a leafy suburb...",
+              "Search an area, e.g. Karen or Westlands",
+              "Search a school, e.g. Brookhouse School",
+              "Search a street, e.g. Riverside Drive",
+              "Search a landmark, e.g. The Hub Karen",
+              "Search by keyword, e.g. 3-bedroom apartment",
             ]}
             bedsValue={selectedBeds}
             onBedsChange={(v) => { setSelectedBeds(v); setPage(1); }}
@@ -644,6 +765,9 @@ export default function AllProperties() {
             saved={searchBookmarked}
             onToggleSave={() => setSearchBookmarked(!searchBookmarked)}
             onSearch={handleSearch}
+            actionRadiusValue={selectedRadius}
+            onActionRadiusChange={(v) => { setSelectedRadius(v); setPage(1); }}
+            actionRadiusOptions={radiusOptions}
           />
 
           {/* Filter tabs - All / Sale / Rent */}
@@ -740,7 +864,14 @@ export default function AllProperties() {
             <p className="font-roboto font-bold text-primary text-xl mb-2">No exact matches</p>
             <p className="text-sm font-roboto text-primary/50 mb-4">No properties matched your selected criteria. You can broaden the search to see more.</p>
             <button
-              onClick={() => { setSelectedBeds('Any beds'); setSelectedType('Show all'); setPriceMin('No min'); setPriceMax('No max'); setAdvancedFilters({ ...defaultFilters }); setRecentWindow('Anytime'); setPage(1); }}
+              onClick={() => {
+                // Consistent with the note button: drop the keyword text as well
+                // as the quick filters, while keeping the selected AREA tab.
+                setSelectedBeds('Any beds'); setSelectedType('Show all'); setPriceMin('No min'); setPriceMax('No max');
+                setAdvancedFilters({ ...defaultFilters }); setRecentWindow('Anytime'); setSelectedRadius('This area only');
+                setSearchQuery('');
+                setPage(1);
+              }}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white border-2 border-primary text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:bg-primary/90 transition-colors"
             >
               <i className="ri-equalizer-2-line"></i>Broaden search
@@ -748,12 +879,16 @@ export default function AllProperties() {
             <RecentActivitySuggestion
               location={selectedNeighbourhood || undefined}
               addedWindow={recentWindow}
+              scope={{ purpose: filterType === 'all' ? null : filterType, propertyCategory: 'residential' }}
               onView={(targetWindow) => {
                 setSelectedBeds('Any beds');
                 setSelectedType('Show all');
                 setPriceMin('No min');
                 setPriceMax('No max');
                 setAdvancedFilters({ ...defaultFilters });
+                // Clear any conflicting keyword so the window shows every
+                // residential listing in the selected area.
+                setSearchQuery('');
                 setRecentWindow(targetWindow);
                 setPage(1);
               }}
@@ -766,7 +901,7 @@ export default function AllProperties() {
           {loading && listings.length === 0
             ? Array.from({ length: 9 }).map((_, n) => <PropertyCardSkeleton key={n} />)
             : listings.map((p) => (
-                <PropertyCard key={p.id} property={p} isSaved={savedIds.has(p.id)} onToggleSave={toggleSave} onQuickView={setQuickViewProperty} />
+                <PropertyCard key={p.id} property={p} isSaved={savedIds.has(p.id)} onToggleSave={toggleSave} onQuickView={setQuickViewProperty} onMessage={() => setContactModalProperty(p)} />
               ))}
         </div>
 
@@ -902,6 +1037,18 @@ export default function AllProperties() {
       <PageContactSection />
       <Footer />
       <BackToTop />
+      {contactModalProperty && (
+        <ContactAgentModal
+          isOpen={true}
+          onClose={() => setContactModalProperty(null)}
+          propertyTitle={contactModalProperty.title}
+          propertyId={contactModalProperty.id}
+          propertySlug={contactModalProperty.slug}
+          propertyPrice={format(contactModalProperty.priceRaw, contactModalProperty.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+          propertyLocation={contactModalProperty.location}
+          listingId={contactModalProperty.id}
+        />
+      )}
       <QuickViewModal
         isOpen={quickViewProperty !== null}
         onClose={() => setQuickViewProperty(null)}
@@ -957,11 +1104,13 @@ function PropertyCard({
   isSaved,
   onToggleSave,
   onQuickView,
+  onMessage,
 }: {
   property: Property;
   isSaved: boolean;
   onToggleSave: (id: string) => void;
   onQuickView: (p: Property) => void;
+  onMessage: () => void;
 }) {
   const { format } = useCurrency();
   const { pathname, search } = useLocation();
@@ -1187,14 +1336,15 @@ function PropertyCard({
         <div className="flex flex-nowrap items-center justify-between gap-x-2 pt-3 border-t-2 border-primary/12 mt-auto">
           <CardContactActions
             phone={property.agentPhone}
-            email={property.agentEmail}
+            onMessage={onMessage}
             messageLabel="Message"
-            emailSubject={`Inquiry about ${property.title}`}
             className="min-w-0"
           />
-          <p className="text-xs font-roboto font-medium text-[color:var(--card-time-text)] whitespace-nowrap shrink-0">
-            {listedAgo}
-          </p>
+          {listedAgo && (
+            <p className="text-xs font-roboto font-medium text-[color:var(--card-time-text)] whitespace-nowrap shrink-0">
+              {listedAgo}
+            </p>
+          )}
         </div>
       </div>
     </div>

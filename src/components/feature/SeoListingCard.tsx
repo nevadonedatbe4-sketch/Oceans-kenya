@@ -115,9 +115,11 @@ export default function SeoListingCard({ property: p }: SeoListingCardProps) {
           <p className="font-roboto text-[color:var(--card-price-text)] text-sm font-bold">
             {format(p.rawPrice, (p.currency || 'KES') as 'KES' | 'USD' | 'GBP' | 'EUR')}
           </p>
-          <span className="text-xs font-roboto font-medium text-[color:var(--card-time-text)] whitespace-nowrap">
-            {listedAgo}
-          </span>
+          {listedAgo && (
+            <span className="text-xs font-roboto font-medium text-[color:var(--card-time-text)] whitespace-nowrap">
+              {listedAgo}
+            </span>
+          )}
         </div>
       </div>
     </Link>

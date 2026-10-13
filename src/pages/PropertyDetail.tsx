@@ -26,6 +26,8 @@ import PropertyContactCard from '@/pages/PropertyDetail/components/ContactCard';
 import SimilarProperties from '@/pages/PropertyDetail/components/SimilarProperties';
 import PropertyPrevNext from '@/pages/PropertyDetail/components/PrevNext';
 import MobileStickyBar from '@/pages/PropertyDetail/components/MobileStickyBar';
+import ContactAgentModal from '@/components/feature/ContactAgentModal';
+import ListingAgentActions from '@/components/feature/ListingAgentActions';
 import AdvancedFilters, { defaultFilters, FilterState } from '@/pages/Rent/components/AdvancedFilters';
 import PageLoader from '@/components/feature/PageLoader';
 import PropertyDocuments, { type DocItem } from '@/pages/PropertyDetail/components/PropertyDocuments';
@@ -44,6 +46,7 @@ interface ListingImage {
 }
 
 interface AgentInfo {
+  id: string;
   name: string;
   role: string;
   phone: string;
@@ -265,10 +268,10 @@ function DetailSearchBar({
           searchQuery={searchQuery}
           onLocationChange={onLocationChange}
           placeholderCycle={[
-            "Looking for your next property...",
-            "Looking for your dream home...",
-            "Looking for an investment opportunity...",
-            "Looking for a luxury residence...",
+            "Search an area, e.g. Karen or Westlands",
+            "Search a school, e.g. Brookhouse School",
+            "Search a street, e.g. Riverside Drive",
+            "Search a landmark, e.g. The Hub Karen",
           ]}
           radiusValue={radiusValue}
           onRadiusChange={onRadiusChange}
@@ -314,6 +317,7 @@ export default function PropertyDetail() {
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [landRecord, setLandRecord] = useState<Record<string, unknown> | null>(null);
   const [jvRecord, setJvRecord] = useState<Record<string, unknown> | null>(null);
+  const [showLandEnquiry, setShowLandEnquiry] = useState(false);
   const { format } = useCurrency();
   const { enableBreadcrumbs } = useSiteSettings();
   const { content: pd } = usePropertyDetailContent();
@@ -331,7 +335,7 @@ export default function PropertyDetail() {
   const [showDetailAdvancedFilters, setShowDetailAdvancedFilters] = useState(false);
   const [detailAdvancedFilters, setDetailAdvancedFilters] = useState<FilterState>({ ...defaultFilters });
 
-  const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
+  const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
   const detailBedOptions = BEDROOM_OPTIONS;
   const detailPriceMinOpts = useMemo(() => salePriceMinOptions('KES', {}), []);
   const detailPriceMaxOpts = useMemo(() => salePriceMaxOptions('KES', {}), []);
@@ -522,6 +526,7 @@ export default function PropertyDetail() {
                 .map((id) => byId.get(id))
                 .filter((a): a is Record<string, unknown> => Boolean(a))
                 .map((a) => ({
+                  id: String(a.id),
                   name: String(a.name || 'Agent'),
                   role: String(a.title || 'Estate Agent'),
                   phone: String(a.phone || ''),
@@ -1164,9 +1169,13 @@ export default function PropertyDetail() {
                   <div className="bg-primary p-6 md:p-8 rounded-lg">
                     <h3 className="font-roboto font-bold text-white text-xl mb-2">{pd.land_enquiry_title}</h3>
                     <p className="text-white/70 font-roboto text-sm mb-5">{pd.land_enquiry_text}</p>
-                    <Link to="/joint-ventures#request-desk" className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white text-sm tracking-widest uppercase font-semibold cursor-pointer whitespace-nowrap hover:bg-accent/90 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => setShowLandEnquiry(true)}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-white text-sm tracking-widest uppercase font-semibold cursor-pointer whitespace-nowrap hover:bg-accent/90 transition-opacity"
+                    >
                       <i className="ri-mail-send-line"></i>{pd.land_enquiry_button}
-                    </Link>
+                    </button>
                   </div>
 
                   <SimilarProperties
@@ -1193,11 +1202,47 @@ export default function PropertyDetail() {
                       }]}
                     />
                     <div className="bg-primary border-2 border-primary rounded-lg p-5">
-                      <h3 className="font-roboto font-bold text-white text-base mb-4 pb-3 border-b border-white/20">{pd.land_contact_title}</h3>
-                      <p className="font-roboto text-sm leading-relaxed mb-4 text-white/80">{pd.land_contact_text}</p>
-                      <Link to="/contact" className="inline-flex items-center gap-2 w-full justify-center px-4 py-3 bg-accent text-white font-roboto text-sm uppercase tracking-wider font-semibold cursor-pointer whitespace-nowrap hover:bg-accent/90 transition-colors">
-                        <i className="ri-mail-send-line"></i>{pd.land_contact_button}
-                      </Link>
+                      <h3 className="font-roboto font-bold text-white text-base mb-4 pb-3 border-b border-white/20 uppercase tracking-wide">
+                        {agents.length > 0 ? 'Your Listing Agent' : pd.land_contact_title}
+                      </h3>
+                      {agents.length > 0 ? (
+                        <>
+                          <div className="space-y-3 mb-4">
+                            {agents.map((a, idx) => (
+                              <div key={idx} className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-sm font-bold font-roboto bg-white/15 overflow-hidden">
+                                  {a.avatar ? (
+                                    <img src={a.avatar} alt={a.name} className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    (a.name || 'A').charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-roboto font-semibold text-white truncate">{a.name || 'Oceans Kenya'}</p>
+                                  <p className="text-xs font-roboto text-white/60 truncate">{a.role || 'Property Consultant'}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <ListingAgentActions
+                            phone={agents[0]?.phone}
+                            tone="dark"
+                            message={`Hello, I'm interested in ${activeListing.title} (Ref: ${activeListing.ref}).`}
+                            onMessage={() => setShowLandEnquiry(true)}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-roboto text-sm leading-relaxed mb-4 text-white/80">{pd.land_contact_text}</p>
+                          <button
+                            type="button"
+                            onClick={() => setShowLandEnquiry(true)}
+                            className="inline-flex items-center gap-2 w-full justify-center px-4 py-3 bg-accent text-white font-roboto text-sm uppercase tracking-wider font-semibold cursor-pointer whitespace-nowrap hover:bg-accent/90 transition-colors"
+                          >
+                            <i className="ri-mail-send-line"></i>{pd.land_contact_button}
+                          </button>
+                        </>
+                      )}
                     </div>
                     <Link to="/joint-ventures" className="inline-flex items-center gap-2 text-primary/70 font-roboto text-sm hover:text-primary transition-colors cursor-pointer">
                       <i className="ri-arrow-left-line"></i>{pd.land_back_label}
@@ -1210,6 +1255,18 @@ export default function PropertyDetail() {
         </main>
         <Footer />
         <BackToTop />
+        <ContactAgentModal
+          isOpen={showLandEnquiry}
+          onClose={() => setShowLandEnquiry(false)}
+          propertyTitle={activeListing.title}
+          propertyId={activeListing.id}
+          propertySlug={activeListing.slug}
+          propertyPrice={format(activeListing.priceRaw, activeListing.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+          propertyLocation={[activeListing.district, activeListing.area].filter(Boolean).join(', ')}
+          listingRef={activeListing.ref}
+          listingId={activeListing.id}
+          agentId={activeListing.agentId}
+        />
       </div>
     );
   }
@@ -1443,6 +1500,8 @@ export default function PropertyDetail() {
                 propertyRef={activeListing.ref}
                 formSubmitUrl="https://readdy.ai/api/form/d9b6qsihsavvukudolsg"
                 tourFormSubmitUrl="https://readdy.ai/api/form/d9bk52c5ku1dsad40gng"
+                listingId={activeListing.id}
+                agentId={activeListing.agentId}
               />
             </div>
           </div>

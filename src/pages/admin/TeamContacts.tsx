@@ -6,6 +6,7 @@ import {
   type TeamMemberInput,
 } from '@/hooks/useTeamMembers';
 import TeamMemberModal from '@/pages/admin/components/TeamMemberModal';
+import ContactActions from '@/components/feature/ContactActions';
 import { addToast } from '@/pages/crm/components/CRMToast';
 
 // ─────────────────────────────────────────────────────────────
@@ -435,7 +436,14 @@ function DetailPanel({
             </span>
           </div>
           {member.email && <ContactRow icon="ri-mail-line" label="Email" value={member.email} href={`mailto:${member.email}`} />}
-          {member.phone && <ContactRow icon="ri-phone-line" label="Phone" value={member.phone} href={`tel:${member.phone}`} />}
+          {member.phone && (
+            <div className="flex items-center gap-2 min-w-0">
+              <i className="ri-phone-line text-neutral-400 text-sm" />
+              <span className="text-xs text-neutral-400 w-[68px] shrink-0">Phone</span>
+              <span className="text-neutral-700 font-medium truncate">{member.phone}</span>
+              <ContactActions phone={member.phone} size="sm" />
+            </div>
+          )}
         </div>
 
         {member.notes && (

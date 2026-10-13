@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { AgentDatabaseRecord } from '../types';
 import { getStatus, SCORE_FIELDS } from '../constants';
+import ContactActions from '@/components/feature/ContactActions';
 
 interface Props {
   record: AgentDatabaseRecord;
@@ -100,8 +101,8 @@ export default function AgentDetailPanel({ record, converting, onEdit, onDelete,
         )}
 
         <DetailSection title="Contact" icon="ri-phone-line">
-          <Row label="Phone" value={record.phone} />
-          <Row label="WhatsApp" value={record.whatsapp} />
+          <Row label="Phone" value={record.phone ? <span className="inline-flex items-center gap-1.5 justify-end">{record.phone}<ContactActions phone={record.phone} size="sm" variant="compact" /></span> : null} />
+          <Row label="WhatsApp" value={record.whatsapp ? <span className="inline-flex items-center gap-1.5 justify-end">{record.whatsapp}<ContactActions phone={record.whatsapp} size="sm" variant="compact" /></span> : null} />
           <Row label="Email" value={record.email} />
           <Row label="Secondary Email" value={record.secondary_email} />
           <Row label="Website" value={record.website ? <a href={record.website} target="_blank" rel="noopener noreferrer" className="text-[#0d5959] hover:underline">{record.website}</a> : null} />

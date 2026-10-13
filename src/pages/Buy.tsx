@@ -30,21 +30,38 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useListingsPageContent } from '@/hooks/useListingsPageContent';
 import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
-import { parsePropertySearch, parseSearchClauses, clauseSummary, buildClausesOr, intentToChips, withoutIntent } from '@/lib/propertySearch';
+import { parsePropertySearch, parseSearchClauses, buildClausesOr } from '@/lib/propertySearch';
 import { smartTitleCase } from '@/lib/location';
 import { radiusLabelToMeters } from '@/lib/distance';
+import { areaCentreFor } from '@/lib/areaCentres';
+import { buildResultsHeading, humanizeType } from '@/lib/searchHeading';
 import { withReturnFrom } from '@/lib/navigation';
 import { DEFAULT_CONTACT, toTelHref } from '@/lib/contactDefaults';
 import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
 import { salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
+import { ADDED_WINDOW_OPTIONS } from '@/lib/recentWindow';
 
 const ITEMS_PER_PAGE = 10;
 
 const bedOptions = BEDROOM_OPTIONS;
 const propTypeOptions = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
-const addedOptions = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
-const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
-const radiusOptions = ['This area only', '½ mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
+const sortOptions = ['Recommended', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular', 'A - Z', 'Z - A'];
+
+// Compact, shareable URL tokens for the sort order so a filtered search survives
+// a refresh / shared link (e.g. /buy?sort=newest for "Recently Added").
+const SORT_PARAM_TO_LABEL: Record<string, string> = {
+  newest: 'Most recent',
+  price_asc: 'Lowest price',
+  price_desc: 'Highest price',
+  za: 'Z - A',
+};
+const SORT_LABEL_TO_PARAM: Record<string, string> = {
+  'Most recent': 'newest',
+  'Lowest price': 'price_asc',
+  'Highest price': 'price_desc',
+  'Z - A': 'za',
+};
+const radiusOptions = ['This area only', '¼ mile', '½ mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 export default function Buy() {
   const { hero } = usePropertyPageSettings('buy');
@@ -60,6 +77,9 @@ export default function Buy() {
   const urlLocation = searchParams.get('location') || '';
   const urlType = searchParams.get('type') || '';
   const urlBeds = searchParams.get('beds') || '';
+  const urlSort = searchParams.get('sort') || '';
+  const urlFeatured = searchParams.get('featured') === 'true';
+  const urlAdded = searchParams.get('added') || '';
   const [searchQuery, setSearchQuery] = useState(() => urlLocation || (() => { try { return localStorage.getItem('buy_search') || ''; } catch { return ''; } })());
   const [debouncedSearch, setDebouncedSearch] = useState(() => urlLocation || (() => { try { return localStorage.getItem('buy_search') || ''; } catch { return ''; } })());
   const [selectedLocation, setSelectedLocation] = useState<LocationSuggestion | null>(null);
@@ -72,13 +92,29 @@ export default function Buy() {
     setSelectedLocation(suggestion || null);
     if (suggestion) {
       const hasCoords = typeof suggestion.lat === 'number' && typeof suggestion.lng === 'number' && (suggestion.lat !== 0 || suggestion.lng !== 0);
-      setSearchCenter(hasCoords ? { lat: suggestion.lat, lng: suggestion.lng } : null);
-      setGeocodedName(hasCoords ? suggestion.name : '');
-      // A "Near me" (geolocation) result triggers a real radius search around
-      // the visitor's position. Default the radius so the distance filter runs.
-      if (suggestion.source === 'geolocation') {
-        setSelectedRadius((prev) => (prev === 'This area only' ? '5 miles' : prev));
-      }
+      // Resolve a real geographic centre for the search. Prefer the SHARED area
+      // hub table so the search anchor matches the SAME coordinate source that
+      // listings without their own coordinates fall back to. Using a different
+      // source (e.g. the registry point) put the anchor ~80m from the Karen
+      // hub and produced a nonsense "79m away" badge on same-area listings.
+      // Only fall back to the geocoded point for non-area results (schools,
+      // streets, landmarks) that have no area hub.
+      const hub = areaCentreFor(suggestion.name, suggestion.city)
+        ?? (hasCoords ? { lat: suggestion.lat, lng: suggestion.lng } : null);
+      setSearchCenter(hub);
+      setGeocodedName(suggestion.name);
+      // No automatic radius: the resolved coordinates become the search origin,
+      // but the radius stays at "This area only" until the visitor picks one, so
+      // results are never silently expanded.
+    } else if (!value.trim()) {
+      setSearchCenter(null);
+      setGeocodedName('');
+    } else {
+      // Free text committed without picking a suggestion - still resolve an
+      // area hub so a radius search can run.
+      const hub = areaCentreFor(value);
+      setSearchCenter(hub);
+      setGeocodedName(hub ? value : '');
     }
   };
 
@@ -87,13 +123,26 @@ export default function Buy() {
   const [priceMax, setPriceMax] = useState(() => { try { return localStorage.getItem('buy_price_max') || 'No max'; } catch { return 'No max'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => urlBeds || (() => { try { return localStorage.getItem('buy_beds') || 'Any beds'; } catch { return 'Any beds'; } })());
   const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('buy_type') || 'Show all'; } catch { return 'Show all'; } })());
-  const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('buy_added') || 'Anytime'; } catch { return 'Anytime'; } });
-  const [sortBy, setSortBy] = useState(() => {
+  const [selectedAdded, setSelectedAdded] = useState(() => {
+    // Prefer an explicit shareable URL value, then the saved choice. A stale
+    // saved value (e.g. a removed 'Last 48 hours' option) is ignored.
+    if (ADDED_WINDOW_OPTIONS.includes(urlAdded)) return urlAdded;
     try {
-      const saved = localStorage.getItem('buy_sort');
-      return saved && saved !== 'Most recent' ? saved : 'A - Z';
-    } catch { return 'A - Z'; }
+      const saved = localStorage.getItem('buy_added') || '';
+      if (ADDED_WINDOW_OPTIONS.includes(saved)) return saved;
+    } catch { /* ignore */ }
+    return 'Anytime';
   });
+  const [sortBy, setSortBy] = useState(() => {
+    if (urlSort && SORT_PARAM_TO_LABEL[urlSort]) return SORT_PARAM_TO_LABEL[urlSort];
+    try {
+      const saved = localStorage.getItem('buy_sort_v2');
+      return saved && saved !== 'Recommended' ? saved : 'Recommended';
+    } catch { return 'Recommended'; }
+  });
+  // "Featured Properties" entry point - a genuine is_featured filter driven by
+  // the URL (?featured=true), never a generic browse.
+  const [featuredOnly, setFeaturedOnly] = useState(urlFeatured);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [currentPage, setCurrentPage] = useState(() => {
     const p = Number(searchParams.get('page'));
@@ -151,7 +200,7 @@ export default function Buy() {
     try { localStorage.setItem('buy_beds', selectedBeds); } catch { /* ignore */ }
     try { localStorage.setItem('buy_type', selectedType); } catch { /* ignore */ }
     try { localStorage.setItem('buy_added', selectedAdded); } catch { /* ignore */ }
-    try { localStorage.setItem('buy_sort', sortBy); } catch { /* ignore */ }
+    try { localStorage.setItem('buy_sort_v2', sortBy); } catch { /* ignore */ }
   }, [searchQuery, selectedRadius, priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy]);
 
   // Sync search criteria to the URL (replaceState, no history spam) so a
@@ -161,12 +210,31 @@ export default function Buy() {
     if (selectedType !== 'Show all') next.type = selectedType;
     if (selectedBeds !== 'Any beds') next.beds = selectedBeds;
     if (currentPage > 1) next.page = String(currentPage);
+    if (featuredOnly) next.featured = 'true';
+    if (SORT_LABEL_TO_PARAM[sortBy]) next.sort = SORT_LABEL_TO_PARAM[sortBy];
+    if (selectedAdded !== 'Anytime') next.added = selectedAdded;
     const nextParams = new URLSearchParams();
     Object.entries(next).forEach(([k, v]) => { if (v) nextParams.set(k, v); });
     const serialized = nextParams.toString();
     setSearchParams(serialized, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedType, selectedBeds, currentPage]);
+  }, [searchQuery, selectedType, selectedBeds, currentPage, featuredOnly, sortBy, selectedAdded]);
+
+  // A footer or shared link can change the category / featured / sort while we
+  // are ALREADY on /buy (React Router keeps this component mounted). Re-apply
+  // those URL parameters so an explicit category link always wins over stale
+  // state - and a stale parameter can never override a fresh UI selection.
+  useEffect(() => {
+    const t = searchParams.get('type') || '';
+    if (t && t !== selectedType) setSelectedType(t);
+    const f = searchParams.get('featured') === 'true';
+    if (f !== featuredOnly) setFeaturedOnly(f);
+    const s = searchParams.get('sort') || '';
+    if (s && SORT_PARAM_TO_LABEL[s] && SORT_PARAM_TO_LABEL[s] !== sortBy) setSortBy(SORT_PARAM_TO_LABEL[s]);
+    const a = searchParams.get('added') || '';
+    if (ADDED_WINDOW_OPTIONS.includes(a) && a !== selectedAdded) setSelectedAdded(a);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // ── Derive numeric filters from dropdown strings ──────────
   const buildFilters = (): ListingFilters => {
@@ -184,10 +252,16 @@ export default function Buy() {
     // Price - independent min / max bounds enforced in the query.
     if (priceMinValue !== undefined) filters.priceMin = priceMinValue;
     if (priceMaxValue !== undefined) filters.priceMax = priceMaxValue;
+    // Featured-only - a genuine is_featured constraint.
+    if (featuredOnly) filters.featured = true;
     // Beds - exact count for 1–9 beds, open-ended for "10+ beds".
     Object.assign(filters, bedroomSelectionToRange(selectedBeds));
-    // Advanced Filters panel (types, baths, size, must-haves, furnishing).
-    return { ...filters, ...advancedToFilters(advancedFilters) };
+    // Advanced Filters panel (types, baths, size, must-haves, furnishing, added).
+    const merged: ListingFilters = { ...filters, ...advancedToFilters(advancedFilters) };
+    // The visible main-bar "Added" dropdown wins when the visitor has set it;
+    // the advanced panel's window only fills in while the bar is on "Anytime".
+    if (selectedAdded && selectedAdded !== 'Anytime') merged.addedSince = selectedAdded;
+    return merged;
   };
 
   const { listings, totalCount, loading, error, refetch } = useListings(buildFilters(), currentPage);
@@ -412,14 +486,19 @@ export default function Buy() {
 
   // Understood search criteria - derived from the same string the query engine parses
   const parsedIntent = useMemo(() => parsePropertySearch(debouncedSearch), [debouncedSearch]);
-  const intentChips = intentToChips(parsedIntent);
   const hasSearch = debouncedSearch.trim() !== '';
   const searchClauses = useMemo(() => parseSearchClauses(debouncedSearch), [debouncedSearch]);
-  const isCompound = searchClauses.length > 1;
 
-  const removeIntentChip = (key: 'transaction' | 'propertyType' | 'location' | 'bedrooms' | 'price' | 'furnished') => {
-    handleLocationChange(withoutIntent(debouncedSearch, key));
-  };
+  // Dynamic results heading (Zoopla-style): a human-readable summary of the
+  // active search, built from the real search state - never a hardcoded title.
+  const resultsHeading = useMemo(() => {
+    const typeLabel = selectedType !== 'Show all'
+      ? selectedType
+      : (parsedIntent.propertyType ? humanizeType(parsedIntent.propertyType) : null);
+    const location = parsedIntent.location || parsedIntent.city || (geocodedName || null);
+    const radiusLabel = geocodedName && radiusLabelToMeters(selectedRadius) ? selectedRadius : null;
+    return buildResultsHeading({ typeLabel, purpose: 'sale', location, radiusLabel, fallback: LC.heading_buy });
+  }, [selectedType, parsedIntent, geocodedName, selectedRadius, LC.heading_buy]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -472,11 +551,11 @@ export default function Buy() {
             searchQuery={searchQuery}
             onLocationChange={handleLocationChange}
             placeholderCycle={[
-              "Looking for a home in a leafy suburb...",
-              "Looking for a villa with a garden...",
-              "Looking for an apartment with a view...",
-              "Looking for a house in a quiet area...",
-              "Looking for a bungalow with character...",
+              "Search an area, e.g. Karen or Westlands",
+              "Search a school, e.g. Brookhouse School",
+              "Search a street, e.g. Riverside Drive",
+              "Search a landmark, e.g. The Hub Karen",
+              "Search by keyword, e.g. 3-bedroom apartment",
             ]}
             radiusValue={selectedRadius}
             onRadiusChange={setSelectedRadius}
@@ -514,7 +593,7 @@ export default function Buy() {
                 <span className="w-3 h-3 flex items-center justify-center text-primary/50"><i className="ri-arrow-down-wide-fill text-xs"></i></span>
               </button>
               <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/12 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                {addedOptions.map((o) => (
+                {ADDED_WINDOW_OPTIONS.map((o) => (
                   <button
                     key={o}
                     onClick={() => setSelectedAdded(o)}
@@ -570,7 +649,7 @@ export default function Buy() {
       <div ref={resultsTopRef} className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">{LC.heading_buy}</h1>
+            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">{resultsHeading}</h1>
             {geocodedName && radiusLabelToMeters(selectedRadius) && (
               <p className="text-xs font-roboto text-primary/50 mt-0.5">
                 <span className="w-3.5 h-3.5 inline-flex items-center justify-center align-middle mr-1">
@@ -596,36 +675,25 @@ export default function Buy() {
           </div>
         </div>
 
-        {/* Understood search criteria - the system shows what it parsed */}
-        {hasSearch && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">{LC.search_label}</span>
-            {isCompound ? (
-              searchClauses.map((cl, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
-                  <span className="w-4 h-4 flex items-center justify-center text-primary/40"><i className="ri-arrow-right-s-line text-xs"></i></span>
-                  {clauseSummary(cl)}
-                </span>
-              ))
-            ) : intentChips.length === 0 ? (
-              <span className="text-xs font-roboto text-primary/60 bg-primary/5 border border-primary/15 rounded-full px-3 py-1">"{debouncedSearch}"</span>
-            ) : (
-              intentChips.map((chip) => (
-                <span key={`${chip.key}-${chip.label}`} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
-                  {chip.label}
-                  <button
-                    onClick={() => removeIntentChip(chip.key)}
-                    className="w-4 h-4 flex items-center justify-center text-primary/50 hover:text-accent hover:bg-accent/10 rounded-full transition-colors cursor-pointer"
-                    aria-label={`Remove ${chip.label}`}
-                  >
-                    <i className="ri-close-line text-sm"></i>
-                  </button>
-                </span>
-              ))
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Featured-only indicator - removable so the visitor is never stuck in it */}
+      {featuredOnly && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-accent/10 border border-accent/25 rounded-full px-3 py-1 whitespace-nowrap">
+            <span className="w-3.5 h-3.5 flex items-center justify-center text-accent"><i className="ri-star-line text-xs"></i></span>
+            Featured properties only
+            <button
+              type="button"
+              onClick={() => setFeaturedOnly(false)}
+              className="w-4 h-4 flex items-center justify-center text-primary/50 hover:text-accent hover:bg-accent/10 rounded-full transition-colors cursor-pointer"
+              aria-label="Remove featured only filter"
+            >
+              <i className="ri-close-line text-sm"></i>
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Developer search debug - only shown at ?debug=search */}
       {searchParams.get('debug') === 'search' && (
@@ -700,19 +768,35 @@ export default function Buy() {
                   </div>
                   <h3 className="text-lg font-roboto font-bold text-primary mb-2">No exact matches</h3>
                   <p className="text-sm font-roboto text-primary/60 mb-4">{hasSearch ? 'No properties matched your selected criteria. You can broaden the search to see more.' : 'No properties matched your filters. You can broaden the search to see more.'}</p>
-                  <button onClick={() => { setPriceMin('No min'); setPriceMax('No max'); setSelectedBeds('Any beds'); setSelectedType('Show all'); }} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-2">
+                  <button onClick={() => {
+                    // Consistent with the note button: drop the keyword terms and
+                    // every quick filter, but keep the AREA the visitor is
+                    // looking at, so broadening never dumps them somewhere else.
+                    setPriceMin('No min');
+                    setPriceMax('No max');
+                    setSelectedBeds('Any beds');
+                    setSelectedType('Show all');
+                    setAdvancedFilters({ ...defaultFilters });
+                    handleLocationChange(parsedIntent.location || parsedIntent.city || '');
+                    setCurrentPage(1);
+                  }} className="px-6 py-2 bg-primary text-white border-2 border-primary text-sm font-roboto font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-2">
                     <i className="ri-equalizer-2-line"></i>
                     Broaden search
                   </button>
                   <RecentActivitySuggestion
                     location={parsedIntent.location || parsedIntent.city}
                     addedWindow={selectedAdded}
+                    scope={{ purpose: 'sale' }}
                     onView={(targetWindow) => {
                       setPriceMin('No min');
                       setPriceMax('No max');
                       setSelectedBeds('Any beds');
                       setSelectedType('Show all');
                       setAdvancedFilters({ ...defaultFilters });
+                      // Drop any conflicting keyword/type terms (keeping the area the
+                      // note refers to) so the chosen window always shows every sale
+                      // listing in that area instead of landing on another zero state.
+                      handleLocationChange(parsedIntent.location || parsedIntent.city || '');
                       setSelectedAdded(targetWindow);
                       setCurrentPage(1);
                     }}
@@ -850,6 +934,7 @@ export default function Buy() {
                       format={format}
                       onMessage={() => setContactModalProperty(p)}
                       variant="sale"
+                      anchorArea={geocodedName}
                     />
                   </div>
                 );

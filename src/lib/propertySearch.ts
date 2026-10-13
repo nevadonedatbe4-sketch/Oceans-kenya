@@ -168,6 +168,21 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Word-boundary phrase matcher (cached). Substring matching is WRONG here: the
+// word "land" lives inside "Westlands" and "Parklands", so a plain `.includes`
+// made an area search silently parse as a Land property-type filter and return
+// zero results (e.g. "Land for rent in Westlands"). A \b boundary fixes that
+// root cause for every area whose name happens to contain a type synonym.
+const PHRASE_REGEX_CACHE = new Map<string, RegExp>();
+function containsPhrase(haystack: string, needle: string): boolean {
+  let re = PHRASE_REGEX_CACHE.get(needle);
+  if (!re) {
+    re = new RegExp(`\\b${escapeRegExp(needle)}\\b`, 'i');
+    PHRASE_REGEX_CACHE.set(needle, re);
+  }
+  return re.test(haystack);
+}
+
 /**
  * Parse a natural-language or structured query into a canonical intent.
  * Returns an empty intent (with no criteria) only when the query is blank -
@@ -192,7 +207,7 @@ export function parsePropertySearch(raw: string): PropertySearchIntent {
   let bestLen = 0;
   for (const [canonical, synonyms] of Object.entries(PROPERTY_TYPE_SYNONYMS)) {
     for (const syn of synonyms) {
-      if (q.includes(syn) && syn.length > bestLen) {
+      if (containsPhrase(q, syn) && syn.length > bestLen) {
         matchedType = canonical;
         matchedTypePhrase = syn;
         bestLen = syn.length;
@@ -607,11 +622,13 @@ function findTypeSpans(q: string): { index: number; canonical: string }[] {
   const matches: { start: number; end: number; canonical: string }[] = [];
   for (const [canonical, synonyms] of Object.entries(PROPERTY_TYPE_SYNONYMS)) {
     for (const syn of synonyms) {
-      const lower = syn.toLowerCase();
-      let idx = q.indexOf(lower);
-      while (idx !== -1) {
-        matches.push({ start: idx, end: idx + lower.length, canonical });
-        idx = q.indexOf(lower, idx + 1);
+      // Word-boundary match so "Westlands" / "Parklands" never registers as "land".
+      const re = new RegExp(`\\b${escapeRegExp(syn)}\\b`, 'gi');
+      let m: RegExpExecArray | null = re.exec(q);
+      while (m !== null) {
+        matches.push({ start: m.index, end: m.index + m[0].length, canonical });
+        if (m.index === re.lastIndex) re.lastIndex += 1;
+        m = re.exec(q);
       }
     }
   }
@@ -658,8 +675,9 @@ export function parseSearchClauses(raw: string): SearchClause[] {
  * no clauses, so callers can fall through to a plain browse query (never a
  * broad fallback that ignores criteria).
  */
-export function buildClausesOr(clauses: SearchClause[]): string | null {
+export function buildClausesOr(clauses: SearchClause[], opts?: { dropLocations?: boolean }): string | null {
   if (!clauses || clauses.length === 0) return null;
+  const dropLocations = !!opts?.dropLocations;
   const groups: string[] = [];
   for (const c of clauses) {
     const conds: string[] = [];
@@ -669,15 +687,20 @@ export function buildClausesOr(clauses: SearchClause[]): string | null {
     } else if (c.propertyTypes.length > 1) {
       conds.push(`or(${c.propertyTypes.map((t) => `property_type.eq.${t}`).join(',')})`);
     }
-    if (c.locationLevel === 'city' && c.city) {
-      const cc = buildCityOrClause(c.city);
-      if (cc) conds.push(`or(${cc})`);
-    } else if (c.locations.length > 0) {
-      const locs: string[] = [];
-      for (const L of c.locations) {
-        locs.push(`neighbourhood.ilike.%${L}%`, `location.ilike.%${L}%`, `address.ilike.%${L}%`);
+    // A coordinate (radius) search is the geographic filter, so the location
+    // NAME clause must not additionally restrict the results - otherwise
+    // nearby qualifying areas inside the radius would be wrongly dropped.
+    if (!dropLocations) {
+      if (c.locationLevel === 'city' && c.city) {
+        const cc = buildCityOrClause(c.city);
+        if (cc) conds.push(`or(${cc})`);
+      } else if (c.locations.length > 0) {
+        const locs: string[] = [];
+        for (const L of c.locations) {
+          locs.push(`neighbourhood.ilike.%${L}%`, `location.ilike.%${L}%`, `address.ilike.%${L}%`);
+        }
+        conds.push(`or(${locs.join(',')})`);
       }
-      conds.push(`or(${locs.join(',')})`);
     }
     if (c.bedroomsMin && c.bedroomsMin > 0) conds.push(`bedrooms.gte.${c.bedroomsMin}`);
     if (c.bedroomsMax && c.bedroomsMax > 0) conds.push(`bedrooms.lte.${c.bedroomsMax}`);
@@ -686,13 +709,14 @@ export function buildClausesOr(clauses: SearchClause[]): string | null {
     for (const term of c.terms) {
       conds.push(`or(title.ilike.%${term}%,location.ilike.%${term}%,neighbourhood.ilike.%${term}%)`);
     }
+    if (conds.length === 0) continue;
     if (conds.length === 1) {
       groups.push(conds[0]);
     } else {
       groups.push(`and(${conds.join(',')})`);
     }
   }
-  return groups.join(',');
+  return groups.length > 0 ? groups.join(',') : null;
 }
 
 /** Human-readable summary of a clause, e.g. "House for sale in Karen". */

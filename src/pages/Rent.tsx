@@ -32,11 +32,14 @@ import RecentActivitySuggestion from '@/components/feature/RecentActivitySuggest
 import { useFormSubmit } from '@/hooks/useFormSubmit';
 import { useCurrency } from '@/hooks/useCurrency';
 import { supabase } from '@/lib/supabase';
-import { parsePropertySearch, parseSearchClauses, clauseSummary, intentToChips, withoutIntent } from '@/lib/propertySearch';
+import { parsePropertySearch } from '@/lib/propertySearch';
 import { smartTitleCase } from '@/lib/location';
+import { areaCentreFor } from '@/lib/areaCentres';
+import { buildResultsHeading, humanizeType } from '@/lib/searchHeading';
 import PageLoader from '@/components/feature/PageLoader';
 import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
 import { rentPriceMinOptions, rentPriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
+import { ADDED_WINDOW_OPTIONS } from '@/lib/recentWindow';
 
 function toDisplayType(category: string): string {
   return category
@@ -50,9 +53,8 @@ const ITEMS_PER_PAGE = 10;
 
 const bedOptions = BEDROOM_OPTIONS;
 const propTypeOptions = ['Show all', 'House', 'Apartment', 'Bungalow', 'Studio', 'Maisonette', 'Villa', 'Townhouse', 'Penthouse', 'Detached', 'Semi-detached', 'Terraced', 'Land'];
-const addedOptions = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
-const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
-const radiusOptions = ['This area only', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
+const sortOptions = ['Recommended', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular', 'A - Z', 'Z - A'];
+const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 export default function Rent() {
   const { hero } = usePropertyPageSettings('rent');
@@ -65,21 +67,17 @@ export default function Rent() {
     setCurrentPage(1);
     if (suggestion) {
       const hasCoords = typeof suggestion.lat === 'number' && typeof suggestion.lng === 'number' && (suggestion.lat !== 0 || suggestion.lng !== 0);
-      if (hasCoords) {
-        // Only pin a geocode centre when real coordinates are available; when an
-        // area from the registry has no coords, fall back to location-filtering only.
-        setSearchCenter({ lat: suggestion.lat, lng: suggestion.lng });
-        setGeocodedName(suggestion.name);
-      } else {
-        setSearchCenter(null);
-        setGeocodedName(suggestion.name);
-      }
-      // A "Near me" (geolocation) result should trigger a real radius search
-      // around the visitor's actual position. Default to a sensible radius so
-      // the distance filter runs, unless the user already picked one.
-      if (suggestion.source === 'geolocation') {
-        setSelectedRadius((prev) => (prev === 'This area only' ? '5 miles' : prev));
-      }
+      // Prefer the SHARED area hub so the search anchor matches the SAME
+      // coordinate source listings fall back to when they carry no coordinates
+      // of their own. Using a different source for the anchor produced a
+      // meaningless "79m away" badge on same-area listings.
+      const hub = areaCentreFor(suggestion.name, suggestion.city)
+        ?? (hasCoords ? { lat: suggestion.lat, lng: suggestion.lng } : null);
+      setSearchCenter(hub);
+      setGeocodedName(suggestion.name);
+      // No automatic radius: the resolved coordinates simply become the search
+      // origin. The radius stays at "This area only" until the visitor picks one
+      // explicitly, so results are never silently expanded.
     } else if (!value.trim()) {
       setSearchCenter(null);
       setGeocodedName('');
@@ -98,18 +96,28 @@ export default function Rent() {
   const urlLocation = searchParams.get('location') || '';
   const urlType = searchParams.get('type') || '';
   const urlBeds = searchParams.get('beds') || '';
+  const urlAdded = searchParams.get('added') || '';
   const [searchQuery, setSearchQuery] = useState(() => urlLocation || (() => { try { return localStorage.getItem('rent_search') || ''; } catch { return ''; } })());
   const [selectedRadius, setSelectedRadius] = useState(() => { try { return localStorage.getItem('rent_radius') || 'This area only'; } catch { return 'This area only'; } });
   const [priceMin, setPriceMin] = useState(() => { try { return localStorage.getItem('rent_price_min') || 'No min'; } catch { return 'No min'; } });
   const [priceMax, setPriceMax] = useState(() => { try { return localStorage.getItem('rent_price_max') || 'No max'; } catch { return 'No max'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => urlBeds || (() => { try { return localStorage.getItem('rent_beds') || 'Any beds'; } catch { return 'Any beds'; } })());
   const [selectedType, setSelectedType] = useState(() => urlType || (() => { try { return localStorage.getItem('rent_type') || 'Show all'; } catch { return 'Show all'; } })());
-  const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('rent_added') || 'Anytime'; } catch { return 'Anytime'; } });
+  const [selectedAdded, setSelectedAdded] = useState(() => {
+    // Prefer an explicit shareable URL value, then the saved choice. A stale
+    // saved value (e.g. a removed 'Last 48 hours' option) is ignored.
+    if (ADDED_WINDOW_OPTIONS.includes(urlAdded)) return urlAdded;
+    try {
+      const saved = localStorage.getItem('rent_added') || '';
+      if (ADDED_WINDOW_OPTIONS.includes(saved)) return saved;
+    } catch { /* ignore */ }
+    return 'Anytime';
+  });
   const [sortBy, setSortBy] = useState(() => {
     try {
-      const saved = localStorage.getItem('rent_sort');
-      return saved && saved !== 'Most recent' ? saved : 'A - Z';
-    } catch { return 'A - Z'; }
+      const saved = localStorage.getItem('rent_sort_v2');
+      return saved && saved !== 'Recommended' ? saved : 'Recommended';
+    } catch { return 'Recommended'; }
   });
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [currentPage, setCurrentPage] = useState(() => {
@@ -194,8 +202,12 @@ export default function Rent() {
     if (priceMaxValue !== undefined) filters.priceMax = priceMaxValue;
     // Beds - exact count for 1–9 beds, open-ended for "10+ beds".
     Object.assign(filters, bedroomSelectionToRange(selectedBeds));
-    // Advanced Filters panel (types, baths, size, must-haves, furnishing).
-    return { ...filters, ...advancedToFilters(appliedFilters.advanced) };
+    // Advanced Filters panel (types, baths, size, must-haves, furnishing, added).
+    const merged: ListingFilters = { ...filters, ...advancedToFilters(appliedFilters.advanced) };
+    // The visible main-bar "Added" dropdown wins when the visitor has set it;
+    // the advanced panel's window only fills in while the bar is on "Anytime".
+    if (selectedAdded && selectedAdded !== 'Anytime') merged.addedSince = selectedAdded;
+    return merged;
   }, [appliedSearchQuery, appliedFilters.advanced, priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy, searchCenter, radiusMeters]);
 
   const { listings: rentListings, totalCount, loading, error: fetchError, refetch } = useListings(buildFilters(), currentPage);
@@ -431,7 +443,7 @@ export default function Rent() {
     try { localStorage.setItem('rent_beds', selectedBeds); } catch { /* ignore */ }
     try { localStorage.setItem('rent_type', selectedType); } catch { /* ignore */ }
     try { localStorage.setItem('rent_added', selectedAdded); } catch { /* ignore */ }
-    try { localStorage.setItem('rent_sort', sortBy); } catch { /* ignore */ }
+    try { localStorage.setItem('rent_sort_v2', sortBy); } catch { /* ignore */ }
   }, [searchQuery, selectedRadius, priceMin, priceMax, selectedBeds, selectedType, selectedAdded, sortBy]);
 
   // Sync search criteria to the URL (replaceState) so a search survives refresh,
@@ -441,10 +453,11 @@ export default function Rent() {
     if (searchQuery) nextParams.set('location', searchQuery);
     if (selectedType !== 'Show all') nextParams.set('type', selectedType);
     if (selectedBeds !== 'Any beds') nextParams.set('beds', selectedBeds);
+    if (selectedAdded !== 'Anytime') nextParams.set('added', selectedAdded);
     if (currentPage > 1) nextParams.set('page', String(currentPage));
     setSearchParams(nextParams.toString(), { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, selectedType, selectedBeds, currentPage]);
+  }, [searchQuery, selectedType, selectedBeds, currentPage, selectedAdded]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
@@ -519,16 +532,18 @@ export default function Rent() {
 
   // Understood search criteria - derived from the same string the query engine parses
   const parsedIntent = useMemo(() => parsePropertySearch(appliedSearchQuery), [appliedSearchQuery]);
-  const intentChips = intentToChips(parsedIntent);
   const hasSearch = appliedSearchQuery.trim() !== '';
-  const searchClauses = useMemo(() => parseSearchClauses(appliedSearchQuery), [appliedSearchQuery]);
-  const isCompound = searchClauses.length > 1;
-  const removeIntentChip = (key: 'transaction' | 'propertyType' | 'location' | 'bedrooms' | 'price' | 'furnished') => {
-    const next = withoutIntent(appliedSearchQuery, key);
-    setSearchQuery(next);
-    setAppliedSearchQuery(next);
-    setCurrentPage(1);
-  };
+
+  // Dynamic results heading (Zoopla-style): a human-readable summary of the
+  // active search, built from the real search state.
+  const resultsHeading = useMemo(() => {
+    const typeLabel = selectedType !== 'Show all'
+      ? selectedType
+      : (parsedIntent.propertyType ? humanizeType(parsedIntent.propertyType) : null);
+    const location = parsedIntent.location || parsedIntent.city || (geocodedName || null);
+    const radiusLabel = geocodedName && radiusLabelToMeters(selectedRadius) ? selectedRadius : null;
+    return buildResultsHeading({ typeLabel, purpose: 'rent', location, radiusLabel, fallback: LC.heading_rent });
+  }, [selectedType, parsedIntent, geocodedName, selectedRadius, LC.heading_rent]);
 
 
   return (
@@ -555,11 +570,11 @@ export default function Rent() {
             searchQuery={searchQuery}
             onLocationChange={handleLocationChange}
             placeholderCycle={[
-              "Looking for a rental in a leafy suburb...",
-              "Looking for an apartment with a view...",
-              "Looking for a studio with great amenities...",
-              "Looking for a furnished spacious home...",
-              "Looking for a townhouse in Gigiri...",
+              "Search an area, e.g. Karen or Westlands",
+              "Search a street, e.g. Riverside Drive",
+              "Search a landmark, e.g. The Hub Karen",
+              "Search by keyword, e.g. 3-bedroom apartment",
+              "Search a villa, e.g. Villa in Runda",
             ]}
             radiusValue={selectedRadius}
             onRadiusChange={setSelectedRadius}
@@ -624,7 +639,7 @@ export default function Rent() {
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setOpenDropdown(null)}></div>
                   <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/20 rounded-lg shadow-lg z-50">
-                    {addedOptions.map((o) => (
+                    {ADDED_WINDOW_OPTIONS.map((o) => (
                       <button
                         key={o}
                         onClick={() => { setSelectedAdded(o); setOpenDropdown(null); }}
@@ -678,7 +693,7 @@ export default function Rent() {
       <div ref={resultsTopRef} className="px-4 md:px-6 lg:px-10 pt-6 pb-2 max-w-[1400px] mx-auto w-full">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">{LC.heading_rent}</h1>
+            <h1 className="text-lg md:text-xl font-roboto font-bold text-primary">{resultsHeading}</h1>
             {geocodedName && radiusMeters && (
               <p className="text-xs font-roboto text-primary/50 mt-0.5">
                 <span className="w-3.5 h-3.5 inline-flex items-center justify-center align-middle mr-1">
@@ -718,35 +733,6 @@ export default function Rent() {
           </div>
         </div>
 
-        {/* Understood search criteria - the system shows what it parsed */}
-        {hasSearch && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-roboto font-semibold text-primary/50 uppercase tracking-wide whitespace-nowrap">{LC.search_label}</span>
-            {isCompound ? (
-              searchClauses.map((cl, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
-                  <span className="w-4 h-4 flex items-center justify-center text-primary/40"><i className="ri-arrow-right-s-line text-xs"></i></span>
-                  {clauseSummary(cl)}
-                </span>
-              ))
-            ) : intentChips.length === 0 ? (
-              <span className="text-xs font-roboto text-primary/60 bg-primary/5 border border-primary/15 rounded-full px-3 py-1">"{appliedSearchQuery}"</span>
-            ) : (
-              intentChips.map((chip) => (
-                <span key={`${chip.key}-${chip.label}`} className="inline-flex items-center gap-1.5 text-xs font-roboto font-medium text-primary bg-primary/5 border border-primary/15 rounded-full px-3 py-1 whitespace-nowrap">
-                  {chip.label}
-                  <button
-                    onClick={() => removeIntentChip(chip.key)}
-                    className="w-4 h-4 flex items-center justify-center text-primary/50 hover:text-accent hover:bg-accent/10 rounded-full transition-colors cursor-pointer"
-                    aria-label={`Remove ${chip.label}`}
-                  >
-                    <i className="ri-close-line text-sm"></i>
-                  </button>
-                </span>
-              ))
-            )}
-          </div>
-        )}
       </div>
 
       {/* === MAIN CONTENT === */}
@@ -809,18 +795,19 @@ export default function Rent() {
                   </div>
                   <h3 className="text-lg font-roboto font-bold text-primary mb-2">No rental properties yet</h3>
                   <p className="text-sm font-roboto text-primary/60 mb-4 max-w-md mx-auto">
-                    There are currently no rental listings available. Check back soon or browse properties for sale.
+                    There are currently no rental listings matching this search. Check back soon or browse every rental property.
                   </p>
-                  <Link
-                    to="/buy"
+                  <button
+                    onClick={clearSearch}
                     className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-roboto text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors cursor-pointer whitespace-nowrap"
                   >
-                    Browse properties for sale
+                    Browse more properties for rent
                     <i className="ri-arrow-right-line"></i>
-                  </Link>
+                  </button>
                   <RecentActivitySuggestion
                     location={parsedIntent.location || parsedIntent.city}
                     addedWindow={selectedAdded}
+                    scope={{ purpose: 'rent' }}
                     onView={(targetWindow) => {
                       setPriceMin('No min');
                       setPriceMax('No max');
@@ -828,6 +815,9 @@ export default function Rent() {
                       setSelectedType('Show all');
                       setAdvancedFilters({ ...defaultFilters });
                       setAppliedFilters((prev) => ({ ...prev, advanced: { ...defaultFilters } }));
+                      // Keep the area the note refers to, drop conflicting keyword/type
+                      // terms, so the window always shows rentals rather than empty.
+                      handleLocationChange(parsedIntent.location || parsedIntent.city || '');
                       setSelectedAdded(targetWindow);
                       setCurrentPage(1);
                     }}
@@ -850,6 +840,7 @@ export default function Rent() {
                   <RecentActivitySuggestion
                     location={parsedIntent.location || parsedIntent.city}
                     addedWindow={selectedAdded}
+                    scope={{ purpose: 'rent' }}
                     onView={(targetWindow) => {
                       setPriceMin('No min');
                       setPriceMax('No max');
@@ -857,6 +848,9 @@ export default function Rent() {
                       setSelectedType('Show all');
                       setAdvancedFilters({ ...defaultFilters });
                       setAppliedFilters((prev) => ({ ...prev, advanced: { ...defaultFilters } }));
+                      // Keep the area the note refers to, drop conflicting keyword/type
+                      // terms, so the window always shows rentals rather than empty.
+                      handleLocationChange(parsedIntent.location || parsedIntent.city || '');
                       setSelectedAdded(targetWindow);
                       setCurrentPage(1);
                     }}
@@ -993,6 +987,7 @@ export default function Rent() {
                       format={format}
                       onMessage={() => setContactProperty(p)}
                       variant="rent"
+                      anchorArea={geocodedName}
                     />
                   </div>
                 );

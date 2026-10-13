@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, type PriceRates } from '@/lib/prices';
+import { ADDED_WINDOW_OPTIONS } from '@/lib/recentWindow';
 
 /**
  * CommercialAdvancedFilters - the advanced filter sheet for the commercial
@@ -67,8 +68,6 @@ const SECTORS: { value: string; label: string }[] = [
   { value: 'land', label: 'Land / Development' },
   { value: 'other', label: 'Other' },
 ];
-
-const ADDED_OPTIONS = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
 
 interface CommercialAdvancedFiltersProps {
   isOpen: boolean;
@@ -354,7 +353,7 @@ export default function CommercialAdvancedFilters({
         <FilterSelect
           label="Added to site"
           value={filters.added}
-          options={ADDED_OPTIONS}
+          options={ADDED_WINDOW_OPTIONS}
           onChange={(v) => setFilters((p) => ({ ...p, added: v }))}
         />
         <div>

@@ -12,6 +12,11 @@ import { logLeadCreated } from '@/lib/activityLogger';
 import { LAND_TYPE_OPTIONS, LAND_TYPE_LABELS } from '@/pages/crm/landConstants';
 import { displayLocation } from '@/lib/crmDisplay';
 import CrmTitle from '@/pages/crm/components/CrmTitle';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import LocationMultiSelect from '@/components/base/LocationMultiSelect';
+import CrmFilterField from '@/components/base/CrmFilterField';
+import { useCanonicalAreas } from '@/lib/locationRegistry';
+import { buildCrmFilterString, tokenizeKeywords, parseCrmQuery } from '@/lib/crmSearch';
 import BulkActionBar, { BulkActionButton } from '@/pages/crm/components/BulkActionBar';
 import BulkEditModal, { type BulkEditOption } from '@/pages/crm/components/BulkEditModal';
 import BulkShareModal from '@/pages/crm/components/BulkShareModal';
@@ -119,7 +124,7 @@ function formatDate(d: string) {
 export default function LandListings() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { agentId } = useAgentProfile();
+  const { agentId, loading: agentLoading } = useAgentProfile();
   const isAgent = user?.role === 'agent';
   const portalBase = usePortalBase();
   const [rows, setRows] = useState<LandRow[]>([]);
@@ -128,6 +133,13 @@ export default function LandListings() {
   const [typeFilter, setTypeFilter] = useState('');
   const [countyFilter, setCountyFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('date');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const { areas: canonicalAreas } = useCanonicalAreas();
+  const areaOptions = canonicalAreas.map((a) => a.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -147,12 +159,22 @@ export default function LandListings() {
   const [bulkForwardOpen, setBulkForwardOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
+    // Agents must NEVER see other agents' land. Hold until their agent id is
+    // resolved, and show nothing if no agent record exists rather than
+    // falling back to an unfiltered (all-listings) query.
     setLoading(true);
+    if (isAgent && agentLoading) return;
+    if (isAgent && !agentId) {
+      setRows([]);
+      setTotal(0);
+      setSelectedIds(new Set());
+      setLoading(false);
+      return;
+    }
     let countQuery = supabase.from('land_listings').select('*', { count: 'exact', head: true });
     let dataQuery = supabase
       .from('land_listings')
       .select('id, title, slug, location, state_region, county, land_type, plot_size, plot_size_unit, acreage, tenure, asking_price, currency, sub_type, status, is_published, is_pending, is_featured, main_image, images, description, owner_name, owner_phone, owner_email, seller_type, created_at')
-      .order('created_at', { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
     // Agents only ever see their own land listings — scoped at the query level.
@@ -176,15 +198,45 @@ export default function LandListings() {
       } else if (statusFilter === 'draft') {
         countQuery = countQuery.eq('is_published', false).eq('status', 'draft');
         dataQuery = dataQuery.eq('is_published', false).eq('status', 'draft');
+      } else if (statusFilter === 'featured') {
+        countQuery = countQuery.eq('is_featured', true);
+        dataQuery = dataQuery.eq('is_featured', true);
       } else {
         countQuery = countQuery.eq('status', statusFilter);
         dataQuery = dataQuery.eq('status', statusFilter);
       }
     }
-    if (search.trim()) {
-      const term = search.trim();
-      countQuery = countQuery.or(`title.ilike.%${term}%,location.ilike.%${term}%,state_region.ilike.%${term}%`);
-      dataQuery = dataQuery.or(`title.ilike.%${term}%,location.ilike.%${term}%,state_region.ilike.%${term}%`);
+    if (priceMin) {
+      countQuery = countQuery.gte('asking_price', Number(priceMin));
+      dataQuery = dataQuery.gte('asking_price', Number(priceMin));
+    }
+    if (priceMax) {
+      countQuery = countQuery.lte('asking_price', Number(priceMax));
+      dataQuery = dataQuery.lte('asking_price', Number(priceMax));
+    }
+    // Keyword + multi-location search through the shared CRM engine — several
+    // keywords are AND-ed, the selected locations are OR-ed, then AND-ed with
+    // every other filter (identical semantics to My Properties).
+    const filterString = buildCrmFilterString({
+      terms: tokenizeKeywords(search),
+      fields: ['title', 'location', 'state_region', 'county', 'description', 'owner_name', 'land_type', 'slug'],
+      locations: selectedLocations,
+      locationFields: ['location', 'state_region', 'county'],
+    });
+    if (filterString) {
+      countQuery = countQuery.or(filterString);
+      dataQuery = dataQuery.or(filterString);
+    }
+
+    // Sort
+    if (sortBy === 'price') {
+      dataQuery = dataQuery.order('asking_price', { ascending: false });
+    } else if (sortBy === 'title') {
+      dataQuery = dataQuery.order('title', { ascending: true });
+    } else if (sortBy === 'featured') {
+      dataQuery = dataQuery.order('is_featured', { ascending: false }).order('created_at', { ascending: false });
+    } else {
+      dataQuery = dataQuery.order('created_at', { ascending: false });
     }
 
     const [{ count }, { data, error }] = await Promise.all([countQuery, dataQuery]);
@@ -203,10 +255,10 @@ export default function LandListings() {
       });
     }
     setLoading(false);
-  }, [page, pageSize, typeFilter, statusFilter, search, countyFilter, isAgent, agentId]);
+  }, [page, pageSize, typeFilter, statusFilter, search, countyFilter, priceMin, priceMax, selectedLocations, sortBy, isAgent, agentId, agentLoading]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setPage(1); }, [search, typeFilter, statusFilter, countyFilter]);
+  useEffect(() => { setPage(1); }, [search, typeFilter, statusFilter, countyFilter, priceMin, priceMax, selectedLocations, sortBy]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -410,6 +462,51 @@ export default function LandListings() {
     <span className={`inline-flex px-2.5 py-1 rounded text-[11px] font-bold whitespace-nowrap ${p ? 'bg-[#088135] text-white' : 'bg-[#dc2626] text-white'}`}>{p ? 'Published' : 'Draft'}</span>
   );
 
+  const selectCls = 'w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] cursor-pointer';
+  const inputCls = 'w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]';
+
+  const activeFilterCount = [
+    Boolean(typeFilter),
+    Boolean(countyFilter),
+    statusFilter !== 'all',
+    priceMin !== '',
+    priceMax !== '',
+    selectedLocations.length > 0,
+    sortBy !== 'date',
+  ].filter(Boolean).length;
+
+  // Run the search on the Search button / Enter. Recognised areas and prices
+  // are lifted into the visible filters so they can be reviewed & adjusted,
+  // while the remaining words stay as the keyword query.
+  const handleSearch = () => {
+    const parsed = parseCrmQuery(search);
+    if (parsed.locations.length > 0) {
+      setSelectedLocations((prev) => {
+        const merged = [...prev];
+        for (const loc of parsed.locations) {
+          if (!merged.some((m) => m.toLowerCase() === loc.toLowerCase())) merged.push(loc);
+        }
+        return merged;
+      });
+    }
+    if (parsed.priceMin) setPriceMin(String(parsed.priceMin));
+    if (parsed.priceMax) setPriceMax(String(parsed.priceMax));
+    setSearch(parsed.terms.join(' '));
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setTypeFilter('');
+    setCountyFilter('');
+    setStatusFilter('all');
+    setPriceMin('');
+    setPriceMax('');
+    setSelectedLocations([]);
+    setSortBy('date');
+    setSearch('');
+    setPage(1);
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -435,37 +532,128 @@ export default function LandListings() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 flex flex-col lg:flex-row gap-3 items-start lg:items-center">
-        <div className="relative flex-1 max-w-md w-full">
-          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6b7280] lg:text-[#88929e]" />
-          <input
-            type="text"
-            placeholder="Search title, location or district..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+      {/* Search & Filters — mirrors My Properties (full-width search + Filters panel) */}
+      <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 space-y-3">
+        {/* Row 1 — full-width keyword search field + Search button */}
+        <CrmSearchBar
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          onSubmit={handleSearch}
+          loading={loading}
+          showClear={false}
+          placeholder="Search title, location, county or owner… (e.g. residential land in Karen and Runda)"
+          className="w-full"
+          iconClassName="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-base text-[#5b6b7a]"
+          inputClassName="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-white border-[#94a3b8] text-[#001731] placeholder:text-[#5b6b7a] placeholder:font-medium focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/25"
+          buttonClassName="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap cursor-pointer transition-colors bg-[#0d5959] text-white hover:bg-[#084545] disabled:opacity-60 disabled:cursor-not-allowed"
+        />
+
+        {/* Row 2 — multi-location · filters */}
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <LocationMultiSelect
+            options={areaOptions}
+            selected={selectedLocations}
+            onChange={(v) => { setSelectedLocations(v); setPage(1); }}
+            placeholder="Multiple areas, e.g. Karen, Runda…"
+            className="w-full lg:flex-1 lg:min-w-0"
+            chipClassName="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold bg-[#0d5959]/15 text-[#5eead4] lg:bg-secondary-100 lg:text-secondary-900"
+            controlClassName="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border-2 rounded-lg min-h-[44px] bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8]"
+            inputClassName="flex-1 min-w-[130px] px-2 py-1 text-sm font-semibold focus:outline-none bg-transparent text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]"
+            dropdownClassName="absolute z-40 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded-lg border border-[#1c3a5e] lg:border-[#e5e7eb] bg-white shadow-lg"
           />
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="inline-flex items-center justify-center gap-1.5 w-full lg:w-auto lg:flex-shrink-0 px-4 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors whitespace-nowrap bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]"
+          >
+            <i className="ri-equalizer-line text-sm" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">{activeFilterCount}</span>
+            )}
+            <i className={`${showAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'} text-sm`} />
+          </button>
         </div>
-        <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer">
-            {FILTER_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <select value={countyFilter} onChange={(e) => setCountyFilter(e.target.value)} className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer">
-            <option value="">All Counties</option>
-            {KENYAN_COUNTIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer">
-            <option value="all">All Statuses</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-            <option value="pending">Pending</option>
-            <option value="under_review">Under Review</option>
-            <option value="approved">Approved</option>
-            <option value="archived">Archived</option>
-          </select>
+
+        {showAdvanced && (
+          <div className="pt-3 border-t-2 border-[#1c3a5e] lg:border-[#cbd5e1]">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-white lg:text-[#001731]">
+                Refine Results
+                {activeFilterCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">{activeFilterCount}</span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(false)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-2 whitespace-nowrap border-[#1c3a5e] text-white hover:bg-white/10 lg:border-[#cbd5e1] lg:text-[#001731] lg:hover:bg-[#f7f8fa]"
+              >
+                <i className="ri-close-line text-sm" />
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <CrmFilterField label="Land Type" tone="contrast">
+                <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }} className={selectCls}>
+                  {FILTER_TYPES.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </CrmFilterField>
+              <CrmFilterField label="County" tone="contrast">
+                <select value={countyFilter} onChange={(e) => { setCountyFilter(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="">All Counties</option>
+                  {KENYAN_COUNTIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </CrmFilterField>
+              <CrmFilterField label="Status" tone="contrast">
+                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="all">All Statuses</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="pending">Pending</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="approved">Approved</option>
+                  <option value="featured">Featured</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </CrmFilterField>
+              <CrmFilterField label="Price Range" tone="contrast">
+                <div className="flex items-center gap-2">
+                  <input type="number" placeholder="Min" value={priceMin} onChange={(e) => { setPriceMin(e.target.value); setPage(1); }} className={inputCls} />
+                  <span className="text-xs text-white/70 lg:text-[#88929e]">—</span>
+                  <input type="number" placeholder="Max" value={priceMax} onChange={(e) => { setPriceMax(e.target.value); setPage(1); }} className={inputCls} />
+                </div>
+              </CrmFilterField>
+              <CrmFilterField label="Sort" tone="contrast">
+                <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="date">Sort by Date</option>
+                  <option value="price">Sort by Price</option>
+                  <option value="title">Sort by Title</option>
+                  <option value="featured">Sort by Featured</option>
+                </select>
+              </CrmFilterField>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold cursor-pointer hover:underline text-white/80 lg:text-[#88929e]"
+              >
+                <i className="ri-close-circle-line" />
+                Clear all filters
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-white lg:text-[#88929e]">
+          <span>{total} {total === 1 ? 'land listing' : 'land listings'}</span>
+          {selectedLocations.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <i className="ri-map-pin-2-line" />
+              in {selectedLocations.join(', ')}
+            </span>
+          )}
+          <span className="ml-auto whitespace-nowrap">Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
         </div>
-        <span className="text-xs font-medium text-[#6b7280] lg:text-[#88929e] ml-auto">{total} land listings</span>
       </div>
 
       {/* Selection controls */}

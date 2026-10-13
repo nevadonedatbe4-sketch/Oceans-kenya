@@ -19,7 +19,11 @@
  *
  * AGE RULES
  * ---------
- * A newly published listing shows "Listed recently" - never "0 days ago".
+ * The age is shown with the finest sensible unit: "N minutes ago",
+ * "N hours ago", "today", "yesterday", "N days ago", "1 week ago",
+ * "N weeks ago", "N months ago", "N years ago".
+ * A listing with no measurable age yet (under a minute) returns an EMPTY
+ * string - we NEVER render a vague "recently"/"just now" placeholder.
  * An age of 0 months / 0 weeks / 0 years can NEVER be produced. A missing or
  * invalid publication date returns an EMPTY string so callers omit the age
  * entirely rather than invent a placeholder.
@@ -59,24 +63,19 @@ export function hasValidPrice(value: unknown): boolean {
   return n !== null && n > 0;
 }
 
-export type ListingAgeUnit = 'day' | 'week' | 'month' | 'year';
+export type ListingAgeUnit = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
 
 export interface ListingAge {
-  /** Whole units. `0` means "newly listed" (rendered as "recently"). */
+  /** Whole units. */
   value: number;
   unit: ListingAgeUnit;
 }
 
 /**
- * Resolve a publication date into a human age broken into a value + unit.
- *
- * Returns null for a missing / unparseable / future date so the caller can omit
- * the metadata entirely. A value of 0 (same day) is valid and means "recently".
- *
- * The month branch is only used once a FULL month has elapsed, so 28-29 day old
- * listings fall through to "4 weeks ago" instead of the old "0 months ago" bug.
+ * Break the raw elapsed time into whole minutes / hours / days.
+ * Returns null for a missing / unparseable / future date so callers omit it.
  */
-export function listingAge(dateInput: unknown): ListingAge | null {
+function elapsedParts(dateInput: unknown): { mins: number; hours: number; days: number } | null {
   if (dateInput === null || dateInput === undefined || dateInput === '') return null;
   const date = dateInput instanceof Date ? dateInput : new Date(String(dateInput));
   if (Number.isNaN(date.getTime())) return null;
@@ -84,8 +83,30 @@ export function listingAge(dateInput: unknown): ListingAge | null {
   const diffMs = Date.now() - date.getTime();
   if (diffMs < 0) return null; // future / invalid date - never fabricate
 
-  const days = Math.floor(diffMs / 86_400_000);
-  if (days < 1) return { value: 0, unit: 'day' };
+  return {
+    mins: Math.floor(diffMs / 60_000),
+    hours: Math.floor(diffMs / 3_600_000),
+    days: Math.floor(diffMs / 86_400_000),
+  };
+}
+
+/**
+ * Resolve a publication date into a human age broken into a value + unit.
+ *
+ * Returns null for a missing / unparseable / future date so the caller can omit
+ * the metadata entirely. A value of 0 in the minute branch means the listing is
+ * under a minute old (callers render nothing for it).
+ *
+ * The month branch is only used once a FULL month has elapsed, so 28-29 day old
+ * listings fall through to "4 weeks ago" instead of the old "0 months ago" bug.
+ */
+export function listingAge(dateInput: unknown): ListingAge | null {
+  const parts = elapsedParts(dateInput);
+  if (!parts) return null;
+  const { mins, hours, days } = parts;
+
+  if (mins < 60) return { value: mins, unit: 'minute' };
+  if (hours < 24) return { value: hours, unit: 'hour' };
   if (days < 7) return { value: days, unit: 'day' };
 
   const weeks = Math.floor(days / 7);
@@ -103,15 +124,43 @@ export function listingAge(dateInput: unknown): ListingAge | null {
 }
 
 /**
- * The bare age phrase, e.g. "recently", "3 days ago", "1 month ago".
- * Returns '' when the date is missing / invalid so callers can omit it.
+ * The bare age phrase, e.g. "2 hours ago", "today", "yesterday", "3 days ago",
+ * "1 week ago", "6 months ago".
+ * Returns '' when the date is missing / invalid (or under a minute old) so
+ * callers can omit the line entirely.
  */
 export function formatListingAgeAgo(dateInput: unknown): string {
-  const age = listingAge(dateInput);
-  if (!age) return '';
-  if (age.unit === 'day' && age.value === 0) return 'recently';
-  const unit = age.value === 1 ? age.unit : `${age.unit}s`;
-  return `${age.value} ${unit} ago`;
+  const parts = elapsedParts(dateInput);
+  if (!parts) return '';
+  const { mins, hours, days } = parts;
+
+  // No measurable age yet -> omit the line entirely. We never show a vague
+  // "recently"/"just now" placeholder; the time is only specified when there
+  // is an actual elapsed time to report.
+  if (mins < 1) return '';
+  // Under an hour -> minutes.
+  if (mins < 60) return `${mins} ${mins === 1 ? 'minute' : 'minutes'} ago`;
+  // Under half a day -> hours.
+  if (hours < 12) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  // Same day, later hours -> today.
+  if (hours < 24) return 'today';
+  // A full day (up to ~2 days) -> yesterday.
+  if (days < 2) return 'yesterday';
+  // Under a week -> days.
+  if (days < 7) return `${days} days ago`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 2) return '1 week ago';
+  if (weeks < 4) return `${weeks} weeks ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 1) return `${weeks} weeks ago`;
+  if (months < 12) return `${months} ${months === 1 ? 'month' : 'months'} ago`;
+
+  const years = Math.floor(days / 365);
+  if (years >= 1) return `${years} ${years === 1 ? 'year' : 'years'} ago`;
+
+  return `${months} ${months === 1 ? 'month' : 'months'} ago`;
 }
 
 /**

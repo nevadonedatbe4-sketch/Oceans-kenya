@@ -49,7 +49,7 @@ export function CRMToastContainer() {
   if (activeToasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[60] flex flex-col gap-2">
+    <div className="fixed top-4 right-4 z-[90] flex flex-col gap-2">
       {activeToasts.map((toast) => (
         <div
           key={toast.id}

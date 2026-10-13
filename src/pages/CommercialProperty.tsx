@@ -6,6 +6,7 @@ import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageContactSection from '@/components/feature/PageContactSection';
 import QuickViewModal from '@/components/feature/QuickViewModal';
+import ContactAgentModal from '@/components/feature/ContactAgentModal';
 import CompareToolbar from '@/components/feature/CompareToolbar';
 import CompareModal from '@/components/feature/CompareModal';
 import PropertySearchBar from '@/components/feature/PropertySearchBar';
@@ -28,6 +29,7 @@ import { useCommercialPropertyPageContent } from '@/hooks/useCommercialPropertyP
 import CommercialAdvancedFilters, { defaultCommercialFilters, COMMERCIAL_MUST_HAVES, type CommercialFilterState } from '@/pages/CommercialProperty/components/CommercialAdvancedFilters';
 import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
 import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, parsePriceSelection, priceRangeInvalid } from '@/lib/prices';
+import { ADDED_WINDOW_OPTIONS } from '@/lib/recentWindow';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -71,15 +73,15 @@ function fmtPriceKes(kes: number, curr: string, rates: Record<string, number>): 
 }
 
 const bedOptions = BEDROOM_OPTIONS;
-const addedOptions = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days'];
-const sortOptions = ['A - Z', 'Z - A', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular'];
+const sortOptions = ['Recommended', 'Most recent', 'Highest price', 'Lowest price', 'Most reduced', 'Most popular', 'A - Z', 'Z - A'];
 const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 export default function CommercialProperty() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const isBuy = searchParams.get('buy') !== 'false';
   const purpose: 'sale' | 'rent' = isBuy ? 'sale' : 'rent';
+  const urlAdded = searchParams.get('added') || '';
 
   const [searchQuery, setSearchQuery] = useState(() => { try { return localStorage.getItem('comm_search') || ''; } catch { return ''; } });
   const [debouncedSearch, setDebouncedSearch] = useState(() => { try { return localStorage.getItem('comm_search') || ''; } catch { return ''; } });
@@ -97,15 +99,29 @@ export default function CommercialProperty() {
   const [priceMin, setPriceMin] = useState(() => { try { return localStorage.getItem(`comm_price_min_${purpose}`) || 'No min'; } catch { return 'No min'; } });
   const [priceMax, setPriceMax] = useState(() => { try { return localStorage.getItem(`comm_price_max_${purpose}`) || 'No max'; } catch { return 'No max'; } });
   const [selectedBeds, setSelectedBeds] = useState(() => { try { return localStorage.getItem('comm_beds') || 'Any beds'; } catch { return 'Any beds'; } });
-  const [selectedType, setSelectedType] = useState(() => { try { return localStorage.getItem('comm_type') || 'any'; } catch { return 'any'; } });
+  const [selectedType, setSelectedType] = useState(() => {
+    // A shared / footer link (?type=office) must win over any stored default.
+    const t = searchParams.get('type') || '';
+    if (t && Object.prototype.hasOwnProperty.call(COMM_TYPE_DB_MAP, t)) return t;
+    try { return localStorage.getItem('comm_type') || 'any'; } catch { return 'any'; }
+  });
   const [minSize, setMinSize] = useState(() => { try { return localStorage.getItem('comm_minsize') || ''; } catch { return ''; } });
   const [maxSize, setMaxSize] = useState(() => { try { return localStorage.getItem('comm_maxsize') || ''; } catch { return ''; } });
-  const [selectedAdded, setSelectedAdded] = useState(() => { try { return localStorage.getItem('comm_added') || 'Anytime'; } catch { return 'Anytime'; } });
+  const [selectedAdded, setSelectedAdded] = useState(() => {
+    // Prefer an explicit shareable URL value, then the saved choice. A stale
+    // saved value (e.g. a removed 'Last 48 hours' option) is ignored.
+    if (ADDED_WINDOW_OPTIONS.includes(urlAdded)) return urlAdded;
+    try {
+      const saved = localStorage.getItem('comm_added') || '';
+      if (ADDED_WINDOW_OPTIONS.includes(saved)) return saved;
+    } catch { /* ignore */ }
+    return 'Anytime';
+  });
   const [sortBy, setSortBy] = useState(() => {
     try {
-      const saved = localStorage.getItem('comm_sort');
-      return saved && saved !== 'Most recent' ? saved : 'A - Z';
-    } catch { return 'A - Z'; }
+      const saved = localStorage.getItem('comm_sort_v2');
+      return saved && saved !== 'Recommended' ? saved : 'Recommended';
+    } catch { return 'Recommended'; }
   });
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [currentPage, setCurrentPage] = useState(1);
@@ -126,6 +142,7 @@ export default function CommercialProperty() {
   const [savedSearch, setSavedSearch] = useState(false);
   const [searchBookmarked, setSearchBookmarked] = useState(false);
   const [quickViewProperty, setQuickViewProperty] = useState<MappedListing | null>(null);
+  const [contactModalProperty, setContactModalProperty] = useState<MappedListing | null>(null);
   const [recentlyViewed, setRecentlyViewed] = useState<MappedListing[]>([]);
   const compare = useCompareToolbar();
   const [showCompareModal, setShowCompareModal] = useState(false);
@@ -158,8 +175,32 @@ export default function CommercialProperty() {
     try { localStorage.setItem('comm_minsize', minSize); } catch { /* ignore */ }
     try { localStorage.setItem('comm_maxsize', maxSize); } catch { /* ignore */ }
     try { localStorage.setItem('comm_added', selectedAdded); } catch { /* ignore */ }
-    try { localStorage.setItem('comm_sort', sortBy); } catch { /* ignore */ }
+    try { localStorage.setItem('comm_sort_v2', sortBy); } catch { /* ignore */ }
   }, [searchQuery, selectedRadius, priceMin, priceMax, selectedBeds, selectedType, minSize, maxSize, selectedAdded, sortBy, purpose]);
+
+  // A footer or shared link can change the commercial type while we are ALREADY
+  // on /commercial-property (React Router keeps this component mounted). Re-apply
+  // the URL type so an explicit category link always wins over stale state.
+  useEffect(() => {
+    const t = searchParams.get('type') || '';
+    if (t && Object.prototype.hasOwnProperty.call(COMM_TYPE_DB_MAP, t) && t !== selectedType) {
+      setSelectedType(t);
+    }
+    const a = searchParams.get('added') || '';
+    if (ADDED_WINDOW_OPTIONS.includes(a) && a !== selectedAdded) setSelectedAdded(a);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Sync the rent/buy mode, type and "Added to site" window to the URL so a
+  // filtered commercial search survives refresh, back/forward and sharing.
+  useEffect(() => {
+    const nextParams = new URLSearchParams();
+    if (!isBuy) nextParams.set('buy', 'false');
+    if (selectedType && selectedType !== 'any') nextParams.set('type', selectedType);
+    if (selectedAdded !== 'Anytime') nextParams.set('added', selectedAdded);
+    setSearchParams(nextParams.toString(), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBuy, selectedType, selectedAdded]);
 
   const mustHaveGroups = useMemo(
     () => advancedFilters.mustHaves
@@ -493,11 +534,10 @@ export default function CommercialProperty() {
             searchQuery={searchQuery}
             onLocationChange={(val) => triggerSearch(val)}
             placeholderCycle={[
-              "Looking for prime office space...",
-              "Looking for retail space to lease...",
-              "Looking for warehouse & industrial units...",
-              "Looking for land & development sites...",
-              "Looking for a serviced office space...",
+              "Search an area, e.g. Westlands or Industrial Area",
+              "Search a landmark, e.g. The Hub Karen",
+              "Search a street, e.g. Riverside Drive",
+              "Search by keyword, e.g. office space to let",
             ]}
             radiusValue={selectedRadius}
             onRadiusChange={setSelectedRadius}
@@ -576,7 +616,7 @@ export default function CommercialProperty() {
               <span className="w-4 h-4 flex items-center justify-center text-gray-400"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </button>
             <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-primary/12 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-              {addedOptions.map((o) => (
+              {ADDED_WINDOW_OPTIONS.map((o) => (
                 <button
                   key={o}
                   onClick={() => setSelectedAdded(o)}
@@ -712,6 +752,7 @@ export default function CommercialProperty() {
                   <RecentActivitySuggestion
                     location={debouncedSearch || undefined}
                     addedWindow={selectedAdded}
+                    scope={{ purpose, propertyCategory: 'commercial' }}
                     onView={(targetWindow) => {
                       setPriceMin('No min');
                       setPriceMax('No max');
@@ -720,6 +761,9 @@ export default function CommercialProperty() {
                       setMinSize('');
                       setMaxSize('');
                       setAdvancedFilters({ ...defaultCommercialFilters });
+                      // Clear the keyword search so the window shows every commercial
+                      // listing rather than another zero-result state.
+                      triggerSearch('');
                       setSelectedAdded(targetWindow);
                       setCurrentPage(1);
                     }}
@@ -880,9 +924,8 @@ export default function CommercialProperty() {
                         )}
                         <CardContactActions
                           phone={p.agentPhone}
-                          email={p.agentEmail}
+                          onMessage={() => setContactModalProperty(p)}
                           messageLabel="Message"
-                          emailSubject={`Enquiry about ${p.title}`}
                           className="shrink-0"
                         />
                       </div>
@@ -1053,6 +1096,18 @@ export default function CommercialProperty() {
       <PageContactSection />
       <Footer />
       <BackToTop />
+      {contactModalProperty && (
+        <ContactAgentModal
+          isOpen={true}
+          onClose={() => setContactModalProperty(null)}
+          propertyTitle={contactModalProperty.title}
+          propertyId={contactModalProperty.id}
+          propertySlug={contactModalProperty.slug}
+          propertyPrice={format(contactModalProperty.rawPrice, contactModalProperty.currency as 'KES' | 'USD' | 'GBP' | 'EUR')}
+          propertyLocation={contactModalProperty.location}
+          listingId={contactModalProperty.id}
+        />
+      )}
       <QuickViewModal
         isOpen={quickViewProperty !== null}
         onClose={() => setQuickViewProperty(null)}

@@ -29,6 +29,8 @@ export interface PortalFeedItem {
   subtitle?: string;
   meta?: string;
   href: string;
+  /** True while this notification is still unread — drives the dot + bold row. */
+  unread?: boolean;
 }
 
 interface PortalHeaderPillsProps {
@@ -47,6 +49,8 @@ interface PortalHeaderPillsProps {
   onOpen?: () => void;
   /** Fired when an individual feed item is clicked — mark that one read. */
   onItemClick?: (id: string) => void;
+  /** Fired by the per-row "Mark as read" control — marks that one read without navigating. */
+  onItemRead?: (id: string) => void;
   /** When set, an inline error row with a retry action is shown in the panel. */
   errorText?: string | null;
   onRetry?: () => void;
@@ -65,6 +69,7 @@ export default function PortalHeaderPills({
   size = 'md',
   onOpen,
   onItemClick,
+  onItemRead,
   errorText,
   onRetry,
 }: PortalHeaderPillsProps) {
@@ -152,11 +157,11 @@ export default function PortalHeaderPills({
       <div className="relative" ref={ref}>
         <button
           type="button"
-          onClick={() => setOpen((v) => {
-            const next = !v;
+          onClick={() => {
+            const next = !open;
+            setOpen(next);
             if (next) onOpen?.();
-            return next;
-          })}
+          }}
           aria-expanded={open}
           aria-haspopup="menu"
           aria-label="Notifications"
@@ -217,30 +222,48 @@ export default function PortalHeaderPills({
                 <div className="px-4 py-8 text-center text-xs text-white/50 font-roboto">{emptyText}</div>
               ) : (
                 feed.map((entry) => (
-                  <Link
+                  <div
                     key={entry.id}
-                    to={entry.href}
-                    onClick={() => { onItemClick?.(entry.id); setOpen(false); }}
-                    className="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-all cursor-pointer"
+                    className={`flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-all ${entry.unread ? '' : 'opacity-70'}`}
                   >
-                    <span className="mt-0.5 w-7 h-7 rounded-full bg-[#5eead4]/10 text-[#5eead4] flex items-center justify-center flex-shrink-0">
-                      <i className={`${entry.icon} text-xs`} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-roboto font-medium text-white truncate">
-                        {entry.title}
-                        {entry.titleMuted ? <span className="text-white/60"> {entry.titleMuted}</span> : null}
+                    <Link
+                      to={entry.href}
+                      onClick={() => { onItemClick?.(entry.id); setOpen(false); }}
+                      className="flex items-start gap-3 min-w-0 flex-1 cursor-pointer"
+                    >
+                      <span className="relative mt-0.5 w-7 h-7 rounded-full bg-[#5eead4]/10 text-[#5eead4] flex items-center justify-center flex-shrink-0">
+                        <i className={`${entry.icon} text-xs`} />
+                        {entry.unread ? (
+                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-[#e11d48] ring-2 ring-[#012144]" aria-hidden="true" />
+                        ) : null}
                       </span>
-                      {entry.subtitle ? (
-                        <span className="block text-[11px] text-white/45 font-roboto truncate">{entry.subtitle}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className={`block text-xs font-roboto truncate ${entry.unread ? 'font-semibold text-white' : 'font-medium text-white/70'}`}>
+                          {entry.title}
+                          {entry.titleMuted ? <span className="text-white/60"> {entry.titleMuted}</span> : null}
+                        </span>
+                        {entry.subtitle ? (
+                          <span className="block text-[11px] text-white/45 font-roboto truncate">{entry.subtitle}</span>
+                        ) : null}
+                      </span>
+                      {entry.meta ? (
+                        <span className="text-[10px] text-white/40 font-roboto whitespace-nowrap flex-shrink-0 mt-1">
+                          {entry.meta}
+                        </span>
                       ) : null}
-                    </span>
-                    {entry.meta ? (
-                      <span className="text-[10px] text-white/40 font-roboto whitespace-nowrap flex-shrink-0 mt-1">
-                        {entry.meta}
-                      </span>
+                    </Link>
+                    {entry.unread && onItemRead ? (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onItemRead(entry.id); }}
+                        title="Mark as read"
+                        aria-label={`Mark "${entry.title}" as read`}
+                        className="mt-0.5 w-6 h-6 flex items-center justify-center rounded-md text-white/45 hover:text-white hover:bg-white/10 transition-colors cursor-pointer flex-shrink-0"
+                      >
+                        <i className="ri-check-line text-sm" />
+                      </button>
                     ) : null}
-                  </Link>
+                  </div>
                 ))
               )}
             </div>

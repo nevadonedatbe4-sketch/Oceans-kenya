@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { ContactRecord } from '@/pages/crm/contacts/contactGroups';
-import { typeInfo } from '@/pages/crm/contacts/contactGroups';
+import { roleOf, typeInfo } from '@/pages/crm/contacts/contactGroups';
 
 export interface FilterRow {
   id: string;
@@ -43,7 +43,7 @@ function fieldValue(contact: ContactRecord, field: string): string {
     case 'source':
       return contact.source || '';
     case 'type':
-      return contact.type || '';
+      return roleOf(contact);
     default:
       return '';
   }
@@ -119,7 +119,7 @@ export function statusInfo(contact: ContactRecord): StatusInfo {
       color: STATUS_STYLES[key] || '#6b7280',
     };
   }
-  const info = typeInfo(contact.type);
+  const info = typeInfo(roleOf(contact));
   return { label: info.label, color: info.color };
 }
 
@@ -147,7 +147,7 @@ const CSV_COLUMNS: { key: string; label: string; get: (c: ContactRecord) => stri
   { key: 'email', label: 'Email', get: (c) => c.email || '' },
   { key: 'phone', label: 'Phone', get: (c) => c.phone || '' },
   { key: 'company', label: 'Company', get: (c) => c.company || '' },
-  { key: 'type', label: 'Type', get: (c) => (c.type ? typeInfo(c.type).label : '') },
+  { key: 'type', label: 'Type', get: (c) => typeInfo(roleOf(c)).label },
   { key: 'source', label: 'Source', get: (c) => c.source || '' },
   { key: 'created', label: 'Created', get: (c) => (c.created_at ? new Date(c.created_at).toISOString() : '') },
 ];

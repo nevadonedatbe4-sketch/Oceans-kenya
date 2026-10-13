@@ -48,7 +48,10 @@ const AdminPortalLayout = lazy(() => import("../pages/admin/AdminPortalLayout"))
 // ── Shared CRM content (admin portal) ─────────────────────────
 const Dashboard = lazy(() => import("../pages/crm/Dashboard"));
 const Listings = lazy(() => import("../pages/crm/Listings"));
+const MarketSanityScan = lazy(() => import("../pages/crm/MarketSanityScan"));
 const Leads = lazy(() => import("../pages/crm/Leads"));
+const ClientRequests = lazy(() => import("../pages/crm/client-requests/ClientRequests"));
+const ClientRequestDetail = lazy(() => import("../pages/crm/client-requests/ClientRequestDetail"));
 const Deals = lazy(() => import("../pages/crm/Deals"));
 const Contacts = lazy(() => import("../pages/crm/Contacts"));
 const Inbox = lazy(() => import("../pages/crm/Inbox"));
@@ -59,6 +62,7 @@ const Developments = lazy(() => import("../pages/crm/Developments"));
 const DevelopmentEdit = lazy(() => import("../pages/crm/DevelopmentEdit"));
 const CRMNeighbourhoods = lazy(() => import("../pages/crm/Neighbourhoods"));
 const NeighbourhoodEdit = lazy(() => import("../pages/crm/NeighbourhoodEdit"));
+const NeighbourhoodGeoMapping = lazy(() => import("../pages/crm/neighbourhood-geo/page"));
 const CRMAmenities = lazy(() => import("../pages/crm/Amenities"));
 const AmenityEdit = lazy(() => import("../pages/crm/AmenityEdit"));
 const AmenityCategoryEdit = lazy(() => import("../pages/crm/AmenityCategoryEdit"));
@@ -180,6 +184,7 @@ const adminChildren: RouteObject[] = [
   { path: "dashboard", element: <Dashboard /> },
   { path: "agent-dashboards", element: <AgentDashboards /> },
   { path: "listings", element: <Listings /> },
+  { path: "listings/sanity-scan", element: <MarketSanityScan /> },
   { path: "listings/new", element: <ListingEdit /> },
   { path: "listings/edit/:id", element: <ListingEdit /> },
   { path: "developments", element: <Developments /> },
@@ -191,6 +196,8 @@ const adminChildren: RouteObject[] = [
   { path: "agents/:agentId/preview", element: <AgentDashboardPreview /> },
   { path: "agent-database", element: <AgentDatabasePage /> },
   { path: "leads", element: <Leads /> },
+  { path: "client-requests", element: <ClientRequests /> },
+  { path: "client-requests/:id", element: <ClientRequestDetail /> },
   { path: "pipeline", element: <PipelineView /> },
   { path: "deals", element: <Deals /> },
   { path: "contacts", element: <Contacts /> },
@@ -200,6 +207,7 @@ const adminChildren: RouteObject[] = [
   { path: "neighbourhoods", element: <CRMNeighbourhoods /> },
   { path: "neighbourhoods/new", element: <NeighbourhoodEdit /> },
   { path: "neighbourhoods/edit/:id", element: <NeighbourhoodEdit /> },
+  { path: "neighbourhoods/geo-mapping", element: <NeighbourhoodGeoMapping /> },
   { path: "amenities", element: <CRMAmenities /> },
   { path: "amenities/new", element: <AmenityEdit /> },
   { path: "amenities/edit/:id", element: <AmenityEdit /> },
@@ -321,6 +329,8 @@ const agentChildren: RouteObject[] = [
   { path: "developments/new", element: <DevelopmentEdit /> },
   { path: "developments/edit/:id", element: <DevelopmentEdit /> },
   { path: "leads", element: <Leads /> },
+  { path: "client-requests", element: <ClientRequests /> },
+  { path: "client-requests/:id", element: <ClientRequestDetail /> },
   { path: "enquiries", element: <Inbox /> },
   { path: "messenger", element: <OGroupMessenger /> },
   { path: "check-in", element: <OGroupCheckIn /> },

@@ -29,11 +29,13 @@ export const FOOTER_SEO_INTRO =
 export const FOOTER_SEARCH_LINKS: FooterLink[] = [
   { label: 'Properties for Sale', href: '/buy' },
   { label: 'Properties for Rent', href: '/rent' },
-  { label: 'Properties to Buy', href: '/all-properties' },
+  { label: 'All Properties', href: '/all-properties' },
   { label: 'Joint Venture Opportunities', href: '/joint-ventures' },
   { label: 'New Developments', href: '/new-developments' },
-  { label: 'Featured Properties', href: '/buy' },
-  { label: 'Recently Added Properties', href: '/all-properties' },
+  // Genuine criteria - a real `is_featured` filter and a real newest-first sort,
+  // applied by the shared listing engine (never a generic browse fallback).
+  { label: 'Featured Properties', href: '/buy?featured=true' },
+  { label: 'Recently Added Properties', href: '/buy?sort=newest' },
 ];
 
 /**
@@ -42,22 +44,27 @@ export const FOOTER_SEARCH_LINKS: FooterLink[] = [
  */
 export const PROPERTY_TYPE_LINKS: PropertyTypeLink[] = [
   { label: 'Houses', href: '/houses-for-sale/nairobi', match: ['house', 'detached', 'semi-detached', 'terraced'] },
-  { label: 'Villas', href: '/buy?type=Villa', match: ['villa'] },
+  // Types without a dedicated SEO landing point at the purpose-agnostic
+  // directory (/all-properties?type=…) so the link returns BOTH properties for
+  // sale AND to rent, never a dead-end sale-only filter.
+  { label: 'Villas', href: '/all-properties?type=Villa', match: ['villa'] },
   { label: 'Apartments', href: '/apartments-for-sale/nairobi', match: ['apartment', 'flat', 'condo', 'condominium_apartment', 'apartment_block'] },
   { label: 'Townhouses', href: '/townhouses-for-sale/nairobi', match: ['townhouse'] },
-  { label: 'Penthouses', href: '/penthouses-for-sale/westlands', match: ['penthouse'] },
-  { label: 'Bungalows', href: '/buy?type=Bungalow', match: ['bungalow'] },
-  { label: 'Maisonettes', href: '/buy?type=Maisonette', match: ['maisonette'] },
-  { label: 'Studios', href: '/buy?type=Studio', match: ['studio'] },
+  { label: 'Penthouses', href: '/all-properties?type=Penthouse', match: ['penthouse'] },
+  { label: 'Bungalows', href: '/all-properties?type=Bungalow', match: ['bungalow'] },
+  { label: 'Maisonettes', href: '/all-properties?type=Maisonette', match: ['maisonette'] },
+  { label: 'Studios', href: '/all-properties?type=Studio', match: ['studio'] },
   { label: 'Land', href: '/land-for-sale/nairobi', match: ['land', 'farms_/_land', 'farms_land'] },
 ];
 
-/** Always-available commercial / development links (real routes). */
+/** Always-available commercial / development links (real routes).*/
 export const COMMERCIAL_TYPE_LINKS: FooterLink[] = [
   { label: 'Mansions & Luxury Homes', href: '/luxury-homes-nairobi' },
   { label: 'Commercial Properties', href: '/commercial-property-for-sale/nairobi' },
-  { label: 'Office Spaces', href: '/commercial-property-to-rent/nairobi' },
-  { label: 'Warehouses', href: '/commercial-property-to-rent/nairobi' },
+  // Each commercial category is a genuine property_type filter - offices show
+  // offices only, warehouses show warehouses only (never the full commercial set).
+  { label: 'Office Spaces', href: '/commercial-property?type=office' },
+  { label: 'Warehouses', href: '/commercial-property?type=warehouse' },
   { label: 'Development Opportunities', href: '/new-developments' },
 ];
 
@@ -71,22 +78,22 @@ export const DEFAULT_TYPE_LINKS: FooterLink[] = [
 export const FOOTER_COMPANY_LINKS: FooterLink[] = [
   { label: 'About Us', href: '/about' },
   { label: 'Contact Us', href: '/contact' },
-  { label: 'Our Agents', href: '/about' },
-  { label: 'Our Agencies', href: '/directory' },
+  { label: 'Our Agents', href: '/directory' },
   { label: 'Careers', href: '/contact' },
   { label: 'Partner With Us', href: '/joint-ventures' },
-  { label: 'Joint Venture Opportunities', href: '/joint-ventures' },
   { label: 'Advertise With Us', href: '/c/commercial-advertising' },
 ];
 
 /** Column 6 - Resources. */
 export const FOOTER_RESOURCE_LINKS: FooterLink[] = [
-  { label: 'Property Buying Guide', href: '/buy' },
+  // Every entry points at a REAL, published blog article (or, where no article
+  // exists yet, the most relevant live page) - never a search or filter page.
+  { label: 'Property Buying Guide', href: '/blog/buying-property-in-kenya-guide-2026' },
   { label: 'Property Selling Guide', href: '/landlords' },
-  { label: 'Property Investment Guide', href: '/investment-property-nairobi' },
-  { label: 'Area & Neighbourhood Guides', href: '/neighbourhoods' },
-  { label: 'Property Market Insights', href: '/property-prices/karen' },
-  { label: 'Living in Nairobi', href: '/living-in-nairobi' },
+  { label: 'Property Investment Guide', href: '/blog/nairobi-real-estate-market-investor-guide-2026' },
+  { label: 'Area & Neighbourhood Guides', href: '/blog/kileleshwa-area-guide-2026' },
+  { label: 'Property Market Insights', href: '/blog/best-places-to-invest-in-nairobi-2026' },
+  { label: 'Living in Nairobi', href: '/blog/moving-to-nairobi-complete-guide-2026' },
   { label: 'Blog & Insights', href: '/neighbourhoods#blog' },
   { label: 'Contact Support', href: '/contact' },
 ];

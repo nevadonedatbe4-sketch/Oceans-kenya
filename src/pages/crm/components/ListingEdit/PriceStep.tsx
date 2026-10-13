@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { AVAILABILITY_STATUS } from './types';
+import { checkKesPriceSanity } from '@/lib/priceSanity';
 
 const FREQUENCIES = [
   { value: 'once_off', label: 'Once Off (no suffix)' },
@@ -156,6 +157,10 @@ export default function PriceStep({
     }
   }, []);
 
+  // Flag a KES price that is far below the market floor — almost always a
+  // price that was really entered in USD but left labelled as KES.
+  const priceSanity = checkKesPriceSanity(currency, price, purpose, frequency);
+
   return (
     <div className="w-full space-y-5">
 
@@ -226,6 +231,29 @@ export default function PriceStep({
             />
           </div>
         </div>
+
+        {/* Mixed-currency sanity warning */}
+        {!pricePlaceholder && priceSanity.warning && (
+          <div className="mt-6 flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3.5">
+            <div className="w-9 h-9 flex items-center justify-center shrink-0 rounded-full bg-amber-100">
+              <i className="ri-alert-line text-amber-700 text-lg" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-semibold text-amber-900">Possible currency mix-up</p>
+              <p className="text-[13px] text-amber-800 mt-1 leading-relaxed">{priceSanity.warning}</p>
+              {priceSanity.suggestedCurrency && (
+                <button
+                  type="button"
+                  onClick={() => setCurrency(priceSanity.suggestedCurrency as string)}
+                  className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-amber-600 text-white text-[13px] font-semibold hover:bg-amber-700 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <i className="ri-exchange-dollar-line" />
+                  Change currency to {priceSanity.suggestedCurrency}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Frequency + Prefix */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-6 border-t border-[#f0f3f5]">

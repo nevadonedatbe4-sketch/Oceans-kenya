@@ -25,6 +25,8 @@ interface ContactsTableProps {
   onAddTags: () => void;
   onRemoveTags: () => void;
   onBulkDelete: () => void;
+  /** Active keyword tokens — matched text is highlighted. */
+  terms?: string[];
 }
 
 const COLUMNS: { key: SortKey; label: string }[] = [
@@ -63,6 +65,7 @@ export default function ContactsTable({
   onAddTags,
   onRemoveTags,
   onBulkDelete,
+  terms = [],
 }: ContactsTableProps) {
   const shown = rows.slice(0, visibleCount);
   const remaining = rows.length - shown.length;
@@ -168,6 +171,7 @@ export default function ContactsTable({
                 onDelete={onDelete}
                 onMoveToGroup={onMoveToGroup}
                 onToggleStar={onToggleStar}
+                terms={terms}
               />
             ))}
           </tbody>

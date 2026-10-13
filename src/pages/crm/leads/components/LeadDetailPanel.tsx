@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase';
 import type { Lead, Agent, ConversationMessage, ActivityLog } from '../types';
 import { clientTypeOptions, clientTypeLabels, clientTypeColors, statusOptions, statusLabels, statusColors } from '../types';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import ContactActions from '@/components/feature/ContactActions';
+import SmartRespond from '@/components/feature/SmartRespond';
 import { displayPersonName } from '@/lib/crmDisplay';
 
 interface LeadDetailPanelProps {
@@ -391,7 +393,10 @@ export default function LeadDetailPanel({ lead, agents, onClose, onUpdateLead, u
                     </div>
                     <div className="bg-[#f7f8fa] rounded-lg p-3">
                       <p className="text-[10px] font-inter font-semibold text-[#9ca3af] uppercase tracking-wider">Phone</p>
-                      <p className="text-xs font-inter font-medium text-[#001731] mt-1">{lead.phone || '—'}</p>
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <p className="text-xs font-inter font-medium text-[#001731]">{lead.phone || '—'}</p>
+                        {lead.phone && <ContactActions phone={lead.phone} size="sm" variant="full" />}
+                      </div>
                     </div>
                     <div className="bg-[#f7f8fa] rounded-lg p-3">
                       <p className="text-[10px] font-inter font-semibold text-[#9ca3af] uppercase tracking-wider">Lead Source</p>
@@ -550,6 +555,18 @@ export default function LeadDetailPanel({ lead, agents, onClose, onUpdateLead, u
               </div>
 
               {/* Send Message */}
+              <div className="flex items-center justify-between gap-2">
+                <SmartRespond
+                  context={{
+                    clientMessage: lead.message,
+                    clientName: `${lead.first_name || ''} ${lead.last_name || ''}`.trim(),
+                    budget: lead.budget ? String(lead.budget) : '',
+                    agentName: userName,
+                  }}
+                  onInsert={(text) => setMessageText((prev) => (prev.trim() ? `${prev}\n${text}` : text))}
+                />
+                <span className="text-[10px] font-inter text-[#9ca3af]">Suggested replies — edit before sending</span>
+              </div>
               <div className="flex items-end gap-2">
                 <textarea
                   value={messageText}

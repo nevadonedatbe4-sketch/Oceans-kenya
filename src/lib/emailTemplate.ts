@@ -66,6 +66,7 @@ export interface EmailVariable {
 /** Every dynamic token supported by the template engine. */
 export const EMAIL_VARIABLES: EmailVariable[] = [
   { token: 'recipient_name', label: 'Recipient name', description: 'Full name of the person receiving the email' },
+  { token: 'recipient_first_name', label: 'Recipient first name', description: 'First name only — use this for friendly greetings' },
   { token: 'agent_name', label: 'Agent name', description: 'The assigned agent or team member' },
   { token: 'agency_name', label: 'Agency name', description: 'The agency / organisation name' },
   { token: 'company_name', label: 'Company name', description: 'Your company display name' },
@@ -108,6 +109,7 @@ export const CATEGORY_LABEL = (key: string): string =>
 /** Values used to preview / test-render a template without real data. */
 export const SAMPLE_VARS: Record<string, string> = {
   recipient_name: 'Alex Mwangi',
+  recipient_first_name: 'Alex',
   agent_name: 'Grace Otieno',
   lead_name: 'Alex Mwangi',
   property_title: '4 Bed Villa in Kilimani',

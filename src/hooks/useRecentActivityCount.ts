@@ -34,12 +34,37 @@ export interface RecentActivityResult {
  * When `location` is provided the count is scoped to that area (matched across
  * the whole location hierarchy) so the note reflects the visitor's own search.
  */
+export interface RecentActivityScope {
+  /**
+   * Restrict the count to ONE transaction type so it matches the page the
+   * visitor is actually on (Buy = sale, Rent = rent). Without this a rental-only
+   * recent batch was advertised on a sale page - the note then promised listings
+   * the page could never display, and its "View them" button landed on another
+   * empty state.
+   */
+  purpose?: 'sale' | 'rent' | null;
+  /** Restrict to a property category (e.g. 'residential' / 'commercial'). */
+  propertyCategory?: string | null;
+  /** Restrict to a single property type (SEO landing pages). */
+  propertyType?: string | null;
+  /** Restrict to any of several property types (OR-combined). */
+  propertyTypes?: string[] | null;
+  /** Restrict to listings carrying all of these amenities. */
+  amenitiesFilter?: string[] | null;
+  /** Restrict to a sub-type discriminator (SEO landing pages). */
+  subTypeFilter?: string | null;
+}
+
 export function useRecentActivityCount(
   location: string | undefined,
   source: RecentSource,
   windowHours: number | null,
+  scope: RecentActivityScope = {},
   enabled = true,
 ): RecentActivityResult {
+  // Stable signature so the effect only re-runs when the scope actually changes
+  // (callers pass a fresh object literal on every render).
+  const scopeKey = JSON.stringify(scope);
   const [count, setCount] = useState(0);
   const [closestAt, setClosestAt] = useState<string | null>(null);
   const [closestCount, setClosestCount] = useState(0);
@@ -70,6 +95,21 @@ export function useRecentActivityCount(
             q = q.eq('is_new_development', true).eq('is_published', true);
           } else {
             q = applyPublicVisibility(q, 'active');
+            // Ordinary listing pages never count new-development projects, so
+            // the note's number matches what those pages can actually show.
+            q = q.or('is_new_development.eq.false,is_new_development.is.null');
+            if (scope.purpose) q = q.eq('purpose', scope.purpose);
+            if (scope.propertyCategory) q = q.eq('property_category', scope.propertyCategory);
+            if (scope.propertyType) q = q.eq('property_type', scope.propertyType);
+            if (scope.propertyTypes && scope.propertyTypes.length === 1) {
+              q = q.eq('property_type', scope.propertyTypes[0]);
+            } else if (scope.propertyTypes && scope.propertyTypes.length > 1) {
+              q = q.in('property_type', scope.propertyTypes);
+            }
+            if (scope.amenitiesFilter && scope.amenitiesFilter.length > 0) {
+              q = q.contains('amenities', scope.amenitiesFilter);
+            }
+            if (scope.subTypeFilter) q = q.eq('sub_type', scope.subTypeFilter);
           }
           const loc = (location || '').replace(/[%,()]/g, ' ').trim();
           if (loc) {
@@ -130,7 +170,9 @@ export function useRecentActivityCount(
     return () => {
       active = false;
     };
-  }, [location, source, windowHours, enabled]);
+    // scope is read through scopeKey (its stable signature).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location, source, windowHours, scopeKey, enabled]);
 
   return { count, loading, closestAt, closestCount, coveringWindow };
 }

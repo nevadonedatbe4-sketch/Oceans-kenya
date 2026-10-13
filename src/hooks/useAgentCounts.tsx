@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useCallback, useState, useRef, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { isAdminRole } from '@/lib/authz';
 
 export interface AgentCounts {
-  /** Unread, non-archived/non-spam/non-trashed enquiries assigned to the agent. */
+  /** Unread incoming enquiries for the current user (agent = own, admin = all). */
   inboxUnread: number;
-  /** New/unread, non-archived/non-spam/non-trashed leads assigned to the agent. */
+  /** Unread leads for the current user (agent = own, admin = all). */
   leadsUnread: number;
   loading: boolean;
   refresh: () => Promise<void>;
@@ -19,13 +20,18 @@ const EMPTY: Omit<AgentCounts, 'loading' | 'refresh'> = {
 const AgentCountsContext = createContext<AgentCounts | undefined>(undefined);
 
 /**
- * OGroup Agent Counts — the ONE authoritative Inbox/Leads badge source for the
- * Agent Portal (sidebar + header + dashboard). Counts come from the secured
- * `og-agent-counts` Edge Function which derives the agent purely from the
- * authenticated JWT — the client never sends an `agent_id`, so no cross-agent
- * leakage is possible. Realtime + a light polling fallback keep badges live
- * without a manual refresh, and the realtime stream is RLS-scoped so a user
- * only receives events for records they are permitted to see.
+ * Inbox + Leads badge counts — ONE authoritative source for both the Agent and
+ * the Admin portals.
+ *
+ * Counts come from the secured `og_unread_badges` RPC, which:
+ *  - derives the caller from `auth.uid()` (the client can never ask for someone
+ *    else's counts), and
+ *  - resolves scope server-side: an agent sees only their OWN records; an
+ *    admin/super_admin sees the whole team's records. RLS backs this up.
+ *
+ * Read state is tracked PER RECIPIENT via `lead_reads` / `enquiry_reads`, so an
+ * admin opening a lead never clears the assigned agent's unread (and vice-versa).
+ * Realtime + a light polling fallback keep badges live without a manual refresh.
  */
 export function AgentCountsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -34,10 +40,11 @@ export function AgentCountsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const inFlight = useRef(false);
 
+  const eligible = !!user && !!(user.role === 'agent' || isAdminRole(user.role));
+
   const fetchCounts = useCallback(async () => {
-    // Only fetch for an authenticated approved agent. Admins don't use the
-    // agent portal badge system.
-    if (!user || user.role !== 'agent') {
+    // Only fetch for an authenticated agent or admin. Everyone else sees zero.
+    if (!eligible) {
       setInboxUnread(0);
       setLeadsUnread(0);
       setLoading(false);
@@ -46,32 +53,38 @@ export function AgentCountsProvider({ children }: { children: ReactNode }) {
     if (inFlight.current) return;
     inFlight.current = true;
     try {
-      const { data, error } = await supabase.functions.invoke('og-agent-counts');
+      const { data, error } = await supabase.rpc('og_unread_badges');
       if (error) throw error;
-      const payload = (data ?? {}) as { inboxUnread?: number; leadsUnread?: number };
-      setInboxUnread(payload.inboxUnread ?? 0);
-      setLeadsUnread(payload.leadsUnread ?? 0);
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { inbox_unread?: number | string; leads_unread?: number | string }
+        | null;
+      setInboxUnread(Number(row?.inbox_unread ?? 0));
+      setLeadsUnread(Number(row?.leads_unread ?? 0));
     } catch (e) {
       // Non-fatal — keep last good counts on a transient failure.
-      console.error('og-agent-counts failed:', e);
+      console.error('og_unread_badges failed:', e);
     } finally {
       inFlight.current = false;
       setLoading(false);
     }
-  }, [user]);
+  }, [eligible]);
 
   useEffect(() => {
     fetchCounts();
   }, [fetchCounts]);
 
-  // Realtime: refetch when a relevant row the agent can see changes. RLS gates
-  // the stream, and the recount comes from the server-authoritative function.
+  // Realtime: refetch when a relevant row changes. RLS gates the stream so a
+  // recipient only receives events for records they are permitted to see. We
+  // also watch the per-recipient read tables so a read persisted on another
+  // device/tab (which may not change is_read) still reconciles this badge.
   useEffect(() => {
-    if (!user || user.role !== 'agent') return;
+    if (!eligible) return;
     const channel = supabase
       .channel('agent-counts-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'enquiries' }, () => { fetchCounts(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => { fetchCounts(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'enquiry_reads' }, () => { fetchCounts(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lead_reads' }, () => { fetchCounts(); })
       .subscribe();
 
     // Light polling fallback so badges stay accurate even if a change is missed.
@@ -81,7 +94,7 @@ export function AgentCountsProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
       clearInterval(interval);
     };
-  }, [user, fetchCounts]);
+  }, [eligible, fetchCounts]);
 
   return (
     <AgentCountsContext.Provider value={{ inboxUnread, leadsUnread, loading, refresh: fetchCounts }}>

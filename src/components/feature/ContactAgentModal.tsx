@@ -17,6 +17,10 @@ interface ContactAgentModalProps {
   listingRef?: string;
   /** Extra property details included in the enquiry metadata. */
   details?: string;
+  /** Canonical listing id - routes the enquiry to the assigned agent. */
+  listingId?: string;
+  /** Explicit assigned agent id when the page already knows it. */
+  agentId?: string | null;
 }
 
 export default function ContactAgentModal({
@@ -31,6 +35,8 @@ export default function ContactAgentModal({
   initialMessage,
   listingRef,
   details,
+  listingId,
+  agentId,
 }: ContactAgentModalProps) {
   const { status, error, submitToContacts, reset } = useFormSubmit();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -80,6 +86,9 @@ export default function ContactAgentModal({
       type: reason ? 'property_brochure_request' : 'property_enquiry',
       notes: `${metaLines.join('\n')}\n\nMessage: ${message}`,
       tags: reason ? ['property_brochure_request', propertyId] : ['property_enquiry', propertyId],
+      listing_id: listingId || propertyId,
+      property_title: propertyTitle,
+      agent_id: agentId || null,
     });
 
     if (success) {
@@ -104,8 +113,8 @@ export default function ContactAgentModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-3 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-roboto font-bold text-primary">
-              {reason ? 'Message Listing Agent' : 'Enquire about this property'}
+            <h3 className="text-lg font-roboto font-bold uppercase tracking-wide text-primary">
+              {reason ? 'Message Listing Agent' : 'Enquire About This Property'}
             </h3>
             <p className="text-xs font-roboto text-gray-500 mt-0.5 line-clamp-1">
               {reason ? `${reason} - ` : ''}{propertyTitle}

@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { EmojiPicker } from './EmojiPicker';
 import { useVoiceRecorder } from '../useVoiceRecorder';
 import { formatBytes, probeMediaDuration } from '../mediaUtils';
+import SmartRespond from '@/components/feature/SmartRespond';
+import type { SmartRespondContext } from '@/lib/smartRespond';
 import type { MessageItem, OutgoingAttachment } from '../types';
 
 interface ComposerProps {
@@ -13,6 +15,8 @@ interface ComposerProps {
   onOpenShare: () => void;
   onTyping?: () => void;
   disabled?: boolean;
+  /** When provided, a Smart Respond button offers context-aware replies. */
+  smartContext?: SmartRespondContext | null;
 }
 
 function fmt(seconds: number): string {
@@ -30,7 +34,7 @@ const ATTACH_OPTIONS: { kind: 'image' | 'video' | 'file'; label: string; icon: s
 ];
 
 export function Composer({
-  onSend, onUpload, onSendVoice, replyTo, onCancelReply, onOpenShare, onTyping, disabled,
+  onSend, onUpload, onSendVoice, replyTo, onCancelReply, onOpenShare, onTyping, disabled, smartContext,
 }: ComposerProps) {
   const [text, setText] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -188,6 +192,16 @@ export function Composer({
           </button>
         </div>
       ) : (
+        <>
+        {smartContext && (
+          <div className="mb-1.5">
+            <SmartRespond
+              tone="dark"
+              context={smartContext}
+              onInsert={(t) => handleChange(text.trim() ? `${text}\n${t}` : t)}
+            />
+          </div>
+        )}
         <div className="flex items-end gap-1.5">
           <div className="relative">
             <button
@@ -276,6 +290,7 @@ export function Composer({
             </button>
           )}
         </div>
+        </>
       )}
 
       <p className="text-[10px] text-[#667781] mt-1.5 px-1">

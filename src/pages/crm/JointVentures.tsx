@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { broadcastSync } from '@/lib/syncEngine';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import CrmFilterField from '@/components/base/CrmFilterField';
 import JVProjects from '@/pages/crm/JVProjects';
 import JVFaqs from '@/pages/crm/JVFaqs';
 import JVOpportunities from '@/pages/crm/JVOpportunities';
@@ -93,6 +95,7 @@ export default function JointVenturesCRM() {
   const [subError, setSubError] = useState('');
   const [subFilterType, setSubFilterType] = useState('all');
   const [subFilterStatus, setSubFilterStatus] = useState('all');
+  const [subShowAdvanced, setSubShowAdvanced] = useState(false);
   const [subSearch, setSubSearch] = useState('');
   const [subPage, setSubPage] = useState(1);
   const [subPageSize] = useState(10);
@@ -228,6 +231,20 @@ export default function JointVenturesCRM() {
   // the company-wide JV land listings and CMS FAQs tabs are admin-only.
   const tabs = isAgent ? allTabs.filter((t) => t.key === 'submissions' || t.key === 'projects') : allTabs;
 
+  const subSelectCls = 'w-full px-3 py-2.5 border border-[#cdd5de] rounded-md text-sm font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]';
+
+  const subActiveFilterCount = [
+    subFilterType !== 'all',
+    subFilterStatus !== 'all',
+  ].filter(Boolean).length;
+
+  const clearSubFilters = () => {
+    setSubFilterType('all');
+    setSubFilterStatus('all');
+    setSubSearch('');
+    setSubPage(1);
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -282,49 +299,85 @@ export default function JointVenturesCRM() {
           </div>
 
           <div className="bg-white border border-[#e2e7ec] p-4 space-y-3">
-            <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-              <div className="relative flex-1 max-w-md w-full">
-                <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#6b7684] text-sm" />
-                <input
-                  type="text"
-                  placeholder="Search name, email or phone..."
-                  value={subSearch}
-                  onChange={(e) => { setSubSearch(e.target.value); setSubPage(1); }}
-                  className="w-full pl-9 pr-4 py-2.5 border border-[#cdd5de] rounded-md text-sm font-roboto focus:outline-none focus:border-[#001731] focus:ring-1 focus:ring-[#001731]/20 bg-white"
-                />
-              </div>
-              <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
-                <select
-                  value={subFilterType}
-                  onChange={(e) => { setSubFilterType(e.target.value); setSubPage(1); }}
-                  className="px-3 py-2.5 border border-[#cdd5de] rounded-md text-sm font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]"
-                >
-                  <option value="all">All Types</option>
-                  <option value="landowner">Land Listings</option>
-                  <option value="jv_proposal">JV Submissions</option>
-                  <option value="investor">Capital Ventures</option>
-                </select>
-                <select
-                  value={subFilterStatus}
-                  onChange={(e) => { setSubFilterStatus(e.target.value); setSubPage(1); }}
-                  className="px-3 py-2.5 border border-[#cdd5de] rounded-md text-sm font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="new">New</option>
-                  <option value="reviewed">Reviewed</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="archived">Archived</option>
-                </select>
-                <button
-                  onClick={() => navigate(`${portalBase}/joint-ventures/new`)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-none bg-[#001731] hover:bg-white hover:shadow-[inset_0_0_0_1px_#001731] hover:text-[#001731] text-white text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap"
-                >
-                  <i className="ri-add-line" />
-                  New Submission
-                </button>
-              </div>
+            <CrmSearchBar
+              value={subSearch}
+              onChange={(v) => { setSubSearch(v); setSubPage(1); }}
+              onSubmit={() => setSubPage(1)}
+              loading={subLoading}
+              showClear={false}
+              placeholder="Search name, email or phone..."
+              className="w-full"
+              iconClassName="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[16px] text-[#88929e]"
+              inputClassName="w-full pl-10 pr-4 py-2.5 border border-[#cdd5de] rounded-md text-[16px] font-roboto focus:outline-none bg-white text-[#001731] placeholder:text-[#88929e] focus:border-[#001731] focus:ring-1 focus:ring-[#001731]/20"
+              buttonClassName="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-md text-[16px] font-roboto font-semibold whitespace-nowrap cursor-pointer transition-all bg-[#001731] text-white hover:bg-[#002349] disabled:opacity-60 disabled:cursor-not-allowed"
+            />
+            <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+              <button
+                onClick={() => setSubShowAdvanced(!subShowAdvanced)}
+                className="inline-flex items-center justify-center gap-1.5 w-full lg:w-auto lg:flex-shrink-0 px-4 py-2.5 rounded-md border border-[#cdd5de] bg-white text-[16px] font-roboto font-semibold text-[#001731] cursor-pointer whitespace-nowrap hover:bg-[#f8f9fb]"
+              >
+                <i className="ri-equalizer-line" />
+                Filters
+                {subActiveFilterCount > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#001731] text-white">{subActiveFilterCount}</span>
+                )}
+                <i className={`${subShowAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'}`} />
+              </button>
+              <button
+                onClick={() => navigate(`${portalBase}/joint-ventures/new`)}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-none bg-[#001731] hover:bg-white hover:shadow-[inset_0_0_0_1px_#001731] hover:text-[#001731] text-white text-[16px] font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap lg:ml-auto"
+              >
+                <i className="ri-add-line" />
+                New Submission
+              </button>
             </div>
-            <div className="flex items-center justify-between text-xs text-[#6b7684] font-roboto">
+            {subShowAdvanced && (
+              <div className="pt-3 border-t border-[#e2e7ec]">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-roboto font-semibold uppercase tracking-wider text-[#6b7684]">
+                    Refine Results
+                    {subActiveFilterCount > 0 && (
+                      <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#001731] text-white">{subActiveFilterCount}</span>
+                    )}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSubShowAdvanced(false)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-roboto font-semibold cursor-pointer border border-[#cdd5de] text-[#001731] hover:bg-[#f8f9fb] whitespace-nowrap"
+                  >
+                    <i className="ri-close-line" /> Close
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <CrmFilterField label="Type">
+                    <select value={subFilterType} onChange={(e) => { setSubFilterType(e.target.value); setSubPage(1); }} className={subSelectCls}>
+                      <option value="all">All Types</option>
+                      <option value="landowner">Land Listings</option>
+                      <option value="jv_proposal">JV Submissions</option>
+                      <option value="investor">Capital Ventures</option>
+                    </select>
+                  </CrmFilterField>
+                  <CrmFilterField label="Status">
+                    <select value={subFilterStatus} onChange={(e) => { setSubFilterStatus(e.target.value); setSubPage(1); }} className={subSelectCls}>
+                      <option value="all">All Statuses</option>
+                      <option value="new">New</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </CrmFilterField>
+                </div>
+                {subActiveFilterCount > 0 && (
+                  <button
+                    onClick={clearSubFilters}
+                    className="mt-3 inline-flex items-center gap-1 text-xs font-roboto font-semibold cursor-pointer hover:underline text-[#6b7684]"
+                  >
+                    <i className="ri-close-circle-line" /> Clear all filters
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="flex items-center justify-between text-[14px] text-[#6b7684] font-roboto">
               <span>{subTotal} submissions</span>
               <span>Page {subPage} of {Math.max(1, Math.ceil(subTotal / subPageSize))}</span>
             </div>

@@ -19,16 +19,31 @@ export interface RecentWindowOption {
 }
 
 /**
- * The canonical ladder of "added" windows, ascending. All main search bars on
- * the site expose windows up to 14 days, so the covering-window suggestion
- * never proposes a label the page's own dropdown cannot represent.
+ * The canonical OPTION list shown by every "Added to site" / "Added time"
+ * control on the site (main search bars + advanced panels). 'Anytime' means no
+ * time restriction; exactly one option may be selected at a time.
+ */
+export const ADDED_WINDOW_OPTIONS: string[] = [
+  'Anytime',
+  'Last 24 hours',
+  'Last 3 days',
+  'Last 7 days',
+  'Last 14 days',
+  'Last 30 days',
+];
+
+/**
+ * The canonical ladder of "added" windows, ascending. Every property-search
+ * surface (Buy, Rent, All Properties, Commercial, SEO landing pages and the
+ * advanced panels) exposes EXACTLY these windows, so the selectable options,
+ * the query boundary and the covering-window suggestion can never drift apart.
  */
 export const ADDED_WINDOW_LADDER: RecentWindowOption[] = [
   { label: 'Last 24 hours', hours: 24 },
-  { label: 'Last 48 hours', hours: 48 },
   { label: 'Last 3 days', hours: 72 },
   { label: 'Last 7 days', hours: 168 },
   { label: 'Last 14 days', hours: 336 },
+  { label: 'Last 30 days', hours: 720 },
 ];
 
 /**
@@ -88,4 +103,23 @@ export function formatElapsedHours(hours: number): string {
  */
 export function windowPhrase(label: string): string {
   return label.replace(/^Last\s+/i, '').trim();
+}
+
+/**
+ * The SINGLE shared boundary rule for the "Added to site" window. Turns a
+ * window label into the INCLUSIVE lower bound (as an ISO string) for the
+ * listing's first-listed timestamp (`listings.created_at`).
+ *
+ *  • 'Anytime' (or anything unrecognised) → null  → no time restriction at all.
+ *  • 'Last 24 hours' → now − 24h, 'Last 3 days' → now − 72h, and so on.
+ *
+ * Callers apply it as `created_at >= bound`, which INCLUDES rows exactly on the
+ * boundary and EXCLUDES older rows and rows with no valid timestamp. Because the
+ * bound is recomputed from the current time on every query, the window is always
+ * relative to the server-side "now" at request time - never a cached value.
+ */
+export function addedSinceISO(label: string | null | undefined): string | null {
+  const hours = hoursForWindowLabel(label);
+  if (hours == null) return null;
+  return new Date(Date.now() - hours * 3_600_000).toISOString();
 }

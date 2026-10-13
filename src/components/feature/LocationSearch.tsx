@@ -33,12 +33,16 @@ interface LocationSearchProps {
   embedded?: boolean;
 }
 
-// ── Default animated placeholder cycle (buy/general) ─────────────────────
+// ── Default animated placeholder cycle (Kenya-appropriate) ───────────────
+// Teaches the visitor what the field can actually search: areas, schools,
+// streets, landmarks and free-text keywords. No UK-specific assumptions such
+// as "tube station" or postcodes.
 const DEFAULT_PLACEHOLDER_CYCLE = [
-  "Looking for a home in a leafy suburb...",
-  "Looking for a villa with a garden...",
-  "Looking for an apartment with a view...",
-  "Looking for a house in a quiet area...",
+  "Search an area, e.g. Karen or Westlands",
+  "Search a school, e.g. Brookhouse School",
+  "Search a street, e.g. Riverside Drive",
+  "Search a landmark, e.g. The Hub Karen",
+  "Search by keyword, e.g. 3-bedroom apartment",
 ];
 
 // ── Known neighbourhoods (fallback when Mapbox isn't available) ──────────

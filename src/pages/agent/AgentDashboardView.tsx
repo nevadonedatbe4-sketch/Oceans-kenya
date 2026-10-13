@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAgentCounts } from '@/hooks/useAgentCounts';
 import OGroupToday from '@/pages/agent/ogroup/OGroupToday';
+import ClientRequestStats from '@/pages/crm/client-requests/components/ClientRequestStats';
 import { Building2, PlusCircle, Users, Inbox, BarChart3, UserRound } from 'lucide-react';
 
 interface Summary {
@@ -241,6 +242,8 @@ export default function AgentDashboardView({
           </Link>
         </div>
       </div>
+
+      <ClientRequestStats basePath={preview ? '/admin' : '/agent'} />
 
       <OGroupToday userIdOverride={agentUserId ?? null} resolveHref={preview ? href : undefined} />
 

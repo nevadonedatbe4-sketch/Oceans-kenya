@@ -15,6 +15,8 @@ interface ContactGroupSectionProps {
   onDelete: (c: ContactRecord) => void;
   onMoveToGroup: (c: ContactRecord, groupId: string) => void;
   onToggleStar: (c: ContactRecord) => void;
+  /** Active keyword tokens — matched text is highlighted. */
+  terms?: string[];
 }
 
 /**
@@ -36,6 +38,7 @@ export default function ContactGroupSection({
   onDelete,
   onMoveToGroup,
   onToggleStar,
+  terms = [],
 }: ContactGroupSectionProps) {
   const shown = group.contacts.slice(0, visibleCount);
   const remaining = group.contacts.length - shown.length;
@@ -86,6 +89,7 @@ export default function ContactGroupSection({
                   onDelete={onDelete}
                   onMoveToGroup={onMoveToGroup}
                   onToggleStar={onToggleStar}
+                  terms={terms}
                 />
               ))}
               {remaining > 0 && (

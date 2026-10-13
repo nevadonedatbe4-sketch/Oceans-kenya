@@ -12,6 +12,8 @@ import type { ListingFilters } from '@/hooks/useListings';
 import { useLoadMoreListings } from '@/hooks/useLoadMoreListings';
 import { useSeoMeta, buildBreadcrumbSchema, buildFaqSchema, buildListingSchema } from '@/hooks/useSeoMeta';
 import { SEO_PAGES, type SeoPageDef } from '@/lib/seoPages';
+import { parsePropertySearch } from '@/lib/propertySearch';
+import { buildResultsHeading, humanizeType } from '@/lib/searchHeading';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
 import { useSeoListingContent } from '@/hooks/useDynamicPageTemplates';
 import { BEDROOM_OPTIONS, bedroomSelectionToRange } from '@/lib/bedrooms';
@@ -109,7 +111,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
   const [priceMax, setPriceMax] = useState('No max');
   const [typeValue, setTypeValue] = useState('Show all');
   const [savedSearch, setSavedSearch] = useState(false);
-  // When set to a window label (e.g. 'Last 48 hours'), only listings added in
+  // When set to a window label (e.g. 'Last 24 hours'), only listings added in
   // that window are shown - used by the "what changed recently" note in the
   // zero-result state. 'Anytime' means no time restriction.
   const [recentWindow, setRecentWindow] = useState('Anytime');
@@ -125,6 +127,13 @@ export default function SeoListingPage({ slug }: { slug: string }) {
   }, [slug]);
 
   const purpose: 'sale' | 'rent' = def?.purpose || 'sale';
+  // The zero-result note's count must be scoped to the SAME area this landing
+  // page targets (otherwise it could advertise national activity the page's
+  // location-bound query can never surface).
+  const noteLocation = useMemo(() => {
+    const intent = parsePropertySearch(def?.search || '');
+    return intent.location || intent.city || undefined;
+  }, [def]);
   const priceMinOpts = useMemo(() => (purpose === 'rent' ? rentPriceMinOptions('KES', {}) : salePriceMinOptions('KES', {})), [purpose]);
   const priceMaxOpts = useMemo(() => (purpose === 'rent' ? rentPriceMaxOptions('KES', {}) : salePriceMaxOptions('KES', {})), [purpose]);
   const priceMinValue = parsePriceSelection(priceMinOpts, priceMin);
@@ -154,6 +163,23 @@ export default function SeoListingPage({ slug }: { slug: string }) {
   }, [purpose, searchQuery, bedsValue, priceMin, priceMax, typeValue, def, recentWindow]);
 
   const { items, totalCount, loading, loadingMore, error, hasMore, loadMore, refetch } = useLoadMoreListings(filters);
+
+  // Dynamic results heading - a natural-language summary of what the page is
+  // really querying (type + transaction + location), from the search state.
+  const resultsHeading = useMemo(() => {
+    const intent = parsePropertySearch(def?.search || '');
+    const place = intent.location || intent.city || def?.search || null;
+    const typeLabel = (typeValue !== 'Show all' && typeValue)
+      ? typeValue
+      : (def?.propertyType ? humanizeType(def.propertyType) : null);
+    return buildResultsHeading({
+      typeLabel,
+      purpose,
+      location: place,
+      radiusLabel: null,
+      fallback: def?.h1 || 'Properties',
+    });
+  }, [def, typeValue, purpose]);
 
   // ── Crawl-ready head + structured data ──────────────────────
   const path = `/${def?.slug ?? slug}`;
@@ -296,7 +322,7 @@ export default function SeoListingPage({ slug }: { slug: string }) {
           <section>
             <div className="flex items-end justify-between mb-6">
               <h2 className="font-roboto font-bold text-xl md:text-2xl text-primary">
-                {def.h1.split(',')[0]} - {totalCount} {c.results_word}
+                {resultsHeading} - {totalCount} {c.results_word}
               </h2>
             </div>
 
@@ -333,7 +359,15 @@ export default function SeoListingPage({ slug }: { slug: string }) {
                   <i className="ri-arrow-right-line text-xs"></i>
                 </Link>
                 <RecentActivitySuggestion
+                  location={noteLocation}
                   addedWindow={recentWindow}
+                  scope={{
+                    purpose,
+                    propertyCategory: def?.propertyCategory ?? null,
+                    propertyType: def?.propertyType ?? null,
+                    amenitiesFilter: def?.amenitiesFilter ?? null,
+                    subTypeFilter: def?.subTypeFilter ?? null,
+                  }}
                   onView={(targetWindow) => {
                     setBedsValue('Any beds');
                     setPriceMin('No min');

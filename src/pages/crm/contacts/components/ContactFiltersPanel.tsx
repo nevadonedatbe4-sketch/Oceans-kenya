@@ -11,6 +11,7 @@ interface ContactFiltersPanelProps {
   matchMode: MatchMode;
   onApply: (rows: FilterRow[], mode: MatchMode) => void;
   onClear: () => void;
+  onClose: () => void;
 }
 
 function newRow(field: string): FilterRow {
@@ -28,6 +29,7 @@ export default function ContactFiltersPanel({
   matchMode,
   onApply,
   onClear,
+  onClose,
 }: ContactFiltersPanelProps) {
   const [draft, setDraft] = useState<FilterRow[]>(applied);
   const [mode, setMode] = useState<MatchMode>(matchMode);
@@ -61,6 +63,15 @@ export default function ContactFiltersPanel({
           <i className="ri-equalizer-2-line text-lg" />
         </span>
         <h3 className="admin-subheading text-[#001731]">Filters</h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close filters"
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md admin-label font-semibold text-[#001731] border border-[#001731]/20 hover:bg-[#001731] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+        >
+          <i className="ri-close-line text-lg" />
+          Close
+        </button>
       </div>
 
       <div className="p-4 md:p-5 space-y-4">

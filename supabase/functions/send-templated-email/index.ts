@@ -200,10 +200,17 @@ serve(async (req: Request) => {
     ...(payload.variables || {}),
   };
 
+  // Friendly greeting: derive a first name from the recipient's full name so
+  // templates can greet with "Hi Sara" instead of "Hi Sara Vela".
+  if (vars.recipient_name && !vars.recipient_first_name) {
+    vars.recipient_first_name = String(vars.recipient_name).trim().split(/\s+/)[0];
+  }
+
   // Build a preview/dummy value for any token that has no supplied value, so a
   // test send never ships literal "{{token}}" placeholders to a recipient.
   const SAMPLE: Record<string, string> = {
     recipient_name: "Alex Mwangi",
+    recipient_first_name: "Alex",
     agent_name: "Grace Otieno",
     lead_name: "Alex Mwangi",
     property_title: "4 Bed Villa in Kilimani",

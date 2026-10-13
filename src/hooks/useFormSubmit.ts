@@ -10,6 +10,14 @@ interface SubmitToContactsOptions {
   type: string;
   notes?: string;
   tags?: string[];
+  /** The listing the enquiry is about (routes it to the listing agent). */
+  listing_id?: string;
+  /** Human-readable property title, shown in the CRM notification. */
+  property_title?: string;
+  /** Explicit listing agent id when the page already knows it. */
+  agent_id?: string | null;
+  /** The page the enquiry was submitted from. */
+  source_url?: string;
 }
 
 export type EnquiryPayload = {
@@ -83,6 +91,10 @@ export function useFormSubmit() {
         type: data.type,
         notes: data.notes || undefined,
         tags: data.tags,
+        listing_id: data.listing_id || undefined,
+        property_title: data.property_title || undefined,
+        agent_id: data.agent_id || undefined,
+        source_url: data.source_url || (typeof window !== 'undefined' ? window.location.href : undefined),
         source: 'Contact Form',
         form_name: 'contact-form',
       });

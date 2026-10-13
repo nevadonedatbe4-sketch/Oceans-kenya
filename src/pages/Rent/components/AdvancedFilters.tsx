@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 import { BEDROOM_MIN_OPTIONS, BEDROOM_MAX_OPTIONS, bedroomsRangeInvalid } from '@/lib/bedrooms';
 import { rentPriceMinOptions, rentPriceMaxOptions, salePriceMinOptions, salePriceMaxOptions, priceRangeInvalid, type PriceRates } from '@/lib/prices';
+import { ADDED_WINDOW_OPTIONS } from '@/lib/recentWindow';
 
 interface AdvancedFiltersProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export interface FilterState {
   minBedrooms: string;
   maxBedrooms: string;
   minBaths: string;
+  maxBaths: string;
   propertyTypes: string[];
   furnished: string[];
   minSize: string;
@@ -36,6 +38,7 @@ export const defaultFilters: FilterState = {
   minBedrooms: '',
   maxBedrooms: '',
   minBaths: '',
+  maxBaths: '',
   propertyTypes: [],
   furnished: [],
   minSize: '',
@@ -51,7 +54,6 @@ const mustHavesList = ['Garden', 'Parking/garage', 'Balcony/terrace', 'Pets allo
 const propertyFeaturesList = ['New', 'Period property', 'Cottage', 'Modern', 'Utility room', 'Basement', 'Conservatory', 'Home office', 'En-suite', 'Bathtub', 'Patio', 'Kitchen island'];
 const furnishingOptions = ['Any', 'Furnished', 'Part-furnished', 'Unfurnished'];
 const availabilityOptions = ['Show all', 'Immediately', 'Within 1 month', 'Within 3 months', 'Within 6 months', 'Within 1 year'];
-const addedOptionsDesktop = ['Anytime', 'Last 24 hours', 'Last 48 hours', 'Last 3 days', 'Last 7 days', 'Last 14 days', 'Last 30 days'];
 const bathsMinOptions = ['No min', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 const bathsMaxOptions = ['No max', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10+'];
 // Min/Max price options come from the ONE shared, site-wide KSh ladder
@@ -102,6 +104,23 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
 
   useBodyScrollLock(isOpen && isMobile);
 
+  // Re-sync every control to the filters actually in force each time the panel
+  // opens, so a previously applied "Added to site" / furnishing / baths value is
+  // shown and never silently reset to its default.
+  useEffect(() => {
+    if (!isOpen) return;
+    setFilters({ ...initialFilters });
+    const appliedAdded = initialFilters?.added || 'Anytime';
+    setDesktopAdded(appliedAdded);
+    setMobileAdded(appliedAdded);
+    const appliedFurnishing = (initialFilters?.furnished && initialFilters.furnished[0]) || 'Any';
+    setDesktopFurnishing(appliedFurnishing);
+    setMobileFurnishing(appliedFurnishing);
+    setMobileMinBaths(initialFilters?.minBaths || 'No min');
+    setMobileMaxBaths(initialFilters?.maxBaths || 'No max');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const toggleCheckbox = (key: keyof FilterState, value: string) => {
     const current = (filters[key] as string[]) || [];
     const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
@@ -133,10 +152,20 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
       return;
     }
     setPriceError('');
+    // The mobile bottom sheet keeps its own controls, so on small screens we
+    // must read THOSE values - otherwise the whole mobile panel was decorative
+    // and "Apply" silently kept the old filters (e.g. the added-window never
+    // applied when picked on a phone).
+    const effFurnishing = isMobile ? mobileFurnishing : desktopFurnishing;
+    const effAdded = isMobile ? mobileAdded : desktopAdded;
+    const effMinBaths = isMobile ? mobileMinBaths : (filters.minBaths || 'No min');
+    const effMaxBaths = isMobile ? mobileMaxBaths : (filters.maxBaths || 'No max');
     const merged: FilterState = {
       ...filters,
-      furnished: desktopFurnishing !== 'Any' ? [desktopFurnishing] : [],
-      added: desktopAdded !== 'Anytime' ? desktopAdded : '',
+      furnished: effFurnishing !== 'Any' ? [effFurnishing] : [],
+      added: effAdded !== 'Anytime' ? effAdded : '',
+      minBaths: effMinBaths !== 'No min' ? effMinBaths : '',
+      maxBaths: effMaxBaths !== 'No max' ? effMaxBaths : '',
     };
     onApply(merged);
     onClose();
@@ -310,7 +339,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
                   onChange={(e) => setDesktopAdded(e.target.value)}
                   className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer"
                 >
-                  {addedOptionsDesktop.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {ADDED_WINDOW_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none">
                   <i className="ri-arrow-down-wide-fill text-sm"></i>
@@ -531,7 +560,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
               <div className="relative">
                 <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Added to site</label>
                 <select value={desktopAdded} onChange={(e) => setDesktopAdded(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                  {addedOptionsDesktop.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {ADDED_WINDOW_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
                 <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
               </div>
@@ -661,6 +690,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             <div className="relative">
               <select id="searchbar-mobile-radius" className="appearance-none h-11 px-4 pr-9 text-base font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 cursor-pointer whitespace-nowrap transition-colors w-full">
                 <option value="This area only">This area only</option>
+                <option value="¼ mile">¼ mile</option>
                 <option value="½ mile">½ mile</option>
                 <option value="1 mile">1 mile</option>
                 <option value="3 miles">3 miles</option>
@@ -888,7 +918,7 @@ export default function AdvancedFilters({ isOpen, onClose, onApply, initialFilte
             <div className="relative">
               <label className="block text-[12px] font-roboto font-semibold uppercase tracking-widest text-primary/50 leading-none mb-1.5">Added to site</label>
               <select value={mobileAdded} onChange={(e) => setMobileAdded(e.target.value)} className="appearance-none w-full h-11 px-3 pr-9 text-sm font-roboto font-medium text-primary bg-white border border-primary/20 rounded-lg focus:outline-none focus:border-primary cursor-pointer">
-                {addedOptionsDesktop.map((o) => <option key={o} value={o}>{o}</option>)}
+                {ADDED_WINDOW_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
               <span className="w-4 h-4 flex items-center justify-center absolute right-2.5 bottom-[11px] text-primary/50 pointer-events-none"><i className="ri-arrow-down-wide-fill text-sm"></i></span>
             </div>

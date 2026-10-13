@@ -4,6 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import { tokenizeKeywords, buildCrmFilterString, DEAL_KEYWORD_FIELDS } from '@/lib/crmSearch';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { logDealCreated } from '@/lib/activityLogger';
@@ -167,9 +169,12 @@ export default function Deals() {
       }
     }
     if (search.trim()) {
-      const term = search.trim();
-      countQuery = countQuery.ilike('title', `%${term}%`);
-      dataQuery = dataQuery.ilike('title', `%${term}%`);
+      // Multi-keyword search through the shared CRM engine (title, notes, stage).
+      const orQuery = buildCrmFilterString({ terms: tokenizeKeywords(search), fields: DEAL_KEYWORD_FIELDS });
+      if (orQuery) {
+        countQuery = countQuery.or(orQuery);
+        dataQuery = dataQuery.or(orQuery);
+      }
     }
 
     const [{ count }, { data, error }] = await Promise.all([countQuery, dataQuery]);
@@ -422,16 +427,17 @@ export default function Deals() {
 
         {/* Toolbar inside card */}
         <div className="px-4 md:px-5 py-3 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between border-b border-[#1c3a5e] lg:border-[#f0f0f0]">
-          <div className="relative flex-1 max-w-md w-full">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#6b7280] lg:text-[#636363] text-sm" />
-            <input
-              type="text"
-              placeholder="Search deals by title..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2 border border-[#1c3a5e] lg:border-[#f0f0f0] rounded-lg text-sm font-inter focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-[#001731] lg:bg-white text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#636363]"
-            />
-          </div>
+          <CrmSearchBar
+            value={search}
+            onChange={(v) => { setSearch(v); setPage(1); }}
+            onSubmit={() => { setPage(1); fetchDeals(); }}
+            loading={loading}
+            placeholder="Search deals by title, notes or stage…"
+            className="flex-1 max-w-md"
+            iconClassName="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6b7280] lg:text-[#5b6b7a]"
+            inputClassName="w-full pl-9 pr-4 py-2 border-2 border-[#1c3a5e] lg:border-[#94a3b8] rounded-lg text-sm font-inter font-semibold focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/25 bg-[#001731] lg:bg-white text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#5b6b7a]"
+            buttonClassName="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-inter font-bold whitespace-nowrap cursor-pointer transition-colors bg-[#0d5959] text-white hover:bg-[#084545] disabled:opacity-60"
+          />
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               to="/admin/pipeline"

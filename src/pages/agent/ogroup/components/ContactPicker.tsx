@@ -6,6 +6,7 @@ import {
   contactSubtitle,
   type ContactOption,
 } from '../appointmentLookups';
+import PhoneInput from '@/components/base/PhoneInput';
 
 interface Props {
   selected: ContactOption[];
@@ -185,7 +186,13 @@ export default function ContactPicker({ selected, onChange, agentId, label = 'Ap
           </div>
           <div className="grid grid-cols-2 gap-2">
             <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Email" className={INPUT} />
-            <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Phone" className={INPUT} />
+            <PhoneInput
+              value={form.phone}
+              onChange={(v) => setForm({ ...form, phone: v })}
+              placeholder="Phone"
+              inputClassName="flex-1 min-w-0 px-3 py-2 rounded-r-lg border border-l-0 border-neutral-200 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 bg-white"
+              buttonClassName="flex items-center gap-1.5 px-2.5 py-2 rounded-l-lg border border-neutral-200 border-r-0 text-sm text-neutral-700 bg-white focus:outline-none focus:border-teal-400 cursor-pointer whitespace-nowrap"
+            />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Company" className={INPUT} />

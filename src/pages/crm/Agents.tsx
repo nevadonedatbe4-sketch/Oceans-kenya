@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
+import PhoneInput from '@/components/base/PhoneInput';
+import ContactActions from '@/components/feature/ContactActions';
 
 interface Agent {
   id: string;
@@ -318,7 +320,12 @@ export default function Agents() {
                       No Account
                     </span>
                   )}
-                  {agent.phone && <span className="text-xs text-[#6b7280] font-roboto">{agent.phone}</span>}
+                  {agent.phone && (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-[#9ca3af] font-roboto">
+                      {agent.phone}
+                      <ContactActions phone={agent.phone} size="sm" variant="compact" tone="dark" />
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 pt-2 border-t border-[#1c3a5e]">
                   <button
@@ -380,7 +387,10 @@ export default function Agents() {
                         <span className="text-xs text-gray-600 font-roboto">{agent.title || '—'}</span>
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="text-xs text-[#9ca3af] font-roboto">{agent.phone || '—'}</span>
+                        <span className="inline-flex items-center gap-1.5 text-xs text-[#9ca3af] font-roboto">
+                          {agent.phone || '—'}
+                          {agent.phone && <ContactActions phone={agent.phone} size="sm" variant="compact" />}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <button
@@ -534,12 +544,12 @@ export default function Agents() {
                 <label className="block text-xs font-roboto text-[#9ca3af] uppercase tracking-wider mb-1.5">
                   Phone
                 </label>
-                <input
-                  type="text"
+                <PhoneInput
                   value={form.phone}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm font-roboto focus:outline-none focus:border-primary"
-                  placeholder="+2547..."
+                  onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
+                  placeholder="712 345 678"
+                  inputClassName="flex-1 min-w-0 px-3 py-2.5 border border-l-0 border-gray-200 rounded-r-lg text-sm font-roboto focus:outline-none focus:border-primary"
+                  buttonClassName="flex items-center gap-1.5 px-3 py-2.5 border border-gray-200 border-r-0 rounded-l-lg bg-white text-sm font-roboto text-[#374151] focus:outline-none focus:border-primary cursor-pointer whitespace-nowrap"
                 />
               </div>
 

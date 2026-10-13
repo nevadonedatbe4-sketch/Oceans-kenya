@@ -10,6 +10,11 @@ import JVOpportunityListView from '@/pages/crm/components/jv/JVOpportunityListVi
 import ShareLinkModal from '@/pages/crm/components/ShareLinkModal';
 import { jvOpportunityPublicUrl } from '@/lib/shareLinks';
 import { displayLocation } from '@/lib/crmDisplay';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import LocationMultiSelect from '@/components/base/LocationMultiSelect';
+import CrmFilterField from '@/components/base/CrmFilterField';
+import { useCanonicalAreas } from '@/lib/locationRegistry';
+import { buildCrmFilterString, tokenizeKeywords } from '@/lib/crmSearch';
 import {
   JV_STATUS_OPTIONS,
   DEAL_STRUCTURE_LABELS, parseJvStatus,
@@ -28,6 +33,11 @@ export default function JVOpportunities() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterStructure, setFilterStructure] = useState('all');
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('date');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const { areas: canonicalAreas } = useCanonicalAreas();
+  const areaOptions = canonicalAreas.map((a) => a.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const [page, setPage] = useState(1);
   const pageSize = 12;
   const [total, setTotal] = useState(0);
@@ -45,7 +55,6 @@ export default function JVOpportunities() {
       let dataQuery = supabase
         .from('jv_opportunities')
         .select('*')
-        .order('created_at', { ascending: false })
         .range((page - 1) * pageSize, page * pageSize - 1);
 
       if (filterStatus !== 'all') {
@@ -61,11 +70,23 @@ export default function JVOpportunities() {
         countQuery = countQuery.eq('deal_structure', filterStructure);
         dataQuery = dataQuery.eq('deal_structure', filterStructure);
       }
-      if (search.trim()) {
-        const term = search.trim();
-        countQuery = countQuery.or(`title.ilike.%${term}%,owner_name.ilike.%${term}%,land_location.ilike.%${term}%`);
-        dataQuery = dataQuery.or(`title.ilike.%${term}%,owner_name.ilike.%${term}%,land_location.ilike.%${term}%`);
+      // Keyword + multi-location search through the shared CRM engine — same
+      // semantics as My Properties (keywords AND-ed, locations OR-ed).
+      const filterString = buildCrmFilterString({
+        terms: tokenizeKeywords(search),
+        fields: ['title', 'owner_name', 'land_location', 'slug'],
+        locations: selectedLocations,
+        locationFields: ['land_location'],
+      });
+      if (filterString) {
+        countQuery = countQuery.or(filterString);
+        dataQuery = dataQuery.or(filterString);
       }
+
+      // Sort
+      if (sortBy === 'title') dataQuery = dataQuery.order('title', { ascending: true });
+      else if (sortBy === 'featured') dataQuery = dataQuery.order('is_featured', { ascending: false }).order('created_at', { ascending: false });
+      else dataQuery = dataQuery.order('created_at', { ascending: false });
 
       const [{ count }, { data, error: err }] = await Promise.all([countQuery, dataQuery]);
       if (err) throw err;
@@ -77,7 +98,7 @@ export default function JVOpportunities() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filterStatus, filterStructure, search]);
+  }, [page, pageSize, filterStatus, filterStructure, search, selectedLocations, sortBy]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -168,73 +189,151 @@ export default function JVOpportunities() {
     setShareRow(rows.find((r) => r.id === id) || null);
   };
 
+  const jvSelectCls = 'w-full px-3 py-2.5 border border-[#cdd5de] rounded-md text-[16px] font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]';
+
+  const activeFilterCount = [
+    filterStatus !== 'all',
+    filterStructure !== 'all',
+    selectedLocations.length > 0,
+    sortBy !== 'date',
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setFilterStatus('all');
+    setFilterStructure('all');
+    setSelectedLocations([]);
+    setSortBy('date');
+    setSearch('');
+    setPage(1);
+  };
+
   return (
     <div className="space-y-5">
-      {/* Search & filters */}
+      {/* Search & filters — mirrors My Properties (full-width search + Filters panel) */}
       <div className="bg-white border border-[#e2e7ec] p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-          <div className="relative flex-1 max-w-md w-full">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#6b7684] text-[16px]" />
-            <input
-              type="text"
-              placeholder="Search title, owner or location..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border border-[#cdd5de] rounded-md text-[16px] font-roboto focus:outline-none focus:border-[#001731] focus:ring-1 focus:ring-[#001731]/20 bg-white"
-            />
-          </div>
-          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
-            <div className="inline-flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-md" role="group" aria-label="View mode">
-              <button
-                type="button"
-                onClick={() => setViewMode('cards')}
-                aria-pressed={viewMode === 'cards'}
-                title="Card view"
-                className={`inline-flex items-center justify-center w-9 h-9 rounded-md text-[16px] transition-all cursor-pointer whitespace-nowrap ${viewMode === 'cards' ? 'bg-[#001731] text-white' : 'bg-transparent text-[#6b7684] hover:text-[#001731]'}`}
-              >
-                <i className="ri-layout-grid-line" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('list')}
-                aria-pressed={viewMode === 'list'}
-                title="List view"
-                className={`inline-flex items-center justify-center w-9 h-9 rounded-md text-[16px] transition-all cursor-pointer whitespace-nowrap ${viewMode === 'list' ? 'bg-[#001731] text-white' : 'bg-transparent text-[#6b7684] hover:text-[#001731]'}`}
-              >
-                <i className="ri-list-check-2" />
-              </button>
-            </div>
-            <select
-              value={filterStatus}
-              onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border border-[#cdd5de] rounded-md text-[16px] font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]"
-            >
-              <option value="all">All Statuses</option>
-              {JV_STATUS_OPTIONS.filter((o) => o.value !== '').map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-            <select
-              value={filterStructure}
-              onChange={(e) => { setFilterStructure(e.target.value); setPage(1); }}
-              className="px-3 py-2.5 border border-[#cdd5de] rounded-md text-[16px] font-roboto focus:outline-none bg-white cursor-pointer text-[#001731]"
-            >
-              <option value="all">All Structures</option>
-              {Object.entries(DEAL_STRUCTURE_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
-            </select>
+        <CrmSearchBar
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          onSubmit={() => setPage(1)}
+          loading={loading}
+          showClear={false}
+          placeholder="Search title, owner or location..."
+          className="w-full"
+          iconClassName="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[16px] text-[#88929e]"
+          inputClassName="w-full pl-10 pr-4 py-2.5 border border-[#cdd5de] rounded-md text-[16px] font-roboto focus:outline-none bg-white text-[#001731] placeholder:text-[#88929e] focus:border-[#001731] focus:ring-1 focus:ring-[#001731]/20"
+          buttonClassName="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-md text-[16px] font-roboto font-semibold whitespace-nowrap cursor-pointer transition-all bg-[#001731] text-white hover:bg-[#002349] disabled:opacity-60 disabled:cursor-not-allowed"
+        />
+
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <LocationMultiSelect
+            options={areaOptions}
+            selected={selectedLocations}
+            onChange={(v) => { setSelectedLocations(v); setPage(1); }}
+            placeholder="Multiple locations, e.g. Karen, Runda…"
+            className="w-full lg:flex-1 lg:min-w-0"
+            chipClassName="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold bg-[#e8edf2] text-[#001731]"
+            controlClassName="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border border-[#cdd5de] rounded-md min-h-[44px] bg-white"
+            inputClassName="flex-1 min-w-[130px] px-2 py-1 text-[16px] font-roboto focus:outline-none bg-transparent text-[#001731] placeholder:text-[#88929e]"
+            dropdownClassName="absolute z-40 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded-md border border-[#cdd5de] bg-white shadow-lg"
+          />
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="inline-flex items-center justify-center gap-1.5 w-full lg:w-auto lg:flex-shrink-0 px-4 py-2.5 rounded-md border border-[#cdd5de] bg-white text-[16px] font-roboto font-semibold text-[#001731] cursor-pointer whitespace-nowrap hover:bg-[#f8f9fb]"
+          >
+            <i className="ri-equalizer-line" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#001731] text-white">{activeFilterCount}</span>
+            )}
+            <i className={`${showAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'}`} />
+          </button>
+
+          {/* View mode */}
+          <div className="inline-flex items-center gap-1 p-1 bg-[#f2f4f6] rounded-md lg:flex-shrink-0" role="group" aria-label="View mode">
             <button
-              onClick={() => navigate('/admin/jv-opportunities/new')}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-none bg-[#001731] hover:bg-white hover:shadow-[inset_0_0_0_1px_#001731] hover:text-[#001731] text-white text-[16px] font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap"
+              type="button"
+              onClick={() => setViewMode('cards')}
+              aria-pressed={viewMode === 'cards'}
+              title="Card view"
+              className={`inline-flex items-center justify-center w-9 h-9 rounded-md text-[16px] transition-all cursor-pointer whitespace-nowrap ${viewMode === 'cards' ? 'bg-[#001731] text-white' : 'bg-transparent text-[#6b7684] hover:text-[#001731]'}`}
             >
-              <i className="ri-add-line" />
-              Add JV Land Listing
+              <i className="ri-layout-grid-line" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('list')}
+              aria-pressed={viewMode === 'list'}
+              title="List view"
+              className={`inline-flex items-center justify-center w-9 h-9 rounded-md text-[16px] transition-all cursor-pointer whitespace-nowrap ${viewMode === 'list' ? 'bg-[#001731] text-white' : 'bg-transparent text-[#6b7684] hover:text-[#001731]'}`}
+            >
+              <i className="ri-list-check-2" />
             </button>
           </div>
+
+          <button
+            onClick={() => navigate('/admin/jv-opportunities/new')}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-none bg-[#001731] hover:bg-white hover:shadow-[inset_0_0_0_1px_#001731] hover:text-[#001731] text-white text-[16px] font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap lg:flex-shrink-0"
+          >
+            <i className="ri-add-line" />
+            Add JV Land Listing
+          </button>
         </div>
+
+        {showAdvanced && (
+          <div className="pt-3 border-t border-[#e2e7ec]">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-roboto font-semibold uppercase tracking-wider text-[#6b7684]">
+                Refine Results
+                {activeFilterCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#001731] text-white">{activeFilterCount}</span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(false)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-roboto font-semibold cursor-pointer border border-[#cdd5de] text-[#001731] hover:bg-[#f8f9fb] whitespace-nowrap"
+              >
+                <i className="ri-close-line" /> Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <CrmFilterField label="Deal Structure">
+                <select value={filterStructure} onChange={(e) => { setFilterStructure(e.target.value); setPage(1); }} className={jvSelectCls}>
+                  <option value="all">All Structures</option>
+                  {Object.entries(DEAL_STRUCTURE_LABELS).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </CrmFilterField>
+              <CrmFilterField label="Status">
+                <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(1); }} className={jvSelectCls}>
+                  <option value="all">All Statuses</option>
+                  {JV_STATUS_OPTIONS.filter((o) => o.value !== '').map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </CrmFilterField>
+              <CrmFilterField label="Sort">
+                <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }} className={jvSelectCls}>
+                  <option value="date">Sort by Date</option>
+                  <option value="title">Sort by Title</option>
+                  <option value="featured">Sort by Featured</option>
+                </select>
+              </CrmFilterField>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-roboto font-semibold cursor-pointer hover:underline text-[#6b7684]"
+              >
+                <i className="ri-close-circle-line" /> Clear all filters
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between text-[14px] text-[#6b7684] font-roboto">
-          <span>{total} JV land listings</span>
+          <span>{total} JV land listings{selectedLocations.length > 0 ? ` in ${selectedLocations.join(', ')}` : ''}</span>
           <span>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
         </div>
       </div>

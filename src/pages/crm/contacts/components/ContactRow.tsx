@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ContactRecord, GroupWithCount } from '@/pages/crm/contacts/contactGroups';
-import { getInitials, typeInfo, visibleTags } from '@/pages/crm/contacts/contactGroups';
+import { getInitials, roleOf, tagValue, typeInfo, visibleTags } from '@/pages/crm/contacts/contactGroups';
+import { prettySource } from '@/pages/crm/contacts/contactTableUtils';
 import { displayTitle } from '@/lib/crmDisplay';
+import HighlightText from '@/components/base/HighlightText';
+import ContactActions from '@/components/feature/ContactActions';
 
 interface ContactRowProps {
   contact: ContactRecord;
@@ -14,6 +17,8 @@ interface ContactRowProps {
   onMoveToGroup: (c: ContactRecord, groupId: string) => void;
   onToggleStar: (c: ContactRecord) => void;
   isStarred: boolean;
+  /** Active keyword tokens — matched text is highlighted. */
+  terms?: string[];
 }
 
 /**
@@ -34,12 +39,14 @@ export default function ContactRow({
   onMoveToGroup,
   onToggleStar,
   isStarred,
+  terms = [],
 }: ContactRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const info = typeInfo(contact.type);
+  const info = typeInfo(roleOf(contact));
   const tags = visibleTags(contact.tags).slice(0, 2);
+  const sourceDetail = tagValue(contact.tags, 'src:');
   const companyRole = displayTitle(contact.company) || info.label;
 
   useEffect(() => {
@@ -93,20 +100,21 @@ export default function ContactRow({
 
       {/* Name + company/role + mobile meta */}
       <div className="min-w-0 flex-1">
-        <p className="admin-body font-semibold text-[#001731] truncate">{displayTitle(contact.name)}</p>
-        <p className="admin-meta text-[#001731]/55 truncate">{companyRole}</p>
+        <p className="admin-body font-semibold text-[#001731] truncate"><HighlightText text={displayTitle(contact.name)} terms={terms} /></p>
+        <p className="admin-meta text-[#001731]/55 truncate"><HighlightText text={companyRole} terms={terms} /></p>
         {/* Compact phone / email line — mobile & tablet only */}
         <div className="lg:hidden flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
           {contact.phone && (
             <span className="inline-flex items-center gap-1.5 admin-meta text-[#001731]/70">
               <i className="ri-phone-line text-sm" />
-              {contact.phone}
+              <HighlightText text={contact.phone} terms={terms} />
+              <ContactActions phone={contact.phone} size="sm" variant="compact" />
             </span>
           )}
           {contact.email && (
             <span className="inline-flex items-center gap-1.5 admin-meta text-[#001731]/70 min-w-0 max-w-full">
               <i className="ri-mail-line text-sm" />
-              <span className="truncate">{contact.email}</span>
+              <HighlightText className="truncate" text={contact.email} terms={terms} />
             </span>
           )}
         </div>
@@ -119,16 +127,26 @@ export default function ContactRow({
             ))}
           </div>
         )}
+        {contact.source && (
+          <div className="hidden sm:flex items-center gap-1.5 mt-1.5 min-w-0">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full admin-meta bg-[#0d5959]/10 text-[#0d5959] whitespace-nowrap">
+              <i className="ri-share-forward-line text-xs" />
+              {prettySource(contact.source)}
+            </span>
+            {sourceDetail && <span className="admin-meta text-[#001731]/50 truncate">{sourceDetail}</span>}
+          </div>
+        )}
       </div>
 
       {/* Phone column (desktop) */}
-      <div className="hidden lg:flex items-center gap-2 w-[168px] flex-shrink-0 min-w-0">
+      <div className="hidden lg:flex items-center gap-2 w-[212px] flex-shrink-0 min-w-0">
         {contact.phone ? (
           <>
             <span className="w-5 h-5 flex items-center justify-center text-[#001731]/40 flex-shrink-0">
               <i className="ri-phone-line text-base" />
             </span>
-            <span className="admin-meta text-[#001731]/75 truncate">{contact.phone}</span>
+            <span className="admin-meta text-[#001731]/75 truncate"><HighlightText text={contact.phone} terms={terms} /></span>
+            <ContactActions phone={contact.phone} size="sm" variant="compact" className="ml-auto" />
           </>
         ) : (
           <span className="admin-meta text-[#001731]/30">—</span>
@@ -142,7 +160,7 @@ export default function ContactRow({
             <span className="w-5 h-5 flex items-center justify-center text-[#001731]/40 flex-shrink-0">
               <i className="ri-mail-line text-base" />
             </span>
-            <span className="admin-meta text-[#001731]/75 truncate">{contact.email}</span>
+            <span className="admin-meta text-[#001731]/75 truncate"><HighlightText text={contact.email} terms={terms} /></span>
           </>
         ) : (
           <span className="admin-meta text-[#001731]/30">—</span>

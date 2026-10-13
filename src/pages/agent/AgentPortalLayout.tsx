@@ -12,7 +12,7 @@ import { formatTimeAgo } from '@/lib/timeAgo';
 import {
   LayoutDashboard, Building2, Plus, Users, Inbox, BarChart3,
   UserRound, HelpCircle, LogOut, Menu, X, Home, Contact,
-  MessageSquareText, Fingerprint, CalendarDays, CalendarCheck, CalendarRange, Bell, Landmark, Handshake, Clock,
+  MessageSquareText, Fingerprint, CalendarDays, CalendarCheck, CalendarRange, Bell, Landmark, Handshake, Clock, ClipboardList,
 } from 'lucide-react';
 import Chevron from '@/components/base/Chevron';
 import NavSubmenu from '@/components/feature/NavSubmenu';
@@ -35,6 +35,8 @@ interface NavEntry {
   accent?: boolean;
   /** Keep this entry's own page reachable while its children open in the attached submenu. */
   parentLink?: boolean;
+  /** Optional trailing badge (e.g. an unread count) shown on the parent submenu row. */
+  badge?: React.ReactNode;
   /** Nested sub-navigation items, rendered in the side/inline submenu drawer. */
   children?: NavEntry[];
 }
@@ -46,6 +48,14 @@ interface NavEntry {
  * management. Collapses to a drawer on mobile with an explicit close button.
  */
 export default function AgentPortalLayout() {
+  return (
+    <AgentCountsProvider>
+      <AgentPortalShell />
+    </AgentCountsProvider>
+  );
+}
+
+function AgentPortalShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
   const { inboxUnread, leadsUnread } = useAgentCounts();
@@ -57,7 +67,6 @@ export default function AgentPortalLayout() {
     refresh: refreshNotifs,
     markRead: markNotifRead,
     markAllRead: markNotifsRead,
-    markDisplayedRead: markNotifsDisplayed,
   } = useNotificationCenter();
   const { allowed: canViewCompanyCalendar } = useCompanyCalendarAccess();
   const location = useLocation();
@@ -80,6 +89,7 @@ export default function AgentPortalLayout() {
     subtitle: n.body || undefined,
     meta: formatTimeAgo(n.created_at).replace('Added ', ''),
     href: n.link || '/agent/notifications',
+    unread: !n.is_read,
   }));
 
   const navGroups: { title: string; items: NavEntry[] }[] = [
@@ -122,7 +132,18 @@ export default function AgentPortalLayout() {
     {
       title: 'CRM',
       items: [
-        { label: 'Leads', icon: <Users size={18} />, path: '/agent/leads', match: '/agent/leads' },
+        {
+          label: 'Leads',
+          icon: <Users size={18} />,
+          path: '/agent/leads',
+          match: '/agent/leads',
+          parentLink: true,
+          badge: <CountBadge count={leadsUnread} label="new leads" />,
+          children: [
+            { label: 'Leads', icon: <Users size={18} />, path: '/agent/leads', match: '/agent/leads' },
+            { label: 'Client Requests', icon: <ClipboardList size={18} />, path: '/agent/client-requests', match: '/agent/client-requests' },
+          ],
+        },
         { label: 'Inbox', icon: <Inbox size={18} />, path: '/agent/enquiries', match: '/agent/enquiries' },
         { label: 'My Contacts', icon: <Contact size={18} />, path: '/agent/contacts', match: '/agent/contacts' },
         { label: 'Performance', icon: <BarChart3 size={18} />, path: '/agent/performance', match: '/agent/performance' },
@@ -253,6 +274,7 @@ export default function AgentPortalLayout() {
                     onNavigate={() => setSidebarOpen(false)}
                     path={item.parentLink ? item.path : undefined}
                     match={item.parentLink ? item.match : undefined}
+                    badge={item.badge}
                     activeColor="#5eead4"
                     activeBg="#0d5959"
                   />
@@ -279,6 +301,7 @@ export default function AgentPortalLayout() {
                   {item.match === '/agent/leads' && <CountBadge count={leadsUnread} label="new leads" />}
                   {item.match === '/agent/enquiries' && <CountBadge count={inboxUnread} label="unread" />}
                   {item.match === '/agent/messenger' && <CountBadge count={messengerUnread} label="unread messages" />}
+                  {item.match === '/agent/notifications' && <CountBadge count={notifUnread} label="unread notifications" />}
                   {active && <Chevron className={`flex-shrink-0 ${item.accent ? 'text-[#5eead4] group-hover:text-white' : 'text-[#5eead4]'}`} />}
                 </Link>
               );
@@ -318,10 +341,9 @@ export default function AgentPortalLayout() {
   // portal reuses those same list/form components, so we apply the scope to the agent
   // CRM routes only — the bespoke dashboard, messenger, calendar, punch-clock and
   // timesheet screens keep their own dedicated styling.
-  const isCrmRoute = /^\/agent\/(leads|enquiries|contacts|listings|land-listings|developments|jv-desk|joint-ventures)/.test(location.pathname);
+  const isCrmRoute = /^\/agent\/(leads|client-requests|enquiries|contacts|listings|land-listings|developments|jv-desk|joint-ventures)/.test(location.pathname);
 
   return (
-    <AgentCountsProvider>
     <div className="min-h-screen flex bg-[#001731]">
       <CRMToastContainer />
       {/* Desktop sidebar */}
@@ -375,8 +397,9 @@ export default function AgentPortalLayout() {
               notificationsCount={notifUnread}
               feed={headerFeed}
               onMarkAllRead={markNotifsRead}
-              onOpen={markNotifsDisplayed}
+              onOpen={refreshNotifs}
               onItemClick={markNotifRead}
+              onItemRead={markNotifRead}
               onRetry={refreshNotifs}
               errorText={notifError}
               viewAllHref="/agent/notifications"
@@ -391,8 +414,9 @@ export default function AgentPortalLayout() {
               notificationsCount={notifUnread}
               feed={headerFeed}
               onMarkAllRead={markNotifsRead}
-              onOpen={markNotifsDisplayed}
+              onOpen={refreshNotifs}
               onItemClick={markNotifRead}
+              onItemRead={markNotifRead}
               onRetry={refreshNotifs}
               errorText={notifError}
               viewAllHref="/agent/notifications"
@@ -424,6 +448,5 @@ export default function AgentPortalLayout() {
       {/* Shared-computer protection: idle agents are warned, then signed out. */}
       <IdleSignOutGuard />
     </div>
-    </AgentCountsProvider>
   );
 }

@@ -17,6 +17,14 @@ interface PropertyCardBodyProps {
   onMessage: () => void;
   /** Transaction mode - controls the price annotation (Guide price / pcm). */
   variant: 'sale' | 'rent';
+  /**
+   * The area the current radius search is centred on (e.g. "Karen"). When a
+   * listing sits in this SAME area, its distance badge is suppressed: the area
+   * hubs are coarse (~100m of drift) so a sub-kilometre reading is noise, not
+   * a real distance. Only listings that step OUT of the anchor area ever show
+   * a distance, and that distance is shown in miles.
+   */
+  anchorArea?: string;
 }
 
 /**
@@ -39,6 +47,7 @@ export default function PropertyCardBody({
   format,
   onMessage,
   variant,
+  anchorArea,
 }: PropertyCardBodyProps) {
   const allFactsEmpty =
     !p.beds && !p.baths && !p.parking && !p.sqft && !p.acreage && !p.landSize;
@@ -62,8 +71,10 @@ export default function PropertyCardBody({
     ? format(p.rawPrice, p.currency as Currency)
     : (p.price || 'Price on request');
 
-  // Shared age rule: "Listed recently" for new listings, and an EMPTY string
-  // when the date is missing/invalid so we omit the metadata entirely.
+  // Shared age rule: a specific time once one is measurable, and an EMPTY
+  // string when the date is missing/invalid OR the listing is still under a
+  // minute old - so the age line is omitted entirely rather than showing a
+  // vague "recently" placeholder.
   const listedAgo = formatListingAge(p.createdAt);
 
   // Short, HTML-free taste of the listing copy, run through the SAME shared
@@ -79,6 +90,27 @@ export default function PropertyCardBody({
     automatic: p.availableUnits && p.availableUnits > 0 ? autoUrgency(p.availableUnits, 'unit') : null,
     enabled: p.showUrgencyMessage !== false,
   });
+
+  // ── Distance badge (radius search only) ────────────────────────────────
+  // Only meaningful when the listing genuinely sits OUTSIDE the area the
+  // search is centred on. A same-area listing must show NOTHING - the area
+  // hubs are coarse, so a small sub-mile reading is coordinate drift between
+  // two sources for the same place, not a real distance. Out-of-area listings
+  // are expressed in MILES (e.g. "1 mile away"), never raw metres/kilometres.
+  const milesAway = p.distanceKm != null ? p.distanceKm * 0.621371 : null;
+  const sameArea = (() => {
+    if (!anchorArea || !p.area) return false;
+    const a = anchorArea.toLowerCase().trim();
+    const b = p.area.toLowerCase().trim();
+    return a === b || a.includes(b) || b.includes(a);
+  })();
+  const showDistance = milesAway != null && milesAway >= 0.1 && !sameArea;
+  const roundedMiles = milesAway == null ? 0 : Math.round(milesAway);
+  const distanceLabel = milesAway == null
+    ? ''
+    : milesAway < 1
+      ? 'under 1 mile away'
+      : `${roundedMiles} ${roundedMiles === 1 ? 'mile' : 'miles'} away`;
 
   return (
     <div className="flex-1 p-4 sm:p-5 max-sm:p-5 flex flex-col justify-between min-w-0 overflow-hidden">
@@ -166,11 +198,9 @@ export default function PropertyCardBody({
               {p.area || p.location}
             </span>
           </span>
-          {p.distanceKm != null && (
+          {showDistance && (
             <span className="ml-1.5 mt-0.5 text-[10px] font-roboto font-normal text-[#2D303D] bg-primary/5 px-1.5 py-0.5 rounded whitespace-nowrap">
-              {p.distanceKm < 1
-                ? `${Math.round(p.distanceKm * 1000)}m away`
-                : `${p.distanceKm.toFixed(1)}km away`}
+              {distanceLabel}
             </span>
           )}
         </address>

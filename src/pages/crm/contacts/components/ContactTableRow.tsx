@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ContactRecord, GroupWithCount } from '@/pages/crm/contacts/contactGroups';
-import { getInitials } from '@/pages/crm/contacts/contactGroups';
+import { getInitials, tagValue } from '@/pages/crm/contacts/contactGroups';
 import {
   formatDate,
   prettySource,
   statusInfo,
 } from '@/pages/crm/contacts/contactTableUtils';
 import { displayTitle } from '@/lib/crmDisplay';
+import HighlightText from '@/components/base/HighlightText';
+import ContactActions from '@/components/feature/ContactActions';
 
 interface ContactTableRowProps {
   contact: ContactRecord;
@@ -20,6 +22,8 @@ interface ContactTableRowProps {
   onDelete: (c: ContactRecord) => void;
   onMoveToGroup: (c: ContactRecord, groupId: string) => void;
   onToggleStar: (c: ContactRecord) => void;
+  /** Active keyword tokens — matched text is highlighted. */
+  terms?: string[];
 }
 
 /**
@@ -38,11 +42,13 @@ export default function ContactTableRow({
   onDelete,
   onMoveToGroup,
   onToggleStar,
+  terms = [],
 }: ContactTableRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const status = statusInfo(contact);
+  const sourceDetail = tagValue(contact.tags, 'src:');
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -108,11 +114,11 @@ export default function ContactTableRow({
 
           <span className="min-w-0">
             <span className="block admin-body font-semibold text-[#001731] truncate max-w-[220px]">
-              {displayTitle(contact.name)}
+              <HighlightText text={displayTitle(contact.name)} terms={terms} />
             </span>
             {contact.company && (
               <span className="block admin-meta text-[#001731]/55 truncate max-w-[220px]">
-                {displayTitle(contact.company)}
+                <HighlightText text={displayTitle(contact.company)} terms={terms} />
               </span>
             )}
           </span>
@@ -121,19 +127,27 @@ export default function ContactTableRow({
 
       {/* Phone */}
       <td className="py-[18px] pr-4 align-middle whitespace-nowrap">
-        <span className="admin-meta text-[#001731]/75">{contact.phone || '—'}</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="admin-meta text-[#001731]/75"><HighlightText text={contact.phone || '—'} terms={terms} /></span>
+          {contact.phone && <ContactActions phone={contact.phone} size="sm" variant="compact" />}
+        </span>
       </td>
 
       {/* Email */}
       <td className="py-[18px] pr-4 align-middle">
         <span className="block admin-meta text-[#001731]/75 truncate max-w-[260px]">
-          {contact.email || '—'}
+          <HighlightText text={contact.email || '—'} terms={terms} />
         </span>
       </td>
 
       {/* Source */}
-      <td className="py-[18px] pr-4 align-middle whitespace-nowrap">
-        <span className="admin-meta text-[#001731]/70">{prettySource(contact.source)}</span>
+      <td className="py-[18px] pr-4 align-middle">
+        <span className="block admin-meta text-[#001731]/70 whitespace-nowrap">{prettySource(contact.source)}</span>
+        {sourceDetail && (
+          <span className="block admin-meta text-[#001731]/45 truncate max-w-[180px]" title={sourceDetail}>
+            {sourceDetail}
+          </span>
+        )}
       </td>
 
       {/* Updated */}

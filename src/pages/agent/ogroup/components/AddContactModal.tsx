@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { resolveProfileByContact } from '../teamDirectory';
 import { ModalShell } from './Modals';
+import PhoneInput from '@/components/base/PhoneInput';
 
 interface AddContactModalProps {
   onClose: () => void;
@@ -119,7 +120,15 @@ export function AddContactModal({ onClose, onStartChat, onSaved }: AddContactMod
           </div>
           <div>
             <label className="text-xs font-semibold text-[#8696a0]">Phone</label>
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+254 7xx xxx xxx" className={`mt-1 ${INPUT_CLS}`} />
+            <div className="mt-1">
+              <PhoneInput
+                value={phone}
+                onChange={setPhone}
+                placeholder="7xx xxx xxx"
+                inputClassName="flex-1 min-w-0 px-3 py-2 bg-[#202c33] border border-l-0 border-[#2a3942] rounded-r-lg text-sm text-[#e9edef] placeholder:text-[#8696a0] focus:outline-none focus:ring-1 focus:ring-[#00a884]"
+                buttonClassName="flex items-center gap-1.5 px-3 py-2 bg-[#202c33] border border-[#2a3942] border-r-0 rounded-l-lg text-sm text-[#e9edef] focus:outline-none focus:ring-1 focus:ring-[#00a884] cursor-pointer whitespace-nowrap"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">

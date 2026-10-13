@@ -1,8 +1,10 @@
 import { useState, FormEvent, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useFormSubmit } from '@/hooks/useFormSubmit';
+import ContactActions from '@/components/feature/ContactActions';
 
 interface Agent {
+  id?: string;
   name: string;
   role: string;
   phone: string;
@@ -16,6 +18,10 @@ interface ContactCardProps {
   propertyRef: string;
   formSubmitUrl: string;
   tourFormSubmitUrl: string;
+  /** Canonical listing id - routes the enquiry to the assigned agent. */
+  listingId?: string;
+  /** Assigned listing agent id (explicit attribution). */
+  agentId?: string | null;
 }
 
 const countryCodes = [
@@ -47,7 +53,7 @@ function getWeekDates() {
 const weekDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-export default function PropertyContactCard({ agents, propertyTitle, propertyRef, formSubmitUrl, tourFormSubmitUrl }: ContactCardProps) {
+export default function PropertyContactCard({ agents, propertyTitle, propertyRef, formSubmitUrl, tourFormSubmitUrl, listingId, agentId }: ContactCardProps) {
   const [activeTab, setActiveTab] = useState<'info' | 'tour'>('tour');
   const { status: formStatus, error: formError, submitToContacts, reset } = useFormSubmit();
   const [countryCode, setCountryCode] = useState('+254');
@@ -112,6 +118,9 @@ export default function PropertyContactCard({ agents, propertyTitle, propertyRef
       type: activeTab === 'tour' ? 'property_tour' : 'property_enquiry',
       notes,
       tags: ['property_detail'],
+      listing_id: listingId,
+      property_title: propertyTitle,
+      agent_id: agentId || null,
     });
 
     if (success) {
@@ -162,26 +171,26 @@ export default function PropertyContactCard({ agents, propertyTitle, propertyRef
           <button
             type="button"
             onClick={() => setActiveTab('info')}
-            className="flex-1 py-3.5 text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap border-b-2"
+            className="flex-1 py-3.5 text-[13px] font-roboto font-bold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap border-b-2"
             style={{
               color: '#002349',
               background: '#FFFFFF',
               borderBottomColor: activeTab === 'info' ? '#002349' : 'transparent',
             }}
           >
-            Request Info
+            Request Information
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('tour')}
-            className="flex-1 py-3.5 text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap border-b-2"
+            className="flex-1 py-3.5 text-[13px] font-roboto font-bold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap border-b-2"
             style={{
               color: '#002349',
               background: '#FFFFFF',
               borderBottomColor: activeTab === 'tour' ? '#002349' : 'transparent',
             }}
           >
-            Schedule a tour
+            Schedule a Tour
           </button>
         </div>
 
@@ -209,15 +218,7 @@ export default function PropertyContactCard({ agents, propertyTitle, propertyRef
                     </p>
                     <p className="text-xs font-roboto text-gray-400 truncate">{role}</p>
                   </div>
-                  {activeTab === 'info' && a.phone && (
-                    <a
-                      href={`tel:${a.phone}`}
-                      className="flex items-center gap-1.5 text-xs font-roboto font-semibold text-primary hover:opacity-70 transition-opacity cursor-pointer whitespace-nowrap shrink-0"
-                    >
-                      <i className="ri-phone-line text-sm"></i>
-                      Call
-                    </a>
-                  )}
+                  <ContactActions phone={a.phone} variant="compact" className="shrink-0" />
                 </div>
               );
             })

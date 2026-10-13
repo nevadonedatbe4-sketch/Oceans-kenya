@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { addToast } from '@/pages/crm/components/CRMToast';
 import { Save, X } from 'lucide-react';
+import PhoneInput from '@/components/base/PhoneInput';
 
 export interface AgentProfileRecord {
   id: string;
@@ -140,7 +141,13 @@ export default function AgentProfileEditModal({ open, agent, onClose, onSaved }:
             </div>
             <div>
               <label className={labelCls}>Phone</label>
-              <input type="tel" value={form.phone} onChange={(e) => update({ phone: e.target.value })} className={field} placeholder="+254 712 345 678" />
+              <PhoneInput
+                value={form.phone}
+                onChange={(v) => update({ phone: v })}
+                placeholder="712 345 678"
+                inputClassName="flex-1 min-w-0 px-3 py-2.5 border border-l-0 border-gray-200 rounded-r-lg text-sm text-[#1a1a2e] focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/30"
+                buttonClassName="flex items-center gap-1.5 px-3 py-2.5 border border-gray-200 border-r-0 rounded-l-lg bg-white text-sm text-[#1a1a2e] focus:outline-none focus:border-emerald-400 cursor-pointer whitespace-nowrap"
+              />
             </div>
           </div>
 

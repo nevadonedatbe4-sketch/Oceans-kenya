@@ -10,6 +10,11 @@ import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { broadcastSync } from '@/lib/syncEngine';
 import { displayLocation, bedroomTypeRange } from '@/lib/crmDisplay';
 import CrmTitle from '@/pages/crm/components/CrmTitle';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import LocationMultiSelect from '@/components/base/LocationMultiSelect';
+import CrmFilterField from '@/components/base/CrmFilterField';
+import { useCanonicalAreas } from '@/lib/locationRegistry';
+import { buildCrmFilterString, tokenizeKeywords, parseCrmQuery } from '@/lib/crmSearch';
 import ShareLinkModal from '@/pages/crm/components/ShareLinkModal';
 import { propertyPublicUrl } from '@/lib/shareLinks';
 
@@ -56,12 +61,19 @@ export default function Developments() {
   const navigate = useNavigate();
   const portalBase = usePortalBase();
   const { user } = useAuth();
-  const { agentId } = useAgentProfile();
+  const { agentId, loading: agentLoading } = useAgentProfile();
   const isAgent = user?.role === 'agent';
   const [rows, setRows] = useState<DevRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('date');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const { areas: canonicalAreas } = useCanonicalAreas();
+  const areaOptions = canonicalAreas.map((a) => a.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [total, setTotal] = useState(0);
@@ -74,7 +86,17 @@ export default function Developments() {
   const actionButtonRef = useRef<HTMLElement | null>(null);
 
   const fetchData = useCallback(async () => {
+    // Agents must NEVER see other agents' developments. Hold until their agent
+    // id is resolved, and show nothing if no agent record exists rather than
+    // falling back to an unfiltered (all-developments) query.
     setLoading(true);
+    if (isAgent && agentLoading) return;
+    if (isAgent && !agentId) {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     let q = supabase
       .from('developments')
       .select('id, title, slug, location, developer_name, development_status, price, currency, total_units, is_published, is_featured, main_image, cover_image, created_at, unit_types(name, bedrooms)', { count: 'exact' })
@@ -83,9 +105,25 @@ export default function Developments() {
     // Agents only ever see their own developments — scoped at the query level.
     if (isAgent && agentId) q = q.eq('agent_id', agentId);
     if (statusFilter !== 'all') q = q.eq('development_status', statusFilter);
-    if (search.trim()) q = q.or(`title.ilike.%${search.trim()}%,location.ilike.%${search.trim()}%`);
+    if (priceMin) q = q.gte('price', Number(priceMin));
+    if (priceMax) q = q.lte('price', Number(priceMax));
+    // Keyword + multi-location search through the shared CRM engine — same
+    // semantics as My Properties (keywords AND-ed, locations OR-ed).
+    const filterString = buildCrmFilterString({
+      terms: tokenizeKeywords(search),
+      fields: ['title', 'location', 'developer_name', 'slug'],
+      locations: selectedLocations,
+      locationFields: ['location'],
+    });
+    if (filterString) q = q.or(filterString);
 
-    const { data, error, count } = await q.order('created_at', { ascending: false });
+    // Sort
+    if (sortBy === 'price') q = q.order('price', { ascending: false });
+    else if (sortBy === 'title') q = q.order('title', { ascending: true });
+    else if (sortBy === 'featured') q = q.order('is_featured', { ascending: false }).order('created_at', { ascending: false });
+    else q = q.order('created_at', { ascending: false });
+
+    const { data, error, count } = await q;
     if (error) {
       addToast('Failed to load developments', 'error');
     } else {
@@ -115,10 +153,10 @@ export default function Developments() {
       setTotal(count ?? 0);
     }
     setLoading(false);
-  }, [page, pageSize, statusFilter, search, isAgent, agentId]);
+  }, [page, pageSize, statusFilter, search, priceMin, priceMax, selectedLocations, sortBy, isAgent, agentId, agentLoading]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setPage(1); }, [search, statusFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, priceMin, priceMax, selectedLocations, sortBy]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -203,6 +241,44 @@ export default function Developments() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
+  const selectCls = 'w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] cursor-pointer';
+  const inputCls = 'w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]';
+
+  const activeFilterCount = [
+    statusFilter !== 'all',
+    priceMin !== '',
+    priceMax !== '',
+    selectedLocations.length > 0,
+    sortBy !== 'date',
+  ].filter(Boolean).length;
+
+  const handleSearch = () => {
+    const parsed = parseCrmQuery(search);
+    if (parsed.locations.length > 0) {
+      setSelectedLocations((prev) => {
+        const merged = [...prev];
+        for (const loc of parsed.locations) {
+          if (!merged.some((m) => m.toLowerCase() === loc.toLowerCase())) merged.push(loc);
+        }
+        return merged;
+      });
+    }
+    if (parsed.priceMin) setPriceMin(String(parsed.priceMin));
+    if (parsed.priceMax) setPriceMax(String(parsed.priceMax));
+    setSearch(parsed.terms.join(' '));
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setStatusFilter('all');
+    setPriceMin('');
+    setPriceMax('');
+    setSelectedLocations([]);
+    setSortBy('date');
+    setSearch('');
+    setPage(1);
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -228,25 +304,113 @@ export default function Developments() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 flex flex-col lg:flex-row gap-3 items-start lg:items-center">
-        <div className="relative flex-1 max-w-md w-full">
-          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#6b7280] lg:text-[#88929e]" />
-          <input
-            type="text"
-            placeholder="Search name or location..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-[#6b7280] lg:placeholder:text-[#88929e]"
+      {/* Search & Filters — mirrors My Properties (full-width search + Filters panel) */}
+      <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 space-y-3">
+        {/* Row 1 — full-width keyword search field + Search button */}
+        <CrmSearchBar
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          onSubmit={handleSearch}
+          loading={loading}
+          showClear={false}
+          placeholder="Search development, location or developer…"
+          className="w-full"
+          iconClassName="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-base text-[#5b6b7a]"
+          inputClassName="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-white border-[#94a3b8] text-[#001731] placeholder:text-[#5b6b7a] placeholder:font-medium focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/25"
+          buttonClassName="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap cursor-pointer transition-colors bg-[#0d5959] text-white hover:bg-[#084545] disabled:opacity-60 disabled:cursor-not-allowed"
+        />
+
+        {/* Row 2 — multi-location · filters */}
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          <LocationMultiSelect
+            options={areaOptions}
+            selected={selectedLocations}
+            onChange={(v) => { setSelectedLocations(v); setPage(1); }}
+            placeholder="Multiple areas, e.g. Karen, Runda…"
+            className="w-full lg:flex-1 lg:min-w-0"
+            chipClassName="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold bg-[#0d5959]/15 text-[#5eead4] lg:bg-secondary-100 lg:text-secondary-900"
+            controlClassName="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border-2 rounded-lg min-h-[44px] bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8]"
+            inputClassName="flex-1 min-w-[130px] px-2 py-1 text-sm font-semibold focus:outline-none bg-transparent text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]"
+            dropdownClassName="absolute z-40 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded-lg border border-[#1c3a5e] lg:border-[#e5e7eb] bg-white shadow-lg"
           />
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="inline-flex items-center justify-center gap-1.5 w-full lg:w-auto lg:flex-shrink-0 px-4 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors whitespace-nowrap bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]"
+          >
+            <i className="ri-equalizer-line text-sm" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">{activeFilterCount}</span>
+            )}
+            <i className={`${showAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'} text-sm`} />
+          </button>
         </div>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer">
-          <option value="all">All Statuses</option>
-          <option value="off_plan">Off-Plan</option>
-          <option value="under_construction">Under Construction</option>
-          <option value="completed">Completed</option>
-        </select>
-        <span className="text-xs font-medium text-[#6b7280] lg:text-[#88929e] ml-auto">{total} developments</span>
+
+        {showAdvanced && (
+          <div className="pt-3 border-t-2 border-[#1c3a5e] lg:border-[#cbd5e1]">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-white lg:text-[#001731]">
+                Refine Results
+                {activeFilterCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">{activeFilterCount}</span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(false)}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-2 whitespace-nowrap border-[#1c3a5e] text-white hover:bg-white/10 lg:border-[#cbd5e1] lg:text-[#001731] lg:hover:bg-[#f7f8fa]"
+              >
+                <i className="ri-close-line text-sm" />
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <CrmFilterField label="Status" tone="contrast">
+                <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="all">All Statuses</option>
+                  <option value="off_plan">Off-Plan</option>
+                  <option value="under_construction">Under Construction</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </CrmFilterField>
+              <CrmFilterField label="Price Range" tone="contrast">
+                <div className="flex items-center gap-2">
+                  <input type="number" placeholder="Min" value={priceMin} onChange={(e) => { setPriceMin(e.target.value); setPage(1); }} className={inputCls} />
+                  <span className="text-xs text-white/70 lg:text-[#88929e]">—</span>
+                  <input type="number" placeholder="Max" value={priceMax} onChange={(e) => { setPriceMax(e.target.value); setPage(1); }} className={inputCls} />
+                </div>
+              </CrmFilterField>
+              <CrmFilterField label="Sort" tone="contrast">
+                <select value={sortBy} onChange={(e) => { setSortBy(e.target.value); setPage(1); }} className={selectCls}>
+                  <option value="date">Sort by Date</option>
+                  <option value="price">Sort by Price</option>
+                  <option value="title">Sort by Title</option>
+                  <option value="featured">Sort by Featured</option>
+                </select>
+              </CrmFilterField>
+            </div>
+            {activeFilterCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold cursor-pointer hover:underline text-white/80 lg:text-[#88929e]"
+              >
+                <i className="ri-close-circle-line" />
+                Clear all filters
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-white lg:text-[#88929e]">
+          <span>{total} {total === 1 ? 'development' : 'developments'}</span>
+          {selectedLocations.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <i className="ri-map-pin-2-line" />
+              in {selectedLocations.join(', ')}
+            </span>
+          )}
+          <span className="ml-auto whitespace-nowrap">Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
+        </div>
       </div>
 
       {/* Table / cards */}

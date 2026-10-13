@@ -773,9 +773,9 @@ export default function JointVentures() {
               });
             }}
             placeholderCycle={[
-              'Search land by area, e.g. Karen...',
-              'Search land by town, e.g. Nanyuki...',
-              'Search land by district...',
+              'Search land by area, e.g. Karen',
+              'Search land by town, e.g. Nanyuki',
+              'Search by landmark, e.g. The Hub Karen',
             ]}
             priceMinValue={landPriceMin}
             onPriceMinChange={setLandPriceMin}

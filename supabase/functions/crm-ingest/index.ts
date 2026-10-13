@@ -174,14 +174,26 @@ serve(async (req: Request) => {
     const submissionType = payload.submission_type || null;
     const isJv = isJvSubmissionType(submissionType);
 
-    // 1. Resolve agent from listing (or explicit attribution)
-    const agent_id = await resolveAgentFromListing(supabaseAdmin, listing_id, payload.agent_id);
+    // Kick off the independent reads together so a submission costs fewer
+    // sequential round-trips (the dominant latency source). Outbound email is
+    // already deferred via waitUntil further down, so the visitor's "Sent!"
+    // never waits on the mail provider.
+    const autoSettingsPromise = supabaseAdmin
+      .from("site_settings")
+      .select("key, value")
+      .in("key", [
+        "auto_response_enabled",
+        "auto_response_subject",
+        "auto_response_message",
+        "auto_response_sender_name",
+      ]);
 
-    // 2. Match / register the submitting user by email.
-    let user_id: string | null = payload.user_id || null;
-    if (!user_id) {
-      user_id = await findUserByEmail(supabaseAdmin, email);
-    }
+    // 1 & 2. Resolve the listing agent and match the submitting user in parallel.
+    const [agent_id, matchedUserId] = await Promise.all([
+      resolveAgentFromListing(supabaseAdmin, listing_id, payload.agent_id),
+      payload.user_id ? Promise.resolve(payload.user_id) : findUserByEmail(supabaseAdmin, email),
+    ]);
+    const user_id: string | null = matchedUserId;
 
     // 3. Upsert contact (dedupe by email, then phone)
     let contact_id: string | null = null;
@@ -357,15 +369,7 @@ serve(async (req: Request) => {
 
     // 9. Auto-response — acknowledge the lead while they wait for an agent.
     let auto_response_sent = false;
-    const { data: autoRows } = await supabaseAdmin
-      .from("site_settings")
-      .select("key, value")
-      .in("key", [
-        "auto_response_enabled",
-        "auto_response_subject",
-        "auto_response_message",
-        "auto_response_sender_name",
-      ]);
+    const { data: autoRows } = await autoSettingsPromise;
 
     const autoMap: Record<string, string> = {};
     (autoRows || []).forEach((r: { key: string; value: string | null }) => {
@@ -450,7 +454,12 @@ serve(async (req: Request) => {
       lead_id,
       enquiry_id,
       contact_id,
-      link: "/admin/joint-ventures?tab=submissions",
+      // Actionable link: an assigned agent is sent to their own enquiries inbox;
+      // the unaddressed office queue goes to the JV desk for a JV submission,
+      // otherwise to the shared admin inbox. Never a link the recipient cannot open.
+      link: recipient_id
+        ? "/agent/enquiries"
+        : (isJv ? "/admin/joint-ventures?tab=submissions" : "/admin/inbox"),
       is_read: false,
     });
 

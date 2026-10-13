@@ -9,6 +9,7 @@ import RecentLeads from './components/RecentLeads';
 import RecentDeals from './components/RecentDeals';
 import RecentProperties from './components/RecentProperties';
 import AgentDashboard from './AgentDashboard';
+import ClientRequestStats from '@/pages/crm/client-requests/components/ClientRequestStats';
 
 interface DashboardStats {
   totalProperties: number;
@@ -467,6 +468,8 @@ export default function Dashboard() {
       {isAgentView ? (
         <AgentDashboard />
       ) : (
+        <>
+        <ClientRequestStats basePath="/admin" />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
           {/* Left column — Leads + Deals */}
           <div className="lg:col-span-2 space-y-4 sm:space-y-5">
@@ -552,6 +555,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        </>
       )}
     </div>
   );

@@ -1045,3 +1045,206 @@ real, CRM-entry fields — not values guessed from a leftover listing row.
   Ground rent / Ground rent review / Lease length and for the standard utility rows (Water,
   Electricity, Heating, Sewerage, Broadband, Broadband speed, Mobile coverage, Parking), falling
   back to the representative unit's columns/custom fields only when the project field is blank.
+
+## 26. CRM Search Upgrade — Indexed Keyword Column, Lead Multi-Location & Bolder Search UI (DONE)
+
+Goal: make the shared CRM search genuinely reliable (amenity keywords like "furnished" / "pool"
+match), bring multi-location search to Leads, add a close action to filter panels, and raise the
+search UI's weight/density to match the public-facing system.
+
+### 26.1 `listings.search_text` — indexed keyword column
+- **Column:** `listings.search_text text` (plain column, not a generated one — a generated
+  expression is rejected because array/jsonb casts are not IMMUTABLE).
+- **Maintained by trigger:** `trg_listings_search_text` (BEFORE INSERT OR UPDATE) calls
+  `listings_set_search_text()`, which stores
+  `lower(concat_ws(' ', title, description, unique_features, amenities::text, features::text,
+  feature_checkboxes::text, custom_features::text))`.
+- `furnished_status` is deliberately EXCLUDED so searching "furnished" cannot also match
+  "unfurnished" listings.
+- **Backfilled** for all existing rows; **GIN trigram index** `idx_listings_search_text_trgm`
+  (`gin_trgm_ops`) created for fast `ilike '%term%'`.
+- `src/lib/crmSearch.ts` — `LISTING_KEYWORD_FIELDS` now leads with `search_text`, so a single
+  keyword covers title + description + amenities + features.
+
+### 26.2 Multi-location selector on Leads
+- New `LEAD_LOCATION_FIELDS = ['message', 'notes']` (leads have no neighbourhood column — the
+  requested area is stated in the enquiry text).
+- `Leads.tsx` gained the shared `LocationMultiSelect` (chips) plus `selectedLocations` state;
+  `buildCrmFilterString` now runs whenever a keyword OR a location is present, matching
+  `Karen OR Runda OR Muthaiga` (OR within location, AND with every other filter).
+- Verified against live data: Karen 2 · Runda 0 · Muthaiga 1 · any-of-three 3 leads.
+
+### 26.3 Close action on filter panels
+- `Listings.tsx` advanced filters panel gained a **Close** button (header row) that collapses it.
+- `ContactFiltersPanel.tsx` gained an `onClose` prop + **Close** button in its header (wired from
+  `Contacts.tsx` via `setFiltersOpen(false)`).
+
+### 26.4 Bolder / denser search UI (desktop + mobile)
+- `CrmSearchBar` defaults raised: `border-2`, `font-semibold` input, stronger placeholder, and a
+  `font-bold`/`px-5` Search button.
+- `Listings.tsx` search input set to `border-2` with a visible `#94a3b8` border, `font-semibold`
+  text and darker placeholder; location control, price inputs and filter selects given `border-2`
+  and stronger borders; filter labels bumped to bold uppercase.
+- `Deals.tsx` and `contacts/components/ContactsToolbar.tsx` search bars aligned to the same bolder
+  treatment so all four CRM areas match.
+
+## 27. CRM Search — Compact Toolbar, Structured Furnishing, Contact Areas & Match Highlighting (DONE)
+
+Goal: tighten the Listings toolbar, make furnishing an exact structured filter, group contacts by
+area, and show WHY each record matched.
+
+### 27.1 Listings — one-line search toolbar
+- The keyword search, multi-location chips, category select and Filters button now sit on a **single
+  row** (`xl:flex-row`) instead of stacking the location control on its own line — reclaims vertical
+  space while keeping the search bar `flex-1` and the location control a fixed `xl:w-[330px]`.
+
+### 27.2 Listings — structured Furnished / Unfurnished toggle
+- New `filterFurnishing` state (`all` / `furnished` / `unfurnished`) rendered as a segmented control
+  in the advanced filters, targeting the real **`listings.furnished_status`** column:
+  - Furnished → `furnished_status ilike '%furnished%'` **AND NOT** `ilike '%unfurnished%'`.
+  - Unfurnished → `furnished_status ilike '%unfurnished%'`.
+- URL-synced (`?furnishing=`), counted in the active-filter badge, cleared by Clear-all, and shown in
+  the criteria line. Verified live: Furnished **351** / Unfurnished **79**, whereas a plain keyword
+  search for "furnished" wrongly returns **430** (it pulls in the 79 unfurnished listings).
+- The natural-language parser no longer emits "furnished" as a keyword — it lifts `parsed.furnished`
+  into this exact filter instead.
+
+### 27.3 Contacts — multi-location chips
+- `ContactsToolbar` gained the shared `LocationMultiSelect`; `Contacts.tsx` added `selectedLocations`
+  and a client-side area filter across `CONTACT_LOCATION_FIELDS` (`location`, `notes`, `company`) —
+  OR within the selected areas, AND-ed with keywords and the structured filter rows.
+- Data note: contacts currently carry no area in any of those fields, so the chips return an empty
+  set until client records are enriched — the mechanism is correct, the data is not yet there.
+
+### 27.4 Match highlighting in CRM result rows
+- New `src/components/base/HighlightText.tsx` wraps the parts of a string matching the active
+  keyword tokens (case-insensitive substring, mirroring the `ilike %term%` engine).
+- `CrmTitle` gained a `terms` prop so listing titles highlight matched words (including the word-wrap
+  path). Listings rows highlight title, area and property type; Contacts rows (table + overview)
+  highlight name, company, phone and email.
+- `CONTACT_LOCATION_FIELDS` + `FURNISHED_VALUES` / `UNFURNISHED_VALUES` added to `src/lib/crmSearch.ts`.
+
+## 28. Client Request → Property Matching System (internal CRM) — Phase 1 (ACTIVE)
+
+Goal: an internal, permission-gated tool (Admin + Agent portals) to record client
+property requirements, match them against the LIVE Oceans inventory, and manage each
+request to completion. Never exposed publicly. Extends the existing CRM rather than
+duplicating it.
+
+### Data model (new, normalized, RLS-protected)
+- **`client_requests`** — the central record: client identity (with optional
+  `contact_id` link to the existing `contacts` table), transaction type, category,
+  subtype, `locations text[]`, budget range + currency, beds/baths/size, furnishing,
+  `preferred_amenities text[]`, move-in date, financing + additional requirements,
+  `hard_criteria text[]` (mandatory vs preference), priority, status, `assigned_agent_id`
+  (→ `agents.id`), follow-up date, internal notes, consent, `created_by`. Auto reference
+  `CR-00001` via `client_requests_ref_seq` + `trg_client_requests_defaults`.
+- **`client_request_matches`** — request ↔ property matches: score, label, satisfied /
+  unmet / missing criteria (`text[]`), shortlist / excluded / shared flags + timestamps,
+  client feedback, status, and denormalized display fields (title, slug, price, currency,
+  image, location, category). Unique on `(request_id, listing_id, listing_source)`.
+- **`client_request_activity`** — the audit / timeline (actor, action, detail, meta).
+- **RLS**: admin = full org-wide; agent = only where `assigned_agent_id = current_agent_id()`
+  OR `created_by = auth.uid()` (helper `cr_can_view_request(uuid)`); public/anon = denied.
+  Server-enforced, not menu-hiding.
+
+### Matching engine (`src/lib/clientMatching.ts`, pure + explainable)
+- Hard requirements are **eligibility gates** (transaction, category, subtype, location,
+  max budget, bedrooms, furnishing, plus availability/publishedness). A property failing
+  any gate is excluded entirely — it can never rank as a strong match.
+- Preferences only reduce the **weighted 0–100 score** (location 25, budget 25, category 15,
+  bedrooms 10, bathrooms 5, size 5, amenities 10, furnishing 5), renormalised over the
+  criteria the client actually set.
+- No silent currency conversion (unverifiable budget = missing info, not a pass); missing
+  data never counts as satisfied. Labels: Strong (≥80) / Good (≥60) / Partial (≥40) /
+  Alternative — Requires Client Approval. Alternative-location matches are labelled as
+  alternatives rather than silently broadened.
+
+### Inventory + workflow
+- Candidates are drawn from live `listings` (residential / commercial / new_development)
+  and `land_listings` (land) with published + non-withdrawn status; land is never matched
+  as residential. Matches are recomputed on create/edit and via a "Refresh matches"
+  action (fallback recalculation). Staff decisions (shortlist / shared / feedback / excluded)
+  are preserved across recomputes; a shortlisted property that becomes unavailable is
+  flagged, never silently substituted.
+- Shared UI (both portals): **list page** (search, status/transaction/priority/agent
+  filters, clickable team stats: open / unassigned / overdue / high-priority) and a
+  **matching workspace** (ranked matches with why-matched explanations, score filter,
+  shortlist-only toggle, shortlist / mark-shared / client feedback / exclude, request
+  edit, status change, reassignment (admin), follow-up scheduling, activity timeline).
+
+### Routes
+- Admin: `/admin/client-requests`, `/admin/client-requests/:id`
+- Agent: `/agent/client-requests`, `/agent/client-requests/:id`
+- Nav entries added to both portals' CRM group.
+
+### Phase 2 (DONE)
+- Event-driven match invalidation: `client_requests.matches_stale` set by `mark_request_matches_stale()`
+  (SECURITY DEFINER) on INSERT/UPDATE/DELETE of `listings` + `land_listings`; publishing a new
+  listing flags every open request. The workspace auto-recomputes on open then clears the flag
+  (event-driven + reliable on-open fallback). Verified live (reference `CR-01001`; flag flipped).
+- Dashboard tiles: `ClientRequestStats` on the Admin + Agent/Preview dashboards — now **six** tiles
+  (Open / Unassigned / Awaiting client feedback / Requests without matches / Overdue follow-ups /
+  High-urgent), each deep-linking to the filtered list (`?quick=` / `?status=shared`).
+- Automated tests: `src/lib/clientMatching.spec.ts` (run `npx tsx src/lib/clientMatching.spec.ts`).
+
+### Phase 3 (partly DONE)
+- **"Requests without matches" as a first-class count** — `client_requests.match_count integer`
+  (written by `computeMatches()` = eligible, non-excluded, still-available matches; backfilled from
+  stored matches). `hasNoMatches()` counts open requests with `match_count === 0` only (never-computed
+  requests stay excluded so the signal stays honest).
+- Dashboard tile **"Requests without matches"** → `/client-requests?quick=no_matches`; the list page
+  gained the `no_matches` quick filter + a matching stat card, and now syncs `?quick=` / `?status=`
+  in an effect so deep links always land on the exact filtered view.
+
+### Phase 3 (this stage — DONE) — comparison & structured rejection feedback
+- **Compare candidates** — the workspace gained a comparison tray: tick up to four matches and open
+  `MatchCompareModal` for a side-by-side table (image, price, location, category, match score + label,
+  **what fits / what falls short / what's unverified**, client feedback and rejection reason). Every
+  cell is a real stored engine fact — nothing recomputed or invented in the UI.
+- **Structured rejection reason** — recording client feedback with outcome "Client not interested" now
+  requires a reason category (`rejection_reason` on `client_request_matches`: price / location /
+  layout & size / condition / amenities / not as described / other), shown as a red chip on the match
+  and carried into the compare table and the activity log. The reason is preserved across re-matches
+  like every other staff decision, and it never silently rewrites the client's permanent preferences.
+
+### Phase 3 (this stage — DONE) — flexible request capture & fresh matching
+- **Multi-choice property types** — `client_requests.property_subtypes text[]` added. The request form now offers a
+  category-aware chip picker (Residential → house / villa / apartment / …; Commercial → office / warehouse / …) where
+  an agent can tick several acceptable types, plus a free-text "add a type not listed" box for types the CRM doesn't
+  enumerate. The engine (`clientMatching.ts`) treats the type set as a strict gate + scored criterion: a listing
+  qualifies when it matches ANY of the chosen types. `property_subtype` is kept and stored as the first pick for
+  backward compatibility, and both are included in CRM list search.
+- **Flexible move-in** — `client_requests.move_in_flexible text` added alongside the existing `move_in_date`. The form
+  gained a Specific date / Flexible toggle: date mode stores a real date, flexible mode stores free text ("Flexible",
+  "ASAP", "next week", "3 months from now") with one-tap presets. Only the active mode is written, so the two never
+  conflict, and the workspace shows whichever is set.
+- **Preferred locations = zoned areas only** — the location datalist now lists only the published `neighbourhoods`
+  (the areas already zoned in the system) instead of the whole curated registry, while still allowing an agent to type
+  any other area to add it (free text is unchanged).
+- **Hard refresh** — new `resetAndRecomputeMatches()` (API) + `hardReset` (hook) + a confirm-guarded **Hard refresh**
+  button in the workspace. It deletes every stored match for the request — clearing shortlists, shares, exclusions and
+  client feedback — and rebuilds a completely fresh ranked set from the live inventory, distinct from the non-destructive
+  "Refresh matches".
+
+### Phase 3 (this stage — DONE) — radius-based nearby matching & independent furnishing toggles
+- **Radius-based "nearby areas"** — `client_requests.location_radius_km` (already present but unused) is now wired end-to-end.
+  The request form offers a **Search radius** selector (Exact area only / 1 / 3 / 5 / 10 / 25 km) whenever the client is
+  "open to nearby / alternative locations". The engine resolves each requested location to real coordinates via the live
+  area geo registry (`areaCentreFor` → admin-managed `neighbourhoods` centres + primary landmarks, static hubs as
+  fallback), resolves each candidate to its own coordinates (listing `latitude`/`longitude`, else its area hub), and
+  matches by **Haversine distance** — so nearby qualifying areas are returned instead of only identical name strings. A
+  within-radius match scores by closeness (≈0.78–0.92), is labelled/reasoned as *"Nearby: N km from {area}"*, and is NOT
+  forced to the "alternative" label since the client opted into nearby. Beyond the radius = no location credit; when no
+  coordinates exist the old alternative-location allowance still applies. The hard location gate now accepts the exact
+  area OR a within-radius nearby area. Candidate selects include `latitude`/`longitude` for both `listings` and
+  `land_listings`.
+- **Independent furnishing toggles** — `client_requests.furnishing_options text[]` added. The form's single "Furnishing"
+  dropdown is replaced by four independent toggles (**Furnished / Semi Furnished / Fully Furnished / Unfurnished**); any
+  combination widens the acceptable set (none ticked = any). `furnishingMatchesAny()` in `clientRequests.ts` is the single
+  source of truth, matched against the real `listings.furnished_status` values ("Furnished", "Semi Furnished", "Fully
+  Furnished", "Unfurnished"). The engine's furnishing gate + score use the set; the legacy `furnishing` column is kept and
+  stored as the first pick for backward compatibility. The workspace sidebar shows the chosen states and the radius.
+
+### Phase 3 (remaining)
+- Notification/reminder routing through the existing email engine; saved list/grid view preference.

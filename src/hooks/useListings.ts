@@ -2,11 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getSiteNameSync, loadSiteMeta, DEFAULT_SITE_NAME } from '@/lib/siteMeta';
 import { haversineDistance } from '@/lib/distance';
+import { areaCentreFor } from '@/lib/areaCentres';
 import { formatLocation, formatLocationParts, formatAreaName, smartTitleCase } from '@/lib/location';
 import { parsePropertySearch, parseSearchClauses, buildClausesOr, type PropertySearchIntent } from '@/lib/propertySearch';
 import { buildCityOrClause } from '@/lib/locationRegistry';
 import { applyPublicVisibility, applyStatusScope, statusScopeFromFilter } from '@/lib/publicListings';
 import { listingHasFloorPlan } from '@/lib/listingMeta';
+import { addedSinceISO } from '@/lib/recentWindow';
 
 // ── Raw DB shape ──────────────────────────────────────────────
 interface ListingRow {
@@ -180,6 +182,10 @@ export interface ListingFilters {
   // Sub-type filter - matches the listings.sub_type discriminator
   // (e.g. 'duplex', 'modern'). Used by SEO landing pages for true matching.
   subTypeFilter?: string;
+  // Featured-only filter - a genuine listings.is_featured constraint. Used by
+  // the footer "Featured Properties" entry point so it never falls back to a
+  // generic browse.
+  featured?: boolean;
 }
 
 export interface UseListingsReturn {
@@ -315,6 +321,20 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent', agency
   const agentPhone = row.owner_phone || undefined;
   const agentEmail = row.owner_email || undefined;
 
+  // Radius fallback: when a listing carries no coordinates of its own, place it
+  // at its AREA HUB (e.g. a Karen home without lat/lng sits at the Karen hub).
+  // This is what makes "within X miles" search work across the whole inventory
+  // instead of collapsing to the handful of rows with explicit coordinates.
+  let latitude = row.latitude ?? null;
+  let longitude = row.longitude ?? null;
+  if (latitude == null || longitude == null) {
+    const centre = areaCentreFor(row.neighbourhood, row.location, row.city, row.state_region);
+    if (centre) {
+      latitude = centre.lat;
+      longitude = centre.lng;
+    }
+  }
+
   return {
     id: row.id,
     slug,
@@ -359,8 +379,8 @@ function mapRow(row: ListingRow, now: Date, listingType: 'sale' | 'rent', agency
     floorPlan: listingHasFloorPlan(row),
     justAdded,
     houseShare: false,
-    latitude: row.latitude ?? null,
-    longitude: row.longitude ?? null,
+    latitude,
+    longitude,
     isLand,
     isJointVenture,
     agentPhone,
@@ -381,11 +401,28 @@ function formatPriceDisplay(price: number, currency: string, prefix?: string | n
 }
 
 // ── Distance filtering helper ──────────────────────────────────
+/**
+ * Does this listing belong to the anchor AREA (by its location text)?
+ * Used to guarantee the selected area's own listings are ALWAYS retained when
+ * a radius is active - the cumulative-radius contract. A listing whose area
+ * text names the anchor area can never be dropped just because its fallback
+ * point drifted slightly, which was the cause of "16 area-only results, but
+ * 14 at 0.25 miles".
+ */
+function isInAnchorArea(listing: MappedListing, anchorName: string | null): boolean {
+  if (!anchorName) return false;
+  const a = anchorName.trim().toLowerCase();
+  if (!a) return false;
+  const fields = [listing.area, listing.location, listing.locationLine1, listing.locationLine2];
+  return fields.some((f) => (f || '').toLowerCase().includes(a));
+}
+
 function filterAndSortByDistance(
   listings: MappedListing[],
   centerLat: number,
   centerLng: number,
   radiusMeters: number,
+  anchorName: string | null = null,
 ): MappedListing[] {
   return listings
     .map((listing) => {
@@ -396,10 +433,23 @@ function filterAndSortByDistance(
       return { ...listing, distanceKm: hasCoords ? dist / 1000 : null };
     })
     .filter((listing) => {
+      // CUMULATIVE RADIUS: the anchor area's own listings are ALWAYS kept, so
+      // increasing the radius can only ADD nearby results - never remove an
+      // eligible original-area listing. Only listings outside the anchor area
+      // must fall within the selected radius.
+      if (isInAnchorArea(listing, anchorName)) return true;
       if (listing.distanceKm == null) return false;
       return listing.distanceKm * 1000 <= radiusMeters;
     })
-    .sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    .sort((a, b) => {
+      // Original-area results come first (stable → they keep the user's chosen
+      // sort order from the server query); newly added nearby results follow in
+      // ascending distance.
+      const aAnchor = isInAnchorArea(a, anchorName);
+      const bAnchor = isInAnchorArea(b, anchorName);
+      if (aAnchor !== bAnchor) return aAnchor ? -1 : 1;
+      return (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity);
+    });
 }
 
 // ── Dropdown label → canonical DB property_type ───────────────
@@ -502,27 +552,32 @@ function resolveFilters(filters: ListingFilters, parsed: PropertySearchIntent | 
 }
 
 // ── Build the PostgREST `.or()` filter for location + leftover terms ────
-function buildSearchOr(resolved: ResolvedFilters): string | null {
+function buildSearchOr(resolved: ResolvedFilters, dropLocations = false): string | null {
   const conds: string[] = [];
 
-  // City-level (“Nairobi”) → all Nairobi areas, never a literal field.
-  if (resolved.locationLevel === 'city' && resolved.city) {
-    const cityClause = buildCityOrClause(resolved.city);
-    if (cityClause) conds.push(cityClause);
-  }
+  // A coordinate (radius) search IS the geographic filter, so the location
+  // NAME must not also restrict it - nearby qualifying areas inside the
+  // radius would otherwise be wrongly excluded.
+  if (!dropLocations) {
+    // City-level (“Nairobi”) → all Nairobi areas, never a literal field.
+    if (resolved.locationLevel === 'city' && resolved.city) {
+      const cityClause = buildCityOrClause(resolved.city);
+      if (cityClause) conds.push(cityClause);
+    }
 
-  // Specific area (“Karen”) → only that area, never broadened to the city.
-  // We match the WHOLE location hierarchy (neighbourhood, estate/area,
-  // address line, city) so "Lavington" resolves even when it lives in a
-  // different column per listing, and never relies on one exact field.
-  if (resolved.locationLevel === 'area' && resolved.location) {
-    const loc = resolved.location;
-    conds.push(
-      `neighbourhood.ilike.%${loc}%`,
-      `location.ilike.%${loc}%`,
-      `address.ilike.%${loc}%`,
-      `city.ilike.%${loc}%`,
-    );
+    // Specific area (“Karen”) → only that area, never broadened to the city.
+    // We match the WHOLE location hierarchy (neighbourhood, estate/area,
+    // address line, city) so "Lavington" resolves even when it lives in a
+    // different column per listing, and never relies on one exact field.
+    if (resolved.locationLevel === 'area' && resolved.location) {
+      const loc = resolved.location;
+      conds.push(
+        `neighbourhood.ilike.%${loc}%`,
+        `location.ilike.%${loc}%`,
+        `address.ilike.%${loc}%`,
+        `city.ilike.%${loc}%`,
+      );
+    }
   }
 
   for (const term of resolved.terms) {
@@ -537,10 +592,10 @@ function buildSearchOr(resolved: ResolvedFilters): string | null {
 }
 
 // ── Apply the resolved constraints to a query builder ──────────
-function applyResolved(query: any, resolved: ResolvedFilters) {
+function applyResolved(query: any, resolved: ResolvedFilters, dropLocations = false) {
   // Search intent OR clause (location + leftover terms). Empty locations are
   // fine to include; only include when we actually have a condition.
-  const orClause = buildSearchOr(resolved);
+  const orClause = buildSearchOr(resolved, dropLocations);
   if (orClause) query = query.or(orClause);
 
   if (resolved.propertyType) {
@@ -681,21 +736,26 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       //     within a clause, OR between clauses). Never broadens the query.
       //   • simple query → the single-intent resolved path.
       if (isCompound) {
-        const orClause = buildClausesOr(clauses);
+        const orClause = buildClausesOr(clauses, { dropLocations: isDistanceFilter });
         if (orClause) query = query.or(orClause);
       } else {
-        query = applyResolved(query, resolved);
+        query = applyResolved(query, resolved, isDistanceFilter);
       }
 
       // ── EXPLICIT PROPERTY TYPE IS AUTHORITATIVE ─────────────────────────
-      // A type chosen in the UI must never be ignored or overridden by the
-      // free-text parser. E.g. a compound query "house in Karen" combined with
-      // a dropdown selection of "Land" must return LAND, not houses. The
-      // selection is therefore applied as a strict AND on top of every other
-      // constraint (multiple values are OR-combined, single value is exact).
-      const explicitTypes = (filters.propertyTypes && filters.propertyTypes.length > 0)
-        ? filters.propertyTypes.filter(Boolean)
-        : [];
+      // A type chosen by the page (SEO landing type) or the dropdown must
+      // never be ignored or overridden by the free-text parser. This is the
+      // root-cause fix for /apartments-for-sale/nairobi (and every other
+      // type page) returning houses, land and other unrelated types: because
+      // the location-only search took the compound path, the resolved type
+      // was being dropped entirely. Applied as a strict AND on top of every
+      // other constraint; multiple values are OR-combined.
+      const explicitTypes: string[] = [];
+      if (filters.propertyTypes && filters.propertyTypes.length > 0) {
+        explicitTypes.push(...filters.propertyTypes.filter(Boolean));
+      } else if (filters.propertyType && filters.propertyType !== 'Show all' && filters.propertyType !== 'Any type') {
+        explicitTypes.push(PROP_TYPE_MAP[filters.propertyType] || filters.propertyType.toLowerCase().replace(/[\s/]+/g, '_'));
+      }
       if (explicitTypes.length === 1) {
         query = query.eq('property_type', explicitTypes[0]);
       } else if (explicitTypes.length > 1) {
@@ -714,6 +774,9 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
 
       // Property category (explicit only) - never defaulted to residential
       if (filters.propertyCategory) query = query.eq('property_category', filters.propertyCategory);
+
+      // Featured-only - genuine is_featured flag (footer "Featured Properties").
+      if (filters.featured) query = query.eq('is_featured', true);
 
       // Size (sqft in DB, convert from sqm)
       if (filters.sqmMin !== undefined && filters.sqmMin > 0) query = query.gte('sqft', filters.sqmMin * 10.764);
@@ -734,34 +797,37 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
         }
       }
 
-      // Added since
-      if (filters.addedSince && filters.addedSince !== 'Anytime') {
-        const now = new Date();
-        let since: Date;
-        switch (filters.addedSince) {
-          case 'Last 24 hours': since = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
-          case 'Last 48 hours': since = new Date(now.getTime() - 48 * 60 * 60 * 1000); break;
-          case 'Last 3 days': since = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); break;
-          case 'Last 7 days': since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
-          case 'Last 14 days': since = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000); break;
-          default: since = new Date(0);
-        }
-        query = query.gte('created_at', since.toISOString());
-      }
+      // ── Listed-date window ("Added to site") ─────────────────────────────
+      // ONE shared boundary rule for every page: the selected window maps to an
+      // INCLUSIVE lower bound on the listing's FIRST-LISTED timestamp
+      // (`listings.created_at`, surfaced through the all_listings view). Rows at
+      // the exact boundary are INCLUDED; rows older than the window - and rows
+      // with no valid timestamp - are EXCLUDED. There is no separate published
+      // column, and editing / republishing a listing updates `updated_at` only,
+      // so a genuine relisting never silently resets its original listed date.
+      // 'Anytime' (or an unknown label) yields null → no time restriction.
+      const addedSince = addedSinceISO(filters.addedSince);
+      if (addedSince) query = query.gte('created_at', addedSince);
 
-      // Sort - distance filtering overrides sort. A–Z is the default so a large
-      // dataset always starts at "A" instead of an arbitrary insertion order.
-      if (!isDistanceFilter) {
-        switch (filters.sortBy) {
-          case 'Highest price': query = query.order('price', { ascending: false }); break;
-          case 'Lowest price': query = query.order('price', { ascending: true }); break;
-          case 'Most recent':
-          case 'Most reduced':
-          case 'Most popular': query = query.order('created_at', { ascending: false }); break;
-          case 'Z - A': query = query.order('title', { ascending: false }); break;
-          case 'A - Z':
-          default: query = query.order('title', { ascending: true }); break;
-        }
+      // Sort - distance filtering overrides sort. 'Recommended' is the default
+      // and uses a documented, deterministic ranking: featured listings first,
+      // then newest. A-Z stays available but is no longer the implicit default.
+      // The user's chosen sort is ALWAYS applied server-side - even for a
+      // radius search. That way the retained anchor-area results keep their
+      // correct order and only the newly added nearby results are re-sorted by
+      // distance client-side.
+      switch (filters.sortBy) {
+        case 'Highest price': query = query.order('price', { ascending: false }); break;
+        case 'Lowest price': query = query.order('price', { ascending: true }); break;
+        case 'Most recent':
+        case 'Most reduced':
+        case 'Most popular': query = query.order('created_at', { ascending: false }); break;
+        case 'Z - A': query = query.order('title', { ascending: false }); break;
+        case 'A - Z': query = query.order('title', { ascending: true }); break;
+        case 'Recommended':
+        default:
+          query = query.order('is_featured', { ascending: false }).order('created_at', { ascending: false });
+          break;
       }
 
       // Pagination - skip when distance filtering (fetch all, paginate client-side)
@@ -777,9 +843,12 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       const now = new Date();
       let mapped = ((data || []) as ListingRow[]).map((row) => mapRow(row, now, filters.purpose, agencyNameRef.current));
 
-      // Distance filtering
+      // Distance filtering. The anchor AREA name (when the search named one)
+      // keeps that area's own listings unconditionally so a radius increase is
+      // purely additive.
       if (isDistanceFilter) {
-        mapped = filterAndSortByDistance(mapped, filters.centerLat!, filters.centerLng!, filters.radiusMeters!);
+        const anchorName = resolved.location || resolved.city || null;
+        mapped = filterAndSortByDistance(mapped, filters.centerLat!, filters.centerLng!, filters.radiusMeters!, anchorName);
         const total = mapped.length;
         const start = (page - 1) * ITEMS_PER_PAGE;
         mapped = mapped.slice(start, start + ITEMS_PER_PAGE);
@@ -796,7 +865,7 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
     } finally {
       setLoading(false);
     }
-  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsExact, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, filters.excludeTerms, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter]);
+  }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsExact, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, filters.excludeTerms, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter, filters.featured]);
 
   useEffect(() => {
     fetchListings();

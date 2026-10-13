@@ -1,5 +1,5 @@
-import { useRecentActivityCount, type RecentSource } from '@/hooks/useRecentActivityCount';
-import { hoursForWindowLabel, formatElapsedHours, windowPhrase } from '@/lib/recentWindow';
+import { useRecentActivityCount, type RecentSource, type RecentActivityScope } from '@/hooks/useRecentActivityCount';
+import { ADDED_WINDOW_LADDER, hoursForWindowLabel, formatElapsedHours, windowPhrase } from '@/lib/recentWindow';
 
 interface RecentActivitySuggestionProps {
   /** Area the visitor is currently looking at ('' / undefined = everywhere). */
@@ -13,6 +13,12 @@ interface RecentActivitySuggestionProps {
    */
   addedWindow?: string;
   /**
+   * Narrows the count to the SAME universe the host page can actually display
+   * (transaction type, category, type, amenities...). Keeps the note honest so
+   * its "View them" button never lands on another empty state.
+   */
+  scope?: RecentActivityScope;
+  /**
    * Applies the recent-only search when the visitor clicks View them. Receives
    * the window label the visitor should switch to - the window they searched
    * when it contains records, otherwise the closest window that does.
@@ -21,8 +27,13 @@ interface RecentActivitySuggestionProps {
   className?: string;
 }
 
-/** Reference window used when the visitor has not restricted the time window. */
-const DEFAULT_WINDOW = 'Last 48 hours';
+/**
+ * Reference window used ONLY when the visitor has not restricted the time
+ * window ('Anytime'). There is deliberately NO hardcoded 48-hour assumption:
+ * we fall back to the WIDEST window the site exposes so the note reports the
+ * fullest honest recent-activity picture and always names the exact period.
+ */
+const WIDEST_WINDOW = ADDED_WINDOW_LADDER[ADDED_WINDOW_LADDER.length - 1];
 
 /**
  * The "what changed recently" note shown inside a zero-result empty state.
@@ -39,23 +50,25 @@ const DEFAULT_WINDOW = 'Last 48 hours';
 export default function RecentActivitySuggestion({
   location,
   source = 'listings',
-  addedWindow = DEFAULT_WINDOW,
+  addedWindow = 'Anytime',
+  scope = {},
   onView,
   className = '',
 }: RecentActivitySuggestionProps) {
   const place = (location || '').trim();
 
-  // The visitor's real window. When they have not set one ('Anytime') the note
-  // still frames itself around the default 48h reference window - never a
-  // different window than the one shown in the message.
+  // The visitor's REAL window. When they have not set one ('Anytime') we widen
+  // the reference to the largest window the site exposes (never a magic 48h),
+  // and the message always names that exact period.
   const selectedHours = hoursForWindowLabel(addedWindow);
-  const referenceLabel = selectedHours != null ? addedWindow : DEFAULT_WINDOW;
-  const referenceHours = selectedHours ?? (hoursForWindowLabel(DEFAULT_WINDOW) as number);
+  const referenceLabel = selectedHours != null ? addedWindow : WIDEST_WINDOW.label;
+  const referenceHours = selectedHours ?? WIDEST_WINDOW.hours;
 
   const { count, loading, closestAt, closestCount, coveringWindow } = useRecentActivityCount(
     place || undefined,
     source,
     referenceHours,
+    scope,
   );
 
   if (loading) return null;

@@ -12,6 +12,8 @@ export interface SubNavItem {
   /** Do NOT mark active when this query fragment is present (sibling disambiguation). */
   excludeSearch?: string;
   noQuery?: boolean;
+  /** Optional trailing badge (e.g. an unread count) shown after the label. */
+  badge?: React.ReactNode;
 }
 
 interface NavSubmenuProps {
@@ -33,6 +35,8 @@ interface NavSubmenuProps {
   activeColor?: string;
   /** Background fill for the active parent row. */
   activeBg?: string;
+  /** Optional trailing badge (e.g. an unread count) shown on the parent row. */
+  badge?: React.ReactNode;
 }
 
 /** Tracks whether we're on a desktop (lg+) viewport, driving side-panel vs inline behavior. */
@@ -72,6 +76,7 @@ export default function NavSubmenu({
   match,
   activeColor = '#00ddb4',
   activeBg = '#012144',
+  badge,
 }: NavSubmenuProps) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -159,6 +164,7 @@ export default function NavSubmenu({
                 {child.icon}
               </span>
               <span className="flex-1 min-w-0 text-left">{child.label}</span>
+              {child.badge}
               {childIsActive && <Chevron className="text-white flex-shrink-0" />}
             </Link>
           );
@@ -213,6 +219,7 @@ export default function NavSubmenu({
             <span className="flex-1 text-left truncate">{label}</span>
           </button>
         )}
+        {badge && <span className="mr-1 flex-shrink-0">{badge}</span>}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}

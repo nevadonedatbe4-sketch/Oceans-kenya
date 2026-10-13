@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase, uploadFileViaEdgeFunction } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentProfile } from '@/hooks/useAgentProfile';
-import { Loader2, Camera, UserRound, Phone, MapPin, CheckCircle2, XCircle, Save } from 'lucide-react';
+import { Loader2, Camera, UserRound, MapPin, CheckCircle2, XCircle, Save } from 'lucide-react';
+import PhoneInput from '@/components/base/PhoneInput';
 
 interface AgentProfileDetailsProps {
   agentId: string | null;
@@ -144,10 +145,13 @@ export default function AgentProfileDetails({ agentId }: AgentProfileDetailsProp
           </div>
           <div>
             <label className="block text-xs font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Phone</label>
-            <div className="relative">
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+254 7xx xxx xxx" className="w-full px-3.5 py-2.5 pl-9 rounded-md border border-gray-200 text-sm font-roboto text-[#1f2937] bg-white outline-none focus:border-accent focus:ring-1 focus:ring-accent placeholder:text-gray-400" />
-              <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            </div>
+            <PhoneInput
+              value={phone}
+              onChange={setPhone}
+              placeholder="7xx xxx xxx"
+              inputClassName="flex-1 min-w-0 px-3.5 py-2.5 border border-l-0 border-gray-200 rounded-r-md text-sm font-roboto text-[#1f2937] bg-white outline-none focus:border-accent focus:ring-1 focus:ring-accent placeholder:text-gray-400"
+              buttonClassName="flex items-center gap-1.5 px-3 py-2.5 border border-gray-200 border-r-0 rounded-l-md bg-white text-sm font-roboto text-[#1f2937] focus:outline-none focus:border-accent cursor-pointer whitespace-nowrap"
+            />
           </div>
           <div>
             <label className="block text-xs font-roboto font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Location / area</label>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { AgentDatabaseRecord } from '../types';
 import { addToast } from '@/pages/crm/components/CRMToast';
+import PhoneInput from '@/components/base/PhoneInput';
 import {
   SPECIALISATIONS,
   STRENGTHS,
@@ -329,8 +330,26 @@ export default function AgentFormModal({ open, record, saving, onClose, onSave }
 
           <Section title="Contact" icon="ri-phone-line">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div><Label>Phone</Label><input className={inputCls} value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+2547..." /></div>
-              <div><Label>WhatsApp</Label><input className={inputCls} value={form.whatsapp} onChange={(e) => set('whatsapp', e.target.value)} placeholder="+2547..." /></div>
+              <div>
+                <Label>Phone</Label>
+                <PhoneInput
+                  value={form.phone}
+                  onChange={(v) => set('phone', v)}
+                  placeholder="712 345 678"
+                  inputClassName="flex-1 min-w-0 px-3 py-2 border border-l-0 border-gray-200 rounded-r-lg text-sm font-roboto text-[#1a1a1a] focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-white"
+                  buttonClassName="flex items-center gap-1.5 px-3 py-2 border border-gray-200 border-r-0 rounded-l-lg bg-white text-sm font-roboto text-[#1a1a1a] focus:outline-none focus:border-[#0d5959] cursor-pointer whitespace-nowrap"
+                />
+              </div>
+              <div>
+                <Label>WhatsApp</Label>
+                <PhoneInput
+                  value={form.whatsapp}
+                  onChange={(v) => set('whatsapp', v)}
+                  placeholder="712 345 678"
+                  inputClassName="flex-1 min-w-0 px-3 py-2 border border-l-0 border-gray-200 rounded-r-lg text-sm font-roboto text-[#1a1a1a] focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/20 bg-white"
+                  buttonClassName="flex items-center gap-1.5 px-3 py-2 border border-gray-200 border-r-0 rounded-l-lg bg-white text-sm font-roboto text-[#1a1a1a] focus:outline-none focus:border-[#0d5959] cursor-pointer whitespace-nowrap"
+                />
+              </div>
               <div><Label>Email</Label><input className={inputCls} value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="jane@example.com" /></div>
               <div><Label>Secondary Email</Label><input className={inputCls} value={form.secondary_email} onChange={(e) => set('secondary_email', e.target.value)} /></div>
               <div><Label>Website</Label><input className={inputCls} value={form.website} onChange={(e) => set('website', e.target.value)} placeholder="https://..." /></div>

@@ -322,7 +322,7 @@ serve(async (req: Request) => {
       : `Viewing Confirmation — ${propertyTitle}`;
 
     const body = `
-      <p style="font-size:14px;color:#3A463F;line-height:1.6;margin:0 0 14px;">Dear ${esc(a.name)},</p>
+      <p style="font-size:14px;color:#3A463F;line-height:1.6;margin:0 0 14px;">Hi ${esc((a.name || "there").split(" ")[0])},</p>
       ${event === "cancelled"
         ? `<p style="font-size:14px;color:#3A463F;line-height:1.6;margin:0 0 14px;">Your appointment for <strong>${esc(propertyTitle)}</strong> has been cancelled.</p>`
         : event === "rescheduled"

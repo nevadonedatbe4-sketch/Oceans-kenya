@@ -1,16 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import LocationMultiSelect from '@/components/base/LocationMultiSelect';
 
 interface ContactsToolbarProps {
   activeTab: 'overview' | 'list';
   onTabChange: (tab: 'overview' | 'list') => void;
   search: string;
   onSearch: (value: string) => void;
-  onAddManual: () => void;
+  onSearchSubmit?: () => void;
+  onAddLead: () => void;
+  onAddBusiness: () => void;
   onImport: () => void;
   onDownload: () => void;
   filtersOpen: boolean;
   onToggleFilters: () => void;
   activeFilterCount: number;
+  /** Multi-location grouping: match ANY of the selected areas. */
+  locationOptions?: string[];
+  selectedLocations?: string[];
+  onLocationsChange?: (next: string[]) => void;
 }
 
 const TABS: { id: 'overview' | 'list'; label: string; icon: string }[] = [
@@ -20,40 +27,26 @@ const TABS: { id: 'overview' | 'list'; label: string; icon: string }[] = [
 
 /**
  * The contact-directory toolbar: Overview / Contact List tabs on the left,
- * an Add Contacts dropdown on the right, then a search bar with
- * Download CSV + Filters actions on the second band.
+ * two add buttons on the right (Add Lead / Add Business Contact), then a
+ * search bar with Download CSV + Filters actions on the second band.
  */
 export default function ContactsToolbar({
   activeTab,
   onTabChange,
   search,
   onSearch,
-  onAddManual,
+  onSearchSubmit,
+  onAddLead,
+  onAddBusiness,
   onImport,
   onDownload,
   filtersOpen,
   onToggleFilters,
   activeFilterCount,
+  locationOptions = [],
+  selectedLocations = [],
+  onLocationsChange,
 }: ContactsToolbarProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenuOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [menuOpen]);
-
   return (
     <div className="bg-white border border-[#e5e7eb] rounded-xl overflow-visible">
       {/* Tabs + Add button */}
@@ -81,56 +74,47 @@ export default function ContactsToolbar({
           })}
         </div>
 
-        <div className="relative py-2" ref={menuRef}>
+        <div className="flex flex-wrap items-center gap-2 py-2">
           <button
             type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md admin-label font-semibold text-white bg-[#001731] hover:bg-[#0d5959] transition-colors cursor-pointer whitespace-nowrap"
+            onClick={onAddLead}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md admin-label font-semibold text-[#001731] border border-[#001731]/20 hover:bg-[#001731] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
           >
             <i className="ri-user-add-line text-lg" />
-            Add Contact
-            <i className={`${menuOpen ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'} text-lg`} />
+            Add Lead
           </button>
-
-          {menuOpen && (
-            <div className="absolute right-0 top-full mt-1 z-40 w-60 bg-white border border-[#e5e7eb] rounded-lg overflow-hidden animate-dropdown-enter">
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onAddManual();
-                }}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-[#001731] hover:bg-[#001731] hover:text-white transition-colors cursor-pointer"
-              >
-                <i className="ri-user-add-line text-lg" />
-                <span className="admin-label font-medium">Add manually</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen(false);
-                  onImport();
-                }}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-[#001731] hover:bg-[#001731] hover:text-white transition-colors cursor-pointer border-t border-[#eef1f4]"
-              >
-                <i className="ri-upload-2-line text-lg" />
-                <span className="admin-label font-medium">Import from CSV</span>
-              </button>
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={onAddBusiness}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-md admin-label font-semibold text-white bg-[#001731] hover:bg-[#0d5959] transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <i className="ri-building-2-line text-lg" />
+            Add Business Contact
+          </button>
+          <button
+            type="button"
+            onClick={onImport}
+            aria-label="Import from CSV"
+            title="Import from CSV"
+            className="inline-flex items-center gap-2 px-3 py-2.5 rounded-md admin-label font-semibold text-[#001731] border border-[#001731]/20 hover:bg-[#001731] hover:text-white transition-colors cursor-pointer whitespace-nowrap"
+          >
+            <i className="ri-upload-2-line text-lg" />
+            <span className="hidden xl:inline">Import</span>
+          </button>
         </div>
       </div>
 
       {/* Search + actions */}
       <div className="p-3 md:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="relative flex-1 min-w-0">
-          <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-[#001731]/45 text-lg" />
-          <input
-            type="text"
+        <div className="flex-1 min-w-0">
+          <CrmSearchBar
             value={search}
-            onChange={(e) => onSearch(e.target.value)}
+            onChange={onSearch}
+            onSubmit={() => onSearchSubmit?.()}
             placeholder="Search by name, email, phone or company…"
-            className="w-full pl-10 pr-4 py-2.5 border border-[#e5e7eb] rounded-md font-roboto bg-white focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/25"
+            inputClassName="w-full pl-10 pr-9 py-2.5 border-2 border-[#94a3b8] rounded-md font-roboto font-semibold bg-white text-[#001731] placeholder:text-[#5b6b7a] placeholder:font-medium focus:outline-none focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/25"
+            iconClassName="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-[#001731]/60 text-lg"
+            buttonClassName="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md admin-label font-semibold text-white bg-[#001731] hover:bg-[#0d5959] transition-colors cursor-pointer whitespace-nowrap disabled:opacity-60"
           />
         </div>
 
@@ -164,6 +148,22 @@ export default function ContactsToolbar({
           </button>
         </div>
       </div>
+
+      {/* Multi-location grouping: group clients by area (any of the selected). */}
+      {onLocationsChange && locationOptions.length > 0 && (
+        <div className="px-3 md:px-4 pb-3 md:pb-4">
+          <LocationMultiSelect
+            options={locationOptions}
+            selected={selectedLocations}
+            onChange={onLocationsChange}
+            placeholder="Group clients by area, e.g. Karen, Runda, Muthaiga…"
+            className="w-full"
+            controlClassName="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border-2 border-[#94a3b8] rounded-md bg-white min-h-[44px]"
+            chipClassName="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold bg-secondary-100 text-secondary-900"
+            inputClassName="flex-1 min-w-[160px] px-2 py-1 text-sm font-semibold focus:outline-none bg-transparent text-[#001731] placeholder:text-[#5b6b7a] placeholder:font-medium"
+          />
+        </div>
+      )}
     </div>
   );
 }

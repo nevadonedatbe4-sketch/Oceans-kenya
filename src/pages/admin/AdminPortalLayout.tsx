@@ -15,9 +15,11 @@ import { QuickSetHeaderButton } from '@/pages/agent/ogroup/components/QuickSetBu
 import {
   LayoutDashboard, Building2, Users, Inbox, Handshake,
   Settings, LogOut, Menu, X, Home, CheckSquare, BarChart3,
-  CalendarDays, UserRound, Fingerprint, Activity, MessageSquareText, Plus, Clock,
+  CalendarDays, UserRound, Fingerprint, Activity, MessageSquareText, Plus, Clock, ClipboardList,
+  Bell,
 } from 'lucide-react';
 import { useMessengerUnread } from '@/hooks/useMessengerUnread';
+import { AgentCountsProvider, useAgentCounts } from '@/hooks/useAgentCounts';
 
 interface NavEntry {
   label: string;
@@ -48,6 +50,8 @@ interface NavEntry {
    * children open in the attached submenu (used for Agent Dashboards + Approvals).
    */
   parentLink?: boolean;
+  /** Optional trailing badge (e.g. an unread count) shown on the row. */
+  badge?: React.ReactNode;
   /** Optional nested sub-navigation items, rendered as an indented drawer under this entry. */
   children?: NavEntry[];
 }
@@ -57,6 +61,14 @@ interface NavEntry {
  * Includes global/operational navigation, approvals, content and settings.
  */
 export default function AdminPortalLayout() {
+  return (
+    <AgentCountsProvider>
+      <AdminPortalShell />
+    </AgentCountsProvider>
+  );
+}
+
+function AdminPortalShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, signOut } = useAuth();
   const location = useLocation();
@@ -68,9 +80,9 @@ export default function AdminPortalLayout() {
     refresh: refreshNotifs,
     markRead: markNotifRead,
     markAllRead: markNotifsRead,
-    markDisplayedRead: markNotifsDisplayed,
   } = useNotificationCenter();
   const { total: messengerUnread } = useMessengerUnread();
+  const { inboxUnread, leadsUnread } = useAgentCounts();
   const { site, getBrand } = useSiteSettings();
   const logoUrl = site.logo_url || getBrand('main_logo') || FALLBACK_LOGO;
 
@@ -101,6 +113,7 @@ export default function AdminPortalLayout() {
     subtitle: n.body || undefined,
     meta: formatTimeAgo(n.created_at).replace('Added ', ''),
     href: notifLink(n),
+    unread: !n.is_read,
   }));
 
   const navGroups: { title: string; items: NavEntry[] }[] = [
@@ -108,6 +121,7 @@ export default function AdminPortalLayout() {
       title: 'Overview',
       items: [
         { label: 'Dashboard', icon: <LayoutDashboard size={18} />, path: '/admin/dashboard', match: '/admin/dashboard' },
+        { label: 'Notifications', icon: <Bell size={18} />, path: '/admin/team-notifications', match: '/admin/team-notifications' },
         { label: 'Oceans Chat', icon: <MessageSquareText size={18} />, path: '/admin/messenger', match: '/admin/messenger' },
         {
           label: 'Ogroup Team',
@@ -127,7 +141,18 @@ export default function AdminPortalLayout() {
     {
       title: 'CRM',
       items: [
-        { label: 'Leads', icon: <Users size={18} />, path: '/admin/leads', match: '/admin/leads' },
+        {
+          label: 'Leads',
+          icon: <Users size={18} />,
+          path: '/admin/leads',
+          match: '/admin/leads',
+          parentLink: true,
+          badge: <CountBadge count={leadsUnread} label="new leads" />,
+          children: [
+            { label: 'Leads', icon: <Users size={18} />, path: '/admin/leads', match: '/admin/leads' },
+            { label: 'Client Requests', icon: <ClipboardList size={18} />, path: '/admin/client-requests', match: '/admin/client-requests' },
+          ],
+        },
         { label: 'Inbox ', icon: <Inbox size={18} />, path: '/admin/inbox', match: '/admin/inbox' },
         { label: 'Deals', icon: <Handshake size={18} />, path: '/admin/deals', match: '/admin/deals' },
         { label: 'Contacts', icon: <Home size={18} />, path: '/admin/contacts', match: '/admin/contacts' },
@@ -234,6 +259,8 @@ export default function AdminPortalLayout() {
                       onNavigate={() => setSidebarOpen(false)}
                       path={item.parentLink ? item.path : undefined}
                       match={item.parentLink ? item.match : undefined}
+                      activeColor="#00ddb4"
+                      badge={item.badge}
                     />
                   );
                 }
@@ -270,6 +297,9 @@ export default function AdminPortalLayout() {
                     <span className={`flex-shrink-0 ${iconClass}`}>{item.icon}</span>
                     <span className="flex-1 truncate">{item.label}</span>
                     {item.match === '/admin/messenger' && <CountBadge count={messengerUnread} label="unread messages" />}
+                    {item.match === '/admin/leads' && <CountBadge count={leadsUnread} label="new leads" />}
+                    {item.match === '/admin/inbox' && <CountBadge count={inboxUnread} label="unread" />}
+                    {item.match === '/admin/team-notifications' && <CountBadge count={notifUnread} label="unread notifications" />}
                     {item.superOnly && <span className="text-[10px] font-roboto font-semibold uppercase bg-[#00ddb4]/20 text-[#00ddb4] px-1.5 py-0.5 rounded">Super</span>}
                     {active && <Chevron className={`flex-shrink-0 group-hover:text-white ${item.cyan ? 'text-[#22d3ee]' : item.whiteActive ? 'text-white' : item.highlight ? 'text-[#001731]' : 'text-[#00ddb4]'}`} />}
                   </Link>
@@ -342,8 +372,9 @@ export default function AdminPortalLayout() {
             notificationsCount={notifUnread}
             feed={headerFeed}
             onMarkAllRead={markNotifsRead}
-            onOpen={markNotifsDisplayed}
+            onOpen={refreshNotifs}
             onItemClick={markNotifRead}
+            onItemRead={markNotifRead}
             onRetry={refreshNotifs}
             errorText={notifError}
             viewAllHref="/admin/activities"
@@ -359,8 +390,9 @@ export default function AdminPortalLayout() {
               notificationsCount={notifUnread}
               feed={headerFeed}
               onMarkAllRead={markNotifsRead}
-              onOpen={markNotifsDisplayed}
+              onOpen={refreshNotifs}
               onItemClick={markNotifRead}
+              onItemRead={markNotifRead}
               onRetry={refreshNotifs}
               errorText={notifError}
               viewAllHref="/admin/activities"

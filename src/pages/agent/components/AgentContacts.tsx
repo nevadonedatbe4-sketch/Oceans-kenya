@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, Plus, Search, Trash2, Pencil, X, Users } from 'lucide-react';
+import { Loader2, Search, Trash2, Pencil, X, Users } from 'lucide-react';
+import PhoneInput from '@/components/base/PhoneInput';
+import ContactActions from '@/components/feature/ContactActions';
+import { LEAD_SOURCES, sourceInfo } from '@/pages/crm/contacts/contactGroups';
 
 interface Contact {
   id: string;
@@ -21,6 +24,7 @@ interface ContactMeta {
   jobTitle: string;
   address: string;
   website: string;
+  sourceDetail: string;
   plainTags: string[];
 }
 
@@ -48,6 +52,13 @@ const CONTACT_KINDS = [
   { value: 'other', label: 'Other', icon: 'ri-user-3-line', color: '#6b7280' },
 ];
 
+/**
+ * Simple client/lead roles offered on the "Add Lead" form — a person enquiring
+ * about renting / buying / selling. No organisation details are needed for these.
+ */
+const LEAD_KIND_VALUES = ['client', 'tenant', 'buyer', 'seller'];
+const LEAD_KINDS = CONTACT_KINDS.filter((k) => LEAD_KIND_VALUES.includes(k.value));
+
 const FALLBACK_KIND = { value: '', label: 'Not set', icon: 'ri-user-3-line', color: '#9ca3af' };
 
 function kindInfo(value: string) {
@@ -59,7 +70,7 @@ function kindInfo(value: string) {
  * without a database change — the same trick the admin contact form uses for
  * Job title and Website.
  */
-const STRUCT_PREFIXES = ['kind:', 'co:', 'title:', 'addr:', 'web:'];
+const STRUCT_PREFIXES = ['kind:', 'co:', 'title:', 'addr:', 'web:', 'src:'];
 
 function splitTags(raw: string | null | undefined): string[] {
   return (raw || '').split(',').map((t) => t.trim()).filter(Boolean);
@@ -82,6 +93,7 @@ function contactMeta(c: Contact): ContactMeta {
     jobTitle: tagValue(list, 'title:'),
     address: tagValue(list, 'addr:'),
     website: tagValue(list, 'web:'),
+    sourceDetail: tagValue(list, 'src:'),
     plainTags: visibleTags(list),
   };
 }
@@ -96,6 +108,7 @@ const emptyForm = {
   address: '',
   website: '',
   source: '',
+  sourceDetail: '',
   tags: '',
   notes: '',
 };
@@ -151,6 +164,7 @@ export default function AgentContacts() {
   const [kindFilter, setKindFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Contact | null>(null);
+  const [mode, setMode] = useState<'lead' | 'business'>('lead');
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [tagInput, setTagInput] = useState('');
@@ -233,8 +247,9 @@ export default function AgentContacts() {
 
   const toggleAll = (checked: boolean) => setSelectedIds(checked ? new Set(shown.map((c) => c.id)) : new Set());
 
-  const openAdd = () => {
+  const openAdd = (nextMode: 'lead' | 'business') => {
     setEditing(null);
+    setMode(nextMode);
     setForm(emptyForm);
     setErrors({});
     setTagInput('');
@@ -244,6 +259,7 @@ export default function AgentContacts() {
   const openEdit = (c: Contact) => {
     const meta = contactMeta(c);
     setEditing(c);
+    setMode('business');
     setForm({
       name: c.name,
       email: c.email || '',
@@ -254,6 +270,7 @@ export default function AgentContacts() {
       address: meta.address,
       website: meta.website,
       source: c.source || '',
+      sourceDetail: meta.sourceDetail,
       tags: meta.plainTags.join(', '),
       notes: c.notes || '',
     });
@@ -270,6 +287,7 @@ export default function AgentContacts() {
     if (form.jobTitle.trim()) parts.push(`title:${form.jobTitle.trim()}`);
     if (form.address.trim()) parts.push(`addr:${form.address.trim()}`);
     if (form.website.trim()) parts.push(`web:${form.website.trim()}`);
+    if (form.sourceDetail.trim()) parts.push(`src:${form.sourceDetail.trim()}`);
     return parts.length ? parts.join(', ') : null;
   };
 
@@ -411,9 +429,14 @@ export default function AgentContacts() {
           </select>
           <i className="ri-arrow-down-s-line absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none" />
         </div>
-        <button onClick={openAdd} className="inline-flex items-center justify-center gap-2 bg-accent hover:bg-[#0a4a4a] text-white px-4 py-2.5 rounded-md text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap sm:ml-auto">
-          <Plus size={16} /> Add contact
-        </button>
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+          <button onClick={() => openAdd('lead')} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-roboto font-semibold text-[#001731] border border-[#001731]/20 hover:bg-[#001731] hover:text-white transition-colors cursor-pointer whitespace-nowrap">
+            <i className="ri-user-add-line text-base" /> Add Lead
+          </button>
+          <button onClick={() => openAdd('business')} className="inline-flex items-center justify-center gap-2 bg-accent hover:bg-[#0a4a4a] text-white px-4 py-2.5 rounded-md text-sm font-roboto font-semibold transition-all cursor-pointer whitespace-nowrap">
+            <i className="ri-building-2-line text-base" /> Add Business Contact
+          </button>
+        </div>
       </div>
 
       {/* Card + table */}
@@ -530,11 +553,16 @@ export default function AgentContacts() {
                             </span>
                           ) : <span className="text-gray-400 text-sm">—</span>}
                         </td>
-                        <td className="pr-4 py-3.5 align-middle text-sm font-roboto text-[#1f2937] whitespace-nowrap">{c.phone || '—'}</td>
+                        <td className="pr-4 py-3.5 align-middle text-sm font-roboto text-[#1f2937] whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5">
+                            {c.phone || '—'}
+                            {c.phone && <ContactActions phone={c.phone} size="sm" variant="compact" />}
+                          </span>
+                        </td>
                         <td className="pr-4 py-3.5 align-middle text-sm font-roboto text-[#1f2937] whitespace-nowrap">{c.email || '—'}</td>
                         <td className="pr-4 py-3.5 align-middle">
                           {c.source
-                            ? <span className="inline-flex px-2 py-0.5 rounded bg-[#001731]/5 text-xs font-roboto font-medium text-[#001731] capitalize">{c.source}</span>
+                            ? <span className="inline-flex px-2 py-0.5 rounded bg-[#001731]/5 text-xs font-roboto font-medium text-[#001731] capitalize">{sourceInfo(c.source)?.label || c.source}</span>
                             : <span className="text-gray-400 text-sm">—</span>}
                         </td>
                         <td className="pr-4 py-3.5 align-middle">
@@ -598,9 +626,9 @@ export default function AgentContacts() {
             <div className="flex items-center justify-between px-5 md:px-6 py-4 border-b border-[#eef1f4]">
               <div className="flex items-center gap-2.5">
                 <span className="w-9 h-9 flex items-center justify-center rounded-lg bg-[#0d5959]/10 text-[#0d5959] flex-shrink-0">
-                  <i className={`${editing ? 'ri-edit-line' : 'ri-user-add-line'} text-lg`} />
+                  <i className={`${editing ? 'ri-edit-line' : mode === 'lead' ? 'ri-user-add-line' : 'ri-building-2-line'} text-lg`} />
                 </span>
-                <h2 className="admin-heading text-[#001731]">{editing ? 'Edit Contact' : 'Add New Contact'}</h2>
+                <h2 className="admin-heading text-[#001731]">{editing ? 'Edit Contact' : mode === 'lead' ? 'Add New Lead' : 'Add Business Contact'}</h2>
               </div>
               <button
                 type="button"
@@ -639,12 +667,12 @@ export default function AgentContacts() {
                   </div>
                   <div>
                     <Label>Phone</Label>
-                    <input
-                      type="tel"
+                    <PhoneInput
                       value={form.phone}
-                      onChange={(e) => set({ phone: e.target.value })}
-                      placeholder="e.g. +254 700 123 456"
-                      className={`${inputBase} ${inputOk}`}
+                      onChange={(v) => set({ phone: v })}
+                      placeholder="700 123 456"
+                      inputClassName="flex-1 min-w-0 px-3.5 py-2.5 border border-l-0 border-[#e5e7eb] rounded-r-lg font-roboto focus:outline-none focus:ring-1 focus:border-[#0d5959] focus:ring-[#0d5959]/25 bg-white"
+                      buttonClassName="flex items-center gap-1.5 px-3 py-2.5 border border-[#e5e7eb] border-r-0 rounded-l-lg bg-white font-roboto text-sm text-[#001731] focus:outline-none focus:border-[#0d5959] cursor-pointer whitespace-nowrap"
                     />
                   </div>
                   <div>
@@ -656,12 +684,45 @@ export default function AgentContacts() {
                       placeholder="e.g. jane@example.com"
                       className={`${inputBase} ${errors.email ? inputErr : inputOk}`}
                     />
+                    <p className="admin-meta text-[#001731]/45 mt-1">Optional — leave blank if you don&apos;t have it.</p>
                     {errors.email && <p className="admin-meta text-[#dc2626] mt-1">{errors.email}</p>}
                   </div>
                 </div>
               </Section>
 
-              <Section title="Role & Organization" icon="ri-building-2-line">
+              <Section title="How they reached out" icon="ri-share-forward-line">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Lead source</Label>
+                    <div className="relative">
+                      <select
+                        value={form.source}
+                        onChange={(e) => set({ source: e.target.value })}
+                        className={`${inputBase} ${inputOk} cursor-pointer appearance-none pr-9`}
+                      >
+                        <option value="">Select a source…</option>
+                        {LEAD_SOURCES.map((s) => (
+                          <option key={s.value} value={s.value}>{s.label}</option>
+                        ))}
+                      </select>
+                      <i className="ri-arrow-down-s-line absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Extra detail</Label>
+                    <input
+                      type="text"
+                      value={form.sourceDetail}
+                      onChange={(e) => set({ sourceDetail: e.target.value })}
+                      maxLength={180}
+                      placeholder="e.g. Wants a short-term rental for December"
+                      className={`${inputBase} ${inputOk}`}
+                    />
+                  </div>
+                </div>
+              </Section>
+
+              <Section title={mode === 'lead' ? 'Lead Details' : 'Role & Organization'} icon={mode === 'lead' ? 'ri-price-tag-3-line' : 'ri-building-2-line'}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <Label>Kind of contact</Label>
@@ -672,85 +733,83 @@ export default function AgentContacts() {
                         className={`${inputBase} ${inputOk} cursor-pointer appearance-none pr-9`}
                       >
                         <option value="">Select a kind…</option>
-                        {CONTACT_KINDS.map((k) => (
+                        {(mode === 'lead' ? LEAD_KINDS : CONTACT_KINDS).map((k) => (
                           <option key={k.value} value={k.value}>{k.label}</option>
                         ))}
                       </select>
                       <i className="ri-arrow-down-s-line absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-base pointer-events-none" />
                     </div>
-                    <p className="admin-meta text-[#001731]/45 mt-1">e.g. Lawyer, Agent colleague, Caretaker, Landlord, Tenant.</p>
+                    <p className="admin-meta text-[#001731]/45 mt-1">
+                      {mode === 'lead' ? 'Is this person renting, buying or selling?' : 'e.g. Lawyer, Agent colleague, Caretaker, Landlord.'}
+                    </p>
                   </div>
-                  <div>
-                    <Label>Company</Label>
-                    <input
-                      type="text"
-                      value={form.company}
-                      onChange={(e) => set({ company: e.target.value })}
-                      placeholder="e.g. ABC Holdings"
-                      className={`${inputBase} ${inputOk}`}
-                    />
-                  </div>
-                  <div>
-                    <Label>Job title</Label>
-                    <input
-                      type="text"
-                      value={form.jobTitle}
-                      onChange={(e) => set({ jobTitle: e.target.value })}
-                      placeholder="e.g. Director"
-                      className={`${inputBase} ${inputOk}`}
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <Label>Source</Label>
-                    <input
-                      type="text"
-                      value={form.source}
-                      onChange={(e) => set({ source: e.target.value })}
-                      placeholder="e.g. Listing enquiry, referral"
-                      className={`${inputBase} ${inputOk}`}
-                    />
-                  </div>
+                  {mode === 'business' && (
+                    <>
+                      <div>
+                        <Label>Company</Label>
+                        <input
+                          type="text"
+                          value={form.company}
+                          onChange={(e) => set({ company: e.target.value })}
+                          placeholder="e.g. ABC Holdings"
+                          className={`${inputBase} ${inputOk}`}
+                        />
+                      </div>
+                      <div>
+                        <Label>Job title</Label>
+                        <input
+                          type="text"
+                          value={form.jobTitle}
+                          onChange={(e) => set({ jobTitle: e.target.value })}
+                          placeholder="e.g. Director"
+                          className={`${inputBase} ${inputOk}`}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
-                <div>
-                  <Label>Tags</Label>
-                  <div className={`${inputBase} ${inputOk} flex flex-wrap items-center gap-2 py-2`}>
-                    {tagList.map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full admin-meta bg-[#001731]/8 text-[#001731] capitalize"
-                      >
-                        {t}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(t)}
-                          className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#001731]/15 cursor-pointer"
-                          aria-label={`Remove ${t}`}
+                {mode === 'business' && (
+                  <div>
+                    <Label>Tags</Label>
+                    <div className={`${inputBase} ${inputOk} flex flex-wrap items-center gap-2 py-2`}>
+                      {tagList.map((t) => (
+                        <span
+                          key={t}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full admin-meta bg-[#001731]/8 text-[#001731] capitalize"
                         >
-                          <i className="ri-close-line text-sm" />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      type="text"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault();
-                          addTag();
-                        }
-                      }}
-                      onBlur={addTag}
-                      placeholder={tagList.length ? 'Add tag…' : 'e.g. vip, hot-lead'}
-                      className="flex-1 min-w-[120px] bg-transparent border-0 focus:outline-none font-roboto admin-label py-1"
-                    />
+                          {t}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(t)}
+                            className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-[#001731]/15 cursor-pointer"
+                            aria-label={`Remove ${t}`}
+                          >
+                            <i className="ri-close-line text-sm" />
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault();
+                            addTag();
+                          }
+                        }}
+                        onBlur={addTag}
+                        placeholder={tagList.length ? 'Add tag…' : 'e.g. vip, hot-lead'}
+                        className="flex-1 min-w-[120px] bg-transparent border-0 focus:outline-none font-roboto admin-label py-1"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </Section>
 
               <Section title="Additional Information" icon="ri-information-line">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`grid grid-cols-1 ${mode === 'lead' ? '' : 'sm:grid-cols-2'} gap-4`}>
                   <div>
                     <Label>Address</Label>
                     <input
@@ -761,23 +820,25 @@ export default function AgentContacts() {
                       className={`${inputBase} ${inputOk}`}
                     />
                   </div>
-                  <div>
-                    <Label>Website</Label>
-                    <input
-                      type="url"
-                      value={form.website}
-                      onChange={(e) => set({ website: e.target.value })}
-                      placeholder="e.g. https://example.com"
-                      className={`${inputBase} ${inputOk}`}
-                    />
-                  </div>
+                  {mode === 'business' && (
+                    <div>
+                      <Label>Website</Label>
+                      <input
+                        type="url"
+                        value={form.website}
+                        onChange={(e) => set({ website: e.target.value })}
+                        placeholder="e.g. https://example.com"
+                        className={`${inputBase} ${inputOk}`}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div>
-                  <Label>Notes</Label>
+                  <Label>{mode === 'lead' ? 'What are they looking for?' : 'Notes'}</Label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => set({ notes: e.target.value })}
-                    placeholder="Any relevant notes about this contact…"
+                    placeholder={mode === 'lead' ? 'e.g. Sarah called — wants a furnished 2-bed for a short-term let in Kilimani.' : 'Any relevant notes about this contact…'}
                     rows={4}
                     maxLength={500}
                     className={`${inputBase} ${inputOk} resize-none`}
@@ -817,7 +878,7 @@ export default function AgentContacts() {
                 ) : (
                   <>
                     <i className="ri-check-line text-base" />
-                    {editing ? 'Save Changes' : 'Add Contact'}
+                    {editing ? 'Save Changes' : mode === 'lead' ? 'Add Lead' : 'Add Contact'}
                   </>
                 )}
               </button>

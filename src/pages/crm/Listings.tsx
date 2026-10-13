@@ -10,6 +10,17 @@ import CRMPagination from '@/pages/crm/components/CRMPagination';
 import { broadcastSync } from '@/lib/syncEngine';
 import { displayLocation } from '@/lib/crmDisplay';
 import CrmTitle from '@/pages/crm/components/CrmTitle';
+import CrmSearchBar from '@/components/base/CrmSearchBar';
+import LocationMultiSelect from '@/components/base/LocationMultiSelect';
+import HighlightText from '@/components/base/HighlightText';
+import { useCanonicalAreas } from '@/lib/locationRegistry';
+import {
+  parseCrmQuery,
+  tokenizeKeywords,
+  buildCrmFilterString,
+  LISTING_KEYWORD_FIELDS,
+  LISTING_LOCATION_FIELDS,
+} from '@/lib/crmSearch';
 import BulkEditModal, { type BulkEditOption } from '@/pages/crm/components/BulkEditModal';
 import BulkShareModal from '@/pages/crm/components/BulkShareModal';
 import BulkForwardModal from '@/pages/crm/components/BulkForwardModal';
@@ -92,7 +103,7 @@ const COLORS = {
 function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-white lg:text-[#88929e]">{label}</label>
+      <label className="text-xs font-bold uppercase tracking-wide text-white lg:text-[#374151]">{label}</label>
       {children}
     </div>
   );
@@ -126,7 +137,7 @@ export default function Listings() {
   const navigate = useNavigate();
   const portalBase = usePortalBase();
   const { user } = useAuth();
-  const { agentId } = useAgentProfile();
+  const { agentId, loading: agentLoading } = useAgentProfile();
   const isAgent = user?.role === 'agent';
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,6 +151,17 @@ export default function Listings() {
   const [filterBedrooms, setFilterBedrooms] = useState(searchParams.get('bedrooms') || 'all');
   const [filterBathrooms, setFilterBathrooms] = useState(searchParams.get('bathrooms') || 'all');
   const [filterMissingCoords, setFilterMissingCoords] = useState(false);
+  // Structured furnishing filter — exact match on the listings.furnished_status
+  // column (Furnished / Unfurnished) instead of a fuzzy keyword.
+  const [filterFurnishing, setFilterFurnishing] = useState(searchParams.get('furnishing') || 'all');
+  // Multi-location search: staff can search across several neighbourhoods at
+  // once (Karen OR Runda OR Muthaiga), combined with every other filter.
+  const [selectedLocations, setSelectedLocations] = useState<string[]>(() => {
+    const p = searchParams.get('locations');
+    return p ? p.split('|').map((s) => s.trim()).filter(Boolean) : [];
+  });
+  const { areas: canonicalAreas } = useCanonicalAreas();
+  const areaOptions = canonicalAreas.map((a) => a.name).filter(Boolean).sort((a, b) => a.localeCompare(b));
   // Deep-link support: the Super Admin agent preview links here with ?agent=<id>
   // so the list lands pre-filtered to that agent's listings.
   const [filterAgent, setFilterAgent] = useState(searchParams.get('agent') || 'all');
@@ -169,7 +191,20 @@ export default function Listings() {
   const createMenuRef = useRef<HTMLDivElement>(null);
 
   const fetchListings = useCallback(async () => {
+    // Agents must NEVER see the full inventory. Hold until their agent id is
+    // resolved, and if no agent record exists, show nothing rather than
+    // falling back to an unfiltered (all-listings) query.
     setLoading(true);
+    if (isAgent && agentLoading) return;
+    if (isAgent && !agentId) {
+      setListings([]);
+      setTotal(0);
+      setStats({ total: 0, published: 0, draft: 0, pending: 0 });
+      setMissingCoordsCount(0);
+      setSelectedIds(new Set());
+      setLoading(false);
+      return;
+    }
     let countQuery = supabase.from('listings').select('*', { count: 'exact', head: true });
     let dataQuery = supabase
       .from('listings')
@@ -236,10 +271,27 @@ export default function Listings() {
       countQuery = countQuery.lte('price', Number(priceMax));
       dataQuery = dataQuery.lte('price', Number(priceMax));
     }
-    if (search.trim()) {
-      const term = search.trim();
-      countQuery = countQuery.or(`title.ilike.%${term}%,location.ilike.%${term}%`);
-      dataQuery = dataQuery.or(`title.ilike.%${term}%,location.ilike.%${term}%`);
+    // Structured furnishing filter — matched on furnished_status so "furnished"
+    // never bleeds into "unfurnished" the way a keyword search would.
+    if (filterFurnishing === 'furnished') {
+      countQuery = countQuery.ilike('furnished_status', '%furnished%').not('furnished_status', 'ilike', '%unfurnished%');
+      dataQuery = dataQuery.ilike('furnished_status', '%furnished%').not('furnished_status', 'ilike', '%unfurnished%');
+    } else if (filterFurnishing === 'unfurnished') {
+      countQuery = countQuery.ilike('furnished_status', '%unfurnished%');
+      dataQuery = dataQuery.ilike('furnished_status', '%unfurnished%');
+    }
+    // Keyword + multi-location search through the shared CRM engine:
+    // multiple keywords are AND-ed, each matched across every searchable field,
+    // and the selected locations are OR-ed - then AND-ed with all other filters.
+    const filterString = buildCrmFilterString({
+      terms: tokenizeKeywords(search),
+      fields: LISTING_KEYWORD_FIELDS,
+      locations: selectedLocations,
+      locationFields: LISTING_LOCATION_FIELDS,
+    });
+    if (filterString) {
+      countQuery = countQuery.or(filterString);
+      dataQuery = dataQuery.or(filterString);
     }
     if (filterMissingCoords) {
       countQuery = countQuery.or('latitude.is.null,longitude.is.null');
@@ -314,7 +366,7 @@ export default function Listings() {
       pending: pendRes.count ?? 0,
     });
     setMissingCoordsCount(missRes.count ?? 0);
-  }, [page, pageSize, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, search, sortBy, isAgent, agentId, filterMissingCoords, filterAgent]);
+  }, [page, pageSize, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, search, sortBy, isAgent, agentId, agentLoading, filterMissingCoords, filterAgent, selectedLocations, filterFurnishing]);
 
   useEffect(() => {
     fetchListings();
@@ -659,6 +711,7 @@ export default function Listings() {
   const syncUrlParams = useCallback(() => {
     const params = new URLSearchParams();
     if (search.trim()) params.set('search', search.trim());
+    if (selectedLocations.length > 0) params.set('locations', selectedLocations.join('|'));
     if (filterStatus !== 'all') params.set('status', filterStatus);
     if (filterPurpose !== 'all') params.set('purpose', filterPurpose);
     if (filterType !== 'all') params.set('type', filterType);
@@ -667,10 +720,11 @@ export default function Listings() {
     if (filterBathrooms !== 'all') params.set('bathrooms', filterBathrooms);
     if (priceMin) params.set('price_min', priceMin);
     if (priceMax) params.set('price_max', priceMax);
+    if (filterFurnishing !== 'all') params.set('furnishing', filterFurnishing);
     if (sortBy !== 'date') params.set('sort', sortBy);
     if (page > 1) params.set('page', String(page));
     setSearchParams(params, { replace: true });
-  }, [search, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, sortBy, page, setSearchParams]);
+  }, [search, selectedLocations, filterStatus, filterPurpose, filterType, filterCategory, filterBedrooms, filterBathrooms, priceMin, priceMax, sortBy, page, setSearchParams, filterFurnishing]);
 
   useEffect(() => {
     syncUrlParams();
@@ -715,14 +769,22 @@ export default function Listings() {
     condo: 'Condo',
   };
 
-  const selectCls = 'w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer';
+  const selectCls = 'w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] cursor-pointer';
 
   const typeOptions = (() => {
-    if (filterCategory === 'new-developments') return [];
-    const list = filterCategory === 'all'
-      ? ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse', 'office', 'guest_house', 'commercial', 'single_family_home', 'condo']
-      : CATEGORY_TYPES[filterCategory] || [];
-    return [{ value: 'all', label: 'All Types' }, ...list.map((t) => ({ value: t, label: TYPE_LABELS[t] || t }))];
+    const list = filterCategory === 'new-developments'
+      ? []
+      : filterCategory === 'all'
+        ? ['apartment', 'house', 'villa', 'townhouse', 'studio_flat', 'maisonette', 'detached', 'penthouse', 'office', 'guest_house', 'commercial', 'single_family_home', 'condo']
+        : CATEGORY_TYPES[filterCategory] || [];
+    const opts = [{ value: 'all', label: 'All Types' }, ...list.map((t) => ({ value: t, label: TYPE_LABELS[t] || t }))];
+    // Keep the current selection representable - e.g. a natural-language search
+    // resolved to a type that isn't part of the default dropdown list.
+    if (filterType !== 'all' && !opts.some((o) => o.value === filterType)) {
+      opts.push({ value: filterType, label: TYPE_LABELS[filterType] || filterType.replace(/_/g, ' ') });
+    }
+    if (filterCategory === 'new-developments' && filterType === 'all') return [];
+    return opts;
   })();
 
   const activeFilterCount = [
@@ -734,6 +796,8 @@ export default function Listings() {
     priceMax !== '',
     filterStatus !== 'all',
     sortBy !== 'date',
+    selectedLocations.length > 0,
+    filterFurnishing !== 'all',
   ].filter(Boolean).length;
 
   const handleCategoryChange = (val: string) => {
@@ -750,10 +814,50 @@ export default function Listings() {
     setPriceMin('');
     setPriceMax('');
     setFilterStatus('all');
+    setSelectedLocations([]);
+    setFilterFurnishing('all');
+    setSearch('');
+    setPage(1);
+  };
+
+  // Run the search on the Search button / Enter. Natural-language criteria
+  // (locations, property type, purpose, bedrooms, price) are lifted into the
+  // visible structured filters so the user can review and adjust them, while
+  // the remaining words stay as the keyword query.
+  const handleSearch = () => {
+    const parsed = parseCrmQuery(search);
+    if (parsed.locations.length > 0) {
+      setSelectedLocations((prev) => {
+        const merged = [...prev];
+        for (const loc of parsed.locations) {
+          if (!merged.some((m) => m.toLowerCase() === loc.toLowerCase())) merged.push(loc);
+        }
+        return merged;
+      });
+    }
+    if (parsed.transaction === 'sale' || parsed.transaction === 'rent') {
+      setFilterPurpose(parsed.transaction);
+    }
+    if (parsed.propertyType) {
+      // Make sure the chosen type is visible in the category-scoped dropdown.
+      if (parsed.propertyType === 'land') setFilterCategory('all');
+      setFilterType(parsed.propertyType);
+    }
+    if (parsed.bedroomsMin && parsed.bedroomsMin > 0) {
+      setFilterBedrooms(String(Math.min(parsed.bedroomsMin, 5)));
+    }
+    if (parsed.priceMin) setPriceMin(String(parsed.priceMin));
+    if (parsed.priceMax) setPriceMax(String(parsed.priceMax));
+    if (parsed.furnished === true) setFilterFurnishing('furnished');
+    else if (parsed.furnished === false) setFilterFurnishing('unfurnished');
+    setSearch(parsed.terms.join(' '));
     setPage(1);
   };
 
   const selectedListings = listings.filter((l) => selectedIds.has(l.id));
+
+  // Active keyword tokens — used to highlight exactly which text matched.
+  const searchTerms = tokenizeKeywords(search);
 
   const statCards = [
     { label: 'Total Properties', value: stats.total, icon: 'ri-bar-chart-line', color: 'text-[#9ca3af]', bg: 'bg-[#f7f8fa]', border: 'border-[#e5e7eb]' },
@@ -771,6 +875,16 @@ export default function Listings() {
           <p className="text-sm mt-0.5 text-white lg:text-[#88929e]">{isAgent ? 'Only properties you own — no other agents\u2019 listings.' : 'Manage every property on the Oceans Kenya platform'}</p>
         </div>
         <div className="flex items-center gap-2">
+          {!isAgent && (
+            <button
+              onClick={() => navigate(`${portalBase}/listings/sanity-scan`)}
+              title="Scan for listings priced below the market floor"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer border border-[#f58300]/40 bg-[#fff5e6] text-[#001731] hover:bg-[#ffedcc]"
+            >
+              <i className="ri-shield-check-line text-sm text-[#f58300]" />
+              Market Sanity
+            </button>
+          )}
           <button
             onClick={() => navigate(`${portalBase}/developments`)}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors bg-[#00ddb4] text-[#001731] hover:bg-[#00c9a5] whitespace-nowrap cursor-pointer"
@@ -831,62 +945,80 @@ export default function Listings() {
 
       {/* Search & Filters */}
       <div className="bg-[#012144] border border-[#1c3a5e] lg:bg-white lg:border-transparent rounded-lg p-4 space-y-3">
-        <div className="flex flex-col lg:flex-row gap-3 items-start lg:items-center justify-between">
-          <div className="relative flex-1 max-w-md w-full">
-            <i className="ri-search-line absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/70 lg:text-[#88929e]" />
-            <input
-              type="text"
-              placeholder="Search title or location..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-white/60 lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-white/50 lg:placeholder:text-[#88929e] focus:border-white lg:focus:border-[#0d5959]"
-            />
-          </div>
-          <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap">
-            <select
-              value={filterCategory}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              className="px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] cursor-pointer"
-            >
-              <option value="all">All Categories</option>
-              <option value="residential">Residential</option>
-              <option value="commercial">Commercial</option>
-              <option value="new-developments">New Developments</option>
-            </select>
-            <button
-              onClick={() => { setFilterMissingCoords(!filterMissingCoords); setPage(1); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium cursor-pointer transition-colors whitespace-nowrap ${
-                filterMissingCoords
-                  ? 'bg-[#f58300] border-[#f58300] text-white'
-                  : 'bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]'
-              }`}
-            >
-              <i className="ri-map-pin-line text-sm" />
-              Missing coords
-              {missingCoordsCount > 0 && (
-                <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold ${filterMissingCoords ? 'bg-white text-[#f58300]' : 'bg-[#f58300] text-white'}`}>
-                  {missingCoordsCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setShowAdvanced(!showAdvanced)}
-              className="inline-flex items-center gap-1.5 px-3 py-2.5 border rounded-lg text-sm font-medium cursor-pointer transition-colors whitespace-nowrap bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]"
-            >
-              <i className="ri-equalizer-line text-sm" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">
-                  {activeFilterCount}
-                </span>
-              )}
-              <i className={`${showAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'} text-sm`} />
-            </button>
-          </div>
+        {/* Row 1 — full-width keyword search field + Search button */}
+        <CrmSearchBar
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          onSubmit={handleSearch}
+          loading={loading}
+          showClear={false}
+          placeholder="Search title, type, location, amenities… (e.g. furnished apartments in Karen and Runda)"
+          className="w-full"
+          iconClassName="ri-search-line absolute left-3.5 top-1/2 -translate-y-1/2 text-base text-[#5b6b7a]"
+          inputClassName="w-full pl-10 pr-4 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-white border-[#94a3b8] text-[#001731] placeholder:text-[#5b6b7a] placeholder:font-medium focus:border-[#0d5959] focus:ring-1 focus:ring-[#0d5959]/25"
+          buttonClassName="inline-flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap cursor-pointer transition-colors bg-[#0d5959] text-white hover:bg-[#084545] disabled:opacity-60 disabled:cursor-not-allowed"
+        />
+
+        {/* Row 2 — multi-location · category · filters (consistent control styling) */}
+        <div className="flex flex-col lg:flex-row gap-3 items-stretch lg:items-center">
+          {/* Multi-location search: match ANY of the selected areas at once */}
+          <LocationMultiSelect
+            options={areaOptions}
+            selected={selectedLocations}
+            onChange={(v) => { setSelectedLocations(v); setPage(1); }}
+            placeholder="Multiple areas, e.g. Karen, Runda…"
+            className="w-full lg:flex-1 lg:min-w-0"
+            chipClassName="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold bg-[#0d5959]/15 text-[#5eead4] lg:bg-secondary-100 lg:text-secondary-900"
+            controlClassName="flex flex-wrap items-center gap-1.5 px-2 py-1.5 border-2 rounded-lg min-h-[44px] bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8]"
+            inputClassName="flex-1 min-w-[130px] px-2 py-1 text-sm font-semibold focus:outline-none bg-transparent text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]"
+            dropdownClassName="absolute z-40 left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto rounded-lg border border-[#1c3a5e] lg:border-[#e5e7eb] bg-white shadow-lg"
+          />
+          <select
+            value={filterCategory}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            className="w-full lg:w-auto lg:flex-shrink-0 px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] cursor-pointer"
+          >
+            <option value="all">All Categories</option>
+            <option value="residential">Residential</option>
+            <option value="commercial">Commercial</option>
+            <option value="new-developments">New Developments</option>
+          </select>
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="inline-flex items-center justify-center gap-1.5 w-full lg:w-auto lg:flex-shrink-0 px-4 py-2.5 border-2 rounded-lg text-sm font-semibold cursor-pointer transition-colors whitespace-nowrap bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]"
+          >
+            <i className="ri-equalizer-line text-sm" />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">
+                {activeFilterCount}
+              </span>
+            )}
+            <i className={`${showAdvanced ? 'ri-arrow-up-wide-fill' : 'ri-arrow-down-wide-fill'} text-sm`} />
+          </button>
         </div>
 
         {showAdvanced && (
-          <div className="pt-3 border-t border-[#1c3a5e] lg:border-[#e5e7eb]">
+          <div className="pt-3 border-t-2 border-[#1c3a5e] lg:border-[#cbd5e1]">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-white lg:text-[#001731]">
+                Refine Results
+                {activeFilterCount > 0 && (
+                  <span className="ml-2 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[11px] font-bold bg-[#0d5959] text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(false)}
+                aria-label="Close filters"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-2 whitespace-nowrap border-[#1c3a5e] text-white hover:bg-white/10 lg:border-[#cbd5e1] lg:text-[#001731] lg:hover:bg-[#f7f8fa]"
+              >
+                <i className="ri-close-line text-sm" />
+                Close
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {typeOptions.length > 0 && (
                 <FilterField label="Property Type">
@@ -923,6 +1055,28 @@ export default function Listings() {
                   <option value="4">4+</option>
                 </select>
               </FilterField>
+              <FilterField label="Furnishing">
+                <div className="inline-flex items-center gap-1.5">
+                  {([
+                    { v: 'all', l: 'Any' },
+                    { v: 'furnished', l: 'Furnished' },
+                    { v: 'unfurnished', l: 'Unfurnished' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      onClick={() => { setFilterFurnishing(opt.v); setPage(1); }}
+                      className={`px-3 py-2.5 rounded-lg border-2 text-sm font-semibold whitespace-nowrap cursor-pointer transition-colors ${
+                        filterFurnishing === opt.v
+                          ? 'bg-[#0d5959] border-[#0d5959] text-white'
+                          : 'bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] hover:bg-[#012a52] lg:hover:bg-[#f7f8fa]'
+                      }`}
+                    >
+                      {opt.l}
+                    </button>
+                  ))}
+                </div>
+              </FilterField>
               <FilterField label="Price Range">
                 <div className="flex items-center gap-2">
                   <input
@@ -930,7 +1084,7 @@ export default function Listings() {
                     placeholder="Min"
                     value={priceMin}
                     onChange={(e) => { setPriceMin(e.target.value); setPage(1); }}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-white/50 lg:placeholder:text-[#88929e]"
+                    className="w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]"
                   />
                   <span className="text-xs text-white/70 lg:text-[#88929e]">—</span>
                   <input
@@ -938,7 +1092,7 @@ export default function Listings() {
                     placeholder="Max"
                     value={priceMax}
                     onChange={(e) => { setPriceMax(e.target.value); setPage(1); }}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#e5e7eb] text-white lg:text-[#001731] placeholder:text-white/50 lg:placeholder:text-[#88929e]"
+                    className="w-full px-3 py-2.5 border-2 rounded-lg text-sm font-semibold focus:outline-none bg-[#001731] lg:bg-white border-[#1c3a5e] lg:border-[#94a3b8] text-white lg:text-[#001731] placeholder:text-white/60 lg:placeholder:text-[#5b6b7a]"
                   />
                 </div>
               </FilterField>
@@ -971,9 +1125,21 @@ export default function Listings() {
             )}
           </div>
         )}
-        <div className="flex items-center justify-between text-xs font-medium text-white lg:text-[#88929e]">
-          <span>{total} listings</span>
-          <span>Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-white lg:text-[#88929e]">
+          <span>{total} {total === 1 ? 'listing' : 'listings'}</span>
+          {selectedLocations.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <i className="ri-map-pin-2-line" />
+              in {selectedLocations.join(', ')}
+            </span>
+          )}
+          {filterFurnishing !== 'all' && (
+            <span className="inline-flex items-center gap-1">
+              <i className="ri-home-smile-2-line" />
+              {filterFurnishing === 'furnished' ? 'Furnished' : 'Unfurnished'}
+            </span>
+          )}
+          <span className="ml-auto whitespace-nowrap">Page {page} of {Math.max(1, Math.ceil(total / pageSize))}</span>
         </div>
         {filterMissingCoords && (
           <div className="flex items-center gap-2 text-xs font-medium text-[#f58300]">
@@ -1158,11 +1324,11 @@ export default function Listings() {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-[14px] font-semibold text-white leading-snug break-words">
-                        <CrmTitle title={listing.title} fallback="Untitled Draft" />
+                        <CrmTitle title={listing.title} fallback="Untitled Draft" terms={searchTerms} />
                       </p>
                       <p className="text-[12px] font-semibold text-white/80 leading-snug flex items-center gap-1">
                         <i className="ri-map-pin-line text-[11px]" />
-                        {formatArea(listing.neighbourhood || listing.location)}
+                        <HighlightText text={formatArea(listing.neighbourhood || listing.location)} terms={searchTerms} />
                       </p>
                     </div>
                     <button
@@ -1296,18 +1462,18 @@ export default function Listings() {
                               className="text-[14px] font-semibold block text-left hover:underline cursor-pointer transition-colors leading-snug break-words w-full"
                               style={{ color: '#001731' }}
                             >
-                              <CrmTitle title={listing.title} fallback="Untitled Draft" />
+                              <CrmTitle title={listing.title} fallback="Untitled Draft" terms={searchTerms} />
                             </button>
                             <p className="text-[12px] font-semibold whitespace-nowrap leading-snug flex items-center gap-1" style={{ color: '#1a1a1a' }}>
                               <i className="ri-map-pin-line text-[11px]" style={{ color: '#636363' }} />
-                              {formatArea(listing.neighbourhood || listing.location)}
+                              <HighlightText text={formatArea(listing.neighbourhood || listing.location)} terms={searchTerms} />
                             </p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 md:px-5 py-4 hidden sm:table-cell whitespace-nowrap">
                         <span className="text-xs capitalize" style={{ color: COLORS.gray }}>
-                          {listing.property_type?.replace(/_/g, ' ') || '—'}
+                          <HighlightText text={listing.property_type?.replace(/_/g, ' ') || '—'} terms={searchTerms} />
                           {listing.sub_type ? ` · ${listing.sub_type.replace(/_/g, ' ')}` : ''}
                         </span>
                       </td>
@@ -1404,9 +1570,9 @@ export default function Listings() {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-[12px] font-semibold text-white leading-snug break-words">
-                      <CrmTitle title={listing.title} fallback="Untitled Draft" />
+                      <CrmTitle title={listing.title} fallback="Untitled Draft" terms={searchTerms} />
                     </p>
-                    <p className="text-[10px] text-[#6b8fa8] mt-0.5 leading-snug">{formatArea(listing.neighbourhood || listing.location)}</p>
+                    <p className="text-[10px] text-[#6b8fa8] mt-0.5 leading-snug"><HighlightText text={formatArea(listing.neighbourhood || listing.location)} terms={searchTerms} /></p>
                   </div>
                 </div>
 

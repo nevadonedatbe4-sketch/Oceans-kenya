@@ -124,6 +124,13 @@ export default function Neighbourhoods() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate('/admin/neighbourhoods/geo-mapping')}
+            className="inline-flex items-center gap-2 bg-white border border-[#f0f0f0] text-[#001731] px-4 py-2.5 rounded-lg text-[15px] font-roboto transition-all whitespace-nowrap cursor-pointer"
+          >
+            <i className="ri-earth-line" />
+            Geo-Mapping
+          </button>
+          <button
             onClick={() => navigate('/admin/neighbourhoods/new')}
             className="inline-flex items-center gap-2 bg-[#0d5959] hover:bg-[#0d5959]/90 text-white px-4 py-2.5 rounded-lg text-[15px] font-roboto transition-all whitespace-nowrap cursor-pointer"
           >

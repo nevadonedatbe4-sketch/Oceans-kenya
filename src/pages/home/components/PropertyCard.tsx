@@ -150,9 +150,11 @@ export default function PropertyCard({
             </span>
           ))}
         </div>
-        <p className="text-[12px] sm:text-[15px] font-roboto font-medium text-[color:var(--card-time-text)] normal-case tracking-normal whitespace-nowrap pr-1 mb-2">
-          {listedAgo}
-        </p>
+        {listedAgo && (
+          <p className="text-[12px] sm:text-[15px] font-roboto font-medium text-[color:var(--card-time-text)] normal-case tracking-normal whitespace-nowrap pr-1 mb-2">
+            {listedAgo}
+          </p>
+        )}
 
         {urgency && <UrgencyMessage message={urgency} className="mb-2" />}
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, uploadImageViaEdgeFunction } from '@/lib/supabase';
+import PhoneInput from '@/components/base/PhoneInput';
 import { addToast as showToast } from '@/pages/crm/components/CRMToast';
 import ConfirmModal from '@/pages/crm/components/ConfirmModal';
 import CRMPagination from '@/pages/crm/components/CRMPagination';
@@ -789,12 +790,12 @@ export default function UsersAccessPanel({ activeTab }: UsersAccessPanelProps) {
               </div>
               <div>
                 <label className="block text-xs font-roboto text-white/40 uppercase tracking-[0.15em] mb-2 font-semibold">Phone Number</label>
-                <input
-                  type="text"
+                <PhoneInput
                   value={editUser.phone || ''}
-                  onChange={(e) => setEditUser({ ...editUser, phone: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm font-roboto text-white focus:outline-none focus:border-teal/40 focus:bg-white/[0.06] transition-all"
-                  placeholder="+1 (555) 000-0000"
+                  onChange={(v) => setEditUser({ ...editUser, phone: v })}
+                  placeholder="700 000 000"
+                  inputClassName="flex-1 min-w-0 px-4 py-3 bg-white/[0.04] border border-l-0 border-white/[0.08] rounded-r-lg text-sm font-roboto text-white placeholder:text-white/20 focus:outline-none focus:border-teal/40 focus:bg-white/[0.06] transition-all"
+                  buttonClassName="flex items-center gap-1.5 px-3 py-3 bg-white/[0.04] border border-white/[0.08] border-r-0 rounded-l-lg text-sm font-roboto text-white focus:outline-none focus:border-teal/40 cursor-pointer whitespace-nowrap"
                 />
               </div>
               <div className="flex items-center gap-4 pt-3">

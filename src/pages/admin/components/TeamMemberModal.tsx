@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import PhoneInput from '@/components/base/PhoneInput';
 import {
   MEMBER_STATUSES,
   ROLE_SUGGESTIONS,
@@ -158,12 +159,12 @@ export default function TeamMemberModal({ open, member, teams, submitting, onClo
               />
             </Field>
             <Field label="Phone">
-              <input
-                type="tel"
+              <PhoneInput
                 value={form.phone}
-                onChange={(e) => set('phone', e.target.value)}
-                placeholder="+254 700 000 000"
-                className="w-full px-3 py-2.5 border border-neutral-200 rounded-lg text-sm text-neutral-700 placeholder:text-neutral-400 bg-white focus:outline-none focus:border-[#00ddb4] focus:ring-1 focus:ring-[#00ddb4]/40"
+                onChange={(v) => set('phone', v)}
+                placeholder="700 000 000"
+                inputClassName="flex-1 min-w-0 px-3 py-2.5 border border-l-0 border-neutral-200 rounded-r-lg text-sm text-neutral-700 placeholder:text-neutral-400 bg-white focus:outline-none focus:border-[#00ddb4] focus:ring-1 focus:ring-[#00ddb4]/40"
+                buttonClassName="flex items-center gap-1.5 px-3 py-2.5 border border-neutral-200 border-r-0 rounded-l-lg bg-white text-sm text-neutral-700 focus:outline-none focus:border-[#00ddb4] cursor-pointer whitespace-nowrap"
               />
             </Field>
           </div>

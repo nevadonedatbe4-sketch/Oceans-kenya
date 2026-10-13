@@ -19,14 +19,35 @@ export function haversineDistance(
   return R * c;
 }
 
-// Convert radius label like "½ mile", "1 mile", "3 miles" etc. to meters
+// Convert radius label like "This area only", "¼ mile", "½ mile", "1 mile",
+// "3 miles" etc. to meters. "This area only" (the 0-mile default) returns
+// null so the caller runs a plain neighbourhood search, never a radius.
 export function radiusLabelToMeters(label: string): number | null {
   if (!label || label === 'This area only') return null;
-  if (label === '½ mile') return 805;
-  const match = label.match(/^(\d+)\s*miles?$/i);
+  // Normalise the pretty fraction glyphs to decimals so ¼ / ½ / ¾ all parse.
+  const normalised = label
+    .replace(/¼/g, '0.25')
+    .replace(/½/g, '0.5')
+    .replace(/¾/g, '0.75')
+    .replace(/^\s*0\s*miles?$/i, '0');
+  const match = normalised.match(/^(\d+(?:\.\d+)?)\s*miles?$/i);
   if (!match) return null;
-  const miles = parseInt(match[1], 10);
+  const miles = parseFloat(match[1]);
+  if (!Number.isFinite(miles) || miles <= 0) return null;
   return Math.round(miles * 1609.344);
+}
+
+/**
+ * Parse a user-typed/selected travel-time label (e.g. "30 minutes") into
+ * minutes. Travel time is a SEPARATE filter from radius and must never be
+ * interpreted as a distance.
+ */
+export function travelLabelToMinutes(label: string): number | null {
+  if (!label) return null;
+  const match = label.match(/^(\d+)\s*(?:min|mins|minute|minutes)$/i);
+  if (!match) return null;
+  const mins = parseInt(match[1], 10);
+  return Number.isFinite(mins) && mins > 0 ? mins : null;
 }
 
 // Format a distance in meters to a human-readable string
