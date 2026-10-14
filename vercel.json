@@ -1,8 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "outputDirectory": "out",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "oceanske.com" }],
+      "destination": "https://www.oceanske.com/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     { "source": "/sitemap.xml", "destination": "https://ohchimtistvrhqghbhwc.supabase.co/functions/v1/sitemap" },
+    { "source": "/property/:slug", "has": [{ "type": "header", "key": "user-agent", "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|Storebot-Google|bingbot|DuckDuckBot|Baiduspider|YandexBot|Embedly|SkypeUriPreview|vkShare|W3C_Validator).*" }], "destination": "https://ohchimtistvrhqghbhwc.supabase.co/functions/v1/prerender?type=property&slug=:slug" },
+    { "source": "/development/:slug", "has": [{ "type": "header", "key": "user-agent", "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|Storebot-Google|bingbot|DuckDuckBot|Baiduspider|YandexBot|Embedly|SkypeUriPreview|vkShare|W3C_Validator).*" }], "destination": "https://ohchimtistvrhqghbhwc.supabase.co/functions/v1/prerender?type=development&slug=:slug" },
+    { "source": "/neighbourhood/:slug", "has": [{ "type": "header", "key": "user-agent", "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|Storebot-Google|bingbot|DuckDuckBot|Baiduspider|YandexBot|Embedly|SkypeUriPreview|vkShare|W3C_Validator).*" }], "destination": "https://ohchimtistvrhqghbhwc.supabase.co/functions/v1/prerender?type=neighbourhood&slug=:slug" },
+    { "source": "/blog/:slug", "has": [{ "type": "header", "key": "user-agent", "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|Googlebot|Google-InspectionTool|Storebot-Google|bingbot|DuckDuckBot|Baiduspider|YandexBot|Embedly|SkypeUriPreview|vkShare|W3C_Validator).*" }], "destination": "https://ohchimtistvrhqghbhwc.supabase.co/functions/v1/prerender?type=blog&slug=:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

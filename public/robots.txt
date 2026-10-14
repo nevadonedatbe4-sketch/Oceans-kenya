@@ -1,5 +1,10 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://tfhcdq.readdy.co/sitemap.xml
-Sitemap: https://tfhcdq.readdy.co/functions/v1/sitemap
+# Private portals and auth utility pages — no public SEO value.
+Disallow: /admin
+Disallow: /agent
+Disallow: /login
+Disallow: /reset-password
+
+Sitemap: https://www.oceanske.com/sitemap.xml
