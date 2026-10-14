@@ -1,5 +1,6 @@
 import { useEffect, Suspense } from 'react';
 import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "./lib/supabase";
 import { AppRoutes } from "./router";
 import { I18nextProvider } from "react-i18next";
 import i18n from "./i18n";
@@ -23,9 +24,36 @@ function ScrollToTop() {
   return null;
 }
 
-// No Supabase recovery-hash redirect is needed: password resets go through
-// the secure token-based flow (single-use, hashed, expiring) using the
-// /reset-password page, not the legacy recovery link.
+// Password reset uses Supabase's native recovery email. Supabase verifies the
+// link and redirects to the configured target with the recovery session in the
+// URL hash, firing PASSWORD_RECOVERY. If the dashboard's Site-URL fallback drops
+// the user somewhere other than the reset page (e.g. the homepage, when the
+// precise /reset-password URL isn't in the Redirect-URLs allow-list), bounce
+// them to the reset form — the recovery session persists so the form picks it up.
+function RecoveryRedirect() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    const goReset = () => {
+      if (window.location.pathname.replace(/\/$/, '').endsWith('/reset-password')) return;
+      navigate('/reset-password', { replace: true });
+    };
+
+    // Catch the token still in the URL hash on first load (before supabase-js
+    // consumes it), and the PASSWORD_RECOVERY event (when it fires after mount).
+    const hash = window.location.hash || '';
+    if (hash.includes('type=recovery')) goReset();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') goReset();
+    });
+    return () => sub.subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  return null;
+}
 
 // Warms a route's chunk on link hover/focus so the on-demand load usually
 // finishes before the click lands.
@@ -61,6 +89,7 @@ function ThemedApp() {
   return (
     <BrowserRouter basename={__BASE_PATH__}>
       <ScrollToTop />
+      <RecoveryRedirect />
       <RoutePrefetch />
       <AreaGeoPrime />
       <ChatNotificationCenter />
