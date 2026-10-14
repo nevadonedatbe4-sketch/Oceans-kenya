@@ -4,7 +4,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { cleanStaleSearchValues } from './lib/storageCleanup'
+import { installDomSafetyShims } from './lib/domSafety'
 
+// Guard against Google-Translate / extension DOM mutation crashing React.
+installDomSafetyShims()
 cleanStaleSearchValues()
 
 createRoot(document.getElementById('root')!).render(
