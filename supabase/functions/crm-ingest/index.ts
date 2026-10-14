@@ -524,11 +524,19 @@ serve(async (req: Request) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
+    // Log the real reason server-side for diagnosis, but never return raw DB or
+    // internal detail to the browser — the client shows a friendly message.
     const msg = e instanceof Error ? e.message : String(e);
     console.error("crm-ingest error:", msg);
-    return new Response(JSON.stringify({ success: false, error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "We couldn’t process your submission right now. Please try again shortly.",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

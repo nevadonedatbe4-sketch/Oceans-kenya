@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
+import { humanizeError } from '@/lib/errorMessage';
 
 export type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
@@ -62,14 +63,19 @@ async function invokeIngest(body: Record<string, unknown>): Promise<{ success: b
       } catch {
         // ignore extraction failures and fall back to the generic message
       }
-      return { success: false, error: message };
+      // Log the real reason for diagnosis, but never show raw DB/hosting detail
+      // (e.g. "… column … does not exist") to a visitor.
+      console.error('[crm-ingest] submission failed:', message);
+      return { success: false, error: humanizeError(message, 'We couldn’t send your message right now. Please try again.') };
     }
     if (!data || data.success !== true) {
-      return { success: false, error: data?.error || 'Submission failed. Please try again.' };
+      if (data?.error) console.error('[crm-ingest] submission failed:', data.error);
+      return { success: false, error: humanizeError(data?.error, 'Submission failed. Please try again.') };
     }
     return { success: true };
   } catch (err) {
-    return { success: false, error: err instanceof Error ? err.message : 'Network error. Please try again.' };
+    console.error('[crm-ingest] submission threw:', err);
+    return { success: false, error: humanizeError(err, 'We couldn’t reach the server. Check your connection and try again.') };
   }
 }
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { humanizeError } from '@/lib/errorMessage';
 import { Eye, EyeOff, KeyRound, CheckCircle, Loader2, AlertTriangle, ArrowLeft, RotateCcw } from 'lucide-react';
 
 type Stage = 'checking' | 'form' | 'invalid' | 'success';
@@ -84,7 +85,7 @@ export default function ResetPassword() {
     try {
       const { error: updErr } = await supabase.auth.updateUser({ password });
       if (updErr) {
-        setError(updErr.message || 'Unable to reset your password. Please request a new reset link.');
+        setError(humanizeError(updErr, 'Unable to reset your password. Please request a new reset link.'));
         setLoading(false);
         return;
       }

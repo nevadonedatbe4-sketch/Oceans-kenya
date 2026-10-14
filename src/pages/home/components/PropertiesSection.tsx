@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { humanizeError } from '@/lib/errorMessage';
 import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
 import { normalizePropertyImages, type NormalizedImage } from '@/lib/propertyImages';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
@@ -260,7 +261,7 @@ export default function PropertiesSection({ searchQuery = '', onSearchChange, co
         setProperties(residentialRows.map(mapRow));
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load properties');
+          setError(humanizeError(err, 'We couldn’t load properties right now. Please try again.'));
         }
       } finally {
         if (!cancelled) setLoading(false);

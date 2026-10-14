@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import { humanizeError } from '@/lib/errorMessage';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
@@ -70,7 +71,7 @@ export default function JointVentureProjectDetail() {
       if (cancelled) return;
 
       if (dbError) {
-        setError(dbError.message || 'Failed to load project');
+        setError(humanizeError(dbError, 'We couldn’t load this project right now. Please try again.'));
         setLoading(false);
         return;
       }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import { humanizeError } from '@/lib/errorMessage';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import InlineBackLink from '@/components/feature/InlineBackLink';
@@ -639,7 +640,7 @@ export default function AllProperties() {
       }
       setListings(mapped);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load properties');
+      setError(humanizeError(err, 'We couldn’t load properties right now. Please try again.'));
       setListings([]);
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import { humanizeError } from '@/lib/errorMessage';
 import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
@@ -221,7 +222,7 @@ export default function CommuteTime() {
         setAllProperties(mapped);
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load properties');
+          setError(humanizeError(err, 'We couldn’t load properties right now. Please try again.'));
         }
       } finally {
         if (!cancelled) setLoading(false);
