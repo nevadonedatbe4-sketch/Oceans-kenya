@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
@@ -57,6 +58,11 @@ const sortOptions = ['Recommended', 'Most recent', 'Highest price', 'Lowest pric
 const radiusOptions = ['This area only', '\u00bc mile', '\u00bd mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 export default function Rent() {
+  useSeoMeta({
+    title: 'Property to Rent in Nairobi | Oceans Kenya',
+    description: 'Find houses, apartments and villas to rent across Nairobi — Westlands, Kilimani, Lavington, Kileleshwa, Karen and more.',
+    path: '/rent',
+  });
   const { hero } = usePropertyPageSettings('rent');
   const { content: LC } = useListingsPageContent();
   const { pathname, search } = useLocation();

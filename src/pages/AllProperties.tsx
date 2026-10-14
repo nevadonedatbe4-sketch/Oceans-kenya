@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import Header from '@/components/feature/Header';
 import { humanizeError } from '@/lib/errorMessage';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import InlineBackLink from '@/components/feature/InlineBackLink';
@@ -220,6 +221,11 @@ function mapRow(row: Record<string, unknown>): Property {
 }
 
 export default function AllProperties() {
+  useSeoMeta({
+    title: 'All Properties in Nairobi — For Sale & Rent | Oceans Kenya',
+    description: 'Explore every Oceans Kenya listing — houses, apartments, villas, land and commercial property for sale and rent across Nairobi and Kenya.',
+    path: '/all-properties',
+  });
   const { format, currency, rates } = useCurrency();
   const { content: LC } = useListingsPageContent();
   const { pathname, search } = useLocation();

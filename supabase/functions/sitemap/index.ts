@@ -69,6 +69,7 @@ interface SitemapUrl {
   lastmod?: string;
   priority?: string;
   changefreq?: string;
+  image?: string;
 }
 
 function xmlEscape(s: string): string {
@@ -80,9 +81,10 @@ function xmlEscape(s: string): string {
     .replace(/'/g, '&apos;');
 }
 
-function urlEntry(loc: string, priority: string, changefreq: string, lastmod?: string): string {
+function urlEntry(loc: string, priority: string, changefreq: string, lastmod?: string, image?: string): string {
   const lm = lastmod ? `<lastmod>${lastmod}</lastmod>` : '';
-  return `<url><loc>${xmlEscape(loc)}</loc>${lm}<changefreq>${changefreq}</changefreq><priority>${priority}</priority></url>`;
+  const img = image ? `<image:image><image:loc>${xmlEscape(image)}</image:loc></image:image>` : '';
+  return `<url><loc>${xmlEscape(loc)}</loc>${lm}<changefreq>${changefreq}</changefreq><priority>${priority}</priority>${img}</url>`;
 }
 
 function buildSitemap(entries: SitemapUrl[]): string {
@@ -94,7 +96,7 @@ function buildSitemap(entries: SitemapUrl[]): string {
     const loc = (u.loc || '').trim();
     if (!loc || seen.has(loc)) return; // dedupe - never emit the same URL twice
     seen.add(loc);
-    urls.push(urlEntry(loc, u.priority ?? '0.5', u.changefreq ?? 'weekly', u.lastmod ?? today));
+    urls.push(urlEntry(loc, u.priority ?? '0.5', u.changefreq ?? 'weekly', u.lastmod ?? today, u.image));
   };
 
   for (const path of ALL_SEO_PATHS) {
@@ -108,7 +110,7 @@ function buildSitemap(entries: SitemapUrl[]): string {
 
   for (const e of entries) push(e);
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls.join('\n')}\n</urlset>`;
 }
 
 function day(v?: string | null): string | undefined {
@@ -121,26 +123,30 @@ Deno.serve(async (_req: Request) => {
     const entries: SitemapUrl[] = [];
 
     const [listingsRes, hoodsRes, devRes, landRes, blogRes] = await Promise.allSettled([
-      client.from('listings').select('slug, updated_at').eq('is_published', true).eq('status', 'available').neq('title', '').limit(8000),
+      client.from('listings').select('slug, updated_at, cover_image, main_image').eq('is_published', true).eq('status', 'available').neq('title', '').limit(8000),
       client.from('neighbourhoods').select('slug, updated_at').eq('is_published', true).limit(500),
-      client.from('developments').select('slug, updated_at').eq('is_published', true).neq('title', '').limit(2000),
-      client.from('land_listings').select('slug, updated_at').eq('is_published', true).neq('title', '').limit(5000),
+      client.from('developments').select('slug, updated_at, cover_image, main_image').eq('is_published', true).neq('title', '').limit(2000),
+      client.from('land_listings').select('slug, updated_at, cover_image, main_image').eq('is_published', true).neq('title', '').limit(5000),
       client.from('blog_posts').select('slug, updated_at').eq('status', 'published').limit(2000),
     ]);
 
     // deno-lint-ignore no-explicit-any
-    const collect = (res: any, make: (slug: string, updatedAt?: string | null) => SitemapUrl) => {
+    type Row = { slug?: string | null; updated_at?: string | null; cover_image?: string | null; main_image?: string | null };
+    // deno-lint-ignore no-explicit-any
+    const collect = (res: any, make: (slug: string, updatedAt?: string | null, row?: Row) => SitemapUrl) => {
       if (!res || res.status !== 'fulfilled' || !res.value || !res.value.data) return;
-      for (const row of res.value.data as Array<{ slug?: string | null; updated_at?: string | null }>) {
+      for (const row of res.value.data as Array<Row>) {
         const slug = (row.slug ?? '').trim();
         if (!slug) continue;
-        entries.push(make(slug, row.updated_at));
+        entries.push(make(slug, row.updated_at, row));
       }
     };
 
-    collect(listingsRes, (slug, u) => ({ loc: `${SITE}/property/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
-    collect(landRes, (slug, u) => ({ loc: `${SITE}/property/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
-    collect(devRes, (slug, u) => ({ loc: `${SITE}/development/${slug}`, lastmod: day(u), priority: '0.7', changefreq: 'weekly' }));
+    const img = (row?: Row) => (row?.cover_image || row?.main_image || undefined) ?? undefined;
+
+    collect(listingsRes, (slug, u, row) => ({ loc: `${SITE}/property/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly', image: img(row) }));
+    collect(landRes, (slug, u, row) => ({ loc: `${SITE}/property/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly', image: img(row) }));
+    collect(devRes, (slug, u, row) => ({ loc: `${SITE}/development/${slug}`, lastmod: day(u), priority: '0.7', changefreq: 'weekly', image: img(row) }));
     collect(hoodsRes, (slug, u) => ({ loc: `${SITE}/neighbourhood/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
     collect(blogRes, (slug, u) => ({ loc: `${SITE}/blog/${slug}`, lastmod: day(u), priority: '0.6', changefreq: 'weekly' }));
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import Header from '@/components/feature/Header';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 import PageBreadcrumbs from '@/components/feature/PageBreadcrumbs';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
@@ -64,6 +65,11 @@ const SORT_LABEL_TO_PARAM: Record<string, string> = {
 const radiusOptions = ['This area only', '¼ mile', '½ mile', '1 mile', '3 miles', '5 miles', '10 miles', '15 miles', '20 miles', '30 miles', '40 miles'];
 
 export default function Buy() {
+  useSeoMeta({
+    title: 'Property for Sale in Nairobi | Oceans Kenya',
+    description: 'Browse houses, apartments, villas and land for sale across Nairobi — Karen, Runda, Westlands, Kilimani, Lavington and more.',
+    path: '/buy',
+  });
   const { hero } = usePropertyPageSettings('buy');
   const { content: LC } = useListingsPageContent();
   const navigate = useNavigate();

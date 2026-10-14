@@ -4,6 +4,7 @@ import { useNeighbourhoods } from '@/hooks/useNeighbourhoods';
 import type { DBNeighbourhood } from '@/hooks/useNeighbourhoods';
 import Reveal from '@/components/feature/Reveal';
 import Header from '@/components/feature/Header';
+import { useSeoMeta } from '@/hooks/useSeoMeta';
 import Footer from '@/components/feature/Footer';
 import BackToTop from '@/components/feature/BackToTop';
 import PageBreadcrumbTrail from '@/components/feature/PageBreadcrumbTrail';
@@ -687,6 +688,11 @@ function FloatingScrollArrows({
 }
 
 export default function Neighbourhoods() {
+  useSeoMeta({
+    title: 'Nairobi Neighbourhood Guides | Oceans Kenya',
+    description: 'Explore Nairobi’s prime neighbourhoods — Karen, Runda, Westlands, Kilimani, Lavington, Muthaiga and more — with area guides, amenities and homes.',
+    path: '/neighbourhoods',
+  });
   const { content: c } = useNeighbourhoodsPageContent();
   const [activeTab, setActiveTab] = useState<TabKey>('neighbourhoods');
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
