@@ -1,20 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import usePortalBase from '@/hooks/usePortalBase';
-import { supabaseUrl, supabaseKey } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import BrandLogo from '@/components/feature/BrandLogo';
 import { Mail, ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
-
-const fnUrl = `${supabaseUrl}/functions/v1/password-reset-request`;
 
 /**
  * Shared "Forgot Password" page for both portals (/agent/forgot-password and
  * /admin/forgot-password).
  *
- * Security: the endpoint ALWAYS answers with the same generic response whether
- * or not the account exists, so the caller can never enumerate registered
- * addresses. The reset token is generated server-side, stored hashed, is
- * single-use and expires after 20 minutes.
+ * Uses Supabase Auth's native recovery email, which is delivered through the
+ * SMTP configured in the Supabase dashboard. Supabase answers the same way
+ * whether or not the address exists, so the caller can never enumerate
+ * registered accounts. The emailed link lands on /reset-password where the new
+ * password is set.
  */
 export default function ForgotPassword() {
   const portalBase = usePortalBase();
@@ -58,16 +57,15 @@ export default function ForgotPassword() {
 
     setLoading(true);
     try {
-      const res = await fetch(fnUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-
-      // Always show the same generic confirmation — no account-enumeration info.
-      const data = await res.json().catch(() => null);
-      if (data && data.success === false && typeof data.error === 'string') {
-        setError(data.error);
+      // Supabase sends its native recovery email (via the dashboard SMTP) and
+      // responds the same whether or not the account exists, so there is no
+      // account enumeration. The link returns the user to /reset-password.
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (resetError) {
+        // Surface only operational errors (e.g. rate limiting); these reveal
+        // nothing about whether the address is registered.
+        setError(resetError.message || 'Could not send the reset email. Please try again.');
       } else {
         setSent(true);
       }
@@ -108,7 +106,7 @@ export default function ForgotPassword() {
                 If an account exists for this email, a password reset link has been sent.
               </p>
               <p className="text-xs text-gray-400 font-roboto mb-6">
-                The link expires in 20 minutes and can only be used once. Check your spam folder if you don&apos;t see it.
+                Follow the link in the email to set a new password. The link expires after a short while — check your spam folder if you don&apos;t see it.
               </p>
 
               <Link

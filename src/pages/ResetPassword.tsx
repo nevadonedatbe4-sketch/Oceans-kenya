@@ -1,40 +1,25 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase, supabaseUrl, supabaseKey } from '@/lib/supabase';
-import type { Role } from '@/lib/authz';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 import { Eye, EyeOff, KeyRound, CheckCircle, Loader2, AlertTriangle, ArrowLeft, RotateCcw } from 'lucide-react';
 
 type Stage = 'checking' | 'form' | 'invalid' | 'success';
 
-const fnUrl = `${supabaseUrl}/functions/v1/password-reset-confirm`;
-
-function portalBaseFor(role: Role): string {
-  return role === 'admin' || role === 'super_admin' ? '/admin' : '/agent';
-}
-
-function portalLoginFor(role: Role): string {
-  return `${portalBaseFor(role)}/login`;
-}
-
 /**
- * Secure password reset page (/reset-password?token=...).
+ * Password reset page (/reset-password).
  *
- * - Validates the one-time token against the server BEFORE showing any form,
- *   so an invalid/expired/used token is never hidden behind a password form.
- * - The token itself is never stored client-side or in the URL path - only in
- *   the query string, and only the hash lives server-side.
- * - Successful reset routes the user to the SIGN-IN page of the portal their
- *   account actually belongs to (role comes from the server). Never a dashboard.
+ * Uses Supabase Auth's native recovery flow. The link in the recovery email
+ * (sent via the dashboard SMTP) establishes a short-lived recovery session when
+ * it lands here; we then set the new password with supabase.auth.updateUser and
+ * sign out everywhere so the account must re-authenticate with the new password.
+ * The unified /login page then routes the user to the right dashboard by role.
  */
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get('token') || '';
+  const { signOut } = useAuth();
 
   const [stage, setStage] = useState<Stage>('checking');
-  // Which portal this reset belongs to. Defaults to the portal carried in the
-  // link, then gets upgraded by the authoritative role the server returns.
-  const [role, setRole] = useState<Role>(() => (searchParams.get('portal') === 'admin' ? 'admin' : 'agent'));
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -44,42 +29,38 @@ export default function ResetPassword() {
   const [checks, setChecks] = useState({ length: false });
 
   useEffect(() => {
-    let cancelled = false;
+    let settled = false;
+    const markReady = () => {
+      if (!settled) {
+        settled = true;
+        setStage('form');
+      }
+    };
 
-    const validate = async () => {
-      if (!token) {
-        if (!cancelled) setStage('invalid');
+    // The recovery link establishes a Supabase session (detectSessionInUrl) and
+    // fires PASSWORD_RECOVERY — which can happen just before or just after this
+    // component mounts, so we both subscribe to the event and check the current
+    // session, with a brief grace period for the URL-hash exchange to complete.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || session) markReady();
+    });
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        markReady();
         return;
       }
-      setStage('checking');
-      try {
-        const res = await fetch(fnUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-          body: JSON.stringify({ token, validate: true }),
-        });
-        const data = await res.json().catch(() => null);
-        if (cancelled) return;
-        if (res.ok && data.valid) {
-          setRole((data.role as Role) || 'agent');
-          setStage('form');
-        } else {
-          // Even an invalid/expired link may carry the account's role (when the
-          // token record still exists) — use it so the fallback links land in
-          // the right portal instead of always the agent flow.
-          if (data?.role) setRole(data.role as Role);
-          setStage('invalid');
-        }
-      } catch {
-        if (!cancelled) setStage('invalid');
-      }
-    };
+      setTimeout(async () => {
+        if (settled) return;
+        const { data: again } = await supabase.auth.getSession();
+        if (again.session) markReady();
+        else setStage('invalid');
+      }, 1500);
+    })();
 
-    validate();
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   const handlePasswordChange = (v: string) => {
     setPassword(v);
@@ -101,29 +82,18 @@ export default function ResetPassword() {
 
     setLoading(true);
     try {
-      const res = await fetch(fnUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
-        body: JSON.stringify({ token, new_password: password }),
-      });
-      const data = await res.json().catch(() => null);
-      if (res.ok && data.success) {
-        setRole((data.role as Role) || 'agent');
-        // The server just revoked ALL of this account's sessions. Clear any
-        // session this tab is still holding so we don't keep a now-invalid
-        // token in client storage after a successful reset.
-        try { await supabase.auth.signOut({ scope: 'local' }); } catch { /* ignore */ }
-        setStage('success');
-      } else {
-        setError(
-          (typeof data.error === 'string' && data.error) ||
-            'Unable to reset your password. Please request a new reset link.',
-        );
-        if (data.code === 'INVALID_TOKEN') {
-          if (data.role) setRole(data.role as Role);
-          setStage('invalid');
-        }
+      const { error: updErr } = await supabase.auth.updateUser({ password });
+      if (updErr) {
+        setError(updErr.message || 'Unable to reset your password. Please request a new reset link.');
+        setLoading(false);
+        return;
       }
+      // Password changed. Sign out everywhere (global) so the recovery session
+      // and any other devices must re-authenticate with the new password. Route
+      // it through useAuth so it's treated as an intentional sign-out and the
+      // login page doesn't show a misleading "session expired" notice.
+      try { await signOut(); } catch { /* ignore */ }
+      setStage('success');
     } catch {
       setError('Could not reach the reset service. Please try again.');
     } finally {
@@ -161,7 +131,7 @@ export default function ResetPassword() {
               been used, or too much time has passed. Please request a new one.
             </p>
             <Link
-              to={`${portalBaseFor(role)}/forgot-password`}
+              to="/agent/forgot-password"
               className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-5 py-3 rounded-md text-sm font-roboto font-semibold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap"
             >
               <RotateCcw size={15} />
@@ -169,7 +139,7 @@ export default function ResetPassword() {
             </Link>
             <div className="mt-5">
               <Link
-                to={portalLoginFor(role)}
+                to="/login"
                 className="inline-flex items-center gap-2 text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
               >
                 <ArrowLeft size={12} />
@@ -201,7 +171,7 @@ export default function ResetPassword() {
             </p>
             <button
               type="button"
-              onClick={() => navigate(portalLoginFor(role), { replace: true })}
+              onClick={() => navigate('/login', { replace: true })}
               className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-md text-sm font-roboto font-semibold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap"
             >
               <KeyRound size={16} />
@@ -213,7 +183,7 @@ export default function ResetPassword() {
     );
   }
 
-  // ── Valid token → enter a new password ──
+  // ── Valid recovery session → enter a new password ──
   return (
     <div className="min-h-screen bg-[#f4f3ee] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
@@ -293,7 +263,7 @@ export default function ResetPassword() {
 
           <div className="text-center mt-6">
             <Link
-              to={`${portalBaseFor(role)}/forgot-password`}
+              to="/agent/forgot-password"
               className="inline-flex items-center gap-2 text-xs font-roboto text-gray-500 hover:text-primary transition-colors cursor-pointer"
             >
               <ArrowLeft size={12} />

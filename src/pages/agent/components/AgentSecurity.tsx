@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase, supabaseUrl, supabaseKey } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Loader2, KeyRound, ShieldCheck, CheckCircle2, XCircle, Eye, EyeOff, Mail } from 'lucide-react';
 
 export default function AgentSecurity() {
@@ -41,16 +41,14 @@ export default function AgentSecurity() {
     setMessage(null);
     try {
       const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
       const email = sessionData.session?.user?.email;
-      const res = await fetch(`${supabaseUrl}/functions/v1/password-reset-request`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', apikey: supabaseKey, Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ email }),
-      });
-      const json = await res.json().catch(() => null);
-      if (!res.ok && json && json.success === false) throw new Error(json?.error || `Request failed (${res.status})`);
-      setMessage({ type: 'success', text: 'If an account exists for this email, a password reset link has been sent.' });
+      if (!email) throw new Error('No signed-in account was found. Please sign in again.');
+      // Supabase's native recovery email (delivered via the dashboard SMTP). The
+      // link returns to /reset-password where a new password can be set.
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw new Error(error.message);
+      setMessage({ type: 'success', text: 'A password reset link has been sent to your email.' });
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.message || 'Failed to send reset email.' });
     } finally {
