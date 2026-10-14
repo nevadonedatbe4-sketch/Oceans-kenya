@@ -26,9 +26,34 @@ export default class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     // Keep the real detail for diagnosis — just never surface it to the user.
     console.error('[ErrorBoundary] Unhandled render error:', error, info.componentStack);
+
+    // Deploy version-skew: a session that loaded just before a redeploy can mix
+    // old and new hashed chunks, producing "failed to fetch dynamically imported
+    // module", "Loading chunk … failed", a duplicate react-router ("You cannot
+    // render a <Router> inside another <Router>") or a broken reconcile
+    // ("removeChild … not a child"). A single reload pulls one consistent build.
+    // Guard with a timestamp so a genuine, persistent bug still shows the UI
+    // (we only auto-reload once per ~20s window, never in a loop).
+    const msg = `${error?.name || ''} ${error?.message || String(error)}`;
+    const isStaleBundle =
+      /dynamically imported module|Loading chunk|Importing a module script failed|<Router> inside another|removeChild|ChunkLoadError/i.test(msg);
+    if (isStaleBundle) {
+      try {
+        const KEY = 'oceans:auto-reloaded-at';
+        const last = Number(sessionStorage.getItem(KEY) || 0);
+        if (Date.now() - last > 20000) {
+          sessionStorage.setItem(KEY, String(Date.now()));
+          window.location.reload();
+        }
+      } catch {
+        /* sessionStorage unavailable — fall through to the recovery UI */
+      }
+    }
   }
 
   private handleReload = () => {
+    // A deliberate reload should always be allowed to re-attempt a clean fetch.
+    try { sessionStorage.removeItem('oceans:auto-reloaded-at'); } catch { /* ignore */ }
     window.location.reload();
   };
 
