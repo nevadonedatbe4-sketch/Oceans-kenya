@@ -534,14 +534,9 @@ export default function Buy() {
     selectedType !== 'Show all' ||
     selectedAdded !== 'Anytime' ||
     featuredOnly ||
-    advancedFilters.minPrice !== '' ||
-    advancedFilters.maxPrice !== '' ||
-    advancedFilters.propertyTypes.length > 0 ||
-    advancedFilters.furnished.length > 0 ||
-    advancedFilters.minBaths !== '' ||
-    advancedFilters.minSize !== '' ||
-    advancedFilters.maxSize !== '' ||
-    advancedFilters.mustHaves.length > 0;
+    // Any advanced-panel change vs. its defaults. Comparing to defaultFilters
+    // keeps this correct even if the AdvancedFilters shape changes.
+    JSON.stringify(advancedFilters) !== JSON.stringify(defaultFilters);
 
   const handleSearch = () => {
     setCurrentPage(1);

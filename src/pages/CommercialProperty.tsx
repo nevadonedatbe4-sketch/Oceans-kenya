@@ -485,14 +485,8 @@ export default function CommercialProperty() {
     minSize !== '' ||
     maxSize !== '' ||
     selectedAdded !== 'Anytime' ||
-    advancedFilters.sectors.length > 0 ||
-    advancedFilters.minPrice !== '' ||
-    advancedFilters.maxPrice !== '' ||
-    advancedFilters.minSize !== '' ||
-    advancedFilters.maxSize !== '' ||
-    advancedFilters.keywords !== '' ||
-    advancedFilters.mustHaves.length > 0 ||
-    advancedFilters.showLetAgreed;
+    // Any advanced-panel change vs. its defaults (shape-proof comparison).
+    JSON.stringify(advancedFilters) !== JSON.stringify(defaultCommercialFilters);
 
   const heroEyebrow = isBuy ? c.hero_eyebrow_buy : c.hero_eyebrow_rent;
   const heroTitle = isBuy ? c.hero_title_buy : c.hero_title_rent;

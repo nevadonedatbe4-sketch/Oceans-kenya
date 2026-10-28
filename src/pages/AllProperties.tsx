@@ -320,6 +320,35 @@ export default function AllProperties() {
   });
   const compare = useCompareToolbar();
   const [showCompareModal, setShowCompareModal] = useState(false);
+
+  // Full clear-search (matches Buy / Rent / Commercial): wipe the location
+  // search AND every quick + advanced filter back to the unfiltered default.
+  const clearSearch = () => {
+    setSearchQuery('');
+    setFilterType('all');
+    setSelectedNeighbourhood('');
+    setSelectedBeds('Any beds');
+    setSelectedType('Show all');
+    setPriceMin('No min');
+    setPriceMax('No max');
+    setSelectedRadius('This area only');
+    setRecentWindow('Anytime');
+    setAdvancedFilters({ ...defaultFilters });
+    setPage(1);
+  };
+
+  // Any search term or filter active — drives the "filtered" note + Clear control.
+  const hasActiveFilters =
+    searchQuery !== '' ||
+    filterType !== 'all' ||
+    selectedNeighbourhood !== '' ||
+    selectedBeds !== 'Any beds' ||
+    selectedType !== 'Show all' ||
+    priceMin !== 'No min' ||
+    priceMax !== 'No max' ||
+    recentWindow !== 'Anytime' ||
+    JSON.stringify(advancedFilters) !== JSON.stringify(defaultFilters);
+
   const areaScrollRef = useRef<HTMLDivElement>(null);
   const resultsTopRef = useRef<HTMLDivElement>(null);
   const resultsScrollInit = useRef(false);
@@ -710,11 +739,22 @@ export default function AllProperties() {
               </h1>
             </div>
             <div className="flex items-center gap-5 shrink-0">
+              {hasActiveFilters && (
+                <button
+                  onClick={clearSearch}
+                  className="hidden md:flex items-center gap-1.5 text-xs font-roboto font-medium text-red-500 hover:text-red-600 transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  <span className="w-3.5 h-3.5 flex items-center justify-center">
+                    <i className="ri-close-circle-line text-sm"></i>
+                  </span>
+                  Clear search
+                </button>
+              )}
               <span className="text-sm font-roboto text-primary/70">
                 {loading && listings.length === 0 ? (
                   <span className="inline-block w-16 h-4 bg-stone-200 rounded animate-pulse"></span>
                 ) : (
-                  <><span className="text-primary font-semibold">{totalCount}</span> {LC.ap_listings_label}</>
+                  <><span className="text-primary font-semibold">{totalCount}</span> {LC.ap_listings_label}{hasActiveFilters && <span className="text-primary/50"> &middot; filtered</span>}</>
                 )}
               </span>
               <div className="flex items-center gap-2">
@@ -883,6 +923,14 @@ export default function AllProperties() {
             >
               <i className="ri-equalizer-2-line"></i>Broaden search
             </button>
+            {hasActiveFilters && (
+              <button
+                onClick={clearSearch}
+                className="inline-flex items-center gap-2 ml-0 sm:ml-3 mt-3 sm:mt-0 px-5 py-2.5 bg-white text-primary border-2 border-primary/20 text-xs tracking-widest uppercase cursor-pointer whitespace-nowrap hover:border-primary/40 transition-colors"
+              >
+                <i className="ri-close-circle-line"></i>Clear all filters
+              </button>
+            )}
             <RecentActivitySuggestion
               location={selectedNeighbourhood || undefined}
               addedWindow={recentWindow}
