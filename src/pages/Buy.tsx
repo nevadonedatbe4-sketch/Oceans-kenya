@@ -506,6 +506,43 @@ export default function Buy() {
     return buildResultsHeading({ typeLabel, purpose: 'sale', location, radiusLabel, fallback: LC.heading_buy });
   }, [selectedType, parsedIntent, geocodedName, selectedRadius, LC.heading_buy]);
 
+  // Mirrors Rent's clear-search: wipe the location search AND every quick and
+  // advanced filter, returning the page to its default unfiltered state.
+  const clearSearch = () => {
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setSearchCenter(null);
+    setGeocodedName('');
+    setSelectedRadius('This area only');
+    setPriceMin('No min');
+    setPriceMax('No max');
+    setSelectedBeds('Any beds');
+    setSelectedType('Show all');
+    setSelectedAdded('Anytime');
+    setAdvancedFilters({ ...defaultFilters });
+    setFeaturedOnly(false);
+    setCurrentPage(1);
+  };
+
+  // True when any search term or filter is active — drives the "filtered" note
+  // and the Clear-search control, exactly as on the Rent page.
+  const hasActiveFilters =
+    debouncedSearch !== '' ||
+    priceMin !== 'No min' ||
+    priceMax !== 'No max' ||
+    selectedBeds !== 'Any beds' ||
+    selectedType !== 'Show all' ||
+    selectedAdded !== 'Anytime' ||
+    featuredOnly ||
+    advancedFilters.minPrice !== '' ||
+    advancedFilters.maxPrice !== '' ||
+    advancedFilters.propertyTypes.length > 0 ||
+    advancedFilters.furnished.length > 0 ||
+    advancedFilters.minBaths !== '' ||
+    advancedFilters.minSize !== '' ||
+    advancedFilters.maxSize !== '' ||
+    advancedFilters.mustHaves.length > 0;
+
   const handleSearch = () => {
     setCurrentPage(1);
     refetch();
@@ -666,9 +703,22 @@ export default function Buy() {
             )}
             <p className="text-xs font-roboto text-primary/50 mt-0.5">
               <span className="text-primary font-semibold">{activeCount}</span> {LC.count_label}
+              {hasActiveFilters && <span className="text-primary/50"> &middot; filtered</span>}
             </p>
           </div>
-          <div className="md:hidden flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && (
+              <button
+                onClick={clearSearch}
+                className="hidden md:flex items-center gap-1.5 text-xs font-roboto font-medium text-red-500 hover:text-red-600 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className="w-3.5 h-3.5 flex items-center justify-center">
+                  <i className="ri-close-circle-line text-sm"></i>
+                </span>
+                Clear search
+              </button>
+            )}
+            <div className="md:hidden flex items-center gap-2">
             <div className="relative">
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-8 px-3 pr-7 text-xs font-roboto font-medium text-primary/60 bg-white border border-primary/20 rounded-lg focus:outline-none cursor-pointer">
                 {sortOptions.map((o) => <option key={o}>{o}</option>)}
@@ -678,6 +728,7 @@ export default function Buy() {
             <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-8 h-8 flex items-center justify-center border border-primary/20 rounded-lg text-primary/60 cursor-pointer">
               <i className={viewMode === 'list' ? 'ri-map-2-line text-xs' : 'ri-list-check text-xs'}></i>
             </button>
+            </div>
           </div>
         </div>
 
@@ -789,6 +840,15 @@ export default function Buy() {
                     <i className="ri-equalizer-2-line"></i>
                     Broaden search
                   </button>
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearSearch}
+                      className="ml-0 sm:ml-3 mt-3 sm:mt-0 px-6 py-2 bg-white text-primary border-2 border-primary/20 text-sm font-roboto font-semibold rounded-lg hover:border-primary/40 transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-2"
+                    >
+                      <i className="ri-close-circle-line"></i>
+                      Clear all filters
+                    </button>
+                  )}
                   <RecentActivitySuggestion
                     location={parsedIntent.location || parsedIntent.city}
                     addedWindow={selectedAdded}

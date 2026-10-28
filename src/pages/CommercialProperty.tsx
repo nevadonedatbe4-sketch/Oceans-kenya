@@ -474,6 +474,26 @@ export default function CommercialProperty() {
     setCurrentPage(1);
   };
 
+  // True when any search term or filter is active — drives the "filtered" note
+  // and the header Clear-search control, matching the Rent page.
+  const hasActiveFilters =
+    debouncedSearch !== '' ||
+    priceMin !== 'No min' ||
+    priceMax !== 'No max' ||
+    selectedBeds !== 'Any beds' ||
+    selectedType !== 'any' ||
+    minSize !== '' ||
+    maxSize !== '' ||
+    selectedAdded !== 'Anytime' ||
+    advancedFilters.sectors.length > 0 ||
+    advancedFilters.minPrice !== '' ||
+    advancedFilters.maxPrice !== '' ||
+    advancedFilters.minSize !== '' ||
+    advancedFilters.maxSize !== '' ||
+    advancedFilters.keywords !== '' ||
+    advancedFilters.mustHaves.length > 0 ||
+    advancedFilters.showLetAgreed;
+
   const heroEyebrow = isBuy ? c.hero_eyebrow_buy : c.hero_eyebrow_rent;
   const heroTitle = isBuy ? c.hero_title_buy : c.hero_title_rent;
   const heroSubtitle = isBuy ? c.hero_subtitle_buy : c.hero_subtitle_rent;
@@ -672,18 +692,32 @@ export default function CommercialProperty() {
             </h1>
             <p className="text-sm font-roboto text-gray-500 mt-0.5">
               <span className="text-primary font-bold">{activeCount}</span> {c.results_count_label}
+              {hasActiveFilters && <span className="text-gray-400"> &middot; filtered</span>}
             </p>
           </div>
-          <div className="md:hidden flex items-center gap-2">
-            <div className="relative">
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-sm font-roboto font-bold text-accent/60 bg-white border border-accent/20 rounded-lg focus:outline-none cursor-pointer">
-                {sortOptions.map((o) => <option key={o}>{o}</option>)}
-              </select>
-              <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-accent/50 text-sm pointer-events-none"></i>
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="hidden md:flex items-center gap-1.5 text-xs font-roboto font-medium text-red-500 hover:text-red-600 transition-colors cursor-pointer whitespace-nowrap"
+              >
+                <span className="w-3.5 h-3.5 flex items-center justify-center">
+                  <i className="ri-close-circle-line text-sm"></i>
+                </span>
+                Clear search
+              </button>
+            )}
+            <div className="md:hidden flex items-center gap-2">
+              <div className="relative">
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="appearance-none h-9 px-3 pr-8 text-sm font-roboto font-bold text-accent/60 bg-white border border-accent/20 rounded-lg focus:outline-none cursor-pointer">
+                  {sortOptions.map((o) => <option key={o}>{o}</option>)}
+                </select>
+                <i className="ri-arrow-down-wide-fill absolute right-2 top-1/2 -translate-y-1/2 text-accent/50 text-sm pointer-events-none"></i>
+              </div>
+              <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-9 h-9 flex items-center justify-center border border-accent/20 rounded-lg text-accent/60 cursor-pointer">
+                <i className={viewMode === 'list' ? 'ri-map-2-line text-sm' : 'ri-list-check text-sm'}></i>
+              </button>
             </div>
-            <button onClick={() => setViewMode(viewMode === 'list' ? 'map' : 'list')} className="w-9 h-9 flex items-center justify-center border border-accent/20 rounded-lg text-accent/60 cursor-pointer">
-              <i className={viewMode === 'list' ? 'ri-map-2-line text-sm' : 'ri-list-check text-sm'}></i>
-            </button>
           </div>
         </div>
       </div>
