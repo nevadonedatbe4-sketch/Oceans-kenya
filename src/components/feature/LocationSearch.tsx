@@ -42,6 +42,7 @@ const DEFAULT_PLACEHOLDER_CYCLE = [
   "Search a school, e.g. Brookhouse School",
   "Search a street, e.g. Riverside Drive",
   "Search a landmark, e.g. The Hub Karen",
+  "Search a property title, e.g. Loresho Villas",
   "Search by keyword, e.g. 3-bedroom apartment",
 ];
 

@@ -576,6 +576,9 @@ function buildSearchOr(resolved: ResolvedFilters, dropLocations = false): string
         `location.ilike.%${loc}%`,
         `address.ilike.%${loc}%`,
         `city.ilike.%${loc}%`,
+        // Also match the property TITLE, so the same box finds a listing by its
+        // title (e.g. "Loresho Villas") not just by its area.
+        `title.ilike.%${loc}%`,
       );
     }
   }
@@ -837,7 +840,15 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
         query = query.range(from, to);
       }
 
+      // Cancel this request if a newer fetch supersedes it (e.g. a quick filter
+      // change or Clear search fired while this was in flight).
+      query = query.abortSignal(controller.signal);
       const { data, error: queryError, count } = await query;
+      // A newer fetch already started and aborted this one — drop its stale
+      // result so it can never overwrite the fresh count/listings. Without this,
+      // a straggling response (common while an advanced filter churns) races the
+      // clear and leaves the count showing the old, filtered number.
+      if (controller.signal.aborted) return;
       if (queryError) throw queryError;
 
       const now = new Date();
@@ -858,12 +869,16 @@ export function useListings(filters: ListingFilters, page: number): UseListingsR
       }
       setListings(mapped);
     } catch (err: unknown) {
+      // A deliberate abort (superseded by a newer fetch) must not surface as an
+      // error or wipe the results the newer fetch is about to set.
+      if (controller.signal.aborted) return;
       const message = err instanceof Error ? err.message : 'Failed to load listings';
       setError(message);
       setListings([]);
       setTotalCount(0);
     } finally {
-      setLoading(false);
+      // Only the newest in-flight fetch controls the loading flag.
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [filters.search, filters.priceMin, filters.priceMax, filters.bedsExact, filters.bedsMin, filters.bedsMax, filters.propertyType, filters.propertyTypes, filters.addedSince, filters.sortBy, filters.statusFilter, filters.purpose, filters.propertyCategory, filters.sqmMin, filters.sqmMax, filters.bathsMin, filters.bathsMax, filters.excludeTerms, page, filters.centerLat, filters.centerLng, filters.radiusMeters, filters.amenitiesFilter, filters.amenitiesGroups, filters.subTypeFilter, filters.featured]);
 
