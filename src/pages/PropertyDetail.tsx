@@ -10,7 +10,6 @@ import { recordRecentlyViewedDevelopment } from '@/hooks/useRecentlyViewedDevelo
 import PropertyBreadcrumbBar from '@/components/feature/PropertyBreadcrumbBar';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { NON_PUBLIC_STATUS_LIST } from '@/lib/publicListings';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useSeoMeta, buildBreadcrumbSchema } from '@/hooks/useSeoMeta';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -154,6 +153,8 @@ function deriveCounty(city: string, stateRegion: string): string {
 }
 
 const SITE_URL = 'https://www.oceanske.com';
+// Matches a record id, so `/property/<uuid>` preview links resolve by id.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Strip HTML tags/entities from a description so it is safe for meta tags. */
 function stripHtml(html: string): string {
@@ -312,6 +313,9 @@ function DetailSearchBar({
 export default function PropertyDetail() {
   const { slug } = useParams<{ slug: string }>();
   const [listing, setListing] = useState<ListingDetail | null>(null);
+  // True when staff are previewing a listing that is not on the public site
+  // (draft / unpublished), so the page can say so instead of looking live.
+  const [isPreview, setIsPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -425,36 +429,45 @@ export default function PropertyDetail() {
       setError('');
       setAgents([]);
       try {
-        const { data, error: dbError } = await supabase
-          .from('all_listings')
-          .select('*')
-          .eq('slug', slug)
-          .maybeSingle();
+        const key = String(slug || '').trim();
+        const isUuid = UUID_RE.test(key);
 
-        if (dbError) throw dbError;
-        if (cancelled) return;
+        // 1. Normal public path: the live listing by its slug.
+        const bySlug = await supabase.from('all_listings').select('*').eq('slug', key).maybeSingle();
+        if (bySlug.error) throw bySlug.error;
+        let data = bySlug.data as Record<string, unknown> | null;
 
+        // 2. Admin / agent preview links fall back to the record id when a
+        //    listing has no slug yet (`/property/<uuid>`).
+        if (!data && isUuid) {
+          const byId = await supabase.from('all_listings').select('*').eq('id', key).maybeSingle();
+          if (byId.error) throw byId.error;
+          data = byId.data as Record<string, unknown> | null;
+        }
+
+        // 3. Drafts / unpublished listings are not in the public view, but staff
+        //    still need to preview them. RLS on `listings` only returns
+        //    unpublished rows to signed-in staff, so the public can never see a
+        //    draft through this path — they get the not-found page instead.
+        let previewOnly = false;
         if (!data) {
-          // The listing may have been removed, renamed or unpublished. Rather
-          // than dead-ending on a 404, redirect to the most recent similar
-          // (available) listing so the visitor always lands on live stock.
-          try {
-            const { data: fallback } = await supabase
-              .from('all_listings')
-              .select('slug')
-              .eq('is_published', true)
-              .not('status', 'in', NON_PUBLIC_STATUS_LIST)
-              .neq('title', '')
-              .order('created_at', { ascending: false })
-              .limit(1);
-            const fbSlug = fallback && fallback[0]?.slug ? String(fallback[0].slug) : '';
-            if (!cancelled && fbSlug && fbSlug !== slug) {
-              navigate(`/property/${fbSlug}`, { replace: true });
-              return;
-            }
-          } catch {
-            // fall through to the not-found state
+          const base = await supabase
+            .from('listings')
+            .select('*')
+            .eq(isUuid ? 'id' : 'slug', key)
+            .maybeSingle();
+          if (!base.error && base.data) {
+            data = base.data as Record<string, unknown>;
+            previewOnly = true;
           }
+        }
+
+        if (cancelled) return;
+        setIsPreview(previewOnly);
+
+        // Never redirect to a different listing: an unknown slug shows the
+        // not-found page, so a preview always opens the property clicked.
+        if (!data) {
           setListing(null);
           setLoading(false);
           return;
@@ -873,7 +886,7 @@ export default function PropertyDetail() {
     description: seoDescription,
     path: slug ? `/property/${slug}` : undefined,
     ogImage: seoImage,
-    noindex: !listing || isSoldOrRented,
+    noindex: !listing || isSoldOrRented || isPreview,
     schemas: seoSchemas,
   });
 
@@ -937,6 +950,19 @@ export default function PropertyDetail() {
     );
   }
 
+  // Shown only to staff previewing a listing that isn't on the public site.
+  const previewBanner = isPreview ? (
+    <div className="bg-amber-50 border-b border-amber-200">
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-2.5 flex items-center gap-2 text-sm font-roboto text-amber-800">
+        <i className="ri-eye-line text-amber-600" aria-hidden="true"></i>
+        <span>
+          <strong className="font-semibold">Preview</strong> — this listing isn&apos;t published on the public site yet.
+          Only staff can see this page.
+        </span>
+      </div>
+    </div>
+  ) : null;
+
   // Determine if this is a land listing (keep old layout)
   const activeListing = listing;
   if (!activeListing) return null;
@@ -983,6 +1009,7 @@ export default function PropertyDetail() {
     return (
       <div className="min-h-screen bg-white pt-[62px] md:pt-[122px] lg:pt-[130px]">
         <Header />
+        {previewBanner}
         <main className="pb-24 md:pb-0">
           {isSoldOrRented && (
             <SoldRentedNotice
@@ -1288,6 +1315,7 @@ export default function PropertyDetail() {
   return (
     <div className="min-h-screen bg-[#F5F5F5] pt-[62px] md:pt-[122px] lg:pt-[130px]">
       <Header />
+      {previewBanner}
 
       {/* Breadcrumb trail - always visible on property pages */}
       <PageBreadcrumbs current={activeListing.title} />
