@@ -36,6 +36,7 @@ import VideoTour from '@/pages/PropertyDetail/components/VideoTour';
 import JvDealRoom from '@/pages/PropertyDetail/components/JvDealRoom';
 import { buildLandModel } from '@/lib/propertyDetail/land';
 import { buildJvModel } from '@/lib/propertyDetail/jv';
+import { landRowToListingRow } from '@/lib/propertyDetail/landPreview';
 import { usePropertyDetailContent } from '@/hooks/useDynamicPageTemplates';
 
 interface ListingImage {
@@ -458,6 +459,19 @@ export default function PropertyDetail() {
             .maybeSingle();
           if (!base.error && base.data) {
             data = base.data as Record<string, unknown>;
+            previewOnly = true;
+          }
+        }
+        // 4. Unpublished LAND listings live in `land_listings` (same RLS rule:
+        //    staff only), mapped onto the shape the public view would give.
+        if (!data) {
+          const land = await supabase
+            .from('land_listings')
+            .select('*')
+            .eq(isUuid ? 'id' : 'slug', key)
+            .maybeSingle();
+          if (!land.error && land.data) {
+            data = landRowToListingRow(land.data as Record<string, unknown>);
             previewOnly = true;
           }
         }
